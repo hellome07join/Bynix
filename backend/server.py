@@ -1232,7 +1232,7 @@ async def create_deposit(
 
 @api_router.get("/deposit/check/{payment_id}")
 async def check_deposit_status(
-    payment_id: int,
+    payment_id: str,
     authorization: Optional[str] = Header(None),
     req: Request = None
 ):
@@ -1243,38 +1243,54 @@ async def check_deposit_status(
         raise HTTPException(status_code=401, detail="Authentication required")
     
     # Get payment status from NOWPayments
-    status = await nowpayments_service.get_payment_status(payment_id)
+    status = await nowpayments_service.get_payment_status(int(payment_id))
     
     if status:
         payment_status = status.get("payment_status")
+        actually_paid = float(status.get("actually_paid", 0))
         
-        # If payment is finished, update user balance
-        if payment_status == "finished":
-            # Find the deposit record
+        # Credit balance for finished or partially_paid payments
+        if payment_status in ["finished", "partially_paid", "confirmed", "sending"]:
+            # Find the deposit record (payment_id stored as string)
             deposit = await db.deposits.find_one({
-                "payment_id": payment_id,
+                "payment_id": str(payment_id),
                 "user_id": user.user_id
             })
             
-            if deposit and deposit.get("status") != "completed":
+            if deposit and deposit.get("status") not in ["completed", "credited"]:
+                # Calculate the USD value of what was actually paid
+                # Since they paid in USDT (1:1 with USD approximately)
+                credit_amount = actually_paid if actually_paid > 0 else deposit.get("amount", 0)
+                
                 # Update deposit status
+                new_status = "completed" if payment_status == "finished" else "credited"
                 await db.deposits.update_one(
-                    {"payment_id": payment_id},
-                    {"$set": {"status": "completed", "completed_at": datetime.now(timezone.utc)}}
+                    {"payment_id": str(payment_id)},
+                    {
+                        "$set": {
+                            "status": new_status,
+                            "actually_paid": actually_paid,
+                            "credit_amount": credit_amount,
+                            "completed_at": datetime.now(timezone.utc)
+                        }
+                    }
                 )
                 
                 # Add to user's real balance
                 await db.users.update_one(
                     {"user_id": user.user_id},
-                    {"$inc": {"real_balance": deposit.get("amount", 0)}}
+                    {"$inc": {"real_balance": credit_amount}}
                 )
+                
+                print(f"Credited ${credit_amount} to user {user.user_id} for payment {payment_id}")
         
         return {
             "payment_id": payment_id,
             "status": payment_status,
-            "actually_paid": status.get("actually_paid", 0),
+            "actually_paid": actually_paid,
             "pay_amount": status.get("pay_amount"),
-            "pay_currency": status.get("pay_currency")
+            "pay_currency": status.get("pay_currency"),
+            "credited": payment_status in ["finished", "partially_paid", "confirmed", "sending"]
         }
     
     raise HTTPException(status_code=404, detail="Payment not found")
