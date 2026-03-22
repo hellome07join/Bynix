@@ -88,6 +88,7 @@ export default function Trade() {
   const [showTradeHistory, setShowTradeHistory] = useState(false);
   const [tradeHistory, setTradeHistory] = useState<any[]>([]);
   const [selectedDrawTool, setSelectedDrawTool] = useState<string | null>(null);
+  const [chartType, setChartType] = useState<'candle' | 'line' | 'bar'>('candle');
   const [customMinutes, setCustomMinutes] = useState('1');
   const [customSeconds, setCustomSeconds] = useState('0');
   const [demoAddAmount, setDemoAddAmount] = useState('1000');
@@ -518,6 +519,7 @@ export default function Trade() {
             interval={timeframe}
             theme="dark"
             currentPrice={currentPrice}
+            chartType={chartType}
             tradeMarker={activeTrade ? {
               entryPrice: activeTrade.entry_price,
               type: activeTrade.type
@@ -872,6 +874,45 @@ export default function Trade() {
               <TouchableOpacity onPress={() => setShowToolsModal(false)}>
                 <Ionicons name="close-circle" size={28} color="#666" />
               </TouchableOpacity>
+            </View>
+
+            {/* Chart Type Section */}
+            <View style={styles.toolsSection}>
+              <Text style={styles.toolsSectionTitle}>Chart Type</Text>
+              <View style={styles.chartTypeGrid}>
+                <TouchableOpacity
+                  style={[styles.chartTypeItem, chartType === 'candle' && styles.chartTypeItemActive]}
+                  onPress={() => {
+                    setChartType('candle');
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <Ionicons name="bar-chart" size={24} color={chartType === 'candle' ? '#00E55A' : '#888'} />
+                  <Text style={[styles.chartTypeText, chartType === 'candle' && styles.chartTypeTextActive]}>Candle</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.chartTypeItem, chartType === 'line' && styles.chartTypeItemActive]}
+                  onPress={() => {
+                    setChartType('line');
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <Ionicons name="analytics" size={24} color={chartType === 'line' ? '#00E55A' : '#888'} />
+                  <Text style={[styles.chartTypeText, chartType === 'line' && styles.chartTypeTextActive]}>Line</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.chartTypeItem, chartType === 'bar' && styles.chartTypeItemActive]}
+                  onPress={() => {
+                    setChartType('bar');
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <Ionicons name="stats-chart" size={24} color={chartType === 'bar' ? '#00E55A' : '#888'} />
+                  <Text style={[styles.chartTypeText, chartType === 'bar' && styles.chartTypeTextActive]}>Bar</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Candle Time Section */}
@@ -1694,6 +1735,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     marginBottom: 12,
+  },
+  chartTypeGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  chartTypeItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    gap: 6,
+  },
+  chartTypeItemActive: {
+    backgroundColor: 'rgba(0, 229, 90, 0.15)',
+    borderColor: '#00E55A',
+  },
+  chartTypeText: {
+    color: '#888',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  chartTypeTextActive: {
+    color: '#00E55A',
   },
   candleTimeGrid: {
     flexDirection: 'row',

@@ -11,6 +11,7 @@ interface TradingViewChartProps {
   interval: string;
   theme?: 'dark' | 'light';
   currentPrice?: number;
+  chartType?: 'candle' | 'line' | 'bar';
   tradeMarker?: TradeMarker | null;
   onPriceUpdate?: (price: number) => void;
 }
@@ -24,6 +25,7 @@ export default function TradingViewChart({
   interval = '1m',
   theme = 'dark',
   currentPrice,
+  chartType = 'candle',
   tradeMarker,
   onPriceUpdate
 }: TradingViewChartProps) {
@@ -221,6 +223,9 @@ export default function TradingViewChart({
   // Lightweight Charts HTML with Finage data
   const getHtmlContent = () => {
     const candleDataJson = JSON.stringify(chartData);
+    // Convert OHLC data to line data (close prices only)
+    const lineData = chartData.map(c => ({ time: c.time, value: c.close }));
+    const lineDataJson = JSON.stringify(lineData);
     
     return `<!DOCTYPE html>
 <html>
@@ -241,6 +246,7 @@ export default function TradingViewChart({
       var chartContainer = document.getElementById('chart');
       var width = window.innerWidth || 400;
       var height = window.innerHeight || 400;
+      var chartType = '${chartType}';
       
       var chart = LightweightCharts.createChart(chartContainer, {
         width: width,
@@ -270,21 +276,49 @@ export default function TradingViewChart({
         }
       });
 
-      var candlestickSeries = chart.addCandlestickSeries({
-        upColor: '#00E55A',
-        downColor: '#FF3B3B',
-        borderDownColor: '#FF3B3B',
-        borderUpColor: '#00E55A',
-        wickDownColor: '#FF3B3B',
-        wickUpColor: '#00E55A'
-      });
+      var series;
+      var candleData = ${candleDataJson};
+      var lineData = ${lineDataJson};
 
-      var data = ${candleDataJson};
-      if (data && data.length > 0) {
-        candlestickSeries.setData(data);
-        chart.timeScale().fitContent();
-        chart.timeScale().scrollToPosition(2, false);
+      if (chartType === 'line') {
+        // Line Chart
+        series = chart.addLineSeries({
+          color: '#00E55A',
+          lineWidth: 2,
+          crosshairMarkerVisible: true,
+          crosshairMarkerRadius: 4,
+          crosshairMarkerBorderColor: '#FFFFFF',
+          crosshairMarkerBackgroundColor: '#00E55A'
+        });
+        if (lineData && lineData.length > 0) {
+          series.setData(lineData);
+        }
+      } else if (chartType === 'bar') {
+        // Bar Chart (OHLC bars)
+        series = chart.addBarSeries({
+          upColor: '#00E55A',
+          downColor: '#FF3B3B'
+        });
+        if (candleData && candleData.length > 0) {
+          series.setData(candleData);
+        }
+      } else {
+        // Candlestick Chart (default)
+        series = chart.addCandlestickSeries({
+          upColor: '#00E55A',
+          downColor: '#FF3B3B',
+          borderDownColor: '#FF3B3B',
+          borderUpColor: '#00E55A',
+          wickDownColor: '#FF3B3B',
+          wickUpColor: '#00E55A'
+        });
+        if (candleData && candleData.length > 0) {
+          series.setData(candleData);
+        }
       }
+
+      chart.timeScale().fitContent();
+      chart.timeScale().scrollToPosition(2, false);
 
       window.addEventListener('resize', function() {
         chart.applyOptions({ width: window.innerWidth, height: window.innerHeight });
