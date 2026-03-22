@@ -4,78 +4,131 @@ import {
   Text, 
   StyleSheet, 
   TouchableOpacity,
-  ScrollView,
   TextInput,
   Alert,
   Dimensions,
-  Modal
+  Modal,
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LineChart } from 'react-native-gifted-charts';
 import { useAuthStore } from '../../stores/authStore';
-import { useMarketStore, CandleData } from '../../stores/marketStore';
-import { generateMockCandles, generateNextCandle } from '../../utils/mockData';
+import { BinanceWebSocket, fetchHistoricalCandles, Candle } from '../../utils/binanceService';
+import CandlestickChart from '../../components/CandlestickChart';
 import { api } from '../../utils/api';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
-const TIMEFRAMES = ['1m', '5m', '15m', '30m', '1h'];
-const ASSETS = ['BTC/USD', 'ETH/USD', 'EUR/USD', 'GBP/USD', 'AAPL'];
+const ASSETS = [
+  { label: 'BTC/USD', value: 'BTC/USD' },
+  { label: 'ETH/USD', value: 'ETH/USD' },
+  { label: 'EUR/USD', value: 'EUR/USD' },
+  { label: 'GBP/USD', value: 'GBP/USD' },
+];
 
 export default function Trade() {
   const { user, token, accountType } = useAuthStore();
-  const { currentPrice, candleData, selectedAsset, setCurrentPrice, setCandleData, setSelectedAsset, addCandle } = useMarketStore();
   
-  const [timeframe, setTimeframe] = useState('1m');
+  const [selectedAsset, setSelectedAsset] = useState('EUR/USD');
+  const [candles, setCandles] = useState<Candle[]>([]);
+  const [currentPrice, setCurrentPrice] = useState(0);
   const [amount, setAmount] = useState('10');
   const [showAssetPicker, setShowAssetPicker] = useState(false);
+  const [loading, setLoading] = useState(true);
+  
+  // Trade state
   const [activeTrade, setActiveTrade] = useState<any>(null);
   const [countdown, setCountdown] = useState(0);
+  const [tradeEntry, setTradeEntry] = useState<any>(null);
   
-  const priceIntervalRef = useRef<any>(null);
+  const wsRef = useRef<BinanceWebSocket | null>(null);
   const tradeIntervalRef = useRef<any>(null);
 
+  // Initialize Binance WebSocket and fetch historical data
   useEffect(() => {
-    // Initialize mock data
-    const initialCandles = generateMockCandles(30, 50000);
-    setCandleData(initialCandles);
-    setCurrentPrice(initialCandles[initialCandles.length - 1].close);
-
-    // Simulate price updates every 2 seconds
-    priceIntervalRef.current = setInterval(() => {
-      const lastCandle = candleData.length > 0 
-        ? candleData[candleData.length - 1] 
-        : initialCandles[initialCandles.length - 1];
-      
-      const newCandle = generateNextCandle(lastCandle);
-      addCandle(newCandle);
-      setCurrentPrice(newCandle.close);
-    }, 2000);
-
+    loadMarketData();
     return () => {
-      if (priceIntervalRef.current) clearInterval(priceIntervalRef.current);
-      if (tradeIntervalRef.current) clearInterval(tradeIntervalRef.current);
+      if (wsRef.current) {
+        wsRef.current.disconnect();
+      }
+      if (tradeIntervalRef.current) {
+        clearInterval(tradeIntervalRef.current);
+      }
     };
-  }, []);
+  }, [selectedAsset]);
 
+  // Handle countdown
   useEffect(() => {
-    // Handle active trade countdown
     if (activeTrade && countdown > 0) {
-      tradeIntervalRef.current = setTimeout(() => {
-        setCountdown(countdown - 1);
+      tradeIntervalRef.current = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) {
+            settleTrade();
+            return 0;
+          }
+          return prev - 1;
+        });
       }, 1000);
-    } else if (activeTrade && countdown === 0) {
-      settleTrade();
     }
-
+    
     return () => {
-      if (tradeIntervalRef.current) clearTimeout(tradeIntervalRef.current);
+      if (tradeIntervalRef.current) {
+        clearInterval(tradeIntervalRef.current);
+      }
     };
-  }, [countdown, activeTrade]);
+  }, [activeTrade, countdown]);
+
+  const loadMarketData = async () => {
+    setLoading(true);
+    try {
+      // Fetch historical candles
+      const historical = await fetchHistoricalCandles(selectedAsset, '1m', 50);
+      if (historical.length > 0) {
+        setCandles(historical);
+        setCurrentPrice(historical[historical.length - 1].close);
+      }
+
+      // Connect to WebSocket for live updates
+      if (wsRef.current) {
+        wsRef.current.disconnect();
+      }
+      
+      wsRef.current = new BinanceWebSocket(selectedAsset, '1m');
+      wsRef.current.connect((newCandle) => {
+        setCurrentPrice(newCandle.close);
+        
+        setCandles(prev => {
+          const updated = [...prev];
+          const lastCandle = updated[updated.length - 1];
+          
+          // Update last candle or add new one
+          if (lastCandle && Math.floor(lastCandle.time / 60000) === Math.floor(newCandle.time / 60000)) {
+            updated[updated.length - 1] = newCandle;
+          } else {
+            updated.push(newCandle);
+            if (updated.length > 50) {
+              updated.shift();
+            }
+          }
+          
+          return updated;
+        });
+      });
+    } catch (error) {
+      console.error('Error loading market data:', error);
+      Alert.alert('Error', 'Failed to load market data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const placeTrade = async (type: 'call' | 'put') => {
     if (!token) {
       Alert.alert('Error', 'Please login to trade');
+      return;
+    }
+
+    if (activeTrade) {
+      Alert.alert('Error', 'You already have an active trade');
       return;
     }
 
@@ -109,9 +162,14 @@ export default function Trade() {
         entry_price: currentPrice,
         duration,
       });
+      
+      setTradeEntry({
+        price: currentPrice,
+        time: Date.now(),
+        type,
+      });
+      
       setCountdown(duration);
-
-      Alert.alert('Trade Placed', `${type.toUpperCase()} trade for $${tradeAmount}`);
     } catch (error: any) {
       Alert.alert('Trade Failed', error.message);
     }
@@ -132,30 +190,28 @@ export default function Trade() {
       const profitLoss = won ? activeTrade.amount * 0.8 : -activeTrade.amount;
 
       Alert.alert(
-        `Trade ${result}`,
-        `Profit/Loss: $${profitLoss.toFixed(2)}`,
-        [{ text: 'OK', onPress: () => {
-          setActiveTrade(null);
-          setCountdown(0);
-          // Reload user data to update balance
-        }}]
+        `Trade ${result}! 🎉`,
+        `${result === 'WON' ? 'Congratulations!' : 'Better luck next time'}\\n\\nEntry: $${activeTrade.entry_price.toFixed(2)}\\nExit: $${exitPrice.toFixed(2)}\\nProfit/Loss: $${profitLoss.toFixed(2)}`,
+        [{ 
+          text: 'OK', 
+          onPress: () => {
+            setActiveTrade(null);
+            setTradeEntry(null);
+            setCountdown(0);
+          }
+        }]
       );
     } catch (error: any) {
       Alert.alert('Error', error.message);
+      setActiveTrade(null);
+      setTradeEntry(null);
+      setCountdown(0);
     }
   };
 
-  const chartData = candleData.map(c => ({
-    value: c.close,
-    dataPointText: c.close.toFixed(2),
-  }));
-
   const balance = accountType === 'demo' ? user?.demo_balance : user?.real_balance;
-  const priceChange = candleData.length >= 2 
-    ? candleData[candleData.length - 1].close - candleData[candleData.length - 2].close 
-    : 0;
-  const priceChangePercent = candleData.length >= 2
-    ? (priceChange / candleData[candleData.length - 2].close) * 100
+  const priceChange = candles.length >= 2 
+    ? ((currentPrice - candles[candles.length - 2].close) / candles[candles.length - 2].close) * 100
     : 0;
 
   return (
@@ -167,7 +223,7 @@ export default function Trade() {
           onPress={() => setShowAssetPicker(true)}
         >
           <Text style={styles.assetText}>{selectedAsset}</Text>
-          <Ionicons name="chevron-down" size={20} color="#FFFFFF" />
+          <Ionicons name=\"chevron-down\" size={20} color=\"#FFFFFF\" />
         </TouchableOpacity>
         
         <View style={styles.balanceContainer}>
@@ -182,110 +238,57 @@ export default function Trade() {
         <View style={[styles.priceChange, priceChange >= 0 ? styles.priceUp : styles.priceDown]}>
           <Ionicons 
             name={priceChange >= 0 ? 'trending-up' : 'trending-down'} 
-            size={16} 
+            size={14} 
             color={priceChange >= 0 ? '#00D7A3' : '#FF3B3B'} 
           />
-          <Text style={[styles.priceChangeText, priceChange >= 0 ? styles.priceUp : styles.priceDown]}>
-            {priceChange >= 0 ? '+' : ''}{priceChangePercent.toFixed(2)}%
+          <Text style={styles.priceChangeText}>
+            {priceChange >= 0 ? '+' : ''}{priceChange.toFixed(2)}%
           </Text>
         </View>
       </View>
 
       {/* Chart */}
       <View style={styles.chartContainer}>
-        {chartData.length > 0 && (
-          <LineChart
-            data={chartData}
-            width={width - 48}
-            height={220}
-            spacing={8}
-            initialSpacing={0}
-            color="#00D7A3"
-            thickness={2}
-            hideDataPoints
-            hideRules
-            hideYAxisText
-            hideAxesAndRules
-            curved
-            startFillColor="rgba(0, 215, 163, 0.3)"
-            endFillColor="rgba(0, 215, 163, 0.05)"
-            startOpacity={0.9}
-            endOpacity={0.2}
-            backgroundColor="transparent"
-            noOfSections={4}
-            yAxisColor="rgba(255, 255, 255, 0.1)"
-            xAxisColor="rgba(255, 255, 255, 0.1)"
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size=\"large\" color=\"#00D7A3\" />
+            <Text style={styles.loadingText}>Loading market data...</Text>
+          </View>
+        ) : (
+          <CandlestickChart
+            candles={candles}
+            currentPrice={currentPrice}
+            tradeEntry={tradeEntry}
+            countdown={countdown}
           />
         )}
       </View>
 
-      {/* Timeframe Selector */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        style={styles.timeframeContainer}
-        contentContainerStyle={styles.timeframeContent}
-      >
-        {TIMEFRAMES.map((tf) => (
-          <TouchableOpacity
-            key={tf}
-            style={[styles.timeframeButton, timeframe === tf && styles.timeframeButtonActive]}
-            onPress={() => setTimeframe(tf)}
-          >
-            <Text style={[styles.timeframeText, timeframe === tf && styles.timeframeTextActive]}>
-              {tf}
-            </Text>
+      {/* Investment Amount */}
+      <View style={styles.investmentContainer}>
+        <Text style={styles.investmentLabel}>Investment Amount</Text>
+        <View style={styles.amountRow}>
+          <View style={styles.amountInput}>
+            <Text style={styles.dollarSign}>$</Text>
+            <TextInput
+              style={styles.input}
+              value={amount}
+              onChangeText={setAmount}
+              keyboardType=\"numeric\"
+              placeholder=\"10\"
+              placeholderTextColor=\"#666\"
+              editable={!activeTrade}
+            />
+          </View>
+          <TouchableOpacity onPress={() => setAmount('10')} disabled={!!activeTrade}>
+            <Text style={[styles.quickAmount, activeTrade && styles.disabled]}>$10</Text>
           </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Active Trade */}
-      {activeTrade && (
-        <View style={styles.activeTradeContainer}>
-          <View style={styles.activeTradeHeader}>
-            <Text style={styles.activeTradeTitle}>Active Trade</Text>
-            <View style={styles.countdownBadge}>
-              <Ionicons name="time" size={16} color="#FFFFFF" />
-              <Text style={styles.countdownText}>{countdown}s</Text>
-            </View>
-          </View>
-          <View style={styles.activeTradeDetails}>
-            <Text style={styles.activeTradeLabel}>Entry: ${activeTrade.entry_price.toFixed(2)}</Text>
-            <Text style={styles.activeTradeLabel}>Current: ${currentPrice.toFixed(2)}</Text>
-            <Text style={[
-              styles.activeTradeType,
-              activeTrade.type === 'call' ? styles.callActive : styles.putActive
-            ]}>
-              {activeTrade.type.toUpperCase()}
-            </Text>
-          </View>
-        </View>
-      )}
-
-      {/* Trade Input */}
-      <View style={styles.tradeInputContainer}>
-        <Text style={styles.tradeInputLabel}>Investment Amount</Text>
-        <View style={styles.amountInputContainer}>
-          <Text style={styles.currencySymbol}>$</Text>
-          <TextInput
-            style={styles.amountInput}
-            value={amount}
-            onChangeText={setAmount}
-            keyboardType="numeric"
-            placeholder="0.00"
-            placeholderTextColor="#666"
-          />
-          <View style={styles.quickAmounts}>
-            <TouchableOpacity onPress={() => setAmount('10')}>
-              <Text style={styles.quickAmount}>$10</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setAmount('50')}>
-              <Text style={styles.quickAmount}>$50</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setAmount('100')}>
-              <Text style={styles.quickAmount}>$100</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity onPress={() => setAmount('50')} disabled={!!activeTrade}>
+            <Text style={[styles.quickAmount, activeTrade && styles.disabled]}>$50</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setAmount('100')} disabled={!!activeTrade}>
+            <Text style={[styles.quickAmount, activeTrade && styles.disabled]}>$100</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -294,9 +297,9 @@ export default function Trade() {
         <TouchableOpacity
           style={[styles.tradeButton, styles.upButton]}
           onPress={() => placeTrade('call')}
-          disabled={activeTrade !== null}
+          disabled={activeTrade !== null || loading}
         >
-          <Ionicons name="arrow-up" size={24} color="#FFFFFF" />
+          <Ionicons name=\"arrow-up\" size={32} color=\"#FFFFFF\" />
           <Text style={styles.tradeButtonText}>UP</Text>
           <Text style={styles.payoutText}>80% payout</Text>
         </TouchableOpacity>
@@ -304,9 +307,9 @@ export default function Trade() {
         <TouchableOpacity
           style={[styles.tradeButton, styles.downButton]}
           onPress={() => placeTrade('put')}
-          disabled={activeTrade !== null}
+          disabled={activeTrade !== null || loading}
         >
-          <Ionicons name="arrow-down" size={24} color="#FFFFFF" />
+          <Ionicons name=\"arrow-down\" size={32} color=\"#FFFFFF\" />
           <Text style={styles.tradeButtonText}>DOWN</Text>
           <Text style={styles.payoutText}>80% payout</Text>
         </TouchableOpacity>
@@ -316,7 +319,7 @@ export default function Trade() {
       <Modal
         visible={showAssetPicker}
         transparent
-        animationType="slide"
+        animationType=\"slide\"
         onRequestClose={() => setShowAssetPicker(false)}
       >
         <View style={styles.modalOverlay}>
@@ -324,26 +327,21 @@ export default function Trade() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Asset</Text>
               <TouchableOpacity onPress={() => setShowAssetPicker(false)}>
-                <Ionicons name="close" size={24} color="#FFFFFF" />
+                <Ionicons name=\"close\" size={24} color=\"#FFFFFF\" />
               </TouchableOpacity>
             </View>
             {ASSETS.map((asset) => (
               <TouchableOpacity
-                key={asset}
+                key={asset.value}
                 style={styles.assetOption}
                 onPress={() => {
-                  setSelectedAsset(asset);
+                  setSelectedAsset(asset.value);
                   setShowAssetPicker(false);
-                  // Regenerate chart data for new asset
-                  const basePrice = asset.includes('BTC') ? 50000 : asset.includes('ETH') ? 3000 : 1.1;
-                  const newCandles = generateMockCandles(30, basePrice);
-                  setCandleData(newCandles);
-                  setCurrentPrice(newCandles[newCandles.length - 1].close);
                 }}
               >
-                <Text style={styles.assetOptionText}>{asset}</Text>
-                {selectedAsset === asset && (
-                  <Ionicons name="checkmark" size={24} color="#00D7A3" />
+                <Text style={styles.assetOptionText}>{asset.label}</Text>
+                {selectedAsset === asset.value && (
+                  <Ionicons name=\"checkmark\" size={24} color=\"#00D7A3\" />
                 )}
               </TouchableOpacity>
             ))}
@@ -369,10 +367,10 @@ const styles = StyleSheet.create({
   assetSelector: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
   },
   assetText: {
     color: '#FFFFFF',
@@ -389,26 +387,26 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   balanceValue: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#00D7A3',
   },
   priceContainer: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   currentPrice: {
-    fontSize: 36,
+    fontSize: 40,
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
   priceChange: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 4,
     paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
   priceChangeText: {
     fontSize: 14,
@@ -424,105 +422,36 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 59, 59, 0.2)',
   },
   chartContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  loadingContainer: {
+    height: 400,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#FFFFFF',
+    marginTop: 16,
+    opacity: 0.7,
+  },
+  investmentContainer: {
     paddingHorizontal: 24,
     marginBottom: 16,
   },
-  timeframeContainer: {
-    marginBottom: 16,
-  },
-  timeframeContent: {
-    paddingHorizontal: 24,
-    gap: 8,
-  },
-  timeframeButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  timeframeButtonActive: {
-    backgroundColor: '#00D7A3',
-  },
-  timeframeText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-    opacity: 0.6,
-  },
-  timeframeTextActive: {
-    color: '#0A0E27',
-    opacity: 1,
-  },
-  activeTradeContainer: {
-    marginHorizontal: 24,
-    marginBottom: 16,
-    padding: 16,
-    backgroundColor: 'rgba(0, 215, 163, 0.1)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#00D7A3',
-  },
-  activeTradeHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  activeTradeTitle: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  countdownBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#00D7A3',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  countdownText: {
-    color: '#0A0E27',
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginLeft: 4,
-  },
-  activeTradeDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  activeTradeLabel: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    opacity: 0.8,
-  },
-  activeTradeType: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  callActive: {
-    color: '#00D7A3',
-    backgroundColor: 'rgba(0, 215, 163, 0.2)',
-  },
-  putActive: {
-    color: '#FF3B3B',
-    backgroundColor: 'rgba(255, 59, 59, 0.2)',
-  },
-  tradeInputContainer: {
-    paddingHorizontal: 24,
-    marginBottom: 16,
-  },
-  tradeInputLabel: {
+  investmentLabel: {
     color: '#FFFFFF',
     fontSize: 14,
     opacity: 0.8,
     marginBottom: 12,
   },
-  amountInputContainer: {
+  amountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  amountInput: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
@@ -531,27 +460,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  currencySymbol: {
+  dollarSign: {
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     marginRight: 8,
   },
-  amountInput: {
+  input: {
     flex: 1,
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     paddingVertical: 16,
   },
-  quickAmounts: {
-    flexDirection: 'row',
-    gap: 8,
-  },
   quickAmount: {
     color: '#00D7A3',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
+  },
+  disabled: {
+    opacity: 0.3,
   },
   tradeButtonsContainer: {
     flexDirection: 'row',
@@ -562,8 +490,8 @@ const styles = StyleSheet.create({
   },
   tradeButton: {
     flex: 1,
-    paddingVertical: 20,
-    borderRadius: 12,
+    paddingVertical: 24,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -575,14 +503,14 @@ const styles = StyleSheet.create({
   },
   tradeButtonText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     marginTop: 8,
   },
   payoutText: {
     color: '#FFFFFF',
     fontSize: 12,
-    opacity: 0.8,
+    opacity: 0.9,
     marginTop: 4,
   },
   modalOverlay: {
@@ -595,7 +523,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
-    maxHeight: height * 0.6,
   },
   modalHeader: {
     flexDirection: 'row',
