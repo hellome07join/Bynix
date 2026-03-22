@@ -1163,7 +1163,9 @@ async def check_nowpayments_status():
 async def get_deposit_min_amount():
     """Get minimum deposit amount"""
     result = await nowpayments_service.get_minimum_amount("usd", "usdttrc20")
-    return result
+    # Add a small buffer to ensure we're above minimum
+    min_amount = result.get("min_amount", 20)
+    return {"min_amount": round(min_amount + 1, 2), "currency": "USD"}
 
 @api_router.post("/deposit/create", response_model=DepositResponse)
 async def create_deposit(

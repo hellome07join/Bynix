@@ -48,7 +48,8 @@ export default function WalletScreen() {
   
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
-  const [depositAmount, setDepositAmount] = useState('10');
+  const [depositAmount, setDepositAmount] = useState('25');
+  const [minAmount, setMinAmount] = useState(20);
   const [isLoading, setIsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [depositHistory, setDepositHistory] = useState<DepositRecord[]>([]);
@@ -60,7 +61,21 @@ export default function WalletScreen() {
 
   useEffect(() => {
     loadDepositHistory();
+    loadMinAmount();
   }, []);
+  
+  const loadMinAmount = async () => {
+    try {
+      const response = await fetch(`${API_URL}/deposit/min-amount`);
+      if (response.ok) {
+        const data = await response.json();
+        setMinAmount(Math.ceil(data.min_amount));
+        setDepositAmount(String(Math.ceil(data.min_amount)));
+      }
+    } catch (error) {
+      console.error('Error loading min amount:', error);
+    }
+  };
 
   const loadDepositHistory = async () => {
     if (!token) return;
@@ -89,10 +104,19 @@ export default function WalletScreen() {
   };
 
   const handleGenerateAddress = async () => {
+    // Check if user is logged in
+    if (!token) {
+      Alert.alert('Login Required', 'Please login to deposit funds', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Login', onPress: () => router.push('/(auth)/login') }
+      ]);
+      return;
+    }
+    
     const amount = parseFloat(depositAmount);
     
-    if (isNaN(amount) || amount < 10) {
-      Alert.alert('Invalid Amount', 'Minimum deposit amount is $10');
+    if (isNaN(amount) || amount < minAmount) {
+      Alert.alert('Invalid Amount', `Minimum deposit amount is $${minAmount}`);
       return;
     }
 
@@ -290,16 +314,16 @@ export default function WalletScreen() {
                 value={depositAmount}
                 onChangeText={setDepositAmount}
                 keyboardType="numeric"
-                placeholder="10"
+                placeholder={String(minAmount)}
                 placeholderTextColor="#666666"
               />
             </View>
             
-            <Text style={styles.minAmountText}>Minimum deposit: $10</Text>
+            <Text style={styles.minAmountText}>Minimum deposit: ${minAmount} (USDT TRC20)</Text>
 
             {/* Quick Amount Buttons */}
             <View style={styles.quickAmounts}>
-              {['10', '25', '50', '100', '250', '500'].map((amt) => (
+              {['25', '50', '100', '250', '500', '1000'].map((amt) => (
                 <TouchableOpacity 
                   key={amt}
                   style={[
