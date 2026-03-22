@@ -199,51 +199,66 @@ export default function TradingViewChart({
     };
   }, []);
 
-  // Create new candles at regular intervals
+  // Create new candles at regular intervals based on selected timeframe
   const candleIntervalRef = useRef<any>(null);
+  const lastCandleTimeRef = useRef<number>(Date.now());
+  
   useEffect(() => {
     // Get interval in milliseconds based on timeframe
     const getIntervalMs = () => {
       switch(interval) {
-        case '1s': return 1000;
-        case '5s': return 5000;
-        case '15s': return 15000;
-        case '1m': return 60000;
-        case '5m': return 300000;
-        default: return 60000;
+        case '1s': return 1000;      // 1 second
+        case '5s': return 5000;      // 5 seconds
+        case '15s': return 15000;    // 15 seconds
+        case '1m': return 60000;     // 1 minute
+        case '5m': return 300000;    // 5 minutes
+        case '15m': return 900000;   // 15 minutes
+        case '1h': return 3600000;   // 1 hour
+        case '4h': return 14400000;  // 4 hours
+        case '1d': return 86400000;  // 1 day
+        default: return 60000;       // Default 1 minute
       }
     };
     
     const intervalMs = getIntervalMs();
     
-    // For demo, create new candles faster (every 3-5 seconds for visual effect)
-    const demoIntervalMs = Math.min(intervalMs, 4000);
+    // Reset the last candle time when interval changes
+    lastCandleTimeRef.current = Date.now();
     
+    // Check every second if it's time to create a new candle
     candleIntervalRef.current = setInterval(() => {
-      setChartData(prevData => {
-        if (prevData.length === 0) return prevData;
+      const now = Date.now();
+      const elapsed = now - lastCandleTimeRef.current;
+      
+      if (elapsed >= intervalMs) {
+        lastCandleTimeRef.current = now;
         
-        const lastCandle = prevData[prevData.length - 1];
-        const newTime = lastCandle.time + Math.floor(demoIntervalMs / 1000);
-        
-        // Create new candle starting from last close price
-        const newCandle = {
-          time: newTime,
-          open: lastCandle.close,
-          high: lastCandle.close,
-          low: lastCandle.close,
-          close: lastCandle.close,
-        };
-        
-        // Keep max 500 candles, remove oldest if needed
-        const newData = [...prevData, newCandle];
-        if (newData.length > 500) {
-          newData.shift();
-        }
-        
-        return newData;
-      });
-    }, demoIntervalMs);
+        setChartData(prevData => {
+          if (prevData.length === 0) return prevData;
+          
+          const lastCandle = prevData[prevData.length - 1];
+          const newTime = Math.floor(now / 1000);
+          
+          // Create new candle starting from last close price
+          const newCandle = {
+            time: newTime,
+            open: lastCandle.close,
+            high: lastCandle.close,
+            low: lastCandle.close,
+            close: lastCandle.close,
+          };
+          
+          // Keep max 500 candles, remove oldest if needed
+          const newData = [...prevData, newCandle];
+          if (newData.length > 500) {
+            newData.shift();
+          }
+          
+          console.log(`New candle created at ${new Date(now).toLocaleTimeString()} (${interval} timeframe)`);
+          return newData;
+        });
+      }
+    }, 1000); // Check every second
     
     return () => {
       if (candleIntervalRef.current) {
