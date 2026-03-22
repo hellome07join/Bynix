@@ -31,7 +31,11 @@ export default function Login() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill all fields');
+      if (Platform.OS === 'web') {
+        window.alert('Please fill all fields');
+      } else {
+        Alert.alert('Error', 'Please fill all fields');
+      }
       return;
     }
 
@@ -39,9 +43,13 @@ export default function Login() {
     try {
       const response = await api.login({ email, password });
       await login(response.access_token, response.user);
-      router.replace('/(tabs)/home');
+      router.replace('/(tabs)/trade');
     } catch (error: any) {
-      Alert.alert('Login Failed', error.message || 'Invalid credentials');
+      if (Platform.OS === 'web') {
+        window.alert(error.message || 'Invalid credentials');
+      } else {
+        Alert.alert('Login Failed', error.message || 'Invalid credentials');
+      }
     } finally {
       setLoading(false);
     }
@@ -50,7 +58,7 @@ export default function Login() {
   // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
   const handleGoogleLogin = async () => {
     try {
-      const redirectUrl = `${BACKEND_URL}/(tabs)/home`;
+      const redirectUrl = `${BACKEND_URL}/(tabs)/trade`;
       const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
       
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
@@ -62,7 +70,7 @@ export default function Login() {
         if (sessionId) {
           const response = await api.googleSession(sessionId);
           await login(response.session_token, response.user);
-          router.replace('/(tabs)/home');
+          router.replace('/(tabs)/trade');
         }
       }
     } catch (error: any) {

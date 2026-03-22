@@ -53,7 +53,7 @@ export default function VerifyOTP() {
       await AsyncStorage.removeItem('signup_email');
       await AsyncStorage.removeItem('dev_otp');
       
-      router.replace('/(tabs)/home');
+      router.replace('/(tabs)/trade');
     } catch (error: any) {
       Alert.alert('Verification Failed', error.message || 'Invalid OTP');
     } finally {

@@ -50,13 +50,23 @@ export default function Signup() {
       await AsyncStorage.setItem('signup_email', email);
       await AsyncStorage.setItem('dev_otp', response.otp); // Only for development
       
-      Alert.alert(
-        'Success', 
-        `Verification code sent to your email. (DEV: ${response.otp})`,
-        [{ text: 'OK', onPress: () => router.push('/(auth)/verify-otp') }]
-      );
+      // Show success and navigate
+      if (Platform.OS === 'web') {
+        window.alert(`Verification code sent to your email. (DEV: ${response.otp})`);
+        router.push('/(auth)/verify-otp');
+      } else {
+        Alert.alert(
+          'Success', 
+          `Verification code sent to your email. (DEV: ${response.otp})`,
+          [{ text: 'OK', onPress: () => router.push('/(auth)/verify-otp') }]
+        );
+      }
     } catch (error: any) {
-      Alert.alert('Signup Failed', error.message || 'Could not create account');
+      if (Platform.OS === 'web') {
+        window.alert(error.message || 'Could not create account');
+      } else {
+        Alert.alert('Signup Failed', error.message || 'Could not create account');
+      }
     } finally {
       setLoading(false);
     }
