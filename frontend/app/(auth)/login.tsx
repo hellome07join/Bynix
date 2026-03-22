@@ -20,6 +20,9 @@ import Constants from 'expo-constants';
 
 const BACKEND_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
 
+// For web platform
+declare const window: any;
+
 export default function Login() {
   const router = useRouter();
   const login = useAuthStore(state => state.login);
@@ -58,7 +61,9 @@ export default function Login() {
   // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
   const handleGoogleLogin = async () => {
     try {
-      const redirectUrl = `${BACKEND_URL}/(tabs)/trade`;
+      // Use window.location.origin for proper redirect across environments
+      const origin = Platform.OS === 'web' ? window.location.origin : BACKEND_URL;
+      const redirectUrl = `${origin}/(tabs)/trade`;
       const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
       
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);

@@ -586,17 +586,20 @@ async def get_trade_history(
     return {"trades": formatted_trades}
 
 @api_router.get("/trades/stats")
-async def get_trade_stats(authorization: Optional[str] = Header(None), request: Request = None):
+async def get_trade_stats(authorization: Optional[str] = Header(None), request: Request = None, limit: int = 500):
     """Get user's trading statistics"""
     user = await get_current_user(authorization, request)
     
-    # Get all trades
-    all_trades = await db.trades.find({"user_id": user.user_id}, {"_id": 0}).to_list(1000)
+    # Optimized query with projection to only fetch needed fields
+    all_trades = await db.trades.find(
+        {"user_id": user.user_id}, 
+        {"_id": 0, "status": 1, "profit_loss": 1}
+    ).limit(limit).to_list(limit)
     
     total_trades = len(all_trades)
-    won_trades = len([t for t in all_trades if t["status"] == "won"])
-    lost_trades = len([t for t in all_trades if t["status"] == "lost"])
-    total_profit = sum(t["profit_loss"] for t in all_trades)
+    won_trades = len([t for t in all_trades if t.get("status") == "won"])
+    lost_trades = len([t for t in all_trades if t.get("status") == "lost"])
+    total_profit = sum(t.get("profit_loss", 0) for t in all_trades)
     win_rate = (won_trades / total_trades * 100) if total_trades > 0 else 0
     
     return {
