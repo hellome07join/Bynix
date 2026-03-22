@@ -596,7 +596,9 @@ export default function Trade() {
             chartType={chartType}
             tradeMarker={activeTrade ? {
               entryPrice: activeTrade.entry_price,
-              type: activeTrade.type
+              type: activeTrade.type,
+              amount: activeTrade.amount,
+              remainingTime: countdown
             } : null}
             onPriceUpdate={(price) => setCurrentPrice(price)}
           />

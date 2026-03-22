@@ -4,6 +4,8 @@ import { View, StyleSheet, Text, Platform, ActivityIndicator } from 'react-nativ
 interface TradeMarker {
   entryPrice: number;
   type: 'call' | 'put';
+  amount?: number;
+  remainingTime?: number;
 }
 
 interface TradingViewChartProps {
@@ -353,47 +355,106 @@ export default function TradingViewChart({
             </div>
           )}
           
-          {/* Entry Position Marker */}
+          {/* Entry Position Marker with Horizontal Line */}
           {tradeMarker && (
-            <div style={{
-              position: 'absolute',
-              right: 65,
-              top: `${dotPosition}%`,
-              transform: 'translateY(-50%)',
-              transition: 'top 0.3s ease-out',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              zIndex: 100,
-              pointerEvents: 'none',
-            }}>
+            <>
+              {/* Horizontal Entry Line - Full Width Dashed Line */}
               <div style={{
-                width: 14,
-                height: 14,
-                borderRadius: '50%',
-                backgroundColor: tradeMarker.type === 'call' ? '#00E55A' : '#FF3B3B',
-                border: '2px solid #FFFFFF',
-                boxShadow: `0 0 10px ${tradeMarker.type === 'call' ? '#00E55A' : '#FF3B3B'}`,
+                position: 'absolute',
+                left: 0,
+                right: 60,
+                top: `${dotPosition}%`,
+                height: 1,
+                borderTop: `2px dashed ${tradeMarker.type === 'call' ? '#00E55A' : '#FF6B6B'}`,
+                opacity: 0.7,
+                zIndex: 50,
+                pointerEvents: 'none',
               }} />
+              
+              {/* Entry Badge with Amount */}
               <div style={{
-                marginTop: 4,
-                backgroundColor: tradeMarker.type === 'call' ? '#00E55A' : '#FF3B3B',
-                padding: '2px 6px',
-                borderRadius: 4,
-                fontSize: 10,
-                fontWeight: 700,
-                color: '#FFFFFF',
-                whiteSpace: 'nowrap',
+                position: 'absolute',
+                left: 10,
+                top: `${dotPosition}%`,
+                transform: 'translateY(-50%)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                zIndex: 100,
+                pointerEvents: 'none',
               }}>
-                {tradeMarker.type === 'call' ? '▲' : '▼'} ${tradeMarker.entryPrice.toFixed(5)}
-              </div>
-              {isBullish !== null && (
-                <div style={{ marginTop: 2, fontSize: 9, fontWeight: 600, color: isBullish ? '#00E55A' : '#FF3B3B' }}>
-                  {isBullish ? '📈 BULLISH' : '📉 BEARISH'}
+                {/* Direction & Amount Badge */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  backgroundColor: tradeMarker.type === 'call' ? '#00E55A' : '#FF6B6B',
+                  padding: '6px 12px',
+                  borderRadius: 8,
+                  gap: 6,
+                  boxShadow: `0 2px 10px ${tradeMarker.type === 'call' ? 'rgba(0, 229, 90, 0.4)' : 'rgba(255, 107, 107, 0.4)'}`,
+                }}>
+                  <span style={{ 
+                    fontSize: 14, 
+                    fontWeight: 700, 
+                    color: '#FFFFFF',
+                  }}>
+                    {tradeMarker.type === 'call' ? '↑' : '↓'}
+                  </span>
+                  <span style={{ 
+                    fontSize: 13, 
+                    fontWeight: 700, 
+                    color: '#FFFFFF',
+                  }}>
+                    {tradeMarker.amount ? `${tradeMarker.amount} $` : `${tradeMarker.entryPrice.toFixed(2)} $`}
+                  </span>
                 </div>
-              )}
-            </div>
+                
+                {/* Countdown Timer */}
+                {tradeMarker.remainingTime !== undefined && tradeMarker.remainingTime > 0 && (
+                  <div style={{
+                    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                    padding: '6px 10px',
+                    borderRadius: 8,
+                    border: `1px solid ${tradeMarker.type === 'call' ? '#00E55A' : '#FF6B6B'}`,
+                  }}>
+                    <span style={{ 
+                      fontSize: 13, 
+                      fontWeight: 700, 
+                      color: '#FFFFFF',
+                      fontFamily: 'monospace',
+                    }}>
+                      {Math.floor(tradeMarker.remainingTime / 60).toString().padStart(2, '0')}:{(tradeMarker.remainingTime % 60).toString().padStart(2, '0')}
+                    </span>
+                  </div>
+                )}
+              </div>
+              
+              {/* Current Position Dot */}
+              <div style={{
+                position: 'absolute',
+                right: 65,
+                top: `${dotPosition}%`,
+                transform: 'translateY(-50%)',
+                width: 12,
+                height: 12,
+                borderRadius: '50%',
+                backgroundColor: tradeMarker.type === 'call' ? '#00E55A' : '#FF6B6B',
+                border: '2px solid #FFFFFF',
+                boxShadow: `0 0 12px ${tradeMarker.type === 'call' ? '#00E55A' : '#FF6B6B'}`,
+                zIndex: 100,
+                pointerEvents: 'none',
+                animation: 'pulse 1.5s ease-in-out infinite',
+              }} />
+            </>
           )}
+          
+          {/* CSS Animation */}
+          <style>{`
+            @keyframes pulse {
+              0%, 100% { transform: translateY(-50%) scale(1); opacity: 1; }
+              50% { transform: translateY(-50%) scale(1.3); opacity: 0.8; }
+            }
+          `}</style>
         </div>
         
         {/* Current Price Overlay */}
