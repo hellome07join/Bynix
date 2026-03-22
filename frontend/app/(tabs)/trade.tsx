@@ -223,7 +223,7 @@ export default function Trade() {
           onPress={() => setShowAssetPicker(true)}
         >
           <Text style={styles.assetText}>{selectedAsset}</Text>
-          <Ionicons name=\"chevron-down\" size={20} color=\"#FFFFFF\" />
+          <Ionicons name="chevron-down" size={20} color="#FFFFFF" />
         </TouchableOpacity>
         
         <View style={styles.balanceContainer}>
@@ -251,7 +251,7 @@ export default function Trade() {
       <View style={styles.chartContainer}>
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size=\"large\" color=\"#00D7A3\" />
+            <ActivityIndicator size="large" color="#00D7A3" />
             <Text style={styles.loadingText}>Loading market data...</Text>
           </View>
         ) : (
@@ -274,9 +274,9 @@ export default function Trade() {
               style={styles.input}
               value={amount}
               onChangeText={setAmount}
-              keyboardType=\"numeric\"
-              placeholder=\"10\"
-              placeholderTextColor=\"#666\"
+              keyboardType="numeric"
+              placeholder="10"
+              placeholderTextColor="#666"
               editable={!activeTrade}
             />
           </View>
@@ -299,7 +299,7 @@ export default function Trade() {
           onPress={() => placeTrade('call')}
           disabled={activeTrade !== null || loading}
         >
-          <Ionicons name=\"arrow-up\" size={32} color=\"#FFFFFF\" />
+          <Ionicons name="arrow-up" size={32} color="#FFFFFF" />
           <Text style={styles.tradeButtonText}>UP</Text>
           <Text style={styles.payoutText}>80% payout</Text>
         </TouchableOpacity>
@@ -309,7 +309,7 @@ export default function Trade() {
           onPress={() => placeTrade('put')}
           disabled={activeTrade !== null || loading}
         >
-          <Ionicons name=\"arrow-down\" size={32} color=\"#FFFFFF\" />
+          <Ionicons name="arrow-down" size={32} color="#FFFFFF" />
           <Text style={styles.tradeButtonText}>DOWN</Text>
           <Text style={styles.payoutText}>80% payout</Text>
         </TouchableOpacity>
@@ -319,7 +319,7 @@ export default function Trade() {
       <Modal
         visible={showAssetPicker}
         transparent
-        animationType=\"slide\"
+        animationType="slide"
         onRequestClose={() => setShowAssetPicker(false)}
       >
         <View style={styles.modalOverlay}>
@@ -327,7 +327,7 @@ export default function Trade() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Asset</Text>
               <TouchableOpacity onPress={() => setShowAssetPicker(false)}>
-                <Ionicons name=\"close\" size={24} color=\"#FFFFFF\" />
+                <Ionicons name="close" size={24} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
             {ASSETS.map((asset) => (
@@ -341,7 +341,7 @@ export default function Trade() {
               >
                 <Text style={styles.assetOptionText}>{asset.label}</Text>
                 {selectedAsset === asset.value && (
-                  <Ionicons name=\"checkmark\" size={24} color=\"#00D7A3\" />
+                  <Ionicons name="checkmark" size={24} color="#00D7A3" />
                 )}
               </TouchableOpacity>
             ))}
