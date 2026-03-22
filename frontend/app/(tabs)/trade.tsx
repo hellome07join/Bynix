@@ -310,26 +310,42 @@ export default function Trade() {
         </View>
       </View>
 
-      {/* Trade Buttons */}
+      {/* Trade Buttons - Buy/Sell */}
       <View style={styles.tradeButtonsContainer}>
         <TouchableOpacity
-          style={[styles.tradeButton, styles.upButton]}
+          style={[styles.tradeButton, styles.buyButton, (activeTrade || loading) && styles.buttonDisabled]}
           onPress={() => placeTrade('call')}
           disabled={activeTrade !== null || loading}
+          activeOpacity={0.8}
         >
-          <Ionicons name="arrow-up" size={32} color="#FFFFFF" />
-          <Text style={styles.tradeButtonText}>UP</Text>
-          <Text style={styles.payoutText}>80% payout</Text>
+          <View style={styles.buttonContent}>
+            <Ionicons name="trending-up" size={40} color="#FFFFFF" />
+            <View style={styles.buttonTextContainer}>
+              <Text style={styles.tradeButtonLabel}>BUY</Text>
+              <Text style={styles.tradeButtonSubtext}>Price will rise</Text>
+            </View>
+          </View>
+          <View style={styles.payoutBadge}>
+            <Text style={styles.payoutText}>Payout 80%</Text>
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.tradeButton, styles.downButton]}
+          style={[styles.tradeButton, styles.sellButton, (activeTrade || loading) && styles.buttonDisabled]}
           onPress={() => placeTrade('put')}
           disabled={activeTrade !== null || loading}
+          activeOpacity={0.8}
         >
-          <Ionicons name="arrow-down" size={32} color="#FFFFFF" />
-          <Text style={styles.tradeButtonText}>DOWN</Text>
-          <Text style={styles.payoutText}>80% payout</Text>
+          <View style={styles.buttonContent}>
+            <Ionicons name="trending-down" size={40} color="#FFFFFF" />
+            <View style={styles.buttonTextContainer}>
+              <Text style={styles.tradeButtonLabel}>SELL</Text>
+              <Text style={styles.tradeButtonSubtext}>Price will fall</Text>
+            </View>
+          </View>
+          <View style={styles.payoutBadge}>
+            <Text style={styles.payoutText}>Payout 80%</Text>
+          </View>
         </TouchableOpacity>
       </View>
 
@@ -501,35 +517,71 @@ const styles = StyleSheet.create({
   },
   tradeButtonsContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 24,
-    gap: 16,
+    paddingHorizontal: 20,
+    gap: 12,
     marginTop: 'auto',
-    marginBottom: 24,
+    marginBottom: 20,
+    paddingTop: 16,
   },
   tradeButton: {
     flex: 1,
-    paddingVertical: 24,
-    borderRadius: 16,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    borderRadius: 20,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    minHeight: 140,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  upButton: {
+  buyButton: {
     backgroundColor: '#00D7A3',
   },
-  downButton: {
+  sellButton: {
     backgroundColor: '#FF3B3B',
   },
-  tradeButtonText: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginTop: 8,
+  buttonDisabled: {
+    opacity: 0.5,
   },
-  payoutText: {
+  buttonContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+  },
+  buttonTextContainer: {
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  tradeButtonLabel: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  tradeButtonSubtext: {
     color: '#FFFFFF',
     fontSize: 12,
     opacity: 0.9,
     marginTop: 4,
+    fontWeight: '600',
+  },
+  payoutBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    marginTop: 12,
+  },
+  payoutText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: 'bold',
   },
   modalOverlay: {
     flex: 1,
