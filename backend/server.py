@@ -988,6 +988,320 @@ async def disconnect(sid):
         active_subscriptions[sid]['active'] = False
     print(f"Client disconnected: {sid}")
 
+# ============= NOWPayments Integration =============
+
+NOWPAYMENTS_API_KEY = os.environ.get("NOWPAYMENTS_API_KEY", "")
+NOWPAYMENTS_API_URL = "https://api.nowpayments.io/v1"
+
+class NOWPaymentsService:
+    """Service for interacting with NOWPayments API"""
+    
+    def __init__(self):
+        self.api_url = NOWPAYMENTS_API_URL
+        self.api_key = NOWPAYMENTS_API_KEY
+        self.timeout = 30
+    
+    def _get_headers(self):
+        return {
+            "x-api-key": self.api_key,
+            "Content-Type": "application/json"
+        }
+    
+    async def check_api_status(self):
+        """Check if NOWPayments API is operational"""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.api_url}/status",
+                    headers=self._get_headers(),
+                    timeout=self.timeout
+                )
+            return response.status_code == 200
+        except Exception as e:
+            print(f"API status check failed: {e}")
+            return False
+    
+    async def get_minimum_amount(self, currency_from: str, currency_to: str):
+        """Get minimum payment amount for a currency pair"""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.api_url}/min-amount",
+                    params={
+                        "currency_from": currency_from.lower(),
+                        "currency_to": currency_to.lower()
+                    },
+                    headers=self._get_headers(),
+                    timeout=self.timeout
+                )
+            if response.status_code == 200:
+                return response.json()
+            return {"min_amount": 10}
+        except Exception as e:
+            print(f"Failed to get minimum amount: {e}")
+            return {"min_amount": 10}
+    
+    async def create_payment(
+        self,
+        price_amount: float,
+        price_currency: str,
+        pay_currency: str,
+        order_id: str = None,
+        order_description: str = None,
+        ipn_callback_url: str = None
+    ):
+        """Create a new payment - generates deposit address"""
+        payload = {
+            "price_amount": price_amount,
+            "price_currency": price_currency.lower(),
+            "pay_currency": pay_currency.lower(),
+        }
+        
+        if order_id:
+            payload["order_id"] = order_id
+        if order_description:
+            payload["order_description"] = order_description
+        if ipn_callback_url:
+            payload["ipn_callback_url"] = ipn_callback_url
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.api_url}/payment",
+                    json=payload,
+                    headers=self._get_headers(),
+                    timeout=self.timeout
+                )
+            
+            if response.status_code == 200 or response.status_code == 201:
+                data = response.json()
+                print(f"Payment created: {data}")
+                return {
+                    "success": True,
+                    "payment_id": data.get("payment_id"),
+                    "payment_status": data.get("payment_status"),
+                    "pay_address": data.get("pay_address"),
+                    "pay_amount": data.get("pay_amount"),
+                    "pay_currency": data.get("pay_currency"),
+                    "price_amount": data.get("price_amount"),
+                    "price_currency": data.get("price_currency"),
+                    "expiration_estimate_date": data.get("expiration_estimate_date"),
+                    "network": data.get("network", "TRC20")
+                }
+            else:
+                print(f"Payment creation failed: {response.text}")
+                return {
+                    "success": False,
+                    "error": response.json().get("message", "Payment creation failed")
+                }
+        except Exception as e:
+            print(f"Failed to create payment: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    async def get_payment_status(self, payment_id: int):
+        """Get the current status of a payment"""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.api_url}/payment/{payment_id}",
+                    headers=self._get_headers(),
+                    timeout=self.timeout
+                )
+            
+            if response.status_code == 200:
+                return response.json()
+            return None
+        except Exception as e:
+            print(f"Failed to get payment status: {e}")
+            return None
+    
+    async def get_available_currencies(self):
+        """Get list of available currencies"""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.api_url}/currencies",
+                    headers=self._get_headers(),
+                    timeout=self.timeout
+                )
+            if response.status_code == 200:
+                return response.json()
+            return {"currencies": ["usdttrc20"]}
+        except Exception as e:
+            print(f"Failed to get currencies: {e}")
+            return {"currencies": ["usdttrc20"]}
+
+# Initialize NOWPayments service
+nowpayments_service = NOWPaymentsService()
+
+# Deposit models
+class CreateDepositRequest(BaseModel):
+    amount: float = Field(..., gt=0, description="Amount in USD to deposit")
+
+class DepositResponse(BaseModel):
+    success: bool
+    payment_id: Optional[int] = None
+    pay_address: Optional[str] = None
+    pay_amount: Optional[float] = None
+    pay_currency: Optional[str] = None
+    network: Optional[str] = None
+    expiration_estimate_date: Optional[str] = None
+    error: Optional[str] = None
+
+# ============= Deposit Endpoints =============
+
+@api_router.get("/deposit/status")
+async def check_nowpayments_status():
+    """Check NOWPayments API status"""
+    is_online = await nowpayments_service.check_api_status()
+    return {"status": "online" if is_online else "offline"}
+
+@api_router.get("/deposit/min-amount")
+async def get_deposit_min_amount():
+    """Get minimum deposit amount"""
+    result = await nowpayments_service.get_minimum_amount("usd", "usdttrc20")
+    return result
+
+@api_router.post("/deposit/create", response_model=DepositResponse)
+async def create_deposit(
+    request: CreateDepositRequest,
+    authorization: Optional[str] = Header(None),
+    req: Request = None
+):
+    """Create a deposit request - generates USDT address"""
+    # Get current user
+    try:
+        user = await get_current_user(authorization, req)
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    # Minimum amount check
+    if request.amount < 10:
+        raise HTTPException(status_code=400, detail="Minimum deposit amount is $10")
+    
+    # Create unique order ID
+    order_id = f"DEP_{user.user_id}_{uuid.uuid4().hex[:8]}"
+    
+    # Create payment with NOWPayments
+    result = await nowpayments_service.create_payment(
+        price_amount=request.amount,
+        price_currency="usd",
+        pay_currency="usdttrc20",  # USDT on TRC20 network
+        order_id=order_id,
+        order_description=f"Deposit for user {user.email}"
+    )
+    
+    if result.get("success"):
+        # Store deposit record in database
+        deposit_record = {
+            "transaction_id": str(uuid.uuid4()),
+            "user_id": user.user_id,
+            "payment_id": result.get("payment_id"),
+            "order_id": order_id,
+            "type": "deposit",
+            "amount": request.amount,
+            "pay_amount": result.get("pay_amount"),
+            "pay_currency": result.get("pay_currency", "USDT"),
+            "pay_address": result.get("pay_address"),
+            "network": result.get("network", "TRC20"),
+            "status": "pending",
+            "created_at": datetime.now(timezone.utc),
+            "expiration_date": result.get("expiration_estimate_date")
+        }
+        await db.deposits.insert_one(deposit_record)
+        
+        return DepositResponse(
+            success=True,
+            payment_id=result.get("payment_id"),
+            pay_address=result.get("pay_address"),
+            pay_amount=result.get("pay_amount"),
+            pay_currency="USDT",
+            network=result.get("network", "TRC20"),
+            expiration_estimate_date=result.get("expiration_estimate_date")
+        )
+    else:
+        return DepositResponse(
+            success=False,
+            error=result.get("error", "Failed to create deposit")
+        )
+
+@api_router.get("/deposit/check/{payment_id}")
+async def check_deposit_status(
+    payment_id: int,
+    authorization: Optional[str] = Header(None),
+    req: Request = None
+):
+    """Check the status of a deposit"""
+    try:
+        user = await get_current_user(authorization, req)
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    # Get payment status from NOWPayments
+    status = await nowpayments_service.get_payment_status(payment_id)
+    
+    if status:
+        payment_status = status.get("payment_status")
+        
+        # If payment is finished, update user balance
+        if payment_status == "finished":
+            # Find the deposit record
+            deposit = await db.deposits.find_one({
+                "payment_id": payment_id,
+                "user_id": user.user_id
+            })
+            
+            if deposit and deposit.get("status") != "completed":
+                # Update deposit status
+                await db.deposits.update_one(
+                    {"payment_id": payment_id},
+                    {"$set": {"status": "completed", "completed_at": datetime.now(timezone.utc)}}
+                )
+                
+                # Add to user's real balance
+                await db.users.update_one(
+                    {"user_id": user.user_id},
+                    {"$inc": {"real_balance": deposit.get("amount", 0)}}
+                )
+        
+        return {
+            "payment_id": payment_id,
+            "status": payment_status,
+            "actually_paid": status.get("actually_paid", 0),
+            "pay_amount": status.get("pay_amount"),
+            "pay_currency": status.get("pay_currency")
+        }
+    
+    raise HTTPException(status_code=404, detail="Payment not found")
+
+@api_router.get("/deposit/history")
+async def get_deposit_history(
+    authorization: Optional[str] = Header(None),
+    req: Request = None
+):
+    """Get user's deposit history"""
+    try:
+        user = await get_current_user(authorization, req)
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    deposits = await db.deposits.find(
+        {"user_id": user.user_id}
+    ).sort("created_at", -1).limit(50).to_list(50)
+    
+    # Convert ObjectId to string
+    for dep in deposits:
+        dep["_id"] = str(dep["_id"])
+        if dep.get("created_at"):
+            dep["created_at"] = dep["created_at"].isoformat()
+        if dep.get("completed_at"):
+            dep["completed_at"] = dep["completed_at"].isoformat()
+    
+    return {"deposits": deposits}
+
 # Include router - must be after all endpoint definitions
 app.include_router(api_router)
 

@@ -1,193 +1,275 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity,
+import {
+  View,
+  Text,
+  StyleSheet,
   ScrollView,
+  TouchableOpacity,
   TextInput,
-  Alert,
   Modal,
-  RefreshControl
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+  Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import QRCode from 'react-native-qrcode-svg';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../stores/authStore';
-import { api } from '../../utils/api';
+import { API_URL, apiRequest } from '../../utils/api';
+import * as Clipboard from 'expo-clipboard';
 
-export default function Wallet() {
-  const { user, token, accountType } = useAuthStore();
+interface DepositResponse {
+  success: boolean;
+  payment_id?: number;
+  pay_address?: string;
+  pay_amount?: number;
+  pay_currency?: string;
+  network?: string;
+  expiration_estimate_date?: string;
+  error?: string;
+}
+
+interface DepositRecord {
+  transaction_id: string;
+  payment_id: number;
+  amount: number;
+  pay_amount: number;
+  pay_address: string;
+  network: string;
+  status: string;
+  created_at: string;
+}
+
+export default function WalletScreen() {
+  const router = useRouter();
+  const { user, token, loadAuth } = useAuthStore();
   
   const [showDepositModal, setShowDepositModal] = useState(false);
-  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
-  const [depositAmount, setDepositAmount] = useState('');
-  const [withdrawAmount, setWithdrawAmount] = useState('');
-  const [withdrawAddress, setWithdrawAddress] = useState('');
-  const [depositAddress, setDepositAddress] = useState('');
-  const [transactions, setTransactions] = useState([]);
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [depositAmount, setDepositAmount] = useState('10');
+  const [isLoading, setIsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [depositHistory, setDepositHistory] = useState<DepositRecord[]>([]);
+  
+  // Current deposit info
+  const [currentDeposit, setCurrentDeposit] = useState<DepositResponse | null>(null);
+  
+  const realBalance = user?.real_balance || 0;
 
   useEffect(() => {
-    loadTransactions();
+    loadDepositHistory();
   }, []);
 
-  const loadTransactions = async () => {
+  const loadDepositHistory = async () => {
     if (!token) return;
+    
     try {
-      const data = await api.getTransactions(token);
-      setTransactions(data);
+      const response = await fetch(`${API_URL}/deposit/history`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setDepositHistory(data.deposits || []);
+      }
     } catch (error) {
-      console.error('Failed to load transactions:', error);
+      console.error('Error loading deposit history:', error);
     }
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadTransactions();
+    await loadDepositHistory();
+    await loadAuth();
     setRefreshing(false);
   };
 
-  const handleDeposit = async () => {
+  const handleGenerateAddress = async () => {
     const amount = parseFloat(depositAmount);
-    if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount');
+    
+    if (isNaN(amount) || amount < 10) {
+      Alert.alert('Invalid Amount', 'Minimum deposit amount is $10');
       return;
     }
 
+    setIsLoading(true);
+
     try {
-      const response = await api.requestDeposit(amount, token!);
-      setDepositAddress(response.crypto_address);
-      Alert.alert('Success', 'Deposit address generated. Send crypto to this address.');
-      loadTransactions();
-    } catch (error: any) {
-      Alert.alert('Error', error.message);
+      const response = await fetch(`${API_URL}/deposit/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ amount }),
+      });
+
+      const data: DepositResponse = await response.json();
+
+      if (data.success && data.pay_address) {
+        setCurrentDeposit(data);
+        setShowDepositModal(false);
+        setShowAddressModal(true);
+        loadDepositHistory();
+      } else {
+        Alert.alert('Error', data.error || 'Failed to generate deposit address');
+      }
+    } catch (error) {
+      console.error('Error creating deposit:', error);
+      Alert.alert('Error', 'Failed to create deposit. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleWithdraw = async () => {
-    const amount = parseFloat(withdrawAmount);
-    if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount');
-      return;
-    }
+  const copyToClipboard = async (text: string) => {
+    await Clipboard.setStringAsync(text);
+    Alert.alert('Copied', 'Address copied to clipboard');
+  };
 
-    if (!withdrawAddress) {
-      Alert.alert('Error', 'Please enter withdrawal address');
-      return;
-    }
+  const checkPaymentStatus = async () => {
+    if (!currentDeposit?.payment_id) return;
 
-    if (user?.real_balance && amount > user.real_balance) {
-      Alert.alert('Error', 'Insufficient balance');
-      return;
-    }
-
+    setIsLoading(true);
     try {
-      await api.requestWithdrawal(amount, withdrawAddress, token!);
-      Alert.alert('Success', 'Withdrawal request submitted. Awaiting approval.');
-      setShowWithdrawModal(false);
-      setWithdrawAmount('');
-      setWithdrawAddress('');
-      loadTransactions();
-    } catch (error: any) {
-      Alert.alert('Error', error.message);
+      const response = await fetch(`${API_URL}/deposit/check/${currentDeposit.payment_id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.status === 'finished') {
+          Alert.alert('Success', 'Deposit completed! Your balance has been updated.');
+          setShowAddressModal(false);
+          setCurrentDeposit(null);
+          await loadAuth();
+          await loadDepositHistory();
+        } else if (data.status === 'waiting') {
+          Alert.alert('Pending', 'Waiting for payment. Please send the exact amount to the address.');
+        } else if (data.status === 'confirming') {
+          Alert.alert('Confirming', 'Payment received! Waiting for blockchain confirmations.');
+        } else {
+          Alert.alert('Status', `Payment status: ${data.status}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking status:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const balance = accountType === 'demo' ? user?.demo_balance : user?.real_balance;
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+      case 'finished':
+        return '#00D7A3';
+      case 'pending':
+      case 'waiting':
+        return '#FFB800';
+      case 'failed':
+      case 'expired':
+        return '#FF3B3B';
+      default:
+        return '#888888';
+    }
+  };
 
   return (
-    <ScrollView 
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00D7A3" />
-      }
-    >
+    <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Wallet</Text>
-        <Text style={styles.subtitle}>{accountType === 'demo' ? 'Demo Account' : 'Real Account'}</Text>
-      </View>
-
-      {/* Balance Card */}
-      <View style={styles.balanceCard}>
-        <Text style={styles.balanceLabel}>Total Balance</Text>
-        <Text style={styles.balanceAmount}>${balance?.toFixed(2) || '0.00'}</Text>
-      </View>
-
-      {/* Actions */}
-      <View style={styles.actionsContainer}>
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => setShowDepositModal(true)}
-          disabled={accountType === 'demo'}
-        >
-          <Ionicons name="add-circle" size={24} color={accountType === 'demo' ? '#666' : '#00D7A3'} />
-          <Text style={[styles.actionText, accountType === 'demo' && { opacity: 0.5 }]}>Deposit</Text>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => setShowWithdrawModal(true)}
-          disabled={accountType === 'demo'}
-        >
-          <Ionicons name="remove-circle" size={24} color={accountType === 'demo' ? '#666' : '#FF3B3B'} />
-          <Text style={[styles.actionText, accountType === 'demo' && { opacity: 0.5 }]}>Withdraw</Text>
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Wallet</Text>
+        <View style={{ width: 40 }} />
       </View>
 
-      {accountType === 'demo' && (
-        <View style={styles.demoNotice}>
-          <Ionicons name="information-circle" size={20} color="#00D7A3" />
-          <Text style={styles.demoNoticeText}>
-            Switch to Real Account to deposit or withdraw funds
-          </Text>
-        </View>
-      )}
+      <ScrollView 
+        style={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00D7A3" />
+        }
+      >
+        {/* Account Type Label */}
+        <Text style={styles.accountLabel}>Real Account</Text>
 
-      {/* Transactions */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Recent Transactions</Text>
-
-        {transactions.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="document-text-outline" size={48} color="#666" />
-            <Text style={styles.emptyText}>No transactions yet</Text>
+        {/* Balance Card */}
+        <LinearGradient
+          colors={['#0D1B2A', '#1B3A4B']}
+          style={styles.balanceCard}
+        >
+          <Text style={styles.balanceLabel}>Total Balance</Text>
+          <Text style={styles.balanceAmount}>${realBalance.toFixed(2)}</Text>
+          
+          {/* Action Buttons */}
+          <View style={styles.actionButtons}>
+            <TouchableOpacity 
+              style={styles.depositBtn}
+              onPress={() => setShowDepositModal(true)}
+            >
+              <Ionicons name="add-circle" size={20} color="#0A0E27" />
+              <Text style={styles.depositBtnText}>Deposit</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.withdrawBtn}>
+              <Ionicons name="arrow-up-circle" size={20} color="#00D7A3" />
+              <Text style={styles.withdrawBtnText}>Withdraw</Text>
+            </TouchableOpacity>
           </View>
-        ) : (
-          transactions.map((txn: any) => (
-            <View key={txn.transaction_id} style={styles.transactionItem}>
-              <View style={styles.transactionIcon}>
-                <Ionicons 
-                  name={txn.type === 'deposit' ? 'arrow-down' : 'arrow-up'} 
-                  size={20} 
-                  color={txn.type === 'deposit' ? '#00D7A3' : '#FF3B3B'} 
-                />
-              </View>
-              <View style={styles.transactionInfo}>
-                <Text style={styles.transactionType}>
-                  {txn.type.charAt(0).toUpperCase() + txn.type.slice(1)}
-                </Text>
-                <Text style={styles.transactionDate}>
-                  {new Date(txn.created_at).toLocaleDateString()}
-                </Text>
-              </View>
-              <View style={styles.transactionRight}>
-                <Text style={[styles.transactionAmount, txn.type === 'deposit' ? styles.deposit : styles.withdrawal]}>
-                  {txn.type === 'deposit' ? '+' : '-'}${txn.amount.toFixed(2)}
-                </Text>
-                <View style={[styles.statusBadge, getStatusStyle(txn.status)]}>
-                  <Text style={styles.statusText}>{txn.status}</Text>
+        </LinearGradient>
+
+        {/* Transaction History */}
+        <View style={styles.historySection}>
+          <Text style={styles.sectionTitle}>Transaction History</Text>
+          
+          {depositHistory.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="document-text-outline" size={48} color="#444444" />
+              <Text style={styles.emptyText}>No transactions yet</Text>
+            </View>
+          ) : (
+            depositHistory.map((deposit, index) => (
+              <View key={deposit.transaction_id || index} style={styles.transactionItem}>
+                <View style={styles.transactionIcon}>
+                  <Ionicons 
+                    name={deposit.status === 'completed' ? 'checkmark-circle' : 'time'} 
+                    size={24} 
+                    color={getStatusColor(deposit.status)} 
+                  />
+                </View>
+                <View style={styles.transactionInfo}>
+                  <Text style={styles.transactionType}>Deposit</Text>
+                  <Text style={styles.transactionDate}>
+                    {new Date(deposit.created_at).toLocaleDateString()}
+                  </Text>
+                </View>
+                <View style={styles.transactionAmount}>
+                  <Text style={[styles.amountText, { color: '#00D7A3' }]}>
+                    +${deposit.amount.toFixed(2)}
+                  </Text>
+                  <Text style={[styles.statusText, { color: getStatusColor(deposit.status) }]}>
+                    {deposit.status}
+                  </Text>
                 </View>
               </View>
-            </View>
-          ))
-        )}
-      </View>
+            ))
+          )}
+        </View>
+      </ScrollView>
 
-      {/* Deposit Modal */}
+      {/* Deposit Amount Modal */}
       <Modal
         visible={showDepositModal}
-        transparent
+        transparent={true}
         animationType="slide"
         onRequestClose={() => setShowDepositModal(false)}
       >
@@ -200,107 +282,148 @@ export default function Wallet() {
               </TouchableOpacity>
             </View>
 
-            {!depositAddress ? (
-              <>
-                <Text style={styles.modalLabel}>Enter Amount</Text>
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputPrefix}>$</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={depositAmount}
-                    onChangeText={setDepositAmount}
-                    keyboardType="numeric"
-                    placeholder="0.00"
-                    placeholderTextColor="#666"
-                  />
-                </View>
-
-                <TouchableOpacity style={styles.submitButton} onPress={handleDeposit}>
-                  <Text style={styles.submitButtonText}>Generate Deposit Address</Text>
-                </TouchableOpacity>
-              </>
-            ) : (
-              <View style={styles.qrContainer}>
-                <Text style={styles.qrLabel}>Send crypto to this address:</Text>
-                <View style={styles.qrCode}>
-                  <QRCode value={depositAddress} size={200} />
-                </View>
-                <View style={styles.addressContainer}>
-                  <Text style={styles.addressText}>{depositAddress}</Text>
-                </View>
-                <Text style={styles.qrNote}>Amount: ${depositAmount}</Text>
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
-
-      {/* Withdraw Modal */}
-      <Modal
-        visible={showWithdrawModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowWithdrawModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Withdraw Funds</Text>
-              <TouchableOpacity onPress={() => setShowWithdrawModal(false)}>
-                <Ionicons name="close" size={24} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.modalLabel}>Amount</Text>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputPrefix}>$</Text>
+            <Text style={styles.inputLabel}>Enter Amount</Text>
+            <View style={styles.amountInputContainer}>
+              <Text style={styles.currencySymbol}>$</Text>
               <TextInput
-                style={styles.input}
-                value={withdrawAmount}
-                onChangeText={setWithdrawAmount}
+                style={styles.amountInput}
+                value={depositAmount}
+                onChangeText={setDepositAmount}
                 keyboardType="numeric"
-                placeholder="0.00"
-                placeholderTextColor="#666"
+                placeholder="10"
+                placeholderTextColor="#666666"
               />
             </View>
+            
+            <Text style={styles.minAmountText}>Minimum deposit: $10</Text>
 
-            <Text style={styles.modalLabel}>Wallet Address</Text>
-            <TextInput
-              style={styles.fullInput}
-              value={withdrawAddress}
-              onChangeText={setWithdrawAddress}
-              placeholder="0x..."
-              placeholderTextColor="#666"
-            />
-
-            <View style={styles.warningBox}>
-              <Ionicons name="warning" size={20} color="#FF3B3B" />
-              <Text style={styles.warningText}>
-                Withdrawals require admin approval
-              </Text>
+            {/* Quick Amount Buttons */}
+            <View style={styles.quickAmounts}>
+              {['10', '25', '50', '100', '250', '500'].map((amt) => (
+                <TouchableOpacity 
+                  key={amt}
+                  style={[
+                    styles.quickAmountBtn,
+                    depositAmount === amt && styles.quickAmountBtnActive
+                  ]}
+                  onPress={() => setDepositAmount(amt)}
+                >
+                  <Text style={[
+                    styles.quickAmountText,
+                    depositAmount === amt && styles.quickAmountTextActive
+                  ]}>
+                    ${amt}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
 
-            <TouchableOpacity style={styles.submitButton} onPress={handleWithdraw}>
-              <Text style={styles.submitButtonText}>Submit Withdrawal</Text>
+            <TouchableOpacity
+              style={[styles.generateBtn, isLoading && styles.generateBtnDisabled]}
+              onPress={handleGenerateAddress}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#0A0E27" />
+              ) : (
+                <Text style={styles.generateBtnText}>Generate Deposit Address</Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
-    </ScrollView>
-  );
-}
 
-function getStatusStyle(status: string) {
-  switch (status) {
-    case 'completed':
-      return { backgroundColor: 'rgba(0, 215, 163, 0.2)' };
-    case 'pending':
-      return { backgroundColor: 'rgba(255, 165, 0, 0.2)' };
-    case 'rejected':
-      return { backgroundColor: 'rgba(255, 59, 59, 0.2)' };
-    default:
-      return { backgroundColor: 'rgba(255, 255, 255, 0.1)' };
-  }
+      {/* Deposit Address Modal */}
+      <Modal
+        visible={showAddressModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowAddressModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Deposit USDT</Text>
+              <TouchableOpacity onPress={() => setShowAddressModal(false)}>
+                <Ionicons name="close" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            {currentDeposit && (
+              <>
+                {/* Network Info */}
+                <View style={styles.networkBadge}>
+                  <Ionicons name="link" size={16} color="#00D7A3" />
+                  <Text style={styles.networkText}>{currentDeposit.network || 'TRC20'} Network</Text>
+                </View>
+
+                {/* Amount to Send */}
+                <View style={styles.depositInfoBox}>
+                  <Text style={styles.depositInfoLabel}>Amount to Send</Text>
+                  <View style={styles.amountRow}>
+                    <Text style={styles.depositInfoValue}>
+                      {currentDeposit.pay_amount?.toFixed(6)} {currentDeposit.pay_currency}
+                    </Text>
+                    <TouchableOpacity 
+                      onPress={() => copyToClipboard(currentDeposit.pay_amount?.toFixed(6) || '')}
+                      style={styles.copyBtn}
+                    >
+                      <Ionicons name="copy-outline" size={18} color="#00D7A3" />
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.usdValue}>≈ ${depositAmount} USD</Text>
+                </View>
+
+                {/* Deposit Address */}
+                <View style={styles.depositInfoBox}>
+                  <Text style={styles.depositInfoLabel}>Deposit Address</Text>
+                  <View style={styles.addressContainer}>
+                    <Text style={styles.addressText} numberOfLines={2}>
+                      {currentDeposit.pay_address}
+                    </Text>
+                    <TouchableOpacity 
+                      onPress={() => copyToClipboard(currentDeposit.pay_address || '')}
+                      style={styles.copyBtn}
+                    >
+                      <Ionicons name="copy-outline" size={18} color="#00D7A3" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Warning */}
+                <View style={styles.warningBox}>
+                  <Ionicons name="warning" size={20} color="#FFB800" />
+                  <Text style={styles.warningText}>
+                    Send only USDT on {currentDeposit.network || 'TRC20'} network to this address. 
+                    Sending other cryptocurrencies may result in permanent loss.
+                  </Text>
+                </View>
+
+                {/* Check Status Button */}
+                <TouchableOpacity
+                  style={styles.checkStatusBtn}
+                  onPress={checkPaymentStatus}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator color="#0A0E27" />
+                  ) : (
+                    <>
+                      <Ionicons name="refresh" size={20} color="#0A0E27" />
+                      <Text style={styles.checkStatusText}>Check Payment Status</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                {/* Payment ID */}
+                <Text style={styles.paymentId}>Payment ID: {currentDeposit.payment_id}</Text>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -309,157 +432,157 @@ const styles = StyleSheet.create({
     backgroundColor: '#0A0E27',
   },
   header: {
-    padding: 24,
-    paddingTop: 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
+  backBtn: {
+    padding: 8,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
     color: '#FFFFFF',
   },
-  subtitle: {
+  content: {
+    flex: 1,
+    padding: 16,
+  },
+  accountLabel: {
     fontSize: 14,
-    color: '#FFFFFF',
-    opacity: 0.6,
-    marginTop: 4,
+    color: '#888888',
+    marginBottom: 12,
   },
   balanceCard: {
-    backgroundColor: 'rgba(0, 215, 163, 0.1)',
-    marginHorizontal: 24,
-    padding: 24,
     borderRadius: 16,
+    padding: 24,
     borderWidth: 1,
     borderColor: '#00D7A3',
-    alignItems: 'center',
+    marginBottom: 24,
   },
   balanceLabel: {
     fontSize: 14,
-    color: '#FFFFFF',
-    opacity: 0.6,
-    marginBottom: 8,
+    color: '#888888',
+    textAlign: 'center',
   },
   balanceAmount: {
-    fontSize: 40,
-    fontWeight: 'bold',
+    fontSize: 42,
+    fontWeight: '700',
     color: '#00D7A3',
+    textAlign: 'center',
+    marginVertical: 8,
   },
-  actionsContainer: {
+  actionButtons: {
     flexDirection: 'row',
-    paddingHorizontal: 24,
-    paddingVertical: 24,
-    gap: 16,
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 16,
   },
-  actionButton: {
-    flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    paddingVertical: 24,
-    borderRadius: 12,
+  depositBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#00D7A3',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
   },
-  actionText: {
-    color: '#FFFFFF',
+  depositBtnText: {
+    color: '#0A0E27',
+    fontWeight: '700',
     fontSize: 14,
-    fontWeight: '600',
-    marginTop: 8,
   },
-  demoNotice: {
+  withdrawBtn: {
     flexDirection: 'row',
-    marginHorizontal: 24,
-    padding: 16,
-    backgroundColor: 'rgba(0, 215, 163, 0.1)',
-    borderRadius: 12,
-    marginBottom: 24,
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#00D7A3',
+    gap: 8,
   },
-  demoNoticeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    marginLeft: 12,
-    flex: 1,
+  withdrawBtnText: {
+    color: '#00D7A3',
+    fontWeight: '700',
+    fontSize: 14,
   },
-  section: {
-    padding: 24,
+  historySection: {
+    marginTop: 8,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#FFFFFF',
     marginBottom: 16,
   },
   emptyState: {
     alignItems: 'center',
-    padding: 32,
+    paddingVertical: 48,
   },
   emptyText: {
-    color: '#FFFFFF',
-    opacity: 0.5,
-    marginTop: 16,
+    color: '#666666',
+    marginTop: 12,
+    fontSize: 14,
   },
   transactionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: '#111827',
     padding: 16,
     borderRadius: 12,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   transactionIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    alignItems: 'center',
+    backgroundColor: '#1F2937',
     justifyContent: 'center',
-    marginRight: 16,
+    alignItems: 'center',
+    marginRight: 12,
   },
   transactionInfo: {
     flex: 1,
   },
   transactionType: {
-    fontSize: 16,
-    fontWeight: '600',
     color: '#FFFFFF',
-    marginBottom: 4,
+    fontWeight: '600',
+    fontSize: 14,
   },
   transactionDate: {
+    color: '#888888',
     fontSize: 12,
-    color: '#FFFFFF',
-    opacity: 0.5,
-  },
-  transactionRight: {
-    alignItems: 'flex-end',
+    marginTop: 2,
   },
   transactionAmount: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 4,
+    alignItems: 'flex-end',
   },
-  deposit: {
-    color: '#00D7A3',
-  },
-  withdrawal: {
-    color: '#FF3B3B',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
+  amountText: {
+    fontWeight: '700',
+    fontSize: 14,
   },
   statusText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    textTransform: 'uppercase',
+    fontSize: 12,
+    marginTop: 2,
+    textTransform: 'capitalize',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'center',
-    padding: 24,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#0F1428',
-    borderRadius: 16,
+    backgroundColor: '#1A1F3D',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     padding: 24,
+    maxHeight: '85%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -469,101 +592,167 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#FFFFFF',
   },
-  modalLabel: {
+  inputLabel: {
     fontSize: 14,
-    color: '#FFFFFF',
-    opacity: 0.8,
-    marginBottom: 12,
+    color: '#888888',
+    marginBottom: 8,
   },
-  inputContainer: {
+  amountInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: '#0A0E27',
     borderRadius: 12,
-    paddingHorizontal: 16,
-    marginBottom: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: '#333333',
+    paddingHorizontal: 16,
+    marginBottom: 8,
   },
-  inputPrefix: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold',
+  currencySymbol: {
+    fontSize: 24,
+    color: '#888888',
     marginRight: 8,
   },
-  input: {
+  amountInput: {
     flex: 1,
+    fontSize: 24,
     color: '#FFFFFF',
-    fontSize: 18,
     paddingVertical: 16,
   },
-  fullInput: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 12,
-    padding: 16,
-    color: '#FFFFFF',
-    fontSize: 14,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+  minAmountText: {
+    fontSize: 12,
+    color: '#666666',
+    marginBottom: 16,
   },
-  submitButton: {
+  quickAmounts: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 24,
+  },
+  quickAmountBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#333333',
+    backgroundColor: '#0A0E27',
+  },
+  quickAmountBtnActive: {
+    borderColor: '#00D7A3',
+    backgroundColor: 'rgba(0,215,163,0.1)',
+  },
+  quickAmountText: {
+    color: '#888888',
+    fontSize: 14,
+  },
+  quickAmountTextActive: {
+    color: '#00D7A3',
+  },
+  generateBtn: {
     backgroundColor: '#00D7A3',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
   },
-  submitButtonText: {
+  generateBtnDisabled: {
+    opacity: 0.6,
+  },
+  generateBtnText: {
     color: '#0A0E27',
+    fontWeight: '700',
     fontSize: 16,
-    fontWeight: 'bold',
   },
-  qrContainer: {
+  networkBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
-  },
-  qrLabel: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    opacity: 0.8,
-    marginBottom: 24,
-  },
-  qrCode: {
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: 'rgba(0,215,163,0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    gap: 6,
     marginBottom: 16,
+  },
+  networkText: {
+    color: '#00D7A3',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  depositInfoBox: {
+    backgroundColor: '#0A0E27',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  depositInfoLabel: {
+    fontSize: 12,
+    color: '#888888',
+    marginBottom: 8,
+  },
+  amountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  depositInfoValue: {
+    fontSize: 18,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    flex: 1,
+  },
+  usdValue: {
+    fontSize: 12,
+    color: '#888888',
+    marginTop: 4,
   },
   addressContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   addressText: {
+    fontSize: 14,
     color: '#FFFFFF',
-    fontSize: 12,
-    textAlign: 'center',
+    flex: 1,
+    marginRight: 12,
   },
-  qrNote: {
-    color: '#00D7A3',
-    fontSize: 16,
-    fontWeight: 'bold',
+  copyBtn: {
+    padding: 8,
   },
   warningBox: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 59, 59, 0.1)',
-    padding: 16,
+    backgroundColor: 'rgba(255,184,0,0.1)',
     borderRadius: 12,
-    marginBottom: 24,
+    padding: 12,
+    gap: 10,
+    marginBottom: 16,
   },
   warningText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    marginLeft: 12,
     flex: 1,
+    color: '#FFB800',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  checkStatusBtn: {
+    flexDirection: 'row',
+    backgroundColor: '#00D7A3',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  checkStatusText: {
+    color: '#0A0E27',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  paymentId: {
+    color: '#666666',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 12,
   },
 });
