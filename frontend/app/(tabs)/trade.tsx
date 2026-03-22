@@ -445,14 +445,7 @@ export default function Trade() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        {/* Logo */}
-        <Image 
-          source={require('../../assets/images/bynix-logo.png')} 
-          style={styles.headerLogo}
-          resizeMode="contain"
-        />
-
-        {/* Deposit Button (moved from left) */}
+        {/* Deposit Button - Left */}
         <TouchableOpacity 
           style={styles.depositButton}
           onPress={() => router.push('/(tabs)/wallet')}
@@ -460,6 +453,13 @@ export default function Trade() {
           <Ionicons name="add-circle" size={18} color="#00D7A3" />
           <Text style={styles.depositText}>Deposit</Text>
         </TouchableOpacity>
+
+        {/* Logo - Center */}
+        <Image 
+          source={require('../../assets/images/bynix-logo.png')} 
+          style={styles.headerLogo}
+          resizeMode="contain"
+        />
 
         {/* Balance Button */}
         <TouchableOpacity 
@@ -471,6 +471,12 @@ export default function Trade() {
             {accountType === 'demo' ? 'Demo ' : ''}${currentBalance.toFixed(2)}
           </Text>
           <Ionicons name="chevron-down" size={12} color={accountType === 'demo' ? '#FFB800' : '#00D7A3'} />
+        </TouchableOpacity>
+
+        {/* Notification Button - Right */}
+        <TouchableOpacity style={styles.notifButton}>
+          <Ionicons name="notifications" size={20} color="#FFFFFF" />
+          <View style={styles.notifBadge} />
         </TouchableOpacity>
       </View>
 
@@ -1155,9 +1161,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerLogo: {
-    width: 32,
-    height: 32,
-    borderRadius: 6,
+    width: 80,
+    height: 28,
   },
   depositButton: {
     flexDirection: 'row',
