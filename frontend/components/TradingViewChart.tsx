@@ -199,6 +199,59 @@ export default function TradingViewChart({
     };
   }, []);
 
+  // Create new candles at regular intervals
+  const candleIntervalRef = useRef<any>(null);
+  useEffect(() => {
+    // Get interval in milliseconds based on timeframe
+    const getIntervalMs = () => {
+      switch(interval) {
+        case '1s': return 1000;
+        case '5s': return 5000;
+        case '15s': return 15000;
+        case '1m': return 60000;
+        case '5m': return 300000;
+        default: return 60000;
+      }
+    };
+    
+    const intervalMs = getIntervalMs();
+    
+    // For demo, create new candles faster (every 3-5 seconds for visual effect)
+    const demoIntervalMs = Math.min(intervalMs, 4000);
+    
+    candleIntervalRef.current = setInterval(() => {
+      setChartData(prevData => {
+        if (prevData.length === 0) return prevData;
+        
+        const lastCandle = prevData[prevData.length - 1];
+        const newTime = lastCandle.time + Math.floor(demoIntervalMs / 1000);
+        
+        // Create new candle starting from last close price
+        const newCandle = {
+          time: newTime,
+          open: lastCandle.close,
+          high: lastCandle.close,
+          low: lastCandle.close,
+          close: lastCandle.close,
+        };
+        
+        // Keep max 500 candles, remove oldest if needed
+        const newData = [...prevData, newCandle];
+        if (newData.length > 500) {
+          newData.shift();
+        }
+        
+        return newData;
+      });
+    }, demoIntervalMs);
+    
+    return () => {
+      if (candleIntervalRef.current) {
+        clearInterval(candleIntervalRef.current);
+      }
+    };
+  }, [interval]);
+
   // Call onPriceUpdate when price changes
   useEffect(() => {
     if (onPriceUpdate) {
@@ -237,7 +290,11 @@ export default function TradingViewChart({
     const barSpacing = 2 * scale;
     const totalBarWidth = baseBarWidth + barSpacing;
     const visibleCandles = Math.floor(chartWidth / totalBarWidth);
-    const startIndex = Math.max(0, chartData.length - visibleCandles + Math.floor(scrollOffset / totalBarWidth));
+    
+    // scrollOffset: positive = show older data (scroll left on chart), negative = show newer data
+    const scrollCandles = Math.floor(scrollOffset / totalBarWidth);
+    const baseStartIndex = chartData.length - visibleCandles;
+    const startIndex = Math.max(0, Math.min(chartData.length - visibleCandles, baseStartIndex - scrollCandles));
     const endIndex = Math.min(chartData.length, startIndex + visibleCandles + 2);
     const visibleData = chartData.slice(startIndex, endIndex);
     
@@ -422,8 +479,8 @@ export default function TradingViewChart({
               const delta = e.deltaY > 0 ? 0.9 : 1.1;
               setScale(prev => Math.max(0.5, Math.min(3, prev * delta)));
             } else {
-              // Scroll
-              setScrollOffset(prev => prev - e.deltaX - e.deltaY);
+              // Scroll - wheel up/left = see older, wheel down/right = see newer
+              setScrollOffset(prev => prev + e.deltaY * 0.5);
             }
           }}
           onMouseDown={(e: any) => {
@@ -432,6 +489,8 @@ export default function TradingViewChart({
             
             const onMouseMove = (moveE: any) => {
               const diff = moveE.clientX - startX;
+              // Drag RIGHT (positive diff) = swipe right = see older data = increase offset
+              // Drag LEFT (negative diff) = swipe left = see newer data = decrease offset
               setScrollOffset(startOffset + diff);
             };
             
@@ -451,6 +510,7 @@ export default function TradingViewChart({
               const onTouchMove = (moveE: any) => {
                 if (moveE.touches.length === 1) {
                   const diff = moveE.touches[0].clientX - startX;
+                  // Same as mouse: drag right = see older, drag left = see newer
                   setScrollOffset(startOffset + diff);
                 }
               };
