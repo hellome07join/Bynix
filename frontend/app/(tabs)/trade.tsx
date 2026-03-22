@@ -75,6 +75,8 @@ export default function Trade() {
   const [showAssetPicker, setShowAssetPicker] = useState(false);
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showToolsModal, setShowToolsModal] = useState(false);
+  const [selectedDrawTool, setSelectedDrawTool] = useState<string | null>(null);
   const [customMinutes, setCustomMinutes] = useState('1');
   const [customSeconds, setCustomSeconds] = useState('0');
   const [demoAddAmount, setDemoAddAmount] = useState('1000');
@@ -425,25 +427,39 @@ export default function Trade() {
           )}
         </View>
 
-        {/* Timeframe Selector */}
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          style={styles.timeframeScroll}
-          contentContainerStyle={styles.timeframeContent}
-        >
-          {TIMEFRAMES.map((tf) => (
-            <TouchableOpacity
-              key={tf.value}
-              style={[styles.timeframeChip, timeframe === tf.value && styles.timeframeActive]}
-              onPress={() => setTimeframe(tf.value)}
-            >
-              <Text style={[styles.timeframeText, timeframe === tf.value && styles.timeframeTextActive]}>
-                {tf.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        {/* Tools Bar - Replaces Timeframe Selector */}
+        <View style={styles.toolsBar}>
+          {/* Tools Button */}
+          <TouchableOpacity 
+            style={styles.toolsBtn}
+            onPress={() => setShowToolsModal(true)}
+          >
+            <Ionicons name="construct" size={16} color="#FFB800" />
+            <Text style={styles.toolsBtnText}>Tools</Text>
+          </TouchableOpacity>
+
+          {/* Timeframe Chips */}
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.timeframeContent}
+          >
+            {TIMEFRAMES.map((tf) => (
+              <TouchableOpacity
+                key={tf.value}
+                style={[styles.timeframeChip, timeframe === tf.value && styles.timeframeActive]}
+                onPress={() => {
+                  setTimeframe(tf.value);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+              >
+                <Text style={[styles.timeframeText, timeframe === tf.value && styles.timeframeTextActive]}>
+                  {tf.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
 
         {/* Active Trade Info - Shows in chart area when trade is active */}
         {activeTrade && (
@@ -787,6 +803,124 @@ export default function Trade() {
         </View>
       </Modal>
 
+      {/* Tools Modal */}
+      <Modal
+        visible={showToolsModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowToolsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Chart Tools</Text>
+              <TouchableOpacity onPress={() => setShowToolsModal(false)}>
+                <Ionicons name="close-circle" size={28} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Candle Time Section */}
+            <View style={styles.toolsSection}>
+              <Text style={styles.toolsSectionTitle}>Candle Time</Text>
+              <View style={styles.candleTimeGrid}>
+                {TIMEFRAMES.map((tf) => (
+                  <TouchableOpacity
+                    key={tf.value}
+                    style={[styles.candleTimeItem, timeframe === tf.value && styles.candleTimeItemActive]}
+                    onPress={() => {
+                      setTimeframe(tf.value);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                  >
+                    <Text style={[styles.candleTimeText, timeframe === tf.value && styles.candleTimeTextActive]}>
+                      {tf.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Drawing Tools Section */}
+            <View style={styles.toolsSection}>
+              <Text style={styles.toolsSectionTitle}>Drawing Tools</Text>
+              <View style={styles.drawToolsGrid}>
+                {/* Horizontal Line */}
+                <TouchableOpacity
+                  style={[styles.drawToolItem, selectedDrawTool === 'horizontal' && styles.drawToolItemActive]}
+                  onPress={() => {
+                    setSelectedDrawTool(selectedDrawTool === 'horizontal' ? null : 'horizontal');
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    Alert.alert('Horizontal Line', 'Tap on the chart to draw a horizontal line.');
+                    setShowToolsModal(false);
+                  }}
+                >
+                  <View style={styles.drawToolIcon}>
+                    <Ionicons name="remove" size={24} color={selectedDrawTool === 'horizontal' ? '#FFB800' : '#FFFFFF'} />
+                  </View>
+                  <Text style={[styles.drawToolText, selectedDrawTool === 'horizontal' && styles.drawToolTextActive]}>
+                    Horizontal Line
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Trend Line */}
+                <TouchableOpacity
+                  style={[styles.drawToolItem, selectedDrawTool === 'trendline' && styles.drawToolItemActive]}
+                  onPress={() => {
+                    setSelectedDrawTool(selectedDrawTool === 'trendline' ? null : 'trendline');
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    Alert.alert('Trend Line', 'Tap two points on the chart to draw a trend line.');
+                    setShowToolsModal(false);
+                  }}
+                >
+                  <View style={styles.drawToolIcon}>
+                    <Ionicons name="trending-up" size={24} color={selectedDrawTool === 'trendline' ? '#FFB800' : '#FFFFFF'} />
+                  </View>
+                  <Text style={[styles.drawToolText, selectedDrawTool === 'trendline' && styles.drawToolTextActive]}>
+                    Trend Line
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Vertical Line */}
+                <TouchableOpacity
+                  style={[styles.drawToolItem, selectedDrawTool === 'vertical' && styles.drawToolItemActive]}
+                  onPress={() => {
+                    setSelectedDrawTool(selectedDrawTool === 'vertical' ? null : 'vertical');
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    Alert.alert('Vertical Line', 'Tap on the chart to draw a vertical line.');
+                    setShowToolsModal(false);
+                  }}
+                >
+                  <View style={styles.drawToolIcon}>
+                    <View style={styles.verticalLineIcon} />
+                  </View>
+                  <Text style={[styles.drawToolText, selectedDrawTool === 'vertical' && styles.drawToolTextActive]}>
+                    Vertical Line
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Clear All */}
+                <TouchableOpacity
+                  style={styles.drawToolItem}
+                  onPress={() => {
+                    setSelectedDrawTool(null);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                    Alert.alert('Clear Drawings', 'All drawings have been cleared.');
+                    setShowToolsModal(false);
+                  }}
+                >
+                  <View style={[styles.drawToolIcon, { backgroundColor: 'rgba(255, 59, 59, 0.15)' }]}>
+                    <Ionicons name="trash" size={24} color="#FF3B3B" />
+                  </View>
+                  <Text style={[styles.drawToolText, { color: '#FF3B3B' }]}>
+                    Clear All
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Trade Result Popup */}
       {showResult && tradeResult && (
         <Animated.View 
@@ -1055,6 +1189,107 @@ const styles = StyleSheet.create({
   },
   timeframeTextActive: {
     color: '#0A0E27',
+  },
+  toolsBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(15, 20, 40, 0.95)',
+    gap: 8,
+  },
+  toolsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 184, 0, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 184, 0, 0.3)',
+  },
+  toolsBtnText: {
+    color: '#FFB800',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  toolsSection: {
+    marginBottom: 20,
+  },
+  toolsSectionTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  candleTimeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  candleTimeItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  candleTimeItemActive: {
+    backgroundColor: 'rgba(0, 215, 163, 0.2)',
+    borderColor: '#00D7A3',
+  },
+  candleTimeText: {
+    color: '#888',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  candleTimeTextActive: {
+    color: '#00D7A3',
+  },
+  drawToolsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  drawToolItem: {
+    width: '47%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    padding: 12,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  drawToolItemActive: {
+    borderColor: 'rgba(255, 184, 0, 0.5)',
+    backgroundColor: 'rgba(255, 184, 0, 0.1)',
+  },
+  drawToolIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  drawToolText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
+  drawToolTextActive: {
+    color: '#FFB800',
+  },
+  verticalLineIcon: {
+    width: 2,
+    height: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 1,
   },
   bottomPanel: {
     backgroundColor: 'rgba(15, 20, 40, 0.98)',
