@@ -469,17 +469,6 @@ export default function Trade() {
           <Text style={styles.profitPreviewValue}>${potentialProfit.toFixed(2)}</Text>
         </View>
 
-        {/* Pending Trade Toggle */}
-        <View style={styles.pendingTradeRow}>
-          <Text style={styles.pendingTradeLabel}>Pending Trade</Text>
-          <Switch
-            value={pendingTradeMode}
-            onValueChange={setPendingTradeMode}
-            trackColor={{ false: '#3e3e3e', true: '#00D7A3' }}
-            thumbColor={pendingTradeMode ? '#FFFFFF' : '#f4f3f4'}
-          />
-        </View>
-
         {/* Trade Buttons */}
         <View style={styles.tradeButtons}>
           <TouchableOpacity
@@ -732,8 +721,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   chartWrapper: {
-    height: 320,
-    marginBottom: 8,
+    height: 200,
+    marginBottom: 4,
   },
   chartLoading: {
     flex: 1,
@@ -772,6 +761,7 @@ const styles = StyleSheet.create({
   tradingPanel: {
     flex: 1,
     paddingHorizontal: 16,
+    paddingBottom: 100,
   },
   payoutDisplay: {
     flexDirection: 'row',
@@ -779,9 +769,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(0, 215, 163, 0.1)',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderRadius: 12,
-    marginBottom: 16,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: 'rgba(0, 215, 163, 0.3)',
   },
@@ -797,7 +787,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   durationRow: {
-    marginBottom: 16,
+    marginBottom: 8,
   },
   labelText: {
     color: '#999',
@@ -830,7 +820,7 @@ const styles = StyleSheet.create({
     color: '#00D7A3',
   },
   amountSection: {
-    marginBottom: 16,
+    marginBottom: 8,
   },
   amountRow: {
     flexDirection: 'row',
@@ -880,9 +870,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 8,
     borderRadius: 12,
-    marginBottom: 16,
+    marginBottom: 8,
   },
   profitPreviewLabel: {
     color: '#999',
