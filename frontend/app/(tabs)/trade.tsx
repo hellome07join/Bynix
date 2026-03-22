@@ -324,7 +324,8 @@ export default function Trade() {
     const profitLoss = won ? activeTrade.amount * (payoutPercentage / 100) : -activeTrade.amount;
 
     // Update balance based on result
-    if (accountType === 'demo' || !token) {
+    if (accountType === 'demo') {
+      // Demo account balance update
       if (won) {
         // Add back the amount plus profit
         const winnings = activeTrade.amount + (activeTrade.amount * payoutPercentage / 100);
@@ -336,20 +337,25 @@ export default function Trade() {
         }
       }
       // If lost, amount was already deducted when placing the trade
-    } else if (token) {
-      // For real account with API
+    } else if (accountType === 'real') {
+      // Real account balance update
       if (won) {
         const winnings = activeTrade.amount + (activeTrade.amount * payoutPercentage / 100);
         if (user) {
           const newRealBalance = (user.real_balance || 0) + winnings;
-          updateBalance(user.demo_balance || 0, newRealBalance);
+          updateBalance(user.demo_balance || 10000, newRealBalance);
+          console.log(`Real account WIN: Added $${winnings.toFixed(2)} to balance. New balance: $${newRealBalance.toFixed(2)}`);
         }
+      } else {
+        console.log(`Real account LOSS: Lost $${activeTrade.amount}`);
       }
       // Try to call API but don't block on it
-      try {
-        await api.settleTrade(activeTrade.trade_id, currentPrice, token);
-      } catch (error: any) {
-        console.error('Error settling trade:', error);
+      if (token) {
+        try {
+          await api.settleTrade(activeTrade.trade_id, currentPrice, token);
+        } catch (error: any) {
+          console.error('Error settling trade:', error);
+        }
       }
     }
 
