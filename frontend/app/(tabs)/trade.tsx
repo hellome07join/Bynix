@@ -421,18 +421,26 @@ export default function Trade() {
     const trade = activeTrades.find(t => t.id === tradeId);
     if (!trade) return;
 
-    // RIGGED TRADE LOGIC:
-    // Demo account: 85% WIN rate (user wins most of the time to get hooked)
-    // Real account: 80% LOSS rate (platform always wins)
-    const randomValue = Math.random() * 100;
+    // PRICE-BASED TRADE LOGIC:
+    // UP (Call): Win if current price > entry price
+    // DOWN (Put): Win if current price < entry price
+    
+    const entryPrice = trade.entry_price;
+    const exitPrice = currentPrice;
+    
     let won: boolean;
     
-    if (accountType === 'demo') {
-      // Demo: 85% chance to WIN
-      won = randomValue < 85;
+    if (trade.type === 'call') {
+      // UP trade: Win if price went UP (current > entry)
+      won = exitPrice > entryPrice;
     } else {
-      // Real: 80% chance to LOSE (only 20% win)
-      won = randomValue < 20;
+      // DOWN trade: Win if price went DOWN (current < entry)
+      won = exitPrice < entryPrice;
+    }
+    
+    // If price is exactly the same (rare), consider it a loss
+    if (exitPrice === entryPrice) {
+      won = false;
     }
 
     const profitLoss = won ? trade.amount * (payoutPercentage / 100) : -trade.amount;
@@ -463,7 +471,7 @@ export default function Trade() {
       // Try to call API but don't block on it
       if (token && trade.trade_id) {
         try {
-          await api.settleTrade(trade.trade_id, currentPrice, token);
+          await api.settleTrade(trade.trade_id, exitPrice, token);
         } catch (error: any) {
           console.error('Error settling trade:', error);
         }
@@ -474,7 +482,7 @@ export default function Trade() {
       won,
       profitLoss,
       entryPrice: trade.entry_price,
-      exitPrice: currentPrice,
+      exitPrice: exitPrice,
     });
 
     showResultPopup();
