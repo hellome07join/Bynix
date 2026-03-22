@@ -198,7 +198,7 @@ backend:
 frontend:
   - task: "Authentication screens"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/frontend/app/(auth)/"
     stuck_count: 0
     priority: "high"
@@ -207,6 +207,9 @@ frontend:
       - working: "NA"
         agent: "main"
         comment: "Created welcome, login, signup, and OTP verification screens"
+      - working: true
+        agent: "testing"
+        comment: "Authentication screens working correctly: Welcome screen loads with proper UI elements, signup form accepts input, login form functions properly. Navigation between auth screens works as expected."
   
   - task: "Home dashboard"
     implemented: true
@@ -222,15 +225,18 @@ frontend:
   
   - task: "Trading terminal"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/frontend/app/(tabs)/trade.tsx"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
     needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Created trading terminal with live charts, Up/Down buttons, mock price updates, and trade execution"
+      - working: false
+        agent: "testing"
+        comment: "CRITICAL ISSUE IDENTIFIED: Trading terminal UI elements are present (EUR/USD selector, UP/DOWN buttons, investment input) but candlestick chart is completely missing (0 SVG elements found). ROOT CAUSE: Binance API calls blocked by CORS policy and WebSocket connections failing with error 451. Price stuck at $0.00. Console errors: 'Access to fetch at https://api.binance.com/api/v3/klines blocked by CORS policy' and 'WebSocket connection to wss://stream.binance.com:9443/ws/eurusdt@kline_1m failed: Unexpected response code: 451'. Chart component returns empty view when candles array is empty due to failed data fetching."
   
   - task: "Wallet screen"
     implemented: true
@@ -263,8 +269,10 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus: []
-  stuck_tasks: []
+  current_focus:
+    - "Trading terminal"
+  stuck_tasks:
+    - "Trading terminal"
   test_all: false
   test_priority: "high_first"
 
@@ -275,3 +283,5 @@ agent_communication:
     message: "Comprehensive backend testing completed successfully. All 15 test cases passed including authentication flow, trading operations, wallet functionality, assets management, and admin protection. Fixed one minor issue with settle trade endpoint to accept exit_price in request body. Backend APIs are fully functional and ready for frontend integration."
   - agent: "testing"
     message: "Quick authentication test completed successfully. Created test user (trader1774164420@bynix.com) with JWT token for frontend debugging. All authentication endpoints working correctly with production URL. Token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyXzY5ZjE0YzBlYmVmMSIsImV4cCI6MTc3NDc2OTIyMX0.tXdQV-jfixaDQ4tcMjcumdfWPfVq2qTkP4-AbwEatK8"
+  - agent: "testing"
+    message: "CRITICAL ISSUE IDENTIFIED in Trading Terminal: Comprehensive frontend testing completed. Authentication screens working correctly. Trading terminal UI elements are present (EUR/USD selector, UP/DOWN buttons, investment input) but candlestick chart is completely missing (0 SVG elements found). ROOT CAUSE: Binance API calls blocked by CORS policy ('Access to fetch at https://api.binance.com/api/v3/klines blocked by CORS policy') and WebSocket connections failing with error 451 ('WebSocket connection to wss://stream.binance.com:9443/ws/eurusdt@kline_1m failed'). Price stuck at $0.00. Chart component returns empty view when candles array is empty due to failed data fetching. SOLUTION NEEDED: Implement backend proxy for Binance API calls or use alternative data source that allows CORS."
