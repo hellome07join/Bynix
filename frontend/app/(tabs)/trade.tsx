@@ -44,18 +44,91 @@ const DURATIONS = [
   { label: '1h', seconds: 3600 },
 ];
 
-// OTC Markets Only - No Real Markets
-const ASSETS = [
-  { label: 'EUR/USD OTC', value: 'EUR/USD OTC', icon: '🇪🇺🇺🇸', payout: 92 },
-  { label: 'GBP/USD OTC', value: 'GBP/USD OTC', icon: '🇬🇧🇺🇸', payout: 90 },
-  { label: 'USD/JPY OTC', value: 'USD/JPY OTC', icon: '🇺🇸🇯🇵', payout: 88 },
-  { label: 'AUD/USD OTC', value: 'AUD/USD OTC', icon: '🇦🇺🇺🇸', payout: 87 },
-  { label: 'USD/CHF OTC', value: 'USD/CHF OTC', icon: '🇺🇸🇨🇭', payout: 86 },
-  { label: 'EUR/GBP OTC', value: 'EUR/GBP OTC', icon: '🇪🇺🇬🇧', payout: 85 },
-  { label: 'NZD/USD OTC', value: 'NZD/USD OTC', icon: '🇳🇿🇺🇸', payout: 84 },
-  { label: 'USD/CAD OTC', value: 'USD/CAD OTC', icon: '🇺🇸🇨🇦', payout: 83 },
-  { label: 'EUR/JPY OTC', value: 'EUR/JPY OTC', icon: '🇪🇺🇯🇵', payout: 82 },
-  { label: 'GBP/JPY OTC', value: 'GBP/JPY OTC', icon: '🇬🇧🇯🇵', payout: 81 },
+// Market Categories
+type MarketCategory = 'forex' | 'crypto' | 'stocks';
+
+interface Asset {
+  label: string;
+  value: string;
+  icon: string;
+  payout: number;
+  category: MarketCategory;
+  apiSymbol: string;
+}
+
+// Comprehensive Markets - Forex, Crypto, Stocks
+const MARKET_CATEGORIES = [
+  { id: 'forex', label: 'Forex', icon: '💱' },
+  { id: 'crypto', label: 'Crypto', icon: '₿' },
+  { id: 'stocks', label: 'Stocks', icon: '📈' },
+];
+
+const ASSETS: Asset[] = [
+  // FOREX MARKETS (20 pairs)
+  { label: 'EUR/USD', value: 'EUR/USD OTC', icon: '🇪🇺🇺🇸', payout: 92, category: 'forex', apiSymbol: 'EURUSD' },
+  { label: 'GBP/USD', value: 'GBP/USD OTC', icon: '🇬🇧🇺🇸', payout: 90, category: 'forex', apiSymbol: 'GBPUSD' },
+  { label: 'USD/JPY', value: 'USD/JPY OTC', icon: '🇺🇸🇯🇵', payout: 88, category: 'forex', apiSymbol: 'USDJPY' },
+  { label: 'AUD/USD', value: 'AUD/USD OTC', icon: '🇦🇺🇺🇸', payout: 87, category: 'forex', apiSymbol: 'AUDUSD' },
+  { label: 'USD/CHF', value: 'USD/CHF OTC', icon: '🇺🇸🇨🇭', payout: 86, category: 'forex', apiSymbol: 'USDCHF' },
+  { label: 'EUR/GBP', value: 'EUR/GBP OTC', icon: '🇪🇺🇬🇧', payout: 85, category: 'forex', apiSymbol: 'EURGBP' },
+  { label: 'NZD/USD', value: 'NZD/USD OTC', icon: '🇳🇿🇺🇸', payout: 84, category: 'forex', apiSymbol: 'NZDUSD' },
+  { label: 'USD/CAD', value: 'USD/CAD OTC', icon: '🇺🇸🇨🇦', payout: 83, category: 'forex', apiSymbol: 'USDCAD' },
+  { label: 'EUR/JPY', value: 'EUR/JPY OTC', icon: '🇪🇺🇯🇵', payout: 82, category: 'forex', apiSymbol: 'EURJPY' },
+  { label: 'GBP/JPY', value: 'GBP/JPY OTC', icon: '🇬🇧🇯🇵', payout: 81, category: 'forex', apiSymbol: 'GBPJPY' },
+  { label: 'EUR/AUD', value: 'EUR/AUD OTC', icon: '🇪🇺🇦🇺', payout: 80, category: 'forex', apiSymbol: 'EURAUD' },
+  { label: 'EUR/CAD', value: 'EUR/CAD OTC', icon: '🇪🇺🇨🇦', payout: 79, category: 'forex', apiSymbol: 'EURCAD' },
+  { label: 'EUR/CHF', value: 'EUR/CHF OTC', icon: '🇪🇺🇨🇭', payout: 78, category: 'forex', apiSymbol: 'EURCHF' },
+  { label: 'GBP/AUD', value: 'GBP/AUD OTC', icon: '🇬🇧🇦🇺', payout: 77, category: 'forex', apiSymbol: 'GBPAUD' },
+  { label: 'GBP/CAD', value: 'GBP/CAD OTC', icon: '🇬🇧🇨🇦', payout: 76, category: 'forex', apiSymbol: 'GBPCAD' },
+  { label: 'AUD/JPY', value: 'AUD/JPY OTC', icon: '🇦🇺🇯🇵', payout: 75, category: 'forex', apiSymbol: 'AUDJPY' },
+  { label: 'CHF/JPY', value: 'CHF/JPY OTC', icon: '🇨🇭🇯🇵', payout: 74, category: 'forex', apiSymbol: 'CHFJPY' },
+  { label: 'CAD/JPY', value: 'CAD/JPY OTC', icon: '🇨🇦🇯🇵', payout: 73, category: 'forex', apiSymbol: 'CADJPY' },
+  { label: 'NZD/JPY', value: 'NZD/JPY OTC', icon: '🇳🇿🇯🇵', payout: 72, category: 'forex', apiSymbol: 'NZDJPY' },
+  { label: 'AUD/NZD', value: 'AUD/NZD OTC', icon: '🇦🇺🇳🇿', payout: 71, category: 'forex', apiSymbol: 'AUDNZD' },
+  
+  // CRYPTOCURRENCY MARKETS (20 coins)
+  { label: 'BTC/USD', value: 'BTC/USD OTC', icon: '₿', payout: 95, category: 'crypto', apiSymbol: 'BTCUSD' },
+  { label: 'ETH/USD', value: 'ETH/USD OTC', icon: 'Ξ', payout: 93, category: 'crypto', apiSymbol: 'ETHUSD' },
+  { label: 'BNB/USD', value: 'BNB/USD OTC', icon: '🔶', payout: 91, category: 'crypto', apiSymbol: 'BNBUSD' },
+  { label: 'XRP/USD', value: 'XRP/USD OTC', icon: '✕', payout: 89, category: 'crypto', apiSymbol: 'XRPUSD' },
+  { label: 'SOL/USD', value: 'SOL/USD OTC', icon: '◎', payout: 88, category: 'crypto', apiSymbol: 'SOLUSD' },
+  { label: 'ADA/USD', value: 'ADA/USD OTC', icon: '₳', payout: 87, category: 'crypto', apiSymbol: 'ADAUSD' },
+  { label: 'DOGE/USD', value: 'DOGE/USD OTC', icon: '🐕', payout: 86, category: 'crypto', apiSymbol: 'DOGEUSD' },
+  { label: 'DOT/USD', value: 'DOT/USD OTC', icon: '●', payout: 85, category: 'crypto', apiSymbol: 'DOTUSD' },
+  { label: 'MATIC/USD', value: 'MATIC/USD OTC', icon: '⬡', payout: 84, category: 'crypto', apiSymbol: 'MATICUSD' },
+  { label: 'LTC/USD', value: 'LTC/USD OTC', icon: 'Ł', payout: 83, category: 'crypto', apiSymbol: 'LTCUSD' },
+  { label: 'AVAX/USD', value: 'AVAX/USD OTC', icon: '🔺', payout: 82, category: 'crypto', apiSymbol: 'AVAXUSD' },
+  { label: 'LINK/USD', value: 'LINK/USD OTC', icon: '⬡', payout: 81, category: 'crypto', apiSymbol: 'LINKUSD' },
+  { label: 'UNI/USD', value: 'UNI/USD OTC', icon: '🦄', payout: 80, category: 'crypto', apiSymbol: 'UNIUSD' },
+  { label: 'ATOM/USD', value: 'ATOM/USD OTC', icon: '⚛', payout: 79, category: 'crypto', apiSymbol: 'ATOMUSD' },
+  { label: 'XLM/USD', value: 'XLM/USD OTC', icon: '✦', payout: 78, category: 'crypto', apiSymbol: 'XLMUSD' },
+  { label: 'ETC/USD', value: 'ETC/USD OTC', icon: 'Ξc', payout: 77, category: 'crypto', apiSymbol: 'ETCUSD' },
+  { label: 'FIL/USD', value: 'FIL/USD OTC', icon: '⬡', payout: 76, category: 'crypto', apiSymbol: 'FILUSD' },
+  { label: 'TRX/USD', value: 'TRX/USD OTC', icon: '◈', payout: 75, category: 'crypto', apiSymbol: 'TRXUSD' },
+  { label: 'NEAR/USD', value: 'NEAR/USD OTC', icon: 'Ⓝ', payout: 74, category: 'crypto', apiSymbol: 'NEARUSD' },
+  { label: 'APT/USD', value: 'APT/USD OTC', icon: '🅰', payout: 73, category: 'crypto', apiSymbol: 'APTUSD' },
+  
+  // STOCK MARKETS (20 stocks)
+  { label: 'Apple', value: 'AAPL OTC', icon: '🍎', payout: 90, category: 'stocks', apiSymbol: 'AAPL' },
+  { label: 'Microsoft', value: 'MSFT OTC', icon: '🪟', payout: 89, category: 'stocks', apiSymbol: 'MSFT' },
+  { label: 'Google', value: 'GOOGL OTC', icon: '🔍', payout: 88, category: 'stocks', apiSymbol: 'GOOGL' },
+  { label: 'Amazon', value: 'AMZN OTC', icon: '📦', payout: 87, category: 'stocks', apiSymbol: 'AMZN' },
+  { label: 'Tesla', value: 'TSLA OTC', icon: '🚗', payout: 86, category: 'stocks', apiSymbol: 'TSLA' },
+  { label: 'Meta', value: 'META OTC', icon: '👤', payout: 85, category: 'stocks', apiSymbol: 'META' },
+  { label: 'NVIDIA', value: 'NVDA OTC', icon: '🎮', payout: 84, category: 'stocks', apiSymbol: 'NVDA' },
+  { label: 'Netflix', value: 'NFLX OTC', icon: '🎬', payout: 83, category: 'stocks', apiSymbol: 'NFLX' },
+  { label: 'AMD', value: 'AMD OTC', icon: '💻', payout: 82, category: 'stocks', apiSymbol: 'AMD' },
+  { label: 'Intel', value: 'INTC OTC', icon: '🔷', payout: 81, category: 'stocks', apiSymbol: 'INTC' },
+  { label: 'Disney', value: 'DIS OTC', icon: '🏰', payout: 80, category: 'stocks', apiSymbol: 'DIS' },
+  { label: 'Nike', value: 'NKE OTC', icon: '👟', payout: 79, category: 'stocks', apiSymbol: 'NKE' },
+  { label: 'Coca-Cola', value: 'KO OTC', icon: '🥤', payout: 78, category: 'stocks', apiSymbol: 'KO' },
+  { label: 'McDonald\'s', value: 'MCD OTC', icon: '🍔', payout: 77, category: 'stocks', apiSymbol: 'MCD' },
+  { label: 'Visa', value: 'V OTC', icon: '💳', payout: 76, category: 'stocks', apiSymbol: 'V' },
+  { label: 'JPMorgan', value: 'JPM OTC', icon: '🏦', payout: 75, category: 'stocks', apiSymbol: 'JPM' },
+  { label: 'Walmart', value: 'WMT OTC', icon: '🛒', payout: 74, category: 'stocks', apiSymbol: 'WMT' },
+  { label: 'Boeing', value: 'BA OTC', icon: '✈️', payout: 73, category: 'stocks', apiSymbol: 'BA' },
+  { label: 'Pfizer', value: 'PFE OTC', icon: '💊', payout: 72, category: 'stocks', apiSymbol: 'PFE' },
+  { label: 'Starbucks', value: 'SBUX OTC', icon: '☕', payout: 71, category: 'stocks', apiSymbol: 'SBUX' },
 ];
 
 export default function Trade() {
@@ -72,6 +145,7 @@ export default function Trade() {
   
   // Market data
   const [selectedAsset, setSelectedAsset] = useState('EUR/USD OTC');
+  const [selectedCategory, setSelectedCategory] = useState<MarketCategory>('forex');
   const [candles, setCandles] = useState<Candle[]>([]);
   const [currentPrice, setCurrentPrice] = useState(1.09);
   const [loading, setLoading] = useState(true);
@@ -647,33 +721,63 @@ export default function Trade() {
         onRequestClose={() => setShowAssetPicker(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { maxHeight: '80%' }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Asset</Text>
+              <Text style={styles.modalTitle}>Select Market</Text>
               <TouchableOpacity onPress={() => setShowAssetPicker(false)}>
                 <Ionicons name="close-circle" size={28} color="#666" />
               </TouchableOpacity>
             </View>
-            {ASSETS.map((asset) => (
-              <TouchableOpacity
-                key={asset.value}
-                style={styles.assetOption}
-                onPress={() => {
-                  setSelectedAsset(asset.value);
-                  setShowAssetPicker(false);
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }}
-              >
-                <Text style={styles.assetOptionIcon}>{asset.icon}</Text>
-                <View style={styles.assetOptionInfo}>
-                  <Text style={styles.assetOptionText}>{asset.label}</Text>
-                  <Text style={styles.assetOptionPayout}>Payout: {asset.payout}%</Text>
-                </View>
-                {selectedAsset === asset.value && (
-                  <Ionicons name="checkmark-circle" size={24} color="#00E55A" />
-                )}
-              </TouchableOpacity>
-            ))}
+            
+            {/* Category Tabs */}
+            <View style={styles.categoryTabs}>
+              {MARKET_CATEGORIES.map((cat) => (
+                <TouchableOpacity
+                  key={cat.id}
+                  style={[
+                    styles.categoryTab,
+                    selectedCategory === cat.id && styles.categoryTabActive
+                  ]}
+                  onPress={() => {
+                    setSelectedCategory(cat.id as MarketCategory);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <Text style={styles.categoryTabIcon}>{cat.icon}</Text>
+                  <Text style={[
+                    styles.categoryTabText,
+                    selectedCategory === cat.id && styles.categoryTabTextActive
+                  ]}>{cat.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            
+            {/* Asset List */}
+            <ScrollView style={styles.assetList} showsVerticalScrollIndicator={false}>
+              {ASSETS.filter(asset => asset.category === selectedCategory).map((asset) => (
+                <TouchableOpacity
+                  key={asset.value}
+                  style={[
+                    styles.assetOption,
+                    selectedAsset === asset.value && styles.assetOptionSelected
+                  ]}
+                  onPress={() => {
+                    setSelectedAsset(asset.value);
+                    setShowAssetPicker(false);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <Text style={styles.assetOptionIcon}>{asset.icon}</Text>
+                  <View style={styles.assetOptionInfo}>
+                    <Text style={styles.assetOptionText}>{asset.label}</Text>
+                    <Text style={styles.assetOptionPayout}>Payout: {asset.payout}%</Text>
+                  </View>
+                  {selectedAsset === asset.value && (
+                    <Ionicons name="checkmark-circle" size={24} color="#00E55A" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -2211,16 +2315,59 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
+  categoryTabs: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: 4,
+  },
+  categoryTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 10,
+    gap: 6,
+  },
+  categoryTabActive: {
+    backgroundColor: '#00E55A',
+  },
+  categoryTabIcon: {
+    fontSize: 16,
+  },
+  categoryTabText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#888',
+  },
+  categoryTabTextActive: {
+    color: '#FFFFFF',
+  },
+  assetList: {
+    maxHeight: 400,
+  },
   assetOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginBottom: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  assetOptionSelected: {
+    backgroundColor: 'rgba(0, 229, 90, 0.1)',
+    borderColor: 'rgba(0, 229, 90, 0.3)',
   },
   assetOptionIcon: {
     fontSize: 24,
     marginRight: 12,
+    width: 32,
+    textAlign: 'center',
   },
   assetOptionInfo: {
     flex: 1,
