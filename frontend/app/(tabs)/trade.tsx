@@ -477,9 +477,9 @@ export default function Trade() {
             disabled={!!activeTrade || loading}
             activeOpacity={0.85}
           >
-            <Ionicons name="arrow-up-circle" size={28} color="#FFFFFF" />
+            <Ionicons name="arrow-up" size={18} color="#FFFFFF" />
             <Text style={styles.tradeBtnText}>UP</Text>
-            <Text style={styles.payoutLabel}>{payoutPercentage}%</Text>
+            <Text style={styles.btnPayout}>{payoutPercentage}%</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -488,9 +488,9 @@ export default function Trade() {
             disabled={!!activeTrade || loading}
             activeOpacity={0.85}
           >
-            <Ionicons name="arrow-down-circle" size={28} color="#FFFFFF" />
+            <Ionicons name="arrow-down" size={18} color="#FFFFFF" />
             <Text style={styles.tradeBtnText}>DOWN</Text>
-            <Text style={styles.payoutLabel}>{payoutPercentage}%</Text>
+            <Text style={styles.btnPayout}>{payoutPercentage}%</Text>
           </TouchableOpacity>
         </View>
 
@@ -905,10 +905,12 @@ const styles = StyleSheet.create({
   },
   tradeBtn: {
     flex: 1,
-    paddingVertical: 18,
-    borderRadius: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
   },
   buyBtn: {
     backgroundColor: '#00D7A3',
@@ -921,10 +923,14 @@ const styles = StyleSheet.create({
   },
   tradeBtnText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '800',
-    marginTop: 4,
-    letterSpacing: 1,
+    letterSpacing: 0.5,
+  },
+  btnPayout: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 11,
+    fontWeight: '600',
   },
   activeTradeBox: {
     borderWidth: 2,
