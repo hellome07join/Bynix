@@ -76,6 +76,8 @@ export default function Trade() {
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showToolsModal, setShowToolsModal] = useState(false);
+  const [showTradeHistory, setShowTradeHistory] = useState(false);
+  const [tradeHistory, setTradeHistory] = useState<any[]>([]);
   const [selectedDrawTool, setSelectedDrawTool] = useState<string | null>(null);
   const [customMinutes, setCustomMinutes] = useState('1');
   const [customSeconds, setCustomSeconds] = useState('0');
@@ -427,7 +429,7 @@ export default function Trade() {
           )}
         </View>
 
-        {/* Tools Bar - Replaces Timeframe Selector */}
+        {/* Tools Bar */}
         <View style={styles.toolsBar}>
           {/* Tools Button */}
           <TouchableOpacity 
@@ -438,27 +440,19 @@ export default function Trade() {
             <Text style={styles.toolsBtnText}>Tools</Text>
           </TouchableOpacity>
 
-          {/* Timeframe Chips */}
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.timeframeContent}
+          {/* Trade History Button */}
+          <TouchableOpacity 
+            style={styles.tradeHistoryBtn}
+            onPress={() => setShowTradeHistory(true)}
           >
-            {TIMEFRAMES.map((tf) => (
-              <TouchableOpacity
-                key={tf.value}
-                style={[styles.timeframeChip, timeframe === tf.value && styles.timeframeActive]}
-                onPress={() => {
-                  setTimeframe(tf.value);
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }}
-              >
-                <Text style={[styles.timeframeText, timeframe === tf.value && styles.timeframeTextActive]}>
-                  {tf.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+            <Ionicons name="time" size={16} color="#00D7A3" />
+            <Text style={styles.tradeHistoryBtnText}>Trade History</Text>
+            {activeTrade && (
+              <View style={styles.runningBadge}>
+                <Text style={styles.runningBadgeText}>1</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
 
         {/* Active Trade Info - Shows in chart area when trade is active */}
@@ -921,6 +915,145 @@ export default function Trade() {
         </View>
       </Modal>
 
+      {/* Trade History Modal */}
+      <Modal
+        visible={showTradeHistory}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowTradeHistory(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '80%' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Trade History</Text>
+              <TouchableOpacity onPress={() => setShowTradeHistory(false)}>
+                <Ionicons name="close-circle" size={28} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Running Trade Section */}
+              {activeTrade && (
+                <View style={styles.historySection}>
+                  <View style={styles.historySectionHeader}>
+                    <View style={styles.runningDot} />
+                    <Text style={styles.historySectionTitle}>Running Trade</Text>
+                  </View>
+                  <View style={styles.tradeCard}>
+                    <View style={styles.tradeCardHeader}>
+                      <View style={styles.tradeAsset}>
+                        <Text style={styles.tradeAssetIcon}>{currentAsset.icon}</Text>
+                        <Text style={styles.tradeAssetName}>{selectedAsset}</Text>
+                      </View>
+                      <View style={[styles.directionBadge, activeTrade.trade_type === 'call' ? styles.directionUp : styles.directionDown]}>
+                        <Ionicons 
+                          name={activeTrade.trade_type === 'call' ? 'arrow-up' : 'arrow-down'} 
+                          size={12} 
+                          color="#FFFFFF" 
+                        />
+                        <Text style={styles.directionText}>
+                          {activeTrade.trade_type === 'call' ? 'UP' : 'DOWN'}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.tradeCardBody}>
+                      <View style={styles.tradeInfo}>
+                        <Text style={styles.tradeInfoLabel}>Entry Price</Text>
+                        <Text style={styles.tradeInfoValue}>${activeTrade.entry_price.toFixed(5)}</Text>
+                      </View>
+                      <View style={styles.tradeInfo}>
+                        <Text style={styles.tradeInfoLabel}>Amount</Text>
+                        <Text style={styles.tradeInfoValue}>${activeTrade.amount}</Text>
+                      </View>
+                      <View style={styles.tradeInfo}>
+                        <Text style={styles.tradeInfoLabel}>Time Left</Text>
+                        <Text style={[styles.tradeInfoValue, { color: '#FFB800' }]}>{countdown}s</Text>
+                      </View>
+                      <View style={styles.tradeInfo}>
+                        <Text style={styles.tradeInfoLabel}>Status</Text>
+                        <Text style={[styles.tradeInfoValue, isWinning ? { color: '#00D7A3' } : { color: '#FF3B3B' }]}>
+                          {isWinning ? 'WINNING' : 'LOSING'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* Previous Trades Section */}
+              <View style={styles.historySection}>
+                <Text style={styles.historySectionTitle}>Previous Trades</Text>
+                
+                {/* Demo Trade History */}
+                {[
+                  { id: 1, asset: 'EUR/USD', icon: '💶', type: 'call', entry: 1.08542, exit: 1.08621, amount: 100, profit: 81, status: 'won', time: '2 min ago' },
+                  { id: 2, asset: 'BTC/USD', icon: '₿', type: 'put', entry: 67234.50, exit: 67198.20, amount: 50, profit: 40.5, status: 'won', time: '5 min ago' },
+                  { id: 3, asset: 'EUR/USD', icon: '💶', type: 'call', entry: 1.08510, exit: 1.08495, amount: 100, profit: -100, status: 'lost', time: '8 min ago' },
+                  { id: 4, asset: 'GBP/USD', icon: '💷', type: 'put', entry: 1.26780, exit: 1.26695, amount: 200, profit: 162, status: 'won', time: '12 min ago' },
+                  { id: 5, asset: 'ETH/USD', icon: 'Ξ', type: 'call', entry: 3456.78, exit: 3449.20, amount: 75, profit: -75, status: 'lost', time: '15 min ago' },
+                ].map((trade) => (
+                  <View key={trade.id} style={styles.historyCard}>
+                    <View style={styles.historyCardLeft}>
+                      <View style={styles.historyAsset}>
+                        <Text style={styles.historyAssetIcon}>{trade.icon}</Text>
+                        <View>
+                          <Text style={styles.historyAssetName}>{trade.asset}</Text>
+                          <Text style={styles.historyTime}>{trade.time}</Text>
+                        </View>
+                      </View>
+                    </View>
+                    <View style={styles.historyCardCenter}>
+                      <View style={[styles.historyDirection, trade.type === 'call' ? styles.directionUp : styles.directionDown]}>
+                        <Ionicons 
+                          name={trade.type === 'call' ? 'arrow-up' : 'arrow-down'} 
+                          size={10} 
+                          color="#FFFFFF" 
+                        />
+                      </View>
+                      <Text style={styles.historyAmount}>${trade.amount}</Text>
+                    </View>
+                    <View style={styles.historyCardRight}>
+                      <Text style={[
+                        styles.historyProfit, 
+                        trade.status === 'won' ? { color: '#00D7A3' } : { color: '#FF3B3B' }
+                      ]}>
+                        {trade.profit > 0 ? '+' : ''}${trade.profit.toFixed(2)}
+                      </Text>
+                      <Text style={[
+                        styles.historyStatus, 
+                        trade.status === 'won' ? { color: '#00D7A3' } : { color: '#FF3B3B' }
+                      ]}>
+                        {trade.status.toUpperCase()}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+
+              {/* Summary Section */}
+              <View style={styles.historySummary}>
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryLabel}>Total Trades</Text>
+                  <Text style={styles.summaryValue}>5</Text>
+                </View>
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryLabel}>Won</Text>
+                  <Text style={[styles.summaryValue, { color: '#00D7A3' }]}>3</Text>
+                </View>
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryLabel}>Lost</Text>
+                  <Text style={[styles.summaryValue, { color: '#FF3B3B' }]}>2</Text>
+                </View>
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryLabel}>Net P&L</Text>
+                  <Text style={[styles.summaryValue, { color: '#00D7A3' }]}>+$108.50</Text>
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       {/* Trade Result Popup */}
       {showResult && tradeResult && (
         <Animated.View 
@@ -1213,6 +1346,197 @@ const styles = StyleSheet.create({
     color: '#FFB800',
     fontSize: 12,
     fontWeight: '700',
+  },
+  tradeHistoryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 215, 163, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 215, 163, 0.3)',
+  },
+  tradeHistoryBtnText: {
+    color: '#00D7A3',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  runningBadge: {
+    backgroundColor: '#FFB800',
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  runningBadgeText: {
+    color: '#0A0E27',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  historySection: {
+    marginBottom: 20,
+  },
+  historySectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  runningDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#00D7A3',
+  },
+  historySectionTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  tradeCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 215, 163, 0.3)',
+  },
+  tradeCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  tradeAsset: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  tradeAssetIcon: {
+    fontSize: 20,
+  },
+  tradeAssetName: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  directionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  directionUp: {
+    backgroundColor: '#00D7A3',
+  },
+  directionDown: {
+    backgroundColor: '#FF3B3B',
+  },
+  directionText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  tradeCardBody: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  tradeInfo: {
+    width: '45%',
+  },
+  tradeInfoLabel: {
+    color: '#666',
+    fontSize: 11,
+    marginBottom: 2,
+  },
+  tradeInfoValue: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  historyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  historyCardLeft: {
+    flex: 1,
+  },
+  historyAsset: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  historyAssetIcon: {
+    fontSize: 18,
+  },
+  historyAssetName: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  historyTime: {
+    color: '#666',
+    fontSize: 10,
+  },
+  historyCardCenter: {
+    alignItems: 'center',
+    marginHorizontal: 12,
+  },
+  historyDirection: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  historyAmount: {
+    color: '#888',
+    fontSize: 11,
+  },
+  historyCardRight: {
+    alignItems: 'flex-end',
+  },
+  historyProfit: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  historyStatus: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  historySummary: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  summaryItem: {
+    alignItems: 'center',
+  },
+  summaryLabel: {
+    color: '#666',
+    fontSize: 10,
+    marginBottom: 4,
+  },
+  summaryValue: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
   },
   toolsSection: {
     marginBottom: 20,
