@@ -441,18 +441,51 @@ export default function Trade() {
 
   const balance = accountType === 'demo' ? user?.demo_balance : user?.real_balance;
 
+  // Deposit button animation
+  const depositPulseAnim = useRef(new Animated.Value(1)).current;
+  
+  useEffect(() => {
+    // Pulsing animation for deposit button
+    const pulseAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(depositPulseAnim, {
+          toValue: 1.08,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(depositPulseAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulseAnimation.start();
+    return () => pulseAnimation.stop();
+  }, []);
+
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        {/* Deposit Button - Left */}
-        <TouchableOpacity 
-          style={styles.depositButton}
-          onPress={() => router.push('/(tabs)/wallet')}
-        >
-          <Ionicons name="add-circle" size={18} color="#00E55A" />
-          <Text style={styles.depositText}>Deposit</Text>
-        </TouchableOpacity>
+        {/* Left Side - Notification and Deposit */}
+        <View style={styles.headerLeft}>
+          <TouchableOpacity style={styles.notifButton}>
+            <Ionicons name="notifications" size={20} color="#FFFFFF" />
+            <View style={styles.notifBadge} />
+          </TouchableOpacity>
+
+          {/* Animated Deposit Button */}
+          <Animated.View style={{ transform: [{ scale: depositPulseAnim }] }}>
+            <TouchableOpacity 
+              style={styles.depositButtonAnimated}
+              onPress={() => router.push('/(tabs)/wallet')}
+            >
+              <Ionicons name="add-circle" size={18} color="#FFFFFF" />
+              <Text style={styles.depositTextAnimated}>Deposit</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
 
         {/* Logo - Absolute Center */}
         <View style={styles.headerLogoContainer}>
@@ -463,24 +496,17 @@ export default function Trade() {
           />
         </View>
 
-        {/* Right Side - Balance and Notification */}
-        <View style={styles.headerRight}>
-          <TouchableOpacity 
-            style={[styles.balanceButton, accountType === 'demo' ? styles.demoBalance : styles.realBalance]}
-            onPress={() => setShowAccountPicker(true)}
-          >
-            <Ionicons name="wallet" size={16} color={accountType === 'demo' ? '#FF3B3B' : '#FFB800'} />
-            <Text style={[styles.balanceText, accountType === 'demo' ? styles.demoBalanceText : styles.realBalanceText]}>
-              ${currentBalance.toFixed(2)}
-            </Text>
-            <Ionicons name="chevron-down" size={12} color={accountType === 'demo' ? '#FF3B3B' : '#FFB800'} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.notifButton}>
-            <Ionicons name="notifications" size={20} color="#FFFFFF" />
-            <View style={styles.notifBadge} />
-          </TouchableOpacity>
-        </View>
+        {/* Right Side - Balance */}
+        <TouchableOpacity 
+          style={[styles.balanceButton, accountType === 'demo' ? styles.demoBalance : styles.realBalance]}
+          onPress={() => setShowAccountPicker(true)}
+        >
+          <Ionicons name="wallet" size={16} color={accountType === 'demo' ? '#FF3B3B' : '#FFB800'} />
+          <Text style={[styles.balanceText, accountType === 'demo' ? styles.demoBalanceText : styles.realBalanceText]}>
+            ${currentBalance.toFixed(2)}
+          </Text>
+          <Ionicons name="chevron-down" size={12} color={accountType === 'demo' ? '#FF3B3B' : '#FFB800'} />
+        </TouchableOpacity>
       </View>
 
       {/* Chart Area - Takes remaining space */}
@@ -1174,6 +1200,11 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1188,8 +1219,36 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     gap: 4,
   },
+  depositButtonAnimated: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#00E55A',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 6,
+    shadowColor: '#00E55A',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  depositText: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 229, 90, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 4,
+  },
   depositText: {
     color: '#00E55A',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  depositTextAnimated: {
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
   },
