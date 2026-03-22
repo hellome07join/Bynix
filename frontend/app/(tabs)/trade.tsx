@@ -534,9 +534,9 @@ export default function Trade() {
           style={styles.setTimeBtn}
           onPress={() => setShowTimePicker(true)}
         >
-          <Ionicons name="time" size={16} color="#00E55A" />
+          <Ionicons name="time" size={16} color="#FFB800" />
           <Text style={styles.setTimeText}>{formatDuration(duration)}</Text>
-          <Ionicons name="chevron-down" size={14} color="#00E55A" />
+          <Ionicons name="chevron-down" size={14} color="#FFB800" />
         </TouchableOpacity>
 
         {/* Tools Button */}
@@ -553,7 +553,7 @@ export default function Trade() {
           style={styles.tradeHistoryBtn}
           onPress={() => setShowTradeHistory(true)}
         >
-          <Ionicons name="time" size={16} color="#00E55A" />
+          <Ionicons name="time" size={16} color="#FFB800" />
           <Text style={styles.tradeHistoryBtnText}>Trade History</Text>
           {activeTrade && (
             <View style={styles.runningBadge}>
@@ -568,7 +568,7 @@ export default function Trade() {
           onPress={() => setShowAssetPicker(true)}
         >
           <Text style={styles.marketSelectIcon}>{currentAsset.icon}</Text>
-          <Ionicons name="chevron-down" size={14} color="#00E55A" />
+          <Ionicons name="chevron-down" size={14} color="#FFB800" />
         </TouchableOpacity>
       </View>
 
@@ -1484,29 +1484,29 @@ const styles = StyleSheet.create({
   tradeHistoryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 229, 90, 0.15)',
+    backgroundColor: 'rgba(255, 184, 0, 0.15)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
     gap: 6,
     borderWidth: 1,
-    borderColor: 'rgba(0, 229, 90, 0.3)',
+    borderColor: 'rgba(255, 184, 0, 0.3)',
   },
   tradeHistoryBtnText: {
-    color: '#00E55A',
+    color: '#FFB800',
     fontSize: 12,
     fontWeight: '700',
   },
   marketSelectBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 229, 90, 0.15)',
+    backgroundColor: 'rgba(255, 184, 0, 0.15)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
     gap: 4,
     borderWidth: 1,
-    borderColor: 'rgba(0, 229, 90, 0.3)',
+    borderColor: 'rgba(255, 184, 0, 0.3)',
   },
   marketSelectIcon: {
     fontSize: 16,
@@ -1809,16 +1809,16 @@ const styles = StyleSheet.create({
   setTimeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 229, 90, 0.15)',
+    backgroundColor: 'rgba(255, 184, 0, 0.15)',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
     gap: 4,
     borderWidth: 1,
-    borderColor: 'rgba(0, 229, 90, 0.3)',
+    borderColor: 'rgba(255, 184, 0, 0.3)',
   },
   setTimeText: {
-    color: '#00E55A',
+    color: '#FFB800',
     fontSize: 12,
     fontWeight: '700',
   },
