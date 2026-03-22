@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, Text, Platform, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Text, Platform, ActivityIndicator, PanResponder, Dimensions } from 'react-native';
 
 interface TradeMarker {
   id: string;
@@ -15,7 +15,7 @@ interface TradingViewChartProps {
   theme?: 'dark' | 'light';
   currentPrice?: number;
   chartType?: 'candle' | 'line' | 'bar';
-  tradeMarkers?: TradeMarker[];  // Changed to array for multiple trades
+  tradeMarkers?: TradeMarker[];
   onPriceUpdate?: (price: number) => void;
 }
 
@@ -29,14 +29,17 @@ export default function TradingViewChart({
   theme = 'dark',
   currentPrice,
   chartType = 'candle',
-  tradeMarkers = [],  // Array of markers
+  tradeMarkers = [],
   onPriceUpdate
 }: TradingViewChartProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [internalPrice, setInternalPrice] = useState(currentPrice || 1.0850);
   const [chartData, setChartData] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [scrollOffset, setScrollOffset] = useState(0);
+  const [scale, setScale] = useState(1);
   const priceTickerRef = useRef<any>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   
   // Convert symbol for API (e.g., "EUR/USD OTC" -> "EURUSD")
   const apiSymbol = symbol.replace(' OTC', '').replace('/', '');
@@ -53,6 +56,8 @@ export default function TradingViewChart({
     if (asset.includes('USD/CAD')) return 1.3550;
     if (asset.includes('EUR/JPY')) return 162.50;
     if (asset.includes('GBP/JPY')) return 189.50;
+    if (asset.includes('BTC')) return 67500;
+    if (asset.includes('ETH')) return 3500;
     return 1.0850;
   }, []);
 
@@ -62,15 +67,16 @@ export default function TradingViewChart({
       setIsLoading(true);
       setError(null);
       
-      // Calculate date range (last 7 days)
       const toDate = new Date();
       const fromDate = new Date();
       fromDate.setDate(fromDate.getDate() - 7);
       
       const formatDate = (date: Date) => date.toISOString().split('T')[0];
       
-      // Map interval to Finage format
       const intervalMap: Record<string, { multiply: number; time: string }> = {
+        '1s': { multiply: 1, time: 'minute' },
+        '5s': { multiply: 1, time: 'minute' },
+        '15s': { multiply: 1, time: 'minute' },
         '1m': { multiply: 1, time: 'minute' },
         '5m': { multiply: 5, time: 'minute' },
         '15m': { multiply: 15, time: 'minute' },
@@ -94,9 +100,8 @@ export default function TradingViewChart({
       const data = await response.json();
       
       if (data.results && data.results.length > 0) {
-        // Transform to Lightweight Charts format
         const candles = data.results.map((item: any) => ({
-          time: Math.floor(item.t / 1000), // Convert ms to seconds
+          time: Math.floor(item.t / 1000),
           open: item.o,
           high: item.h,
           low: item.l,
@@ -105,7 +110,6 @@ export default function TradingViewChart({
         
         setChartData(candles);
         
-        // Set initial price from last candle
         const lastCandle = candles[candles.length - 1];
         if (lastCandle) {
           setInternalPrice(lastCandle.close);
@@ -113,14 +117,12 @@ export default function TradingViewChart({
         
         console.log(`Loaded ${candles.length} candles from Finage`);
       } else {
-        // Fallback to generated data if API returns no results
         console.log('No data from API, using generated data');
         generateFallbackData();
       }
     } catch (err: any) {
       console.error('Finage API error:', err);
       setError(err.message);
-      // Use fallback data on error
       generateFallbackData();
     } finally {
       setIsLoading(false);
@@ -132,11 +134,11 @@ export default function TradingViewChart({
     const basePrice = getBasePrice(symbol);
     const candles = [];
     const now = Date.now();
-    const intervalMs = 60000; // 1 minute in ms
+    const intervalMs = 60000;
     
     let price = basePrice;
     
-    for (let i = 500; i >= 0; i--) {
+    for (let i = 200; i >= 0; i--) {
       const volatility = price * 0.001;
       const open = price;
       const change1 = (Math.random() - 0.5) * volatility * 2;
@@ -175,7 +177,6 @@ export default function TradingViewChart({
         const change = (Math.random() - 0.5) * volatility * 2;
         const newPrice = prev + change;
         
-        // Update last candle
         setChartData(prevData => {
           if (prevData.length === 0) return prevData;
           const newData = [...prevData];
@@ -205,257 +206,277 @@ export default function TradingViewChart({
     }
   }, [internalPrice]);
 
-  // Calculate dot position for a specific marker - STATIC position based on entry price
-  const calculateDotPosition = useCallback((marker: TradeMarker) => {
-    if (!marker || !internalPrice) return 50;
-    
-    // Calculate position based on entry price relative to current price range
-    // The position should be STATIC - only depends on the marker's entry price
-    const priceDiff = internalPrice - marker.entryPrice;
-    const percentChange = (priceDiff / marker.entryPrice) * 100;
-    const basePosition = 50;
-    const movement = percentChange * 200;
-    const newPosition = basePosition - movement;
-    
-    return Math.max(15, Math.min(85, newPosition));
-  }, [internalPrice]);
+  // Calculate marker position
+  const calculateMarkerPosition = useCallback((marker: TradeMarker, chartHeight: number, minPrice: number, maxPrice: number) => {
+    const priceRange = maxPrice - minPrice;
+    if (priceRange === 0) return chartHeight / 2;
+    const position = chartHeight - ((marker.entryPrice - minPrice) / priceRange) * chartHeight;
+    return Math.max(20, Math.min(chartHeight - 20, position));
+  }, []);
 
-  // Lightweight Charts HTML with Finage data
-  const getHtmlContent = () => {
-    const candleDataJson = JSON.stringify(chartData);
-    // Convert OHLC data to line data (close prices only)
-    const lineData = chartData.map(c => ({ time: c.time, value: c.close }));
-    const lineDataJson = JSON.stringify(lineData);
+  // Draw chart on canvas (Web only)
+  const drawChart = useCallback(() => {
+    if (Platform.OS !== 'web' || !canvasRef.current || chartData.length === 0) return;
     
-    return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-  <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background-color: #0A1A0F; touch-action: none; }
-    #chart { width: 100%; height: 100%; }
-  </style>
-</head>
-<body>
-  <div id="chart"></div>
-  <script>
-    (function() {
-      var chartContainer = document.getElementById('chart');
-      var width = window.innerWidth || 400;
-      var height = window.innerHeight || 400;
-      var chartType = '${chartType}';
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    const width = canvas.width;
+    const height = canvas.height;
+    const padding = { top: 20, right: 60, bottom: 30, left: 10 };
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+    
+    // Clear canvas
+    ctx.fillStyle = '#0A1A0F';
+    ctx.fillRect(0, 0, width, height);
+    
+    // Calculate visible candles based on scroll and scale
+    const baseBarWidth = 10 * scale;
+    const barSpacing = 2 * scale;
+    const totalBarWidth = baseBarWidth + barSpacing;
+    const visibleCandles = Math.floor(chartWidth / totalBarWidth);
+    const startIndex = Math.max(0, chartData.length - visibleCandles + Math.floor(scrollOffset / totalBarWidth));
+    const endIndex = Math.min(chartData.length, startIndex + visibleCandles + 2);
+    const visibleData = chartData.slice(startIndex, endIndex);
+    
+    if (visibleData.length === 0) return;
+    
+    // Calculate price range
+    let minPrice = Math.min(...visibleData.map(c => c.low));
+    let maxPrice = Math.max(...visibleData.map(c => c.high));
+    const priceRange = maxPrice - minPrice;
+    const pricePadding = priceRange * 0.1;
+    minPrice -= pricePadding;
+    maxPrice += pricePadding;
+    
+    // Draw grid lines
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 5; i++) {
+      const y = padding.top + (chartHeight / 5) * i;
+      ctx.beginPath();
+      ctx.moveTo(padding.left, y);
+      ctx.lineTo(width - padding.right, y);
+      ctx.stroke();
+    }
+    
+    // Draw candles
+    visibleData.forEach((candle, i) => {
+      const x = padding.left + i * totalBarWidth + scrollOffset % totalBarWidth + 15;
+      const isGreen = candle.close >= candle.open;
+      const color = isGreen ? '#00E55A' : '#FF3B3B';
       
-      var chart = LightweightCharts.createChart(chartContainer, {
-        width: width,
-        height: height,
-        layout: { background: { type: 'solid', color: '#0A1A0F' }, textColor: '#888888' },
-        grid: { vertLines: { color: 'rgba(255, 255, 255, 0.05)' }, horzLines: { color: 'rgba(255, 255, 255, 0.05)' } },
-        crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-        rightPriceScale: { borderColor: 'rgba(255, 255, 255, 0.1)', scaleMargins: { top: 0.1, bottom: 0.2 } },
-        timeScale: { 
-          borderColor: 'rgba(255, 255, 255, 0.1)', 
-          timeVisible: true, 
-          secondsVisible: false,
-          rightOffset: 5,
-          barSpacing: 8,
-          minBarSpacing: 2
-        },
-        handleScroll: {
-          mouseWheel: true,
-          pressedMouseMove: true,
-          horzTouchDrag: true,
-          vertTouchDrag: true
-        },
-        handleScale: {
-          axisPressedMouseMove: true,
-          mouseWheel: true,
-          pinch: true
-        }
-      });
-
-      var series;
-      var candleData = ${candleDataJson};
-      var lineData = ${lineDataJson};
-
+      const yOpen = padding.top + ((maxPrice - candle.open) / (maxPrice - minPrice)) * chartHeight;
+      const yClose = padding.top + ((maxPrice - candle.close) / (maxPrice - minPrice)) * chartHeight;
+      const yHigh = padding.top + ((maxPrice - candle.high) / (maxPrice - minPrice)) * chartHeight;
+      const yLow = padding.top + ((maxPrice - candle.low) / (maxPrice - minPrice)) * chartHeight;
+      
+      // Draw wick
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x + baseBarWidth / 2, yHigh);
+      ctx.lineTo(x + baseBarWidth / 2, yLow);
+      ctx.stroke();
+      
+      // Draw body
+      ctx.fillStyle = color;
+      const bodyTop = Math.min(yOpen, yClose);
+      const bodyHeight = Math.max(1, Math.abs(yClose - yOpen));
+      
       if (chartType === 'line') {
-        // Line Chart
-        series = chart.addLineSeries({
-          color: '#00E55A',
-          lineWidth: 2,
-          crosshairMarkerVisible: true,
-          crosshairMarkerRadius: 4,
-          crosshairMarkerBorderColor: '#FFFFFF',
-          crosshairMarkerBackgroundColor: '#00E55A'
-        });
-        if (lineData && lineData.length > 0) {
-          series.setData(lineData);
+        // Line chart
+        if (i === 0) {
+          ctx.beginPath();
+          ctx.moveTo(x + baseBarWidth / 2, yClose);
+        } else {
+          ctx.lineTo(x + baseBarWidth / 2, yClose);
+        }
+        if (i === visibleData.length - 1) {
+          ctx.strokeStyle = '#00E55A';
+          ctx.lineWidth = 2;
+          ctx.stroke();
         }
       } else if (chartType === 'bar') {
-        // Bar Chart (OHLC bars)
-        series = chart.addBarSeries({
-          upColor: '#00E55A',
-          downColor: '#FF3B3B'
-        });
-        if (candleData && candleData.length > 0) {
-          series.setData(candleData);
-        }
+        // Bar chart (OHLC)
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x, yOpen);
+        ctx.lineTo(x + baseBarWidth / 2, yOpen);
+        ctx.moveTo(x + baseBarWidth / 2, yHigh);
+        ctx.lineTo(x + baseBarWidth / 2, yLow);
+        ctx.moveTo(x + baseBarWidth / 2, yClose);
+        ctx.lineTo(x + baseBarWidth, yClose);
+        ctx.stroke();
       } else {
-        // Candlestick Chart (default)
-        series = chart.addCandlestickSeries({
-          upColor: '#00E55A',
-          downColor: '#FF3B3B',
-          borderDownColor: '#FF3B3B',
-          borderUpColor: '#00E55A',
-          wickDownColor: '#FF3B3B',
-          wickUpColor: '#00E55A'
-        });
-        if (candleData && candleData.length > 0) {
-          series.setData(candleData);
-        }
+        // Candle chart
+        ctx.fillRect(x, bodyTop, baseBarWidth, bodyHeight);
       }
+    });
+    
+    // Draw price scale on right
+    ctx.fillStyle = '#888';
+    ctx.font = '10px Arial';
+    ctx.textAlign = 'right';
+    for (let i = 0; i <= 5; i++) {
+      const price = maxPrice - ((maxPrice - minPrice) / 5) * i;
+      const y = padding.top + (chartHeight / 5) * i;
+      ctx.fillText(price.toFixed(5), width - 5, y + 4);
+    }
+    
+    // Draw current price line
+    const currentPriceY = padding.top + ((maxPrice - internalPrice) / (maxPrice - minPrice)) * chartHeight;
+    ctx.strokeStyle = '#00E55A';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(padding.left, currentPriceY);
+    ctx.lineTo(width - padding.right, currentPriceY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // Draw trade markers
+    tradeMarkers.forEach((marker) => {
+      const markerY = padding.top + ((maxPrice - marker.entryPrice) / (maxPrice - minPrice)) * chartHeight;
+      const markerColor = marker.type === 'call' ? '#00E55A' : '#FF6B6B';
+      
+      // Horizontal line
+      ctx.strokeStyle = markerColor;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 4]);
+      ctx.beginPath();
+      ctx.moveTo(padding.left, markerY);
+      ctx.lineTo(width - padding.right, markerY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      // Entry badge
+      ctx.fillStyle = markerColor;
+      ctx.beginPath();
+      ctx.roundRect(10, markerY - 12, 60, 24, 6);
+      ctx.fill();
+      
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 11px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText(`${marker.type === 'call' ? '↑' : '↓'} ${marker.amount || 0}$`, 16, markerY + 4);
+      
+      // Countdown timer
+      if (marker.remainingTime && marker.remainingTime > 0) {
+        const mins = Math.floor(marker.remainingTime / 60).toString().padStart(2, '0');
+        const secs = (marker.remainingTime % 60).toString().padStart(2, '0');
+        
+        ctx.fillStyle = 'rgba(0,0,0,0.8)';
+        ctx.beginPath();
+        ctx.roundRect(75, markerY - 12, 50, 24, 6);
+        ctx.fill();
+        
+        ctx.strokeStyle = markerColor;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 11px monospace';
+        ctx.fillText(`${mins}:${secs}`, 82, markerY + 4);
+      }
+      
+      // Position dot
+      ctx.fillStyle = markerColor;
+      ctx.beginPath();
+      ctx.arc(width - padding.right - 10, markerY, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
+    
+  }, [chartData, chartType, internalPrice, scrollOffset, scale, tradeMarkers]);
 
-      chart.timeScale().fitContent();
-      chart.timeScale().scrollToPosition(2, false);
+  // Redraw chart when data changes
+  useEffect(() => {
+    drawChart();
+  }, [drawChart]);
 
-      window.addEventListener('resize', function() {
-        chart.applyOptions({ width: window.innerWidth, height: window.innerHeight });
-      });
-    })();
-  </script>
-</body>
-</html>`;
-  };
-
-  // Web platform rendering
+  // Web platform rendering with Canvas
   if (Platform.OS === 'web') {
+    const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 390;
+    const chartHeight = 400;
+    
     return (
       <View style={styles.container}>
-        <div style={{ width: '100%', height: '100%', backgroundColor: '#0A1A0F', position: 'relative' }}>
-          {chartData.length > 0 ? (
-            <iframe
-              srcDoc={getHtmlContent()}
-              style={{ width: '100%', height: '100%', border: 'none', backgroundColor: '#0A1A0F' }}
-              sandbox="allow-scripts allow-same-origin"
-              onLoad={() => setIsLoading(false)}
-            />
-          ) : (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#00E55A' }}>
-              <Text style={styles.loadingText}>Loading Chart Data...</Text>
-            </div>
-          )}
-          
-          {isLoading && (
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: '#0A1A0F', zIndex: 10 }}>
+        <div 
+          style={{ 
+            width: '100%', 
+            height: '100%', 
+            backgroundColor: '#0A1A0F', 
+            position: 'relative',
+            touchAction: 'pan-x',
+            cursor: 'grab'
+          }}
+          onWheel={(e: any) => {
+            if (e.ctrlKey || e.metaKey) {
+              // Zoom
+              const delta = e.deltaY > 0 ? 0.9 : 1.1;
+              setScale(prev => Math.max(0.5, Math.min(3, prev * delta)));
+            } else {
+              // Scroll
+              setScrollOffset(prev => prev - e.deltaX - e.deltaY);
+            }
+          }}
+          onMouseDown={(e: any) => {
+            const startX = e.clientX;
+            const startOffset = scrollOffset;
+            
+            const onMouseMove = (moveE: any) => {
+              const diff = moveE.clientX - startX;
+              setScrollOffset(startOffset + diff);
+            };
+            
+            const onMouseUp = () => {
+              document.removeEventListener('mousemove', onMouseMove);
+              document.removeEventListener('mouseup', onMouseUp);
+            };
+            
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+          }}
+          onTouchStart={(e: any) => {
+            if (e.touches.length === 1) {
+              const startX = e.touches[0].clientX;
+              const startOffset = scrollOffset;
+              
+              const onTouchMove = (moveE: any) => {
+                if (moveE.touches.length === 1) {
+                  const diff = moveE.touches[0].clientX - startX;
+                  setScrollOffset(startOffset + diff);
+                }
+              };
+              
+              const onTouchEnd = () => {
+                document.removeEventListener('touchmove', onTouchMove);
+                document.removeEventListener('touchend', onTouchEnd);
+              };
+              
+              document.addEventListener('touchmove', onTouchMove, { passive: true });
+              document.addEventListener('touchend', onTouchEnd);
+            }
+          }}
+        >
+          {isLoading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
               <Text style={styles.loadingText}>Loading Chart...</Text>
             </div>
+          ) : (
+            <canvas
+              ref={canvasRef}
+              width={screenWidth}
+              height={chartHeight}
+              style={{ width: '100%', height: '100%' }}
+            />
           )}
-          
-          {/* Entry Position Markers - Render multiple trade markers */}
-          {tradeMarkers && tradeMarkers.map((marker, index) => {
-            const markerPosition = calculateDotPosition(marker);
-            return (
-              <React.Fragment key={marker.id || index}>
-                {/* Horizontal Entry Line - Full Width Dashed Line */}
-                <div style={{
-                  position: 'absolute',
-                  left: 0,
-                  right: 60,
-                  top: `${markerPosition}%`,
-                  height: 1,
-                  borderTop: `2px dashed ${marker.type === 'call' ? '#00E55A' : '#FF6B6B'}`,
-                  opacity: 0.7,
-                  zIndex: 50 + index,
-                  pointerEvents: 'none',
-                }} />
-                
-                {/* Entry Badge with Amount */}
-                <div style={{
-                  position: 'absolute',
-                  left: 10,
-                  top: `${markerPosition}%`,
-                  transform: 'translateY(-50%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  zIndex: 100 + index,
-                  pointerEvents: 'none',
-                }}>
-                  {/* Direction & Amount Badge */}
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    backgroundColor: marker.type === 'call' ? '#00E55A' : '#FF6B6B',
-                    padding: '6px 12px',
-                    borderRadius: 8,
-                    gap: 6,
-                    boxShadow: `0 2px 10px ${marker.type === 'call' ? 'rgba(0, 229, 90, 0.4)' : 'rgba(255, 107, 107, 0.4)'}`,
-                  }}>
-                    <span style={{ 
-                      fontSize: 14, 
-                      fontWeight: 700, 
-                      color: '#FFFFFF',
-                    }}>
-                      {marker.type === 'call' ? '↑' : '↓'}
-                    </span>
-                    <span style={{ 
-                      fontSize: 13, 
-                      fontWeight: 700, 
-                      color: '#FFFFFF',
-                    }}>
-                      {marker.amount ? `${marker.amount} $` : `${marker.entryPrice.toFixed(2)} $`}
-                    </span>
-                  </div>
-                  
-                  {/* Countdown Timer */}
-                  {marker.remainingTime !== undefined && marker.remainingTime > 0 && (
-                    <div style={{
-                      backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                      padding: '6px 10px',
-                      borderRadius: 8,
-                      border: `1px solid ${marker.type === 'call' ? '#00E55A' : '#FF6B6B'}`,
-                    }}>
-                      <span style={{ 
-                        fontSize: 13, 
-                        fontWeight: 700, 
-                        color: '#FFFFFF',
-                        fontFamily: 'monospace',
-                      }}>
-                        {Math.floor(marker.remainingTime / 60).toString().padStart(2, '0')}:{(marker.remainingTime % 60).toString().padStart(2, '0')}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Current Position Dot */}
-                <div style={{
-                  position: 'absolute',
-                  right: 65,
-                  top: `${markerPosition}%`,
-                  transform: 'translateY(-50%)',
-                  width: 12,
-                  height: 12,
-                  borderRadius: '50%',
-                  backgroundColor: marker.type === 'call' ? '#00E55A' : '#FF6B6B',
-                  border: '2px solid #FFFFFF',
-                  boxShadow: `0 0 12px ${marker.type === 'call' ? '#00E55A' : '#FF6B6B'}`,
-                  zIndex: 100 + index,
-                  pointerEvents: 'none',
-                  animation: 'pulse 1.5s ease-in-out infinite',
-                }} />
-              </React.Fragment>
-            );
-          })}
-          
-          {/* CSS Animation */}
-          <style>{`
-            @keyframes pulse {
-              0%, 100% { transform: translateY(-50%) scale(1); opacity: 1; }
-              50% { transform: translateY(-50%) scale(1.3); opacity: 0.8; }
-            }
-          `}</style>
         </div>
         
         {/* Current Price Overlay */}
