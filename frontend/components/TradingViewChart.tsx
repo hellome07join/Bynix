@@ -34,6 +34,40 @@ const FINAGE_API_URL = 'https://api.finage.co.uk';
 // Store base tick data globally to persist across re-renders
 const baseTickDataStore: { [symbol: string]: CandleData[] } = {};
 
+// LocalStorage key prefix
+const STORAGE_KEY_PREFIX = 'bynix_chart_data_';
+
+// Helper to save data to localStorage
+const saveToLocalStorage = (symbol: string, data: CandleData[]) => {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      // Only save last 1800 ticks to keep storage size manageable
+      const dataToSave = data.slice(-1800);
+      localStorage.setItem(STORAGE_KEY_PREFIX + symbol.replace(/[^a-zA-Z0-9]/g, '_'), JSON.stringify(dataToSave));
+    } catch (e) {
+      console.warn('Failed to save chart data to localStorage:', e);
+    }
+  }
+};
+
+// Helper to load data from localStorage
+const loadFromLocalStorage = (symbol: string): CandleData[] | null => {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_PREFIX + symbol.replace(/[^a-zA-Z0-9]/g, '_'));
+      if (stored) {
+        const data = JSON.parse(stored);
+        if (Array.isArray(data) && data.length > 0) {
+          return data;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load chart data from localStorage:', e);
+    }
+  }
+  return null;
+};
+
 export default function TradingViewChart({ 
   symbol = 'EUR/USD OTC', 
   interval = '1m',
@@ -93,9 +127,9 @@ export default function TradingViewChart({
 
   // Generate initial tick data (1-second base data)
   const generateInitialData = useCallback(() => {
-    // Check if we already have data for this symbol
+    // Check if we already have data in memory for this symbol
     if (baseTickDataStore[symbol] && baseTickDataStore[symbol].length > 0) {
-      console.log(`Using cached data for ${symbol}`);
+      console.log(`Using memory cached data for ${symbol}`);
       setBaseTickData(baseTickDataStore[symbol]);
       const lastTick = baseTickDataStore[symbol][baseTickDataStore[symbol].length - 1];
       setInternalPrice(lastTick.close);
@@ -103,6 +137,30 @@ export default function TradingViewChart({
       return;
     }
 
+    // Check localStorage for persisted data
+    const storedData = loadFromLocalStorage(symbol);
+    if (storedData && storedData.length > 0) {
+      console.log(`Loaded ${storedData.length} ticks from localStorage for ${symbol}`);
+      
+      // Update timestamps to be current (shift all times to now)
+      const now = Math.floor(Date.now() / 1000);
+      const lastStoredTime = storedData[storedData.length - 1].time;
+      const timeDiff = now - lastStoredTime;
+      
+      const updatedData = storedData.map(tick => ({
+        ...tick,
+        time: tick.time + timeDiff
+      }));
+      
+      baseTickDataStore[symbol] = updatedData;
+      setBaseTickData(updatedData);
+      const lastTick = updatedData[updatedData.length - 1];
+      setInternalPrice(lastTick.close);
+      setIsLoading(false);
+      return;
+    }
+
+    // Generate new data if nothing exists
     const basePrice = getBasePrice(symbol);
     const ticks: CandleData[] = [];
     const now = Date.now();
@@ -130,8 +188,9 @@ export default function TradingViewChart({
       price = close;
     }
     
-    // Store in global cache
+    // Store in global cache and localStorage
     baseTickDataStore[symbol] = ticks;
+    saveToLocalStorage(symbol, ticks);
     setBaseTickData(ticks);
     setInternalPrice(price);
     setIsLoading(false);
@@ -187,6 +246,7 @@ export default function TradingViewChart({
   }, [symbol]); // Only regenerate when symbol changes, NOT interval
 
   // Real-time price updates - add new tick every second
+  const saveCounterRef = useRef(0);
   useEffect(() => {
     priceTickerRef.current = setInterval(() => {
       setInternalPrice(prev => {
@@ -230,6 +290,13 @@ export default function TradingViewChart({
         // Update global cache
         baseTickDataStore[symbol] = newData;
         
+        // Save to localStorage every 10 seconds
+        saveCounterRef.current++;
+        if (saveCounterRef.current >= 10) {
+          saveCounterRef.current = 0;
+          saveToLocalStorage(symbol, newData);
+        }
+        
         return newData;
       });
     }, 1000);
@@ -237,6 +304,10 @@ export default function TradingViewChart({
     return () => {
       if (priceTickerRef.current) {
         clearInterval(priceTickerRef.current);
+      }
+      // Save on unmount
+      if (baseTickDataStore[symbol]) {
+        saveToLocalStorage(symbol, baseTickDataStore[symbol]);
       }
     };
   }, [symbol]);
