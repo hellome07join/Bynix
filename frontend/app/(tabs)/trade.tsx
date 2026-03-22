@@ -374,48 +374,71 @@ export default function Trade() {
         </TouchableOpacity>
       </View>
 
-      {/* Chart */}
-      <View style={styles.chartWrapper}>
-        {loading ? (
-          <View style={styles.chartLoading}>
-            <Text style={styles.loadingText}>Loading chart...</Text>
+      {/* Chart Area - Takes remaining space */}
+      <View style={styles.chartContainer}>
+        {/* Chart */}
+        <View style={styles.chartWrapper}>
+          {loading ? (
+            <View style={styles.chartLoading}>
+              <Text style={styles.loadingText}>Loading chart...</Text>
+            </View>
+          ) : (
+            <EnhancedCandlestickChart
+              candles={candles}
+              currentPrice={currentPrice}
+              tradeEntry={tradeEntry}
+              countdown={countdown}
+              tradeStartTime={tradeStartTime}
+              tradeEndTime={tradeEndTime}
+              isWinning={isWinning}
+            />
+          )}
+        </View>
+
+        {/* Timeframe Selector */}
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={styles.timeframeScroll}
+          contentContainerStyle={styles.timeframeContent}
+        >
+          {TIMEFRAMES.map((tf) => (
+            <TouchableOpacity
+              key={tf.value}
+              style={[styles.timeframeChip, timeframe === tf.value && styles.timeframeActive]}
+              onPress={() => setTimeframe(tf.value)}
+            >
+              <Text style={[styles.timeframeText, timeframe === tf.value && styles.timeframeTextActive]}>
+                {tf.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* Active Trade Info - Shows in chart area when trade is active */}
+        {activeTrade && (
+          <View style={[styles.activeTradeBox, isWinning ? styles.tradeWinning : styles.tradeLosing]}>
+            <View style={styles.tradeInfoRow}>
+              <Text style={styles.tradeInfoLabel}>Entry</Text>
+              <Text style={styles.tradeInfoValue}>${activeTrade.entry_price.toFixed(5)}</Text>
+            </View>
+            <View style={styles.tradeInfoRow}>
+              <Text style={styles.tradeInfoLabel}>Current</Text>
+              <Text style={styles.tradeInfoValue}>${currentPrice.toFixed(5)}</Text>
+            </View>
+            <View style={styles.tradeInfoRow}>
+              <Text style={styles.tradeInfoLabel}>Status</Text>
+              <Text style={[styles.statusText, isWinning ? styles.statusWin : styles.statusLoss]}>
+                {isWinning ? 'WINNING' : 'LOSING'}
+              </Text>
+            </View>
           </View>
-        ) : (
-          <EnhancedCandlestickChart
-            candles={candles}
-            currentPrice={currentPrice}
-            tradeEntry={tradeEntry}
-            countdown={countdown}
-            tradeStartTime={tradeStartTime}
-            tradeEndTime={tradeEndTime}
-            isWinning={isWinning}
-          />
         )}
       </View>
 
-      {/* Timeframe Selector */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        style={styles.timeframeScroll}
-        contentContainerStyle={styles.timeframeContent}
-      >
-        {TIMEFRAMES.map((tf) => (
-          <TouchableOpacity
-            key={tf.value}
-            style={[styles.timeframeChip, timeframe === tf.value && styles.timeframeActive]}
-            onPress={() => setTimeframe(tf.value)}
-          >
-            <Text style={[styles.timeframeText, timeframe === tf.value && styles.timeframeTextActive]}>
-              {tf.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Trading Panel */}
-      <ScrollView style={styles.tradingPanel}>
-      {/* Duration Selector */}
+      {/* Bottom Trading Panel - Fixed at bottom */}
+      <View style={styles.bottomPanel}>
+        {/* Duration Selector */}
         <View style={styles.durationRow}>
           <Text style={styles.labelText}>Duration</Text>
           <View style={styles.durationButtons}>
@@ -494,27 +517,7 @@ export default function Trade() {
             <Text style={styles.btnPayout}>{payoutPercentage}%</Text>
           </TouchableOpacity>
         </View>
-
-        {/* Active Trade Info */}
-        {activeTrade && (
-          <View style={[styles.activeTradeBox, isWinning ? styles.tradeWinning : styles.tradeLosing]}>
-            <View style={styles.tradeInfoRow}>
-              <Text style={styles.tradeInfoLabel}>Entry</Text>
-              <Text style={styles.tradeInfoValue}>${activeTrade.entry_price.toFixed(5)}</Text>
-            </View>
-            <View style={styles.tradeInfoRow}>
-              <Text style={styles.tradeInfoLabel}>Current</Text>
-              <Text style={styles.tradeInfoValue}>${currentPrice.toFixed(5)}</Text>
-            </View>
-            <View style={styles.tradeInfoRow}>
-              <Text style={styles.tradeInfoLabel}>Status</Text>
-              <Text style={[styles.statusText, isWinning ? styles.statusWin : styles.statusLoss]}>
-                {isWinning ? 'WINNING' : 'LOSING'}
-              </Text>
-            </View>
-          </View>
-        )}
-      </ScrollView>
+      </View>
 
       {/* Asset Picker Modal */}
       <Modal
@@ -891,8 +894,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+  chartContainer: {
+    flex: 1,
+  },
   chartWrapper: {
-    height: 200,
+    flex: 1,
     marginBottom: 4,
   },
   chartLoading: {
@@ -929,10 +935,13 @@ const styles = StyleSheet.create({
   timeframeTextActive: {
     color: '#0A0E27',
   },
-  tradingPanel: {
-    flex: 1,
+  bottomPanel: {
+    backgroundColor: 'rgba(15, 20, 40, 0.98)',
     paddingHorizontal: 16,
-    paddingBottom: 100,
+    paddingTop: 10,
+    paddingBottom: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
   },
   payoutDisplay: {
     flexDirection: 'row',
@@ -958,7 +967,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   durationRow: {
-    marginBottom: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
   },
   labelText: {
     color: '#999',
@@ -991,7 +1003,7 @@ const styles = StyleSheet.create({
     color: '#00D7A3',
   },
   amountSection: {
-    marginBottom: 8,
+    marginBottom: 6,
   },
   amountRow: {
     flexDirection: 'row',
@@ -1041,9 +1053,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-    marginBottom: 8,
+    paddingVertical: 6,
+    borderRadius: 10,
+    marginBottom: 6,
   },
   profitPreviewLabel: {
     color: '#999',
