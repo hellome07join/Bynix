@@ -133,7 +133,7 @@ export default function Login() {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="#0A0E27" />
+              <ActivityIndicator color="#0A1A0F" />
             ) : (
               <Text style={styles.loginButtonText}>Login</Text>
             )}
@@ -170,7 +170,7 @@ export default function Login() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0E27',
+    backgroundColor: '#0A1A0F',
   },
   scrollContent: {
     flexGrow: 1,
@@ -215,14 +215,14 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   loginButton: {
-    backgroundColor: '#00D7A3',
+    backgroundColor: '#00E55A',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 8,
   },
   loginButtonText: {
-    color: '#0A0E27',
+    color: '#0A1A0F',
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   signupLinkBold: {
-    color: '#00D7A3',
+    color: '#00E55A',
     fontWeight: 'bold',
   },
 });

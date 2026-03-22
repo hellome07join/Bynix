@@ -71,7 +71,7 @@ export default function VerifyOTP() {
       </TouchableOpacity>
 
       <View style={styles.content}>
-        <Ionicons name="mail-open" size={80} color="#00D7A3" style={styles.icon} />
+        <Ionicons name="mail-open" size={80} color="#00E55A" style={styles.icon} />
         
         <Text style={styles.title}>Verify Your Email</Text>
         <Text style={styles.subtitle}>
@@ -97,7 +97,7 @@ export default function VerifyOTP() {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color="#0A0E27" />
+            <ActivityIndicator color="#0A1A0F" />
           ) : (
             <Text style={styles.verifyButtonText}>Verify</Text>
           )}
@@ -114,7 +114,7 @@ export default function VerifyOTP() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0E27',
+    backgroundColor: '#0A1A0F',
     padding: 24,
   },
   backButton: {
@@ -160,14 +160,14 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   verifyButton: {
-    backgroundColor: '#00D7A3',
+    backgroundColor: '#00E55A',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
     width: '100%',
   },
   verifyButtonText: {
-    color: '#0A0E27',
+    color: '#0A1A0F',
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   resendText: {
-    color: '#00D7A3',
+    color: '#00E55A',
     fontSize: 14,
   },
 });

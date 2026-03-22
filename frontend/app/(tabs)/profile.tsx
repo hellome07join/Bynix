@@ -129,7 +129,7 @@ export default function Profile() {
             <Text style={styles.verificationTitle}>Email Verification Required</Text>
             <Text style={styles.verificationSubtitle}>Verify your email to unlock all features.</Text>
             <TouchableOpacity style={styles.sendCodeBtn} onPress={handleSendVerificationCode}>
-              <Ionicons name="send" size={16} color="#0A0E27" />
+              <Ionicons name="send" size={16} color="#0A1A0F" />
               <Text style={styles.sendCodeText}>Send Code</Text>
             </TouchableOpacity>
           </View>
@@ -182,7 +182,7 @@ export default function Profile() {
       <View style={styles.statsGrid}>
         <View style={styles.statCard}>
           <View style={styles.statHeader}>
-            <Ionicons name="bar-chart" size={16} color="#00D7A3" />
+            <Ionicons name="bar-chart" size={16} color="#00E55A" />
             <Text style={styles.statLabel}>TOTAL TRADES</Text>
           </View>
           <Text style={styles.statValue}>{userData.stats.totalTrades}</Text>
@@ -192,21 +192,21 @@ export default function Profile() {
             <Ionicons name="trophy" size={16} color="#FFD700" />
             <Text style={styles.statLabel}>WIN RATE</Text>
           </View>
-          <Text style={[styles.statValue, { color: '#00D7A3' }]}>{userData.stats.winRate.toFixed(1)}%</Text>
+          <Text style={[styles.statValue, { color: '#00E55A' }]}>{userData.stats.winRate.toFixed(1)}%</Text>
         </View>
         <View style={styles.statCard}>
           <View style={styles.statHeader}>
-            <Ionicons name="trending-up" size={16} color="#00D7A3" />
+            <Ionicons name="trending-up" size={16} color="#00E55A" />
             <Text style={styles.statLabel}>VOLUME</Text>
           </View>
           <Text style={[styles.statValue, { color: '#FF3B3B' }]}>${userData.stats.volume.toLocaleString()}</Text>
         </View>
         <View style={styles.statCard}>
           <View style={styles.statHeader}>
-            <Ionicons name="cash" size={16} color="#00D7A3" />
+            <Ionicons name="cash" size={16} color="#00E55A" />
             <Text style={styles.statLabel}>NET P&L</Text>
           </View>
-          <Text style={[styles.statValue, { color: userData.stats.netPnL >= 0 ? '#00D7A3' : '#FF3B3B' }]}>
+          <Text style={[styles.statValue, { color: userData.stats.netPnL >= 0 ? '#00E55A' : '#FF3B3B' }]}>
             ${userData.stats.netPnL.toLocaleString()}
           </Text>
         </View>
@@ -216,14 +216,14 @@ export default function Profile() {
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleRow}>
-            <Ionicons name="at" size={18} color="#00D7A3" />
+            <Ionicons name="at" size={18} color="#00E55A" />
             <Text style={styles.sectionTitle}>Nickname</Text>
             <View style={styles.leaderboardTag}>
               <Text style={styles.leaderboardTagText}>Leaderboard</Text>
             </View>
           </View>
           <TouchableOpacity style={styles.editBtn} onPress={() => setShowNicknameModal(true)}>
-            <Ionicons name="create-outline" size={16} color="#00D7A3" />
+            <Ionicons name="create-outline" size={16} color="#00E55A" />
             <Text style={styles.editBtnText}>Edit</Text>
           </TouchableOpacity>
         </View>
@@ -240,7 +240,7 @@ export default function Profile() {
             <Text style={styles.sectionTitle}>Personal Info</Text>
           </View>
           <TouchableOpacity style={styles.editBtn} onPress={() => setShowPersonalInfoModal(true)}>
-            <Ionicons name="create-outline" size={16} color="#00D7A3" />
+            <Ionicons name="create-outline" size={16} color="#00E55A" />
             <Text style={styles.editBtnText}>Edit</Text>
           </TouchableOpacity>
         </View>
@@ -248,13 +248,13 @@ export default function Profile() {
         <View style={styles.infoList}>
           <InfoRow icon="person" label="FULL NAME" value={user?.full_name || userData.fullName} />
           <InfoRow icon="mail" label="EMAIL" value={user?.email || userData.email} iconColor="#9B59B6" />
-          <InfoRow icon="call" label="PHONE" value={userData.phone} iconColor="#00D7A3" />
+          <InfoRow icon="call" label="PHONE" value={userData.phone} iconColor="#00E55A" />
           <InfoRow icon="globe" label="COUNTRY" value={`${userData.countryFlag} ${userData.country}`} iconColor="#FF6B6B" />
           <InfoRow icon="location" label="ADDRESS" value={userData.address} iconColor="#FF3B3B" />
           <InfoRow icon="calendar" label="DATE OF BIRTH" value={userData.dateOfBirth} iconColor="#9B59B6" />
           <InfoRow icon="finger-print" label="ACCOUNT ID" value={userData.accountId} iconColor="#FFB800" />
-          <InfoRow icon="link" label="REFERRAL CODE" value={userData.referralCode || '—'} iconColor="#00D7A3" />
-          <InfoRow icon="calendar-outline" label="JOINED" value={userData.joinedDate} iconColor="#00D7A3" />
+          <InfoRow icon="link" label="REFERRAL CODE" value={userData.referralCode || '—'} iconColor="#00E55A" />
+          <InfoRow icon="calendar-outline" label="JOINED" value={userData.joinedDate} iconColor="#00E55A" />
         </View>
       </View>
 
@@ -272,7 +272,7 @@ export default function Profile() {
         </View>
         
         <View style={styles.infoList}>
-          <InfoRow icon="time" label="TIME" value={userData.lastLogin.time} iconColor="#00D7A3" />
+          <InfoRow icon="time" label="TIME" value={userData.lastLogin.time} iconColor="#00E55A" />
           <InfoRow icon="wifi" label="IP ADDRESS" value={userData.lastLogin.ip} iconColor="#FF6B6B" />
         </View>
       </View>
@@ -296,8 +296,8 @@ export default function Profile() {
           <View style={styles.securityInfo}>
             <View style={styles.securityLabelRow}>
               <Text style={styles.securityLabel}>Password</Text>
-              <View style={[styles.statusBadge, { backgroundColor: 'rgba(0, 215, 163, 0.2)' }]}>
-                <Text style={[styles.statusText, { color: '#00D7A3' }]}>Set</Text>
+              <View style={[styles.statusBadge, { backgroundColor: 'rgba(0, 229, 90, 0.2)' }]}>
+                <Text style={[styles.statusText, { color: '#00E55A' }]}>Set</Text>
               </View>
             </View>
             <Text style={styles.securityDetail}>Last changed: Unknown</Text>
@@ -334,14 +334,14 @@ export default function Profile() {
 
         {/* Email Row */}
         <View style={[styles.securityRow, { borderBottomWidth: 0 }]}>
-          <View style={[styles.securityIcon, { backgroundColor: 'rgba(0, 215, 163, 0.15)' }]}>
-            <Ionicons name="mail" size={20} color="#00D7A3" />
+          <View style={[styles.securityIcon, { backgroundColor: 'rgba(0, 229, 90, 0.15)' }]}>
+            <Ionicons name="mail" size={20} color="#00E55A" />
           </View>
           <View style={styles.securityInfo}>
             <View style={styles.securityLabelRow}>
               <Text style={styles.securityLabel}>Email</Text>
-              <View style={[styles.statusBadge, { backgroundColor: 'rgba(0, 215, 163, 0.2)' }]}>
-                <Text style={[styles.statusText, { color: '#00D7A3' }]}>Verified</Text>
+              <View style={[styles.statusBadge, { backgroundColor: 'rgba(0, 229, 90, 0.2)' }]}>
+                <Text style={[styles.statusText, { color: '#00E55A' }]}>Verified</Text>
               </View>
             </View>
             <Text style={styles.securityDetail}>{user?.email || userData.email}</Text>
@@ -354,8 +354,8 @@ export default function Profile() {
         <Text style={styles.sessionTitle}>Active Session</Text>
         
         <View style={styles.sessionRow}>
-          <View style={[styles.securityIcon, { backgroundColor: 'rgba(0, 215, 163, 0.15)' }]}>
-            <Ionicons name="desktop-outline" size={20} color="#00D7A3" />
+          <View style={[styles.securityIcon, { backgroundColor: 'rgba(0, 229, 90, 0.15)' }]}>
+            <Ionicons name="desktop-outline" size={20} color="#00E55A" />
           </View>
           <View style={styles.sessionInfo}>
             <Text style={styles.sessionDevice}>Safari / macOS</Text>
@@ -427,9 +427,9 @@ export default function Profile() {
                     status === 'completed' && styles.stepCircleCompleted,
                   ]}>
                     {status === 'completed' ? (
-                      <Ionicons name="checkmark" size={18} color="#0A0E27" />
+                      <Ionicons name="checkmark" size={18} color="#0A1A0F" />
                     ) : (
-                      <Ionicons name={step.icon as any} size={18} color={status === 'active' ? '#0A0E27' : '#666'} />
+                      <Ionicons name={step.icon as any} size={18} color={status === 'active' ? '#0A1A0F' : '#666'} />
                     )}
                   </View>
                   <Text style={[
@@ -451,7 +451,7 @@ export default function Profile() {
           <View style={styles.kycFormCard}>
             <View style={styles.kycFormHeader}>
               <View style={styles.kycFormIcon}>
-                <Ionicons name="card" size={18} color="#0A0E27" />
+                <Ionicons name="card" size={18} color="#0A1A0F" />
               </View>
               <View>
                 <Text style={styles.kycFormTitle}>Step 1: Personal Information</Text>
@@ -551,7 +551,7 @@ export default function Profile() {
               style={styles.kycContinueBtn}
               onPress={handleContinueToStep2}
             >
-              <Ionicons name="arrow-forward" size={18} color="#0A0E27" />
+              <Ionicons name="arrow-forward" size={18} color="#0A1A0F" />
               <Text style={styles.kycContinueBtnText}>Continue to Document Upload</Text>
             </TouchableOpacity>
           </View>
@@ -562,7 +562,7 @@ export default function Profile() {
           <View style={styles.kycFormCard}>
             <View style={styles.kycFormHeader}>
               <View style={styles.kycFormIcon}>
-                <Ionicons name="document" size={18} color="#0A0E27" />
+                <Ionicons name="document" size={18} color="#0A1A0F" />
               </View>
               <View>
                 <Text style={styles.kycFormTitle}>Step 2: Upload Government ID</Text>
@@ -609,7 +609,7 @@ export default function Profile() {
               style={styles.kycContinueBtn}
               onPress={handleContinueToStep3}
             >
-              <Ionicons name="arrow-forward" size={18} color="#0A0E27" />
+              <Ionicons name="arrow-forward" size={18} color="#0A1A0F" />
               <Text style={styles.kycContinueBtnText}>Continue to Face Verification</Text>
             </TouchableOpacity>
           </View>
@@ -637,7 +637,7 @@ export default function Profile() {
                   >
                     <Text style={styles.pickerItemText}>{country}</Text>
                     {kycData.nationality === country && (
-                      <Ionicons name="checkmark" size={20} color="#00D7A3" />
+                      <Ionicons name="checkmark" size={20} color="#00E55A" />
                     )}
                   </TouchableOpacity>
                 ))}
@@ -668,7 +668,7 @@ export default function Profile() {
                   >
                     <Text style={styles.pickerItemText}>{type}</Text>
                     {kycData.idType === type && (
-                      <Ionicons name="checkmark" size={20} color="#00D7A3" />
+                      <Ionicons name="checkmark" size={20} color="#00E55A" />
                     )}
                   </TouchableOpacity>
                 ))}
@@ -721,7 +721,7 @@ export default function Profile() {
             {LOGIN_HISTORY.map((item) => (
               <View key={item.id} style={styles.activityItem}>
                 <View style={styles.activityIcon}>
-                  <Ionicons name="log-in" size={20} color="#00D7A3" />
+                  <Ionicons name="log-in" size={20} color="#00E55A" />
                 </View>
                 <View style={styles.activityInfo}>
                   <Text style={styles.activityDevice}>{item.device}</Text>
@@ -796,8 +796,8 @@ export default function Profile() {
 
           {/* Trade Alerts */}
           <View style={styles.settingsRow}>
-            <View style={[styles.settingsIcon, { backgroundColor: 'rgba(0, 215, 163, 0.15)' }]}>
-              <Ionicons name="trending-up" size={18} color="#00D7A3" />
+            <View style={[styles.settingsIcon, { backgroundColor: 'rgba(0, 229, 90, 0.15)' }]}>
+              <Ionicons name="trending-up" size={18} color="#00E55A" />
             </View>
             <View style={styles.settingsInfo}>
               <Text style={styles.settingsLabel}>Trade Alerts</Text>
@@ -830,8 +830,8 @@ export default function Profile() {
 
           {/* Withdrawal Updates */}
           <View style={styles.settingsRow}>
-            <View style={[styles.settingsIcon, { backgroundColor: 'rgba(0, 215, 163, 0.15)' }]}>
-              <Ionicons name="arrow-up" size={18} color="#00D7A3" />
+            <View style={[styles.settingsIcon, { backgroundColor: 'rgba(0, 229, 90, 0.15)' }]}>
+              <Ionicons name="arrow-up" size={18} color="#00E55A" />
             </View>
             <View style={styles.settingsInfo}>
               <Text style={styles.settingsLabel}>Withdrawal Updates</Text>
@@ -921,7 +921,7 @@ export default function Profile() {
                   tab === 'Activity' ? 'time' : 'settings'
                 } 
                 size={16} 
-                color={activeTab === tab ? '#00D7A3' : '#666'} 
+                color={activeTab === tab ? '#00E55A' : '#666'} 
               />
               <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>{tab}</Text>
             </TouchableOpacity>
@@ -999,7 +999,7 @@ export default function Profile() {
 }
 
 // Helper Components
-const InfoRow = ({ icon, label, value, iconColor = '#00D7A3' }: { icon: string; label: string; value: string; iconColor?: string }) => (
+const InfoRow = ({ icon, label, value, iconColor = '#00E55A' }: { icon: string; label: string; value: string; iconColor?: string }) => (
   <View style={styles.infoRow}>
     <View style={[styles.infoIcon, { backgroundColor: iconColor + '20' }]}>
       <Ionicons name={icon as any} size={16} color={iconColor} />
@@ -1027,7 +1027,7 @@ const EditableField = ({ label, value }: { label: string; value: string }) => (
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0E27',
+    backgroundColor: '#0A1A0F',
   },
   header: {
     flexDirection: 'row',
@@ -1082,7 +1082,7 @@ const styles = StyleSheet.create({
   },
   activeTab: {
     borderBottomWidth: 2,
-    borderBottomColor: '#00D7A3',
+    borderBottomColor: '#00E55A',
   },
   tabText: {
     color: '#666',
@@ -1090,7 +1090,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   activeTabText: {
-    color: '#00D7A3',
+    color: '#00E55A',
   },
   content: {
     flex: 1,
@@ -1136,7 +1136,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   sendCodeText: {
-    color: '#0A0E27',
+    color: '#0A1A0F',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -1165,7 +1165,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#0A0E27',
+    color: '#0A1A0F',
   },
   cameraIcon: {
     position: 'absolute',
@@ -1178,7 +1178,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#0A0E27',
+    borderColor: '#0A1A0F',
   },
   profileInfo: {
     flex: 1,
@@ -1251,7 +1251,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#00D7A3',
+    backgroundColor: '#00E55A',
     borderRadius: 3,
   },
   progressText: {
@@ -1315,27 +1315,27 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   leaderboardTag: {
-    backgroundColor: 'rgba(0, 215, 163, 0.2)',
+    backgroundColor: 'rgba(0, 229, 90, 0.2)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
   },
   leaderboardTagText: {
-    color: '#00D7A3',
+    color: '#00E55A',
     fontSize: 10,
     fontWeight: '600',
   },
   editBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 215, 163, 0.1)',
+    backgroundColor: 'rgba(0, 229, 90, 0.1)',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
     gap: 4,
   },
   editBtnText: {
-    color: '#00D7A3',
+    color: '#00E55A',
     fontSize: 12,
     fontWeight: '600',
   },
@@ -1346,7 +1346,7 @@ const styles = StyleSheet.create({
   secureTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 215, 163, 0.1)',
+    backgroundColor: 'rgba(0, 229, 90, 0.1)',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 12,
@@ -1356,10 +1356,10 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#00D7A3',
+    backgroundColor: '#00E55A',
   },
   secureText: {
-    color: '#00D7A3',
+    color: '#00E55A',
     fontSize: 11,
     fontWeight: '600',
   },
@@ -1421,7 +1421,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#0F1428',
+    backgroundColor: '#0A1A0F',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
@@ -1458,7 +1458,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   saveBtn: {
-    backgroundColor: '#00D7A3',
+    backgroundColor: '#00E55A',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
@@ -1582,7 +1582,7 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#00D7A3',
+    backgroundColor: '#00E55A',
   },
   // KYC Tab Styles
   kycHeader: {
@@ -1630,8 +1630,8 @@ const styles = StyleSheet.create({
     borderColor: '#FFB800',
   },
   stepCircleCompleted: {
-    backgroundColor: '#00D7A3',
-    borderColor: '#00D7A3',
+    backgroundColor: '#00E55A',
+    borderColor: '#00E55A',
   },
   stepTitle: {
     color: '#666',
@@ -1643,7 +1643,7 @@ const styles = StyleSheet.create({
     color: '#FFB800',
   },
   stepTitleCompleted: {
-    color: '#00D7A3',
+    color: '#00E55A',
   },
   stepLine: {
     position: 'absolute',
@@ -1657,7 +1657,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFB800',
   },
   stepLineCompleted: {
-    backgroundColor: '#00D7A3',
+    backgroundColor: '#00E55A',
   },
   stepSubtitle: {
     color: '#444',
@@ -1764,7 +1764,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   kycContinueBtnText: {
-    color: '#0A0E27',
+    color: '#0A1A0F',
     fontSize: 15,
     fontWeight: '700',
   },
@@ -1847,7 +1847,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0, 215, 163, 0.15)',
+    backgroundColor: 'rgba(0, 229, 90, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1935,7 +1935,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#666',
   },
   toggleCircleActive: {
-    backgroundColor: '#0A0E27',
+    backgroundColor: '#0A1A0F',
     alignSelf: 'flex-end',
   },
   dangerZone: {

@@ -22,7 +22,7 @@ export default function Index() {
       <View style={styles.content}>
         <Text style={styles.logo}>BYNIX</Text>
         <Text style={styles.tagline}>Trade Smarter, Win Bigger</Text>
-        <ActivityIndicator size="large" color="#00D7A3" style={styles.loader} />
+        <ActivityIndicator size="large" color="#00E55A" style={styles.loader} />
       </View>
     </View>
   );
@@ -31,7 +31,7 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0E27',
+    backgroundColor: '#0A1A0F',
   },
   content: {
     flex: 1,
@@ -41,7 +41,7 @@ const styles = StyleSheet.create({
   logo: {
     fontSize: 48,
     fontWeight: 'bold',
-    color: '#00D7A3',
+    color: '#00E55A',
     letterSpacing: 4,
     marginBottom: 8,
   },

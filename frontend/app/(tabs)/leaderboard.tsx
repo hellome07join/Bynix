@@ -102,7 +102,7 @@ export default function Leaderboard() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Leaderboard</Text>
         <View style={styles.timerContainer}>
-          <Ionicons name="time-outline" size={14} color="#00D7A3" />
+          <Ionicons name="time-outline" size={14} color="#00E55A" />
           <Text style={styles.timerText}>Next update: {formatTime(nextRefresh)}</Text>
         </View>
       </View>
@@ -121,8 +121,8 @@ export default function Leaderboard() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="#00D7A3"
-            colors={['#00D7A3']}
+            tintColor="#00E55A"
+            colors={['#00E55A']}
           />
         }
         showsVerticalScrollIndicator={false}
@@ -173,7 +173,7 @@ export default function Leaderboard() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0E27',
+    backgroundColor: '#0A1A0F',
   },
   header: {
     flexDirection: 'row',
@@ -192,14 +192,14 @@ const styles = StyleSheet.create({
   timerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 215, 163, 0.1)',
+    backgroundColor: 'rgba(0, 229, 90, 0.1)',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
     gap: 4,
   },
   timerText: {
-    color: '#00D7A3',
+    color: '#00E55A',
     fontSize: 12,
     fontWeight: '600',
   },
@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   profitAmount: {
-    color: '#00D7A3',
+    color: '#00E55A',
     fontSize: 14,
     fontWeight: '800',
   },

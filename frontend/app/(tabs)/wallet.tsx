@@ -211,7 +211,7 @@ export default function WalletScreen() {
     switch (status) {
       case 'completed':
       case 'finished':
-        return '#00D7A3';
+        return '#00E55A';
       case 'pending':
       case 'waiting':
         return '#FFB800';
@@ -237,7 +237,7 @@ export default function WalletScreen() {
       <ScrollView 
         style={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00D7A3" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00E55A" />
         }
       >
         {/* Account Type Label */}
@@ -257,12 +257,12 @@ export default function WalletScreen() {
               style={styles.depositBtn}
               onPress={() => setShowDepositModal(true)}
             >
-              <Ionicons name="add-circle" size={20} color="#0A0E27" />
+              <Ionicons name="add-circle" size={20} color="#0A1A0F" />
               <Text style={styles.depositBtnText}>Deposit</Text>
             </TouchableOpacity>
             
             <TouchableOpacity style={styles.withdrawBtn}>
-              <Ionicons name="arrow-up-circle" size={20} color="#00D7A3" />
+              <Ionicons name="arrow-up-circle" size={20} color="#00E55A" />
               <Text style={styles.withdrawBtnText}>Withdraw</Text>
             </TouchableOpacity>
           </View>
@@ -294,7 +294,7 @@ export default function WalletScreen() {
                   </Text>
                 </View>
                 <View style={styles.transactionAmount}>
-                  <Text style={[styles.amountText, { color: '#00D7A3' }]}>
+                  <Text style={[styles.amountText, { color: '#00E55A' }]}>
                     +${deposit.amount.toFixed(2)}
                   </Text>
                   <Text style={[styles.statusText, { color: getStatusColor(deposit.status) }]}>
@@ -365,7 +365,7 @@ export default function WalletScreen() {
               disabled={isLoading}
             >
               {isLoading ? (
-                <ActivityIndicator color="#0A0E27" />
+                <ActivityIndicator color="#0A1A0F" />
               ) : (
                 <Text style={styles.generateBtnText}>Generate Deposit Address</Text>
               )}
@@ -394,7 +394,7 @@ export default function WalletScreen() {
               <>
                 {/* Network Info */}
                 <View style={styles.networkBadge}>
-                  <Ionicons name="link" size={16} color="#00D7A3" />
+                  <Ionicons name="link" size={16} color="#00E55A" />
                   <Text style={styles.networkText}>{currentDeposit.network || 'TRC20'} Network</Text>
                 </View>
 
@@ -409,7 +409,7 @@ export default function WalletScreen() {
                       onPress={() => copyToClipboard(currentDeposit.pay_amount?.toFixed(6) || '')}
                       style={styles.copyBtn}
                     >
-                      <Ionicons name="copy-outline" size={18} color="#00D7A3" />
+                      <Ionicons name="copy-outline" size={18} color="#00E55A" />
                     </TouchableOpacity>
                   </View>
                   <Text style={styles.usdValue}>≈ ${depositAmount} USD</Text>
@@ -426,7 +426,7 @@ export default function WalletScreen() {
                       onPress={() => copyToClipboard(currentDeposit.pay_address || '')}
                       style={styles.copyBtn}
                     >
-                      <Ionicons name="copy-outline" size={18} color="#00D7A3" />
+                      <Ionicons name="copy-outline" size={18} color="#00E55A" />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -447,10 +447,10 @@ export default function WalletScreen() {
                   disabled={isLoading}
                 >
                   {isLoading ? (
-                    <ActivityIndicator color="#0A0E27" />
+                    <ActivityIndicator color="#0A1A0F" />
                   ) : (
                     <>
-                      <Ionicons name="refresh" size={20} color="#0A0E27" />
+                      <Ionicons name="refresh" size={20} color="#0A1A0F" />
                       <Text style={styles.checkStatusText}>Check Payment Status</Text>
                     </>
                   )}
@@ -470,7 +470,7 @@ export default function WalletScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0E27',
+    backgroundColor: '#0A1A0F',
   },
   header: {
     flexDirection: 'row',
@@ -502,7 +502,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 24,
     borderWidth: 1,
-    borderColor: '#00D7A3',
+    borderColor: '#00E55A',
     marginBottom: 24,
   },
   balanceLabel: {
@@ -513,7 +513,7 @@ const styles = StyleSheet.create({
   balanceAmount: {
     fontSize: 42,
     fontWeight: '700',
-    color: '#00D7A3',
+    color: '#00E55A',
     textAlign: 'center',
     marginVertical: 8,
   },
@@ -526,14 +526,14 @@ const styles = StyleSheet.create({
   depositBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#00D7A3',
+    backgroundColor: '#00E55A',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
     gap: 8,
   },
   depositBtnText: {
-    color: '#0A0E27',
+    color: '#0A1A0F',
     fontWeight: '700',
     fontSize: 14,
   },
@@ -545,11 +545,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#00D7A3',
+    borderColor: '#00E55A',
     gap: 8,
   },
   withdrawBtnText: {
-    color: '#00D7A3',
+    color: '#00E55A',
     fontWeight: '700',
     fontSize: 14,
   },
@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
   amountInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0A0E27',
+    backgroundColor: '#0A1A0F',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#333333',
@@ -679,10 +679,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#333333',
-    backgroundColor: '#0A0E27',
+    backgroundColor: '#0A1A0F',
   },
   quickAmountBtnActive: {
-    borderColor: '#00D7A3',
+    borderColor: '#00E55A',
     backgroundColor: 'rgba(0,215,163,0.1)',
   },
   quickAmountText: {
@@ -690,10 +690,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   quickAmountTextActive: {
-    color: '#00D7A3',
+    color: '#00E55A',
   },
   generateBtn: {
-    backgroundColor: '#00D7A3',
+    backgroundColor: '#00E55A',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -702,7 +702,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   generateBtnText: {
-    color: '#0A0E27',
+    color: '#0A1A0F',
     fontWeight: '700',
     fontSize: 16,
   },
@@ -718,12 +718,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   networkText: {
-    color: '#00D7A3',
+    color: '#00E55A',
     fontSize: 12,
     fontWeight: '600',
   },
   depositInfoBox: {
-    backgroundColor: '#0A0E27',
+    backgroundColor: '#0A1A0F',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -778,7 +778,7 @@ const styles = StyleSheet.create({
   },
   checkStatusBtn: {
     flexDirection: 'row',
-    backgroundColor: '#00D7A3',
+    backgroundColor: '#00E55A',
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
@@ -786,7 +786,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   checkStatusText: {
-    color: '#0A0E27',
+    color: '#0A1A0F',
     fontWeight: '700',
     fontSize: 16,
   },

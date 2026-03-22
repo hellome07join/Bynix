@@ -103,7 +103,7 @@ export default function Support() {
                 onPress={() => handleSupportAction(option.action)}
               >
                 <View style={styles.contactIconWrapper}>
-                  <Ionicons name={option.icon as any} size={24} color="#00D7A3" />
+                  <Ionicons name={option.icon as any} size={24} color="#00E55A" />
                 </View>
                 <Text style={styles.contactTitle}>{option.title}</Text>
                 <Text style={styles.contactSubtitle}>{option.subtitle}</Text>
@@ -152,7 +152,7 @@ export default function Support() {
                 <Ionicons 
                   name={expandedFAQ === faq.id ? 'chevron-up' : 'chevron-down'} 
                   size={20} 
-                  color="#00D7A3" 
+                  color="#00E55A" 
                 />
               </View>
               {expandedFAQ === faq.id && (
@@ -176,7 +176,7 @@ export default function Support() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0E27',
+    backgroundColor: '#0A1A0F',
   },
   header: {
     paddingHorizontal: 16,
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(0, 215, 163, 0.15)',
+    backgroundColor: 'rgba(0, 229, 90, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 10,
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#00D7A3',
+    backgroundColor: '#00E55A',
     borderRadius: 10,
     paddingVertical: 12,
     gap: 8,
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   appName: {
-    color: '#00D7A3',
+    color: '#00E55A',
     fontSize: 18,
     fontWeight: '800',
   },

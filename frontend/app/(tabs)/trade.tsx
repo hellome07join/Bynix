@@ -450,7 +450,7 @@ export default function Trade() {
           style={styles.depositButton}
           onPress={() => router.push('/(tabs)/wallet')}
         >
-          <Ionicons name="add-circle" size={18} color="#00D7A3" />
+          <Ionicons name="add-circle" size={18} color="#00E55A" />
           <Text style={styles.depositText}>Deposit</Text>
         </TouchableOpacity>
 
@@ -466,11 +466,11 @@ export default function Trade() {
           style={[styles.balanceButton, accountType === 'demo' && styles.demoBalance]}
           onPress={() => setShowAccountPicker(true)}
         >
-          <Ionicons name="wallet" size={16} color={accountType === 'demo' ? '#FFB800' : '#00D7A3'} />
+          <Ionicons name="wallet" size={16} color={accountType === 'demo' ? '#FFB800' : '#00E55A'} />
           <Text style={[styles.balanceText, accountType === 'demo' && styles.demoBalanceText]}>
             {accountType === 'demo' ? 'Demo ' : ''}${currentBalance.toFixed(2)}
           </Text>
-          <Ionicons name="chevron-down" size={12} color={accountType === 'demo' ? '#FFB800' : '#00D7A3'} />
+          <Ionicons name="chevron-down" size={12} color={accountType === 'demo' ? '#FFB800' : '#00E55A'} />
         </TouchableOpacity>
 
         {/* Notification Button - Right */}
@@ -505,9 +505,9 @@ export default function Trade() {
           style={styles.setTimeBtn}
           onPress={() => setShowTimePicker(true)}
         >
-          <Ionicons name="time" size={16} color="#00D7A3" />
+          <Ionicons name="time" size={16} color="#00E55A" />
           <Text style={styles.setTimeText}>{formatDuration(duration)}</Text>
-          <Ionicons name="chevron-down" size={14} color="#00D7A3" />
+          <Ionicons name="chevron-down" size={14} color="#00E55A" />
         </TouchableOpacity>
 
         {/* Tools Button */}
@@ -524,7 +524,7 @@ export default function Trade() {
           style={styles.tradeHistoryBtn}
           onPress={() => setShowTradeHistory(true)}
         >
-          <Ionicons name="time" size={16} color="#00D7A3" />
+          <Ionicons name="time" size={16} color="#00E55A" />
           <Text style={styles.tradeHistoryBtnText}>Trade History</Text>
           {activeTrade && (
             <View style={styles.runningBadge}>
@@ -539,7 +539,7 @@ export default function Trade() {
           onPress={() => setShowAssetPicker(true)}
         >
           <Text style={styles.marketSelectIcon}>{currentAsset.icon}</Text>
-          <Ionicons name="chevron-down" size={14} color="#00D7A3" />
+          <Ionicons name="chevron-down" size={14} color="#00E55A" />
         </TouchableOpacity>
       </View>
 
@@ -639,7 +639,7 @@ export default function Trade() {
                   <Text style={styles.assetOptionPayout}>Payout: {asset.payout}%</Text>
                 </View>
                 {selectedAsset === asset.value && (
-                  <Ionicons name="checkmark-circle" size={24} color="#00D7A3" />
+                  <Ionicons name="checkmark-circle" size={24} color="#00E55A" />
                 )}
               </TouchableOpacity>
             ))}
@@ -673,14 +673,14 @@ export default function Trade() {
               }}
             >
               <View style={styles.accountIconWrapper}>
-                <Ionicons name="wallet" size={24} color="#00D7A3" />
+                <Ionicons name="wallet" size={24} color="#00E55A" />
               </View>
               <View style={styles.accountInfo}>
                 <Text style={styles.accountLabel}>Live Account</Text>
                 <Text style={styles.accountBalance}>${realBalance.toFixed(2)}</Text>
               </View>
               {accountType === 'real' && (
-                <Ionicons name="checkmark-circle" size={24} color="#00D7A3" />
+                <Ionicons name="checkmark-circle" size={24} color="#00E55A" />
               )}
             </TouchableOpacity>
 
@@ -995,7 +995,7 @@ export default function Trade() {
                       </View>
                       <View style={styles.tradeInfo}>
                         <Text style={styles.tradeInfoLabel}>Current Price</Text>
-                        <Text style={[styles.tradeInfoValue, isRunningTradeInProfit ? { color: '#00D7A3' } : { color: '#FF3B3B' }]}>
+                        <Text style={[styles.tradeInfoValue, isRunningTradeInProfit ? { color: '#00E55A' } : { color: '#FF3B3B' }]}>
                           ${currentPrice.toFixed(5)}
                         </Text>
                       </View>
@@ -1005,7 +1005,7 @@ export default function Trade() {
                       </View>
                       <View style={styles.tradeInfo}>
                         <Text style={styles.tradeInfoLabel}>P/L</Text>
-                        <Text style={[styles.tradeInfoValue, isRunningTradeInProfit ? { color: '#00D7A3' } : { color: '#FF3B3B' }]}>
+                        <Text style={[styles.tradeInfoValue, isRunningTradeInProfit ? { color: '#00E55A' } : { color: '#FF3B3B' }]}>
                           {isRunningTradeInProfit ? '+' : ''}{runningTradePL.toFixed(2)}
                         </Text>
                       </View>
@@ -1015,7 +1015,7 @@ export default function Trade() {
                       </View>
                       <View style={styles.tradeInfo}>
                         <Text style={styles.tradeInfoLabel}>Status</Text>
-                        <Text style={[styles.tradeInfoValue, isRunningTradeInProfit ? { color: '#00D7A3' } : { color: '#FF3B3B' }]}>
+                        <Text style={[styles.tradeInfoValue, isRunningTradeInProfit ? { color: '#00E55A' } : { color: '#FF3B3B' }]}>
                           {isRunningTradeInProfit ? '📈 PROFIT' : '📉 LOSS'}
                         </Text>
                       </View>
@@ -1062,13 +1062,13 @@ export default function Trade() {
                       <View style={styles.historyCardRight}>
                         <Text style={[
                           styles.historyProfit, 
-                          trade.status === 'won' ? { color: '#00D7A3' } : { color: '#FF3B3B' }
+                          trade.status === 'won' ? { color: '#00E55A' } : { color: '#FF3B3B' }
                         ]}>
                           {trade.profit_loss > 0 ? '+' : ''}${(trade.profit_loss || 0).toFixed(2)}
                         </Text>
                         <Text style={[
                           styles.historyStatus, 
-                          trade.status === 'won' ? { color: '#00D7A3' } : { color: '#FF3B3B' }
+                          trade.status === 'won' ? { color: '#00E55A' } : { color: '#FF3B3B' }
                         ]}>
                           {trade.status === 'won' ? 'Profit' : 'Loss'}
                         </Text>
@@ -1086,7 +1086,7 @@ export default function Trade() {
                 </View>
                 <View style={styles.summaryItem}>
                   <Text style={styles.summaryLabel}>Won</Text>
-                  <Text style={[styles.summaryValue, { color: '#00D7A3' }]}>
+                  <Text style={[styles.summaryValue, { color: '#00E55A' }]}>
                     {tradeHistory.filter(t => t.status === 'won').length}
                   </Text>
                 </View>
@@ -1099,7 +1099,7 @@ export default function Trade() {
                 <View style={styles.summaryItem}>
                   <Text style={styles.summaryLabel}>Net P&L</Text>
                   <Text style={[styles.summaryValue, { 
-                    color: tradeHistory.reduce((sum, t) => sum + (t.profit_loss || 0), 0) >= 0 ? '#00D7A3' : '#FF3B3B' 
+                    color: tradeHistory.reduce((sum, t) => sum + (t.profit_loss || 0), 0) >= 0 ? '#00E55A' : '#FF3B3B' 
                   }]}>
                     {tradeHistory.reduce((sum, t) => sum + (t.profit_loss || 0), 0) >= 0 ? '+' : ''}
                     ${tradeHistory.reduce((sum, t) => sum + (t.profit_loss || 0), 0).toFixed(2)}
@@ -1133,7 +1133,7 @@ export default function Trade() {
             <Ionicons 
               name={tradeResult.won ? 'checkmark-circle' : 'close-circle'} 
               size={18} 
-              color={tradeResult.won ? '#00D7A3' : '#FF3B3B'} 
+              color={tradeResult.won ? '#00E55A' : '#FF3B3B'} 
             />
             <Text style={[styles.resultBadgeText, tradeResult.won ? styles.resultTextWin : styles.resultTextLoss]}>
               {tradeResult.won ? 'Profit' : 'Loss'} {tradeResult.won ? '+' : '-'}${Math.abs(tradeResult.profitLoss).toFixed(2)}
@@ -1148,7 +1148,7 @@ export default function Trade() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0E27',
+    backgroundColor: '#0A1A0F',
   },
   header: {
     flexDirection: 'row',
@@ -1157,7 +1157,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 12,
     paddingBottom: 10,
-    backgroundColor: 'rgba(15, 20, 40, 0.95)',
+    backgroundColor: 'rgba(10, 26, 15, 0.95)',
     gap: 8,
   },
   headerLogo: {
@@ -1167,14 +1167,14 @@ const styles = StyleSheet.create({
   depositButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 215, 163, 0.15)',
+    backgroundColor: 'rgba(0, 229, 90, 0.15)',
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 10,
     gap: 4,
   },
   depositText: {
-    color: '#00D7A3',
+    color: '#00E55A',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -1198,14 +1198,14 @@ const styles = StyleSheet.create({
   balanceButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 215, 163, 0.15)',
+    backgroundColor: 'rgba(0, 229, 90, 0.15)',
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 10,
     gap: 4,
   },
   balanceText: {
-    color: '#00D7A3',
+    color: '#00E55A',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -1242,14 +1242,14 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   accountOptionActive: {
-    borderColor: 'rgba(0, 215, 163, 0.3)',
-    backgroundColor: 'rgba(0, 215, 163, 0.1)',
+    borderColor: 'rgba(0, 229, 90, 0.3)',
+    backgroundColor: 'rgba(0, 229, 90, 0.1)',
   },
   accountIconWrapper: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(0, 215, 163, 0.15)',
+    backgroundColor: 'rgba(0, 229, 90, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1267,7 +1267,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   accountBalance: {
-    color: '#00D7A3',
+    color: '#00E55A',
     fontSize: 18,
     fontWeight: '800',
   },
@@ -1316,7 +1316,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addDemoBtnText: {
-    color: '#0A0E27',
+    color: '#0A1A0F',
     fontSize: 14,
     fontWeight: '700',
   },
@@ -1338,7 +1338,7 @@ const styles = StyleSheet.create({
   },
   chartContainer: {
     flex: 1,
-    backgroundColor: '#0A0E27',
+    backgroundColor: '#0A1A0F',
   },
   chartWrapper: {
     flex: 1,
@@ -1367,7 +1367,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
   timeframeActive: {
-    backgroundColor: '#00D7A3',
+    backgroundColor: '#00E55A',
   },
   timeframeText: {
     color: '#999',
@@ -1375,14 +1375,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   timeframeTextActive: {
-    color: '#0A0E27',
+    color: '#0A1A0F',
   },
   toolsBar: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: 'rgba(15, 20, 40, 0.95)',
+    backgroundColor: 'rgba(10, 26, 15, 0.95)',
     gap: 8,
   },
   toolsBtn: {
@@ -1404,29 +1404,29 @@ const styles = StyleSheet.create({
   tradeHistoryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 215, 163, 0.15)',
+    backgroundColor: 'rgba(0, 229, 90, 0.15)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
     gap: 6,
     borderWidth: 1,
-    borderColor: 'rgba(0, 215, 163, 0.3)',
+    borderColor: 'rgba(0, 229, 90, 0.3)',
   },
   tradeHistoryBtnText: {
-    color: '#00D7A3',
+    color: '#00E55A',
     fontSize: 12,
     fontWeight: '700',
   },
   marketSelectBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 215, 163, 0.15)',
+    backgroundColor: 'rgba(0, 229, 90, 0.15)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
     gap: 4,
     borderWidth: 1,
-    borderColor: 'rgba(0, 215, 163, 0.3)',
+    borderColor: 'rgba(0, 229, 90, 0.3)',
   },
   marketSelectIcon: {
     fontSize: 16,
@@ -1440,7 +1440,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   runningBadgeText: {
-    color: '#0A0E27',
+    color: '#0A1A0F',
     fontSize: 10,
     fontWeight: '800',
   },
@@ -1457,7 +1457,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#00D7A3',
+    backgroundColor: '#00E55A',
   },
   historySectionTitle: {
     color: '#FFFFFF',
@@ -1469,7 +1469,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     borderWidth: 1,
-    borderColor: 'rgba(0, 215, 163, 0.3)',
+    borderColor: 'rgba(0, 229, 90, 0.3)',
   },
   tradeCardHeader: {
     flexDirection: 'row',
@@ -1499,7 +1499,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   directionUp: {
-    backgroundColor: '#00D7A3',
+    backgroundColor: '#00E55A',
   },
   directionDown: {
     backgroundColor: '#FF3B3B',
@@ -1629,8 +1629,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   candleTimeItemActive: {
-    backgroundColor: 'rgba(0, 215, 163, 0.2)',
-    borderColor: '#00D7A3',
+    backgroundColor: 'rgba(0, 229, 90, 0.2)',
+    borderColor: '#00E55A',
   },
   candleTimeText: {
     color: '#888',
@@ -1638,7 +1638,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   candleTimeTextActive: {
-    color: '#00D7A3',
+    color: '#00E55A',
   },
   drawToolsGrid: {
     flexDirection: 'row',
@@ -1684,7 +1684,7 @@ const styles = StyleSheet.create({
     borderRadius: 1,
   },
   bottomPanel: {
-    backgroundColor: 'rgba(15, 20, 40, 0.98)',
+    backgroundColor: 'rgba(10, 26, 15, 0.98)',
     paddingHorizontal: 12,
     paddingTop: 6,
     paddingBottom: 6,
@@ -1695,13 +1695,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 215, 163, 0.1)',
+    backgroundColor: 'rgba(0, 229, 90, 0.1)',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 12,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: 'rgba(0, 215, 163, 0.3)',
+    borderColor: 'rgba(0, 229, 90, 0.3)',
   },
   payoutLabel: {
     color: '#FFFFFF',
@@ -1710,7 +1710,7 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   payoutValue: {
-    color: '#00D7A3',
+    color: '#00E55A',
     fontSize: 18,
     fontWeight: '800',
   },
@@ -1729,16 +1729,16 @@ const styles = StyleSheet.create({
   setTimeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 215, 163, 0.15)',
+    backgroundColor: 'rgba(0, 229, 90, 0.15)',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
     gap: 4,
     borderWidth: 1,
-    borderColor: 'rgba(0, 215, 163, 0.3)',
+    borderColor: 'rgba(0, 229, 90, 0.3)',
   },
   setTimeText: {
-    color: '#00D7A3',
+    color: '#00E55A',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -1757,8 +1757,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   quickTimeActive: {
-    backgroundColor: 'rgba(0, 215, 163, 0.2)',
-    borderColor: '#00D7A3',
+    backgroundColor: 'rgba(0, 229, 90, 0.2)',
+    borderColor: '#00E55A',
   },
   quickTimeText: {
     color: '#888',
@@ -1766,7 +1766,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   quickTimeTextActive: {
-    color: '#00D7A3',
+    color: '#00E55A',
   },
   timeInputSection: {
     marginBottom: 20,
@@ -1813,13 +1813,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   setCustomTimeBtn: {
-    backgroundColor: '#00D7A3',
+    backgroundColor: '#00E55A',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
   },
   setCustomTimeBtnText: {
-    color: '#0A0E27',
+    color: '#0A1A0F',
     fontSize: 15,
     fontWeight: '700',
   },
@@ -1847,8 +1847,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   quickTimeGridItemActive: {
-    backgroundColor: 'rgba(0, 215, 163, 0.2)',
-    borderColor: '#00D7A3',
+    backgroundColor: 'rgba(0, 229, 90, 0.2)',
+    borderColor: '#00E55A',
   },
   quickTimeGridText: {
     color: '#888',
@@ -1856,7 +1856,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   quickTimeGridTextActive: {
-    color: '#00D7A3',
+    color: '#00E55A',
   },
   labelText: {
     color: '#999',
@@ -1876,9 +1876,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   durationActive: {
-    backgroundColor: 'rgba(0, 215, 163, 0.2)',
+    backgroundColor: 'rgba(0, 229, 90, 0.2)',
     borderWidth: 1,
-    borderColor: '#00D7A3',
+    borderColor: '#00E55A',
   },
   durationText: {
     color: '#999',
@@ -1886,7 +1886,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   durationTextActive: {
-    color: '#00D7A3',
+    color: '#00E55A',
   },
   amountSection: {
     marginBottom: 4,
@@ -1906,7 +1906,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   dollarSign: {
-    color: '#00D7A3',
+    color: '#00E55A',
     fontSize: 14,
     fontWeight: '700',
     marginRight: 4,
@@ -1923,13 +1923,13 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   quickButton: {
-    backgroundColor: 'rgba(0, 215, 163, 0.15)',
+    backgroundColor: 'rgba(0, 229, 90, 0.15)',
     paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 6,
   },
   quickButtonText: {
-    color: '#00D7A3',
+    color: '#00E55A',
     fontSize: 11,
     fontWeight: '700',
   },
@@ -1948,7 +1948,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   profitPreviewValue: {
-    color: '#00D7A3',
+    color: '#00E55A',
     fontSize: 16,
     fontWeight: '800',
   },
@@ -1982,7 +1982,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   buyBtn: {
-    backgroundColor: '#00D7A3',
+    backgroundColor: '#00E55A',
   },
   sellBtn: {
     backgroundColor: '#FF3B3B',
@@ -2008,8 +2008,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   tradeWinning: {
-    backgroundColor: 'rgba(0, 215, 163, 0.1)',
-    borderColor: '#00D7A3',
+    backgroundColor: 'rgba(0, 229, 90, 0.1)',
+    borderColor: '#00E55A',
   },
   tradeLosing: {
     backgroundColor: 'rgba(255, 59, 59, 0.1)',
@@ -2035,7 +2035,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   statusWin: {
-    color: '#00D7A3',
+    color: '#00E55A',
   },
   statusLoss: {
     color: '#FF3B3B',
@@ -2084,7 +2084,7 @@ const styles = StyleSheet.create({
   },
   assetOptionPayout: {
     fontSize: 12,
-    color: '#00D7A3',
+    color: '#00E55A',
     marginTop: 2,
   },
   resultPopup: {
@@ -2105,8 +2105,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   resultBadgeWin: {
-    backgroundColor: 'rgba(0, 215, 163, 0.15)',
-    borderColor: 'rgba(0, 215, 163, 0.4)',
+    backgroundColor: 'rgba(0, 229, 90, 0.15)',
+    borderColor: 'rgba(0, 229, 90, 0.4)',
   },
   resultBadgeLoss: {
     backgroundColor: 'rgba(255, 59, 59, 0.15)',
@@ -2117,7 +2117,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   resultTextWin: {
-    color: '#00D7A3',
+    color: '#00E55A',
   },
   resultTextLoss: {
     color: '#FF3B3B',
@@ -2130,7 +2130,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   resultWin: {
-    backgroundColor: 'rgba(0, 215, 163, 0.95)',
+    backgroundColor: 'rgba(0, 229, 90, 0.95)',
   },
   resultLoss: {
     backgroundColor: 'rgba(255, 59, 59, 0.95)',
@@ -2182,7 +2182,7 @@ const styles = StyleSheet.create({
     marginVertical: 2,
   },
   tradeCardProfit: {
-    borderColor: '#00D7A3',
+    borderColor: '#00E55A',
     borderWidth: 2,
   },
   tradeCardLoss: {
