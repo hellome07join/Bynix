@@ -239,11 +239,6 @@ export default function Trade() {
       return;
     }
 
-    if (!token) {
-      Alert.alert('Error', 'Please login to trade');
-      return;
-    }
-
     if (activeTrade) {
       Alert.alert('Error', 'You already have an active trade');
       return;
@@ -255,8 +250,8 @@ export default function Trade() {
       return;
     }
 
-    const balance = accountType === 'demo' ? user?.demo_balance : user?.real_balance;
-    if (balance && tradeAmount > balance) {
+    // Check balance
+    if (tradeAmount > currentBalance) {
       Alert.alert('Error', 'Insufficient balance');
       return;
     }
@@ -267,6 +262,43 @@ export default function Trade() {
       cooldownRef.current = false;
     }, 2000);
 
+    // For demo mode, execute trade locally without API
+    if (accountType === 'demo' || !token) {
+      const now = Date.now();
+      const tradeId = `demo_${now}`;
+      
+      // Deduct amount from demo balance
+      if (user) {
+        const newDemoBalance = (user.demo_balance || 0) - tradeAmount;
+        updateBalance(newDemoBalance, user.real_balance || 0);
+      } else {
+        setLocalDemoBalance(prev => prev - tradeAmount);
+      }
+      
+      setActiveTrade({
+        trade_id: tradeId,
+        type,
+        amount: tradeAmount,
+        entry_price: currentPrice,
+        duration,
+      });
+      
+      setTradeEntry({
+        price: currentPrice,
+        time: now,
+        type,
+      });
+      
+      setTradeStartTime(now);
+      setTradeEndTime(now + duration * 1000);
+      setCountdown(duration);
+      
+      // Success haptic
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      return;
+    }
+
+    // For real account with token, use API
     try {
       const response = await api.createTrade({
         asset: selectedAsset,
@@ -305,42 +337,58 @@ export default function Trade() {
   };
 
   const settleTrade = async () => {
-    if (!activeTrade || !token) return;
+    if (!activeTrade) return;
 
-    try {
-      const exitPrice = currentPrice;
-      await api.settleTrade(activeTrade.trade_id, exitPrice, token);
+    const exitPrice = currentPrice;
+    const won = activeTrade.type === 'call' 
+      ? exitPrice > activeTrade.entry_price 
+      : exitPrice < activeTrade.entry_price;
 
-      const won = activeTrade.type === 'call' 
-        ? exitPrice > activeTrade.entry_price 
-        : exitPrice < activeTrade.entry_price;
+    const profitLoss = won ? activeTrade.amount * (payoutPercentage / 100) : -activeTrade.amount;
 
-      const profitLoss = won ? activeTrade.amount * (payoutPercentage / 100) : -activeTrade.amount;
-
-      setTradeResult({
-        won,
-        profitLoss,
-        entryPrice: activeTrade.entry_price,
-        exitPrice,
-      });
-
-      showResultPopup();
-      
-      // Result haptic
+    // Update demo balance based on result
+    if (accountType === 'demo' || !token) {
       if (won) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } else {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        // Add back the amount plus profit
+        const winnings = activeTrade.amount + (activeTrade.amount * payoutPercentage / 100);
+        if (user) {
+          const newDemoBalance = (user.demo_balance || 0) + winnings;
+          updateBalance(newDemoBalance, user.real_balance || 0);
+        } else {
+          setLocalDemoBalance(prev => prev + winnings);
+        }
       }
-      
-      setActiveTrade(null);
-      setTradeEntry(null);
-      setCountdown(0);
-      setTradeStartTime(0);
-      setTradeEndTime(0);
-    } catch (error: any) {
-      Alert.alert('Error', error.message);
+      // If lost, amount was already deducted when placing the trade
+    } else if (token) {
+      // For real account, call API
+      try {
+        await api.settleTrade(activeTrade.trade_id, exitPrice, token);
+      } catch (error: any) {
+        console.error('Error settling trade:', error);
+      }
     }
+
+    setTradeResult({
+      won,
+      profitLoss,
+      entryPrice: activeTrade.entry_price,
+      exitPrice,
+    });
+
+    showResultPopup();
+    
+    // Result haptic
+    if (won) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+    
+    setActiveTrade(null);
+    setTradeEntry(null);
+    setCountdown(0);
+    setTradeStartTime(0);
+    setTradeEndTime(0);
   };
 
   const showResultPopup = () => {
@@ -425,6 +473,7 @@ export default function Trade() {
             interval={timeframe}
             theme="dark"
             currentPrice={currentPrice}
+            tradeEntry={tradeEntry}
           />
         </View>
 

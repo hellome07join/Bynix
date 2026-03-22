@@ -7,22 +7,31 @@ if (Platform.OS !== 'web') {
   WebView = require('react-native-webview').WebView;
 }
 
+interface TradeEntry {
+  price: number;
+  type: 'call' | 'put';
+  time: number;
+}
+
 interface TradingViewChartProps {
   symbol: string;
   interval: string;
   theme?: 'dark' | 'light';
   currentPrice?: number;
+  tradeEntry?: TradeEntry | null;
 }
 
 export default function TradingViewChart({ 
   symbol = 'EURUSD', 
   interval = '1',
   theme = 'dark',
-  currentPrice
+  currentPrice,
+  tradeEntry
 }: TradingViewChartProps) {
   const webViewRef = useRef<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const [chartHeight, setChartHeight] = useState(0);
 
   // Convert symbol format for TradingView OTC (e.g., EUR/USD OTC -> EURUSD)
   const tvSymbol = symbol.replace(' OTC', '').replace('/', '');
@@ -44,6 +53,18 @@ export default function TradingViewChart({
   };
 
   const tvInterval = getIntervalForTV(interval);
+
+  // Calculate entry line position (as percentage from top)
+  const getEntryLinePosition = () => {
+    if (!tradeEntry || !currentPrice) return null;
+    
+    // Approximate calculation - we'll show the line at a relative position
+    // This is a simplified approach since we can't access TradingView's internal scale
+    const priceDiff = ((currentPrice - tradeEntry.price) / tradeEntry.price) * 100;
+    // Map the price difference to a visual position (center = 50%)
+    const position = 50 - (priceDiff * 500); // Amplify for visibility
+    return Math.max(10, Math.min(90, position)); // Clamp between 10-90%
+  };
 
   // TradingView widget HTML with 1000 candles range
   const getHtmlContent = () => `
@@ -118,6 +139,8 @@ export default function TradingViewChart({
     </html>
   `;
 
+  const entryLinePosition = getEntryLinePosition();
+
   // For web platform, render iframe directly
   if (Platform.OS === 'web') {
     return (
@@ -155,6 +178,36 @@ export default function TradingViewChart({
               backgroundColor: '#0A0E27',
             }}>
               <Text style={styles.loadingText}>Loading Chart...</Text>
+            </div>
+          )}
+          
+          {/* Trade Entry Horizontal Line - Web */}
+          {tradeEntry && (
+            <div style={{
+              position: 'absolute',
+              left: 0,
+              right: 60,
+              top: `${entryLinePosition}%`,
+              height: 2,
+              backgroundColor: tradeEntry.type === 'call' ? '#00D7A3' : '#FF3B3B',
+              zIndex: 100,
+              pointerEvents: 'none',
+            }}>
+              <div style={{
+                position: 'absolute',
+                right: 0,
+                top: -10,
+                backgroundColor: tradeEntry.type === 'call' ? '#00D7A3' : '#FF3B3B',
+                padding: '2px 8px',
+                borderRadius: 4,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+              }}>
+                <span style={{ color: '#FFFFFF', fontSize: 11, fontWeight: 700 }}>
+                  {tradeEntry.type === 'call' ? '▲' : '▼'} Entry ${tradeEntry.price.toFixed(5)}
+                </span>
+              </div>
             </div>
           )}
         </div>
@@ -206,6 +259,27 @@ export default function TradingViewChart({
           console.warn('WebView error:', nativeEvent);
         }}
       />
+      
+      {/* Trade Entry Horizontal Line - Native */}
+      {tradeEntry && entryLinePosition && (
+        <View style={[
+          styles.entryLine,
+          { 
+            top: `${entryLinePosition}%`,
+            backgroundColor: tradeEntry.type === 'call' ? '#00D7A3' : '#FF3B3B',
+          }
+        ]}>
+          <View style={[
+            styles.entryLabel,
+            { backgroundColor: tradeEntry.type === 'call' ? '#00D7A3' : '#FF3B3B' }
+          ]}>
+            <Text style={styles.entryLabelText}>
+              {tradeEntry.type === 'call' ? '▲' : '▼'} Entry ${tradeEntry.price.toFixed(5)}
+            </Text>
+          </View>
+        </View>
+      )}
+      
       {/* Current Price Overlay */}
       {currentPrice && (
         <View style={styles.priceOverlay}>
@@ -252,6 +326,26 @@ const styles = StyleSheet.create({
   priceText: {
     color: '#FFFFFF',
     fontSize: 12,
+    fontWeight: '700',
+  },
+  entryLine: {
+    position: 'absolute',
+    left: 0,
+    right: 60,
+    height: 2,
+    zIndex: 100,
+  },
+  entryLabel: {
+    position: 'absolute',
+    right: 0,
+    top: -10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  entryLabelText: {
+    color: '#FFFFFF',
+    fontSize: 11,
     fontWeight: '700',
   },
 });
