@@ -456,6 +456,10 @@ export default function Trade() {
             interval={timeframe}
             theme="dark"
             currentPrice={currentPrice}
+            tradeMarker={activeTrade ? {
+              entryPrice: activeTrade.entry_price,
+              type: activeTrade.type
+            } : null}
           />
         </View>
       </View>

@@ -7,18 +7,25 @@ if (Platform.OS !== 'web') {
   WebView = require('react-native-webview').WebView;
 }
 
+interface TradeMarker {
+  entryPrice: number;
+  type: 'call' | 'put';
+}
+
 interface TradingViewChartProps {
   symbol: string;
   interval: string;
   theme?: 'dark' | 'light';
   currentPrice?: number;
+  tradeMarker?: TradeMarker | null;
 }
 
 export default function TradingViewChart({ 
   symbol = 'EURUSD', 
   interval = '1',
   theme = 'dark',
-  currentPrice
+  currentPrice,
+  tradeMarker
 }: TradingViewChartProps) {
   const webViewRef = useRef<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -118,6 +125,9 @@ export default function TradingViewChart({
     </html>
   `;
 
+  // Determine if market is bullish or bearish from entry
+  const isBullish = tradeMarker && currentPrice ? currentPrice > tradeMarker.entryPrice : null;
+
   // For web platform, render iframe directly
   if (Platform.OS === 'web') {
     return (
@@ -157,6 +167,56 @@ export default function TradingViewChart({
               <Text style={styles.loadingText}>Loading Chart...</Text>
             </div>
           )}
+          
+          {/* Entry Position Marker - Dot on right side of chart */}
+          {tradeMarker && (
+            <div style={{
+              position: 'absolute',
+              right: 65,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              zIndex: 100,
+              pointerEvents: 'none',
+            }}>
+              {/* Entry dot with pulse animation */}
+              <div style={{
+                width: 14,
+                height: 14,
+                borderRadius: '50%',
+                backgroundColor: tradeMarker.type === 'call' ? '#00D7A3' : '#FF3B3B',
+                border: '2px solid #FFFFFF',
+                boxShadow: `0 0 10px ${tradeMarker.type === 'call' ? '#00D7A3' : '#FF3B3B'}`,
+                animation: 'pulse 1.5s ease-in-out infinite',
+              }} />
+              {/* Entry price label */}
+              <div style={{
+                marginTop: 4,
+                backgroundColor: tradeMarker.type === 'call' ? '#00D7A3' : '#FF3B3B',
+                padding: '2px 6px',
+                borderRadius: 4,
+                fontSize: 10,
+                fontWeight: 700,
+                color: '#FFFFFF',
+                whiteSpace: 'nowrap',
+              }}>
+                {tradeMarker.type === 'call' ? '▲' : '▼'} ${tradeMarker.entryPrice.toFixed(5)}
+              </div>
+              {/* Bullish/Bearish indicator */}
+              {isBullish !== null && (
+                <div style={{
+                  marginTop: 2,
+                  fontSize: 9,
+                  fontWeight: 600,
+                  color: isBullish ? '#00D7A3' : '#FF3B3B',
+                }}>
+                  {isBullish ? '📈 BULLISH' : '📉 BEARISH'}
+                </div>
+              )}
+            </div>
+          )}
         </div>
         {/* Current Price Overlay */}
         {currentPrice && (
@@ -164,6 +224,14 @@ export default function TradingViewChart({
             <Text style={styles.priceText}>${currentPrice.toFixed(5)}</Text>
           </View>
         )}
+        {/* Add CSS animation for pulse */}
+        <style>{`
+          @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+          }
+        `}</style>
       </View>
     );
   }
