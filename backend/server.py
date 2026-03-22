@@ -771,6 +771,73 @@ async def subscribe_market(sid, data):
     print(f"Client {sid} subscribed to {asset}")
     # In production, start sending real-time price updates
 
+# ============= Binance Proxy Routes (for CORS bypass) =============
+
+@api_router.get("/binance/klines")
+async def binance_klines_proxy(symbol: str, interval: str = "1m", limit: int = 50):
+    """Proxy Binance klines API to bypass CORS"""
+    try:
+        url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}"
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, timeout=10.0)
+            if response.status_code == 200:
+                return response.json()
+            else:
+                raise HTTPException(status_code=response.status_code, detail="Binance API error")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch Binance data: {str(e)}")
+
+# WebSocket proxy for Binance streams
+@sio.event
+async def subscribe_binance(sid, data):
+    """Subscribe to Binance WebSocket and relay to client"""
+    symbol = data.get('symbol', 'BTCUSDT').lower()
+    interval = data.get('interval', '1m')
+    
+    print(f"Client {sid} subscribing to Binance {symbol}@kline_{interval}")
+    
+    # In production, establish WebSocket connection to Binance and relay data
+    # For now, send mock updates every 2 seconds
+    import asyncio
+    
+    async def send_binance_updates():
+        try:
+            # Fetch initial price from Binance
+            url = f"https://api.binance.com/api/v3/ticker/price?symbol={symbol.upper()}"
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, timeout=5.0)
+                if response.status_code == 200:
+                    price_data = response.json()
+                    base_price = float(price_data['price'])
+                else:
+                    base_price = 50000.0  # Fallback
+            
+            # Send updates every 2 seconds
+            for _ in range(30):  # Send 30 updates (1 minute)
+                await asyncio.sleep(2)
+                
+                # Generate mock candle update
+                import random
+                change = (random.random() - 0.5) * (base_price * 0.001)
+                new_price = base_price + change
+                
+                candle = {
+                    'time': int(asyncio.get_event_loop().time() * 1000),
+                    'open': base_price,
+                    'high': max(base_price, new_price) + random.random() * base_price * 0.0005,
+                    'low': min(base_price, new_price) - random.random() * base_price * 0.0005,
+                    'close': new_price,
+                    'volume': random.uniform(100, 1000)
+                }
+                
+                await sio.emit('binance_update', candle, room=sid)
+                base_price = new_price
+        except Exception as e:
+            print(f"Error sending Binance updates: {e}")
+    
+    # Start sending updates in background
+    asyncio.create_task(send_binance_updates())
+
 # Include router
 app.include_router(api_router)
 
