@@ -45,7 +45,7 @@ const ASSETS = [
 
 export default function Trade() {
   const router = useRouter();
-  const { user, token, accountType } = useAuthStore();
+  const { user, token, accountType, setAccountType, updateBalance } = useAuthStore();
   
   // Market data
   const [selectedAsset, setSelectedAsset] = useState('EUR/USD');
@@ -59,7 +59,8 @@ export default function Trade() {
   const [timeframe, setTimeframe] = useState('1m');
   const [duration, setDuration] = useState(60);
   const [showAssetPicker, setShowAssetPicker] = useState(false);
-  const [pendingTradeMode, setPendingTradeMode] = useState(false);
+  const [showAccountPicker, setShowAccountPicker] = useState(false);
+  const [demoAddAmount, setDemoAddAmount] = useState('1000');
   
   // Active trade
   const [activeTrade, setActiveTrade] = useState<any>(null);
@@ -336,10 +337,16 @@ export default function Trade() {
         </TouchableOpacity>
 
         {/* Balance Button */}
-        <View style={styles.balanceButton}>
-          <Ionicons name="wallet" size={16} color="#00D7A3" />
-          <Text style={styles.balanceText}>${balance?.toFixed(2) || '0.00'}</Text>
-        </View>
+        <TouchableOpacity 
+          style={[styles.balanceButton, accountType === 'demo' && styles.demoBalance]}
+          onPress={() => setShowAccountPicker(true)}
+        >
+          <Ionicons name="wallet" size={16} color={accountType === 'demo' ? '#FFB800' : '#00D7A3'} />
+          <Text style={[styles.balanceText, accountType === 'demo' && styles.demoBalanceText]}>
+            {accountType === 'demo' ? 'Demo ' : ''}${(accountType === 'demo' ? user?.demo_balance : user?.real_balance)?.toFixed(2) || '0.00'}
+          </Text>
+          <Ionicons name="chevron-down" size={12} color={accountType === 'demo' ? '#FFB800' : '#00D7A3'} />
+        </TouchableOpacity>
 
         {/* Notification Button */}
         <TouchableOpacity style={styles.notifButton}>
@@ -529,6 +536,120 @@ export default function Trade() {
         </View>
       </Modal>
 
+      {/* Account Picker Modal */}
+      <Modal
+        visible={showAccountPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAccountPicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Account</Text>
+              <TouchableOpacity onPress={() => setShowAccountPicker(false)}>
+                <Ionicons name="close-circle" size={28} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Live Account Option */}
+            <TouchableOpacity
+              style={[styles.accountOption, accountType === 'real' && styles.accountOptionActive]}
+              onPress={() => {
+                setAccountType('real');
+                setShowAccountPicker(false);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+            >
+              <View style={styles.accountIconWrapper}>
+                <Ionicons name="wallet" size={24} color="#00D7A3" />
+              </View>
+              <View style={styles.accountInfo}>
+                <Text style={styles.accountLabel}>Live Account</Text>
+                <Text style={styles.accountBalance}>${user?.real_balance?.toFixed(2) || '0.00'}</Text>
+              </View>
+              {accountType === 'real' && (
+                <Ionicons name="checkmark-circle" size={24} color="#00D7A3" />
+              )}
+            </TouchableOpacity>
+
+            {/* Demo Account Option */}
+            <TouchableOpacity
+              style={[styles.accountOption, accountType === 'demo' && styles.accountOptionActive]}
+              onPress={() => {
+                setAccountType('demo');
+                setShowAccountPicker(false);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+            >
+              <View style={[styles.accountIconWrapper, styles.demoIconWrapper]}>
+                <Ionicons name="school" size={24} color="#FFB800" />
+              </View>
+              <View style={styles.accountInfo}>
+                <Text style={styles.accountLabel}>Demo Account</Text>
+                <Text style={[styles.accountBalance, styles.demoAccountBalance]}>${user?.demo_balance?.toFixed(2) || '0.00'}</Text>
+              </View>
+              {accountType === 'demo' && (
+                <Ionicons name="checkmark-circle" size={24} color="#FFB800" />
+              )}
+            </TouchableOpacity>
+
+            {/* Add Demo Balance Section */}
+            {accountType === 'demo' && (
+              <View style={styles.addDemoSection}>
+                <Text style={styles.addDemoTitle}>Add Demo Balance</Text>
+                <View style={styles.addDemoRow}>
+                  <View style={styles.demoAmountInput}>
+                    <Text style={styles.dollarSign}>$</Text>
+                    <TextInput
+                      style={styles.demoInput}
+                      value={demoAddAmount}
+                      onChangeText={setDemoAddAmount}
+                      keyboardType="numeric"
+                      placeholder="1000"
+                      placeholderTextColor="#666"
+                    />
+                  </View>
+                  <TouchableOpacity
+                    style={styles.addDemoBtn}
+                    onPress={() => {
+                      const addAmount = parseFloat(demoAddAmount) || 0;
+                      if (addAmount > 0 && user) {
+                        const newDemoBalance = (user.demo_balance || 0) + addAmount;
+                        updateBalance(newDemoBalance, user.real_balance || 0);
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                        Alert.alert('Success', `Added $${addAmount.toFixed(2)} to demo balance!`);
+                        setDemoAddAmount('1000');
+                      }
+                    }}
+                  >
+                    <Text style={styles.addDemoBtnText}>Add</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.quickDemoButtons}>
+                  {[1000, 5000, 10000].map(val => (
+                    <TouchableOpacity
+                      key={val}
+                      style={styles.quickDemoBtn}
+                      onPress={() => {
+                        if (user) {
+                          const newDemoBalance = (user.demo_balance || 0) + val;
+                          updateBalance(newDemoBalance, user.real_balance || 0);
+                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                          Alert.alert('Success', `Added $${val.toLocaleString()} to demo balance!`);
+                        }
+                      }}
+                    >
+                      <Text style={styles.quickDemoBtnText}>+${val.toLocaleString()}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+
       {/* Trade Result Popup */}
       {showResult && tradeResult && (
         <Animated.View 
@@ -644,6 +765,118 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: '#FF3B3B',
+  },
+  demoBalance: {
+    backgroundColor: 'rgba(255, 184, 0, 0.15)',
+  },
+  demoBalanceText: {
+    color: '#FFB800',
+  },
+  accountOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  accountOptionActive: {
+    borderColor: 'rgba(0, 215, 163, 0.3)',
+    backgroundColor: 'rgba(0, 215, 163, 0.1)',
+  },
+  accountIconWrapper: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(0, 215, 163, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  demoIconWrapper: {
+    backgroundColor: 'rgba(255, 184, 0, 0.15)',
+  },
+  accountInfo: {
+    flex: 1,
+  },
+  accountLabel: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  accountBalance: {
+    color: '#00D7A3',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  demoAccountBalance: {
+    color: '#FFB800',
+  },
+  addDemoSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  addDemoTitle: {
+    color: '#FFB800',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  addDemoRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  demoAmountInput: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 184, 0, 0.3)',
+  },
+  demoInput: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    paddingVertical: 10,
+  },
+  addDemoBtn: {
+    backgroundColor: '#FFB800',
+    paddingHorizontal: 24,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addDemoBtnText: {
+    color: '#0A0E27',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  quickDemoButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  quickDemoBtn: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 184, 0, 0.15)',
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  quickDemoBtnText: {
+    color: '#FFB800',
+    fontSize: 12,
+    fontWeight: '700',
   },
   chartWrapper: {
     height: 200,
