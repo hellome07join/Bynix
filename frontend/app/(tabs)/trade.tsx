@@ -429,42 +429,6 @@ export default function Trade() {
           )}
         </View>
 
-        {/* Tools Bar */}
-        <View style={styles.toolsBar}>
-          {/* Set Time Button */}
-          <TouchableOpacity 
-            style={styles.setTimeBtn}
-            onPress={() => setShowTimePicker(true)}
-          >
-            <Ionicons name="time" size={16} color="#00D7A3" />
-            <Text style={styles.setTimeText}>{formatDuration(duration)}</Text>
-            <Ionicons name="chevron-down" size={14} color="#00D7A3" />
-          </TouchableOpacity>
-
-          {/* Tools Button */}
-          <TouchableOpacity 
-            style={styles.toolsBtn}
-            onPress={() => setShowToolsModal(true)}
-          >
-            <Ionicons name="construct" size={16} color="#FFB800" />
-            <Text style={styles.toolsBtnText}>Tools</Text>
-          </TouchableOpacity>
-
-          {/* Trade History Button */}
-          <TouchableOpacity 
-            style={styles.tradeHistoryBtn}
-            onPress={() => setShowTradeHistory(true)}
-          >
-            <Ionicons name="time" size={16} color="#00D7A3" />
-            <Text style={styles.tradeHistoryBtnText}>Trade History</Text>
-            {activeTrade && (
-              <View style={styles.runningBadge}>
-                <Text style={styles.runningBadgeText}>1</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-
         {/* Active Trade Info - Shows in chart area when trade is active */}
         {activeTrade && (
           <View style={[styles.activeTradeBox, isWinning ? styles.tradeWinning : styles.tradeLosing]}>
@@ -484,6 +448,42 @@ export default function Trade() {
             </View>
           </View>
         )}
+      </View>
+
+      {/* Tools Bar - Between chart and trading panel */}
+      <View style={styles.toolsBar}>
+        {/* Set Time Button */}
+        <TouchableOpacity 
+          style={styles.setTimeBtn}
+          onPress={() => setShowTimePicker(true)}
+        >
+          <Ionicons name="time" size={16} color="#00D7A3" />
+          <Text style={styles.setTimeText}>{formatDuration(duration)}</Text>
+          <Ionicons name="chevron-down" size={14} color="#00D7A3" />
+        </TouchableOpacity>
+
+        {/* Tools Button */}
+        <TouchableOpacity 
+          style={styles.toolsBtn}
+          onPress={() => setShowToolsModal(true)}
+        >
+          <Ionicons name="construct" size={16} color="#FFB800" />
+          <Text style={styles.toolsBtnText}>Tools</Text>
+        </TouchableOpacity>
+
+        {/* Trade History Button */}
+        <TouchableOpacity 
+          style={styles.tradeHistoryBtn}
+          onPress={() => setShowTradeHistory(true)}
+        >
+          <Ionicons name="time" size={16} color="#00D7A3" />
+          <Text style={styles.tradeHistoryBtnText}>Trade History</Text>
+          {activeTrade && (
+            <View style={styles.runningBadge}>
+              <Text style={styles.runningBadgeText}>1</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
       {/* Bottom Trading Panel - Fixed at bottom */}
@@ -1259,10 +1259,10 @@ const styles = StyleSheet.create({
   },
   chartContainer: {
     flex: 1,
+    backgroundColor: '#0A0E27',
   },
   chartWrapper: {
     flex: 1,
-    marginBottom: 4,
   },
   chartLoading: {
     flex: 1,
