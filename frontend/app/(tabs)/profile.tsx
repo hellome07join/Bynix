@@ -379,6 +379,25 @@ export default function Profile() {
       { id: 5, title: 'Verified', subtitle: 'Complete', icon: 'checkmark-circle' },
     ];
 
+    const handleContinueToStep2 = () => {
+      // Validate step 1 fields
+      if (!kycData.fullName || !kycData.nationality || !kycData.idType || !kycData.idNumber) {
+        Alert.alert('Missing Information', 'Please fill in all required fields.');
+        return;
+      }
+      setKycStep(2);
+    };
+
+    const handleContinueToStep3 = () => {
+      Alert.alert('Face Verification', 'Face verification feature coming soon!');
+    };
+
+    const getStepStatus = (stepId: number) => {
+      if (stepId < kycStep) return 'completed';
+      if (stepId === kycStep) return 'active';
+      return 'pending';
+    };
+
     return (
       <>
         {/* Identity Verification Header */}
@@ -390,136 +409,211 @@ export default function Profile() {
         {/* Progress Steps */}
         <View style={styles.kycSteps}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stepsScroll}>
-            {KYC_STEPS.map((step, index) => (
-              <View key={step.id} style={styles.stepItem}>
-                <View style={[
-                  styles.stepCircle,
-                  kycStep === step.id && styles.stepCircleActive,
-                  kycStep > step.id && styles.stepCircleCompleted,
-                ]}>
-                  <Ionicons 
-                    name={step.icon as any} 
-                    size={18} 
-                    color={kycStep >= step.id ? '#0A0E27' : '#666'} 
-                  />
+            {KYC_STEPS.map((step, index) => {
+              const status = getStepStatus(step.id);
+              return (
+                <View key={step.id} style={styles.stepItem}>
+                  {/* Connection Line */}
+                  {index > 0 && (
+                    <View style={[
+                      styles.stepLine,
+                      status !== 'pending' && styles.stepLineActive,
+                      getStepStatus(step.id - 1) === 'completed' && styles.stepLineCompleted,
+                    ]} />
+                  )}
+                  <View style={[
+                    styles.stepCircle,
+                    status === 'active' && styles.stepCircleActive,
+                    status === 'completed' && styles.stepCircleCompleted,
+                  ]}>
+                    {status === 'completed' ? (
+                      <Ionicons name="checkmark" size={18} color="#0A0E27" />
+                    ) : (
+                      <Ionicons name={step.icon as any} size={18} color={status === 'active' ? '#0A0E27' : '#666'} />
+                    )}
+                  </View>
+                  <Text style={[
+                    styles.stepTitle, 
+                    status === 'active' && styles.stepTitleActive,
+                    status === 'completed' && styles.stepTitleCompleted,
+                  ]}>
+                    {step.title}
+                  </Text>
+                  <Text style={styles.stepSubtitle}>{step.subtitle}</Text>
                 </View>
-                <Text style={[styles.stepTitle, kycStep === step.id && styles.stepTitleActive]}>
-                  {step.title}
-                </Text>
-                <Text style={styles.stepSubtitle}>{step.subtitle}</Text>
-              </View>
-            ))}
+              );
+            })}
           </ScrollView>
         </View>
 
         {/* Step 1: Personal Information Form */}
-        <View style={styles.kycFormCard}>
-          <View style={styles.kycFormHeader}>
-            <View style={styles.kycFormIcon}>
-              <Ionicons name="card" size={18} color="#0A0E27" />
+        {kycStep === 1 && (
+          <View style={styles.kycFormCard}>
+            <View style={styles.kycFormHeader}>
+              <View style={styles.kycFormIcon}>
+                <Ionicons name="card" size={18} color="#0A0E27" />
+              </View>
+              <View>
+                <Text style={styles.kycFormTitle}>Step 1: Personal Information</Text>
+                <Text style={styles.kycFormSubtitle}>Enter your details exactly as they appear on your ID</Text>
+              </View>
             </View>
-            <View>
-              <Text style={styles.kycFormTitle}>Step 1: Personal Information</Text>
-              <Text style={styles.kycFormSubtitle}>Enter your details exactly as they appear on your ID</Text>
-            </View>
-          </View>
 
-          {/* Full Name */}
-          <View style={styles.kycField}>
-            <View style={styles.kycFieldLabel}>
-              <Ionicons name="person" size={14} color="#FFB800" />
-              <Text style={styles.kycFieldLabelText}>FULL NAME (AS ON ID)</Text>
+            {/* Full Name */}
+            <View style={styles.kycField}>
+              <View style={styles.kycFieldLabel}>
+                <Ionicons name="person" size={14} color="#FFB800" />
+                <Text style={styles.kycFieldLabelText}>FULL NAME (AS ON ID)</Text>
+              </View>
+              <TextInput
+                style={styles.kycInput}
+                placeholder="e.g. John Michael Smith"
+                placeholderTextColor="#666"
+                value={kycData.fullName}
+                onChangeText={(text) => setKycData(prev => ({ ...prev, fullName: text }))}
+              />
             </View>
-            <TextInput
-              style={styles.kycInput}
-              placeholder="e.g. John Michael Smith"
-              placeholderTextColor="#666"
-              value={kycData.fullName}
-              onChangeText={(text) => setKycData(prev => ({ ...prev, fullName: text }))}
-            />
-          </View>
 
-          {/* Nationality/Country */}
-          <View style={styles.kycField}>
-            <View style={styles.kycFieldLabel}>
-              <Ionicons name="globe" size={14} color="#FFB800" />
-              <Text style={styles.kycFieldLabelText}>NATIONALITY / COUNTRY</Text>
+            {/* Nationality/Country */}
+            <View style={styles.kycField}>
+              <View style={styles.kycFieldLabel}>
+                <Ionicons name="globe" size={14} color="#FFB800" />
+                <Text style={styles.kycFieldLabelText}>NATIONALITY / COUNTRY</Text>
+              </View>
+              <TouchableOpacity 
+                style={styles.kycSelect}
+                onPress={() => setShowCountryPicker(true)}
+              >
+                <Text style={[styles.kycSelectText, !kycData.nationality && styles.kycSelectPlaceholder]}>
+                  {kycData.nationality || 'Search country...'}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color="#666" />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity 
-              style={styles.kycSelect}
-              onPress={() => setShowCountryPicker(true)}
-            >
-              <Text style={[styles.kycSelectText, !kycData.nationality && styles.kycSelectPlaceholder]}>
-                {kycData.nationality || 'Search country...'}
+
+            {/* Date of Birth */}
+            <View style={styles.kycField}>
+              <View style={styles.kycFieldLabel}>
+                <Ionicons name="calendar" size={14} color="#FFB800" />
+                <Text style={styles.kycFieldLabelText}>DATE OF BIRTH</Text>
+              </View>
+              <TextInput
+                style={styles.kycInput}
+                placeholder="DD/MM/YYYY"
+                placeholderTextColor="#666"
+                value={kycData.dateOfBirth}
+                onChangeText={(text) => setKycData(prev => ({ ...prev, dateOfBirth: text }))}
+              />
+            </View>
+
+            {/* ID Document Type */}
+            <View style={styles.kycField}>
+              <View style={styles.kycFieldLabel}>
+                <Ionicons name="card" size={14} color="#FFB800" />
+                <Text style={styles.kycFieldLabelText}>ID DOCUMENT TYPE</Text>
+              </View>
+              <TouchableOpacity 
+                style={styles.kycSelect}
+                onPress={() => setShowIdTypePicker(true)}
+              >
+                <Text style={[styles.kycSelectText, !kycData.idType && styles.kycSelectPlaceholder]}>
+                  {kycData.idType || 'Select ID type...'}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            {/* ID Number */}
+            <View style={styles.kycField}>
+              <View style={styles.kycFieldLabel}>
+                <Ionicons name="keypad" size={14} color="#FFB800" />
+                <Text style={styles.kycFieldLabelText}>ID NUMBER</Text>
+              </View>
+              <TextInput
+                style={styles.kycInput}
+                placeholder="Enter your ID number"
+                placeholderTextColor="#666"
+                value={kycData.idNumber}
+                onChangeText={(text) => setKycData(prev => ({ ...prev, idNumber: text }))}
+              />
+            </View>
+
+            {/* Security Notice */}
+            <View style={styles.kycNotice}>
+              <Ionicons name="shield-checkmark" size={18} color="#9B59B6" />
+              <Text style={styles.kycNoticeText}>
+                Your information is encrypted and securely stored. We only use it for identity verification purposes.
               </Text>
-              <Ionicons name="chevron-down" size={18} color="#666" />
+            </View>
+
+            {/* Continue Button */}
+            <TouchableOpacity 
+              style={styles.kycContinueBtn}
+              onPress={handleContinueToStep2}
+            >
+              <Ionicons name="arrow-forward" size={18} color="#0A0E27" />
+              <Text style={styles.kycContinueBtnText}>Continue to Document Upload</Text>
             </TouchableOpacity>
           </View>
+        )}
 
-          {/* Date of Birth */}
-          <View style={styles.kycField}>
-            <View style={styles.kycFieldLabel}>
-              <Ionicons name="calendar" size={14} color="#FFB800" />
-              <Text style={styles.kycFieldLabelText}>DATE OF BIRTH</Text>
+        {/* Step 2: Document Upload */}
+        {kycStep === 2 && (
+          <View style={styles.kycFormCard}>
+            <View style={styles.kycFormHeader}>
+              <View style={styles.kycFormIcon}>
+                <Ionicons name="document" size={18} color="#0A0E27" />
+              </View>
+              <View>
+                <Text style={styles.kycFormTitle}>Step 2: Upload Government ID</Text>
+                <Text style={styles.kycFormSubtitle}>{kycData.idType || 'National ID'} — Front & Back</Text>
+              </View>
             </View>
-            <TextInput
-              style={styles.kycInput}
-              placeholder="DD/MM/YYYY"
-              placeholderTextColor="#666"
-              value={kycData.dateOfBirth}
-              onChangeText={(text) => setKycData(prev => ({ ...prev, dateOfBirth: text }))}
-            />
-          </View>
 
-          {/* ID Document Type */}
-          <View style={styles.kycField}>
-            <View style={styles.kycFieldLabel}>
-              <Ionicons name="card" size={14} color="#FFB800" />
-              <Text style={styles.kycFieldLabelText}>ID DOCUMENT TYPE</Text>
+            {/* Front Side Upload */}
+            <View style={styles.kycField}>
+              <View style={styles.kycFieldLabel}>
+                <Ionicons name="card" size={14} color="#FFB800" />
+                <Text style={styles.kycFieldLabelText}>FRONT SIDE</Text>
+              </View>
+              <TouchableOpacity 
+                style={styles.uploadArea}
+                onPress={() => Alert.alert('Upload', 'Image picker coming soon!')}
+              >
+                <View style={styles.uploadIconWrapper}>
+                  <Ionicons name="cloud-upload" size={28} color="#666" />
+                </View>
+                <Text style={styles.uploadText}>Tap to upload</Text>
+              </TouchableOpacity>
             </View>
+
+            {/* Back Side Upload */}
+            <View style={styles.kycField}>
+              <View style={styles.kycFieldLabel}>
+                <Ionicons name="card-outline" size={14} color="#FFB800" />
+                <Text style={styles.kycFieldLabelText}>BACK SIDE</Text>
+              </View>
+              <TouchableOpacity 
+                style={styles.uploadArea}
+                onPress={() => Alert.alert('Upload', 'Image picker coming soon!')}
+              >
+                <View style={styles.uploadIconWrapper}>
+                  <Ionicons name="cloud-upload" size={28} color="#666" />
+                </View>
+                <Text style={styles.uploadText}>Tap to upload</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Continue Button */}
             <TouchableOpacity 
-              style={styles.kycSelect}
-              onPress={() => setShowIdTypePicker(true)}
+              style={styles.kycContinueBtn}
+              onPress={handleContinueToStep3}
             >
-              <Text style={[styles.kycSelectText, !kycData.idType && styles.kycSelectPlaceholder]}>
-                {kycData.idType || 'Select ID type...'}
-              </Text>
-              <Ionicons name="chevron-down" size={18} color="#666" />
+              <Ionicons name="arrow-forward" size={18} color="#0A0E27" />
+              <Text style={styles.kycContinueBtnText}>Continue to Face Verification</Text>
             </TouchableOpacity>
           </View>
-
-          {/* ID Number */}
-          <View style={styles.kycField}>
-            <View style={styles.kycFieldLabel}>
-              <Ionicons name="keypad" size={14} color="#FFB800" />
-              <Text style={styles.kycFieldLabelText}>ID NUMBER</Text>
-            </View>
-            <TextInput
-              style={styles.kycInput}
-              placeholder="Enter your ID number"
-              placeholderTextColor="#666"
-              value={kycData.idNumber}
-              onChangeText={(text) => setKycData(prev => ({ ...prev, idNumber: text }))}
-            />
-          </View>
-
-          {/* Security Notice */}
-          <View style={styles.kycNotice}>
-            <Ionicons name="shield-checkmark" size={18} color="#9B59B6" />
-            <Text style={styles.kycNoticeText}>
-              Your information is encrypted and securely stored. We only use it for identity verification purposes.
-            </Text>
-          </View>
-
-          {/* Continue Button */}
-          <TouchableOpacity 
-            style={styles.kycContinueBtn}
-            onPress={() => Alert.alert('KYC', 'Document upload feature coming soon!')}
-          >
-            <Ionicons name="arrow-forward" size={18} color="#0A0E27" />
-            <Text style={styles.kycContinueBtnText}>Continue to Document Upload</Text>
-          </TouchableOpacity>
-        </View>
+        )}
 
         {/* Country Picker Modal */}
         <Modal visible={showCountryPicker} transparent animationType="slide">
@@ -1548,6 +1642,23 @@ const styles = StyleSheet.create({
   stepTitleActive: {
     color: '#FFB800',
   },
+  stepTitleCompleted: {
+    color: '#00D7A3',
+  },
+  stepLine: {
+    position: 'absolute',
+    left: -20,
+    top: 20,
+    width: 20,
+    height: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  stepLineActive: {
+    backgroundColor: '#FFB800',
+  },
+  stepLineCompleted: {
+    backgroundColor: '#00D7A3',
+  },
   stepSubtitle: {
     color: '#444',
     fontSize: 9,
@@ -1656,6 +1767,29 @@ const styles = StyleSheet.create({
     color: '#0A0E27',
     fontSize: 15,
     fontWeight: '700',
+  },
+  uploadArea: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderStyle: 'dashed',
+    paddingVertical: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  uploadIconWrapper: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  uploadText: {
+    color: '#666',
+    fontSize: 14,
   },
   pickerList: {
     maxHeight: 300,
