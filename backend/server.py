@@ -525,6 +525,53 @@ async def get_trades(authorization: Optional[str] = Header(None), request: Reque
     
     return trades
 
+@api_router.get("/trades/history")
+async def get_trade_history(authorization: Optional[str] = Header(None), request: Request = None, limit: int = 50):
+    """Get user's formatted trade history for display"""
+    user = await get_current_user(authorization, request)
+    
+    trades = await db.trades.find(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    # Format trades for frontend display
+    formatted_trades = []
+    for trade in trades:
+        created_at = trade.get("created_at")
+        if created_at:
+            # Calculate time ago
+            now = datetime.now(timezone.utc)
+            if isinstance(created_at, str):
+                created_at = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+            diff = now - created_at
+            if diff.days > 0:
+                time_ago = f"{diff.days}d ago"
+            elif diff.seconds >= 3600:
+                time_ago = f"{diff.seconds // 3600}h ago"
+            elif diff.seconds >= 60:
+                time_ago = f"{diff.seconds // 60}m ago"
+            else:
+                time_ago = f"{diff.seconds}s ago"
+        else:
+            time_ago = "just now"
+            
+        formatted_trades.append({
+            "trade_id": trade.get("trade_id"),
+            "asset": trade.get("asset", "EUR/USD OTC"),
+            "type": trade.get("trade_type", "call"),
+            "entry_price": trade.get("entry_price", 0),
+            "exit_price": trade.get("exit_price", 0),
+            "amount": trade.get("amount", 0),
+            "profit_loss": trade.get("profit_loss", 0),
+            "status": trade.get("status", "pending"),
+            "account_type": trade.get("account_type", "demo"),
+            "time_ago": time_ago,
+            "created_at": str(created_at) if created_at else None
+        })
+    
+    return {"trades": formatted_trades}
+
 @api_router.get("/trades/stats")
 async def get_trade_stats(authorization: Optional[str] = Header(None), request: Request = None):
     """Get user's trading statistics"""

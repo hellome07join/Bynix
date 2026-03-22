@@ -19,7 +19,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { fetchHistoricalCandles, Candle } from '../../utils/binanceService';
 import EnhancedCandlestickChart from '../../components/EnhancedCandlestickChart';
 import TradingViewChart from '../../components/TradingViewChart';
-import { api } from '../../utils/api';
+import { api, API_URL } from '../../utils/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -129,6 +129,9 @@ export default function Trade() {
   const [tradeStartTime, setTradeStartTime] = useState(0);
   const [tradeEndTime, setTradeEndTime] = useState(0);
   
+  // Trade history from backend
+  const [tradeHistory, setTradeHistory] = useState<any[]>([]);
+  
   // Trade result
   const [showResult, setShowResult] = useState(false);
   const [tradeResult, setTradeResult] = useState<any>(null);
@@ -137,6 +140,42 @@ export default function Trade() {
   const wsRef = useRef<any>(null);
   const tradeIntervalRef = useRef<any>(null);
   const cooldownRef = useRef(false);
+
+  // Fetch trade history from backend
+  const fetchTradeHistory = async () => {
+    if (!token) return;
+    try {
+      const response = await fetch(`${API_URL}/trades/history`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setTradeHistory(data.trades || []);
+      }
+    } catch (error) {
+      console.error('Error fetching trade history:', error);
+    }
+  };
+  
+  // Fetch trade history on mount and when trade settles
+  useEffect(() => {
+    if (token) {
+      fetchTradeHistory();
+    }
+  }, [token]);
+
+  // Calculate if running trade is in profit or loss
+  const isRunningTradeInProfit = activeTrade 
+    ? (activeTrade.type === 'call' 
+        ? currentPrice > activeTrade.entry_price 
+        : currentPrice < activeTrade.entry_price)
+    : null;
+  
+  const runningTradePL = activeTrade 
+    ? (isRunningTradeInProfit 
+        ? activeTrade.amount * (payoutPercentage / 100) 
+        : -activeTrade.amount)
+    : 0;
 
   // Get current asset data
   const currentAsset = ASSETS.find(a => a.value === selectedAsset) || ASSETS[0];
@@ -928,20 +967,20 @@ export default function Trade() {
                     <View style={styles.runningDot} />
                     <Text style={styles.historySectionTitle}>Running Trade</Text>
                   </View>
-                  <View style={styles.tradeCard}>
+                  <View style={[styles.tradeCard, isRunningTradeInProfit ? styles.tradeCardProfit : styles.tradeCardLoss]}>
                     <View style={styles.tradeCardHeader}>
                       <View style={styles.tradeAsset}>
                         <Text style={styles.tradeAssetIcon}>{currentAsset.icon}</Text>
                         <Text style={styles.tradeAssetName}>{selectedAsset}</Text>
                       </View>
-                      <View style={[styles.directionBadge, activeTrade.trade_type === 'call' ? styles.directionUp : styles.directionDown]}>
+                      <View style={[styles.directionBadge, activeTrade.type === 'call' ? styles.directionUp : styles.directionDown]}>
                         <Ionicons 
-                          name={activeTrade.trade_type === 'call' ? 'arrow-up' : 'arrow-down'} 
+                          name={activeTrade.type === 'call' ? 'arrow-up' : 'arrow-down'} 
                           size={12} 
                           color="#FFFFFF" 
                         />
                         <Text style={styles.directionText}>
-                          {activeTrade.trade_type === 'call' ? 'UP' : 'DOWN'}
+                          {activeTrade.type === 'call' ? 'UP' : 'DOWN'}
                         </Text>
                       </View>
                     </View>
@@ -951,12 +990,30 @@ export default function Trade() {
                         <Text style={styles.tradeInfoValue}>${activeTrade.entry_price.toFixed(5)}</Text>
                       </View>
                       <View style={styles.tradeInfo}>
+                        <Text style={styles.tradeInfoLabel}>Current Price</Text>
+                        <Text style={[styles.tradeInfoValue, isRunningTradeInProfit ? { color: '#00D7A3' } : { color: '#FF3B3B' }]}>
+                          ${currentPrice.toFixed(5)}
+                        </Text>
+                      </View>
+                      <View style={styles.tradeInfo}>
                         <Text style={styles.tradeInfoLabel}>Amount</Text>
                         <Text style={styles.tradeInfoValue}>${activeTrade.amount}</Text>
                       </View>
                       <View style={styles.tradeInfo}>
+                        <Text style={styles.tradeInfoLabel}>P/L</Text>
+                        <Text style={[styles.tradeInfoValue, isRunningTradeInProfit ? { color: '#00D7A3' } : { color: '#FF3B3B' }]}>
+                          {isRunningTradeInProfit ? '+' : ''}{runningTradePL.toFixed(2)}
+                        </Text>
+                      </View>
+                      <View style={styles.tradeInfo}>
                         <Text style={styles.tradeInfoLabel}>Time Left</Text>
                         <Text style={[styles.tradeInfoValue, { color: '#FFB800' }]}>{countdown}s</Text>
+                      </View>
+                      <View style={styles.tradeInfo}>
+                        <Text style={styles.tradeInfoLabel}>Status</Text>
+                        <Text style={[styles.tradeInfoValue, isRunningTradeInProfit ? { color: '#00D7A3' } : { color: '#FF3B3B' }]}>
+                          {isRunningTradeInProfit ? '📈 PROFIT' : '📉 LOSS'}
+                        </Text>
                       </View>
                     </View>
                   </View>
@@ -967,57 +1024,61 @@ export default function Trade() {
               <View style={styles.historySection}>
                 <Text style={styles.historySectionTitle}>Previous Trades</Text>
                 
-                {/* Demo Trade History */}
-                {[
-                  { id: 1, asset: 'EUR/USD', icon: '💶', type: 'call', entry: 1.08542, exit: 1.08621, amount: 100, profit: 81, status: 'won', time: '2 min ago' },
-                  { id: 2, asset: 'BTC/USD', icon: '₿', type: 'put', entry: 67234.50, exit: 67198.20, amount: 50, profit: 40.5, status: 'won', time: '5 min ago' },
-                  { id: 3, asset: 'EUR/USD', icon: '💶', type: 'call', entry: 1.08510, exit: 1.08495, amount: 100, profit: -100, status: 'lost', time: '8 min ago' },
-                  { id: 4, asset: 'GBP/USD', icon: '💷', type: 'put', entry: 1.26780, exit: 1.26695, amount: 200, profit: 162, status: 'won', time: '12 min ago' },
-                  { id: 5, asset: 'ETH/USD', icon: 'Ξ', type: 'call', entry: 3456.78, exit: 3449.20, amount: 75, profit: -75, status: 'lost', time: '15 min ago' },
-                ].map((trade) => (
-                  <View key={trade.id} style={styles.historyCard}>
-                    <View style={styles.historyCardLeft}>
-                      <View style={styles.historyAsset}>
-                        <Text style={styles.historyAssetIcon}>{trade.icon}</Text>
-                        <View>
-                          <Text style={styles.historyAssetName}>{trade.asset}</Text>
-                          <Text style={styles.historyTime}>{trade.time}</Text>
+                {tradeHistory.length === 0 ? (
+                  <View style={styles.emptyHistory}>
+                    <Ionicons name="document-text-outline" size={48} color="#444" />
+                    <Text style={styles.emptyHistoryText}>No trades yet</Text>
+                  </View>
+                ) : (
+                  tradeHistory.map((trade, index) => (
+                    <View key={trade.trade_id || index} style={styles.historyCard}>
+                      <View style={styles.historyCardLeft}>
+                        <View style={styles.historyAsset}>
+                          <Text style={styles.historyAssetIcon}>
+                            {trade.asset?.includes('EUR') ? '🇪🇺🇺🇸' : 
+                             trade.asset?.includes('GBP') ? '🇬🇧🇺🇸' : 
+                             trade.asset?.includes('JPY') ? '🇯🇵' : '💱'}
+                          </Text>
+                          <View>
+                            <Text style={styles.historyAssetName}>{trade.asset || 'Unknown'}</Text>
+                            <Text style={styles.historyTime}>{trade.time_ago || 'just now'}</Text>
+                          </View>
                         </View>
                       </View>
-                    </View>
-                    <View style={styles.historyCardCenter}>
-                      <View style={[styles.historyDirection, trade.type === 'call' ? styles.directionUp : styles.directionDown]}>
-                        <Ionicons 
-                          name={trade.type === 'call' ? 'arrow-up' : 'arrow-down'} 
-                          size={10} 
-                          color="#FFFFFF" 
-                        />
+                      <View style={styles.historyCardCenter}>
+                        <View style={[styles.historyDirection, trade.type === 'call' ? styles.directionUp : styles.directionDown]}>
+                          <Ionicons 
+                            name={trade.type === 'call' ? 'arrow-up' : 'arrow-down'} 
+                            size={10} 
+                            color="#FFFFFF" 
+                          />
+                        </View>
+                        <Text style={styles.historyAmount}>${trade.amount}</Text>
                       </View>
-                      <Text style={styles.historyAmount}>${trade.amount}</Text>
+                      <View style={styles.historyCardRight}>
+                        <Text style={[
+                          styles.historyProfit, 
+                          trade.status === 'won' ? { color: '#00D7A3' } : { color: '#FF3B3B' }
+                        ]}>
+                          {trade.profit_loss > 0 ? '+' : ''}${(trade.profit_loss || 0).toFixed(2)}
+                        </Text>
+                        <Text style={[
+                          styles.historyStatus, 
+                          trade.status === 'won' ? { color: '#00D7A3' } : { color: '#FF3B3B' }
+                        ]}>
+                          {(trade.status || 'pending').toUpperCase()}
+                        </Text>
+                      </View>
                     </View>
-                    <View style={styles.historyCardRight}>
-                      <Text style={[
-                        styles.historyProfit, 
-                        trade.status === 'won' ? { color: '#00D7A3' } : { color: '#FF3B3B' }
-                      ]}>
-                        {trade.profit > 0 ? '+' : ''}${trade.profit.toFixed(2)}
-                      </Text>
-                      <Text style={[
-                        styles.historyStatus, 
-                        trade.status === 'won' ? { color: '#00D7A3' } : { color: '#FF3B3B' }
-                      ]}>
-                        {trade.status.toUpperCase()}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
+                  ))
+                )}
               </View>
 
               {/* Summary Section */}
               <View style={styles.historySummary}>
                 <View style={styles.summaryItem}>
                   <Text style={styles.summaryLabel}>Total Trades</Text>
-                  <Text style={styles.summaryValue}>5</Text>
+                  <Text style={styles.summaryValue}>{tradeHistory.length}</Text>
                 </View>
                 <View style={styles.summaryItem}>
                   <Text style={styles.summaryLabel}>Won</Text>
@@ -2042,5 +2103,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: 'rgba(255, 255, 255, 0.9)',
     marginVertical: 2,
+  },
+  tradeCardProfit: {
+    borderColor: '#00D7A3',
+    borderWidth: 2,
+  },
+  tradeCardLoss: {
+    borderColor: '#FF3B3B',
+    borderWidth: 2,
+  },
+  emptyHistory: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyHistoryText: {
+    color: '#666',
+    marginTop: 12,
+    fontSize: 14,
   },
 });
