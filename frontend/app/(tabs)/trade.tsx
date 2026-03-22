@@ -18,6 +18,7 @@ import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../stores/authStore';
 import { fetchHistoricalCandles, Candle } from '../../utils/binanceService';
 import EnhancedCandlestickChart from '../../components/EnhancedCandlestickChart';
+import TradingViewChart from '../../components/TradingViewChart';
 import { api } from '../../utils/api';
 
 const { width, height } = Dimensions.get('window');
@@ -410,23 +411,14 @@ export default function Trade() {
 
       {/* Chart Area - Takes remaining space */}
       <View style={styles.chartContainer}>
-        {/* Chart */}
+        {/* TradingView Chart */}
         <View style={styles.chartWrapper}>
-          {loading ? (
-            <View style={styles.chartLoading}>
-              <Text style={styles.loadingText}>Loading chart...</Text>
-            </View>
-          ) : (
-            <EnhancedCandlestickChart
-              candles={candles}
-              currentPrice={currentPrice}
-              tradeEntry={tradeEntry}
-              countdown={countdown}
-              tradeStartTime={tradeStartTime}
-              tradeEndTime={tradeEndTime}
-              isWinning={isWinning}
-            />
-          )}
+          <TradingViewChart
+            symbol={selectedAsset}
+            interval={timeframe}
+            theme="dark"
+            currentPrice={currentPrice}
+          />
         </View>
 
         {/* Active Trade Info - Shows in chart area when trade is active */}
