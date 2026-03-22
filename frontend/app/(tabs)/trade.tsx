@@ -161,6 +161,10 @@ export default function Trade() {
     }
   }, [token]);
 
+  // Get current asset data
+  const currentAsset = ASSETS.find(a => a.value === selectedAsset) || ASSETS[0];
+  const payoutPercentage = currentAsset.payout;
+
   // Calculate if running trade is in profit or loss
   const isRunningTradeInProfit = activeTrade 
     ? (activeTrade.type === 'call' 
@@ -173,10 +177,6 @@ export default function Trade() {
         ? activeTrade.amount * (payoutPercentage / 100) 
         : -activeTrade.amount)
     : 0;
-
-  // Get current asset data
-  const currentAsset = ASSETS.find(a => a.value === selectedAsset) || ASSETS[0];
-  const payoutPercentage = currentAsset.payout;
   
   // Calculate potential profit
   const tradeAmount = parseFloat(amount) || 0;
@@ -1079,15 +1079,24 @@ export default function Trade() {
                 </View>
                 <View style={styles.summaryItem}>
                   <Text style={styles.summaryLabel}>Won</Text>
-                  <Text style={[styles.summaryValue, { color: '#00D7A3' }]}>3</Text>
+                  <Text style={[styles.summaryValue, { color: '#00D7A3' }]}>
+                    {tradeHistory.filter(t => t.status === 'won').length}
+                  </Text>
                 </View>
                 <View style={styles.summaryItem}>
                   <Text style={styles.summaryLabel}>Lost</Text>
-                  <Text style={[styles.summaryValue, { color: '#FF3B3B' }]}>2</Text>
+                  <Text style={[styles.summaryValue, { color: '#FF3B3B' }]}>
+                    {tradeHistory.filter(t => t.status === 'lost').length}
+                  </Text>
                 </View>
                 <View style={styles.summaryItem}>
                   <Text style={styles.summaryLabel}>Net P&L</Text>
-                  <Text style={[styles.summaryValue, { color: '#00D7A3' }]}>+$108.50</Text>
+                  <Text style={[styles.summaryValue, { 
+                    color: tradeHistory.reduce((sum, t) => sum + (t.profit_loss || 0), 0) >= 0 ? '#00D7A3' : '#FF3B3B' 
+                  }]}>
+                    {tradeHistory.reduce((sum, t) => sum + (t.profit_loss || 0), 0) >= 0 ? '+' : ''}
+                    ${tradeHistory.reduce((sum, t) => sum + (t.profit_loss || 0), 0).toFixed(2)}
+                  </Text>
                 </View>
               </View>
             </ScrollView>
