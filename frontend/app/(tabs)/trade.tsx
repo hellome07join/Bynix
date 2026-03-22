@@ -47,6 +47,14 @@ export default function Trade() {
   const router = useRouter();
   const { user, token, accountType, setAccountType, updateBalance } = useAuthStore();
   
+  // Local demo balance (for when user is not logged in)
+  const [localDemoBalance, setLocalDemoBalance] = useState(10000);
+  
+  // Get actual balance (use local if no user)
+  const demoBalance = user?.demo_balance ?? localDemoBalance;
+  const realBalance = user?.real_balance ?? 0;
+  const currentBalance = accountType === 'demo' ? demoBalance : realBalance;
+  
   // Market data
   const [selectedAsset, setSelectedAsset] = useState('EUR/USD');
   const [candles, setCandles] = useState<Candle[]>([]);
@@ -61,6 +69,17 @@ export default function Trade() {
   const [showAssetPicker, setShowAssetPicker] = useState(false);
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [demoAddAmount, setDemoAddAmount] = useState('1000');
+  
+  // Function to add demo balance
+  const addDemoBalance = (amount: number) => {
+    if (user) {
+      const newDemoBalance = (user.demo_balance || 0) + amount;
+      updateBalance(newDemoBalance, user.real_balance || 0);
+    } else {
+      setLocalDemoBalance(prev => prev + amount);
+    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
   
   // Active trade
   const [activeTrade, setActiveTrade] = useState<any>(null);
@@ -343,7 +362,7 @@ export default function Trade() {
         >
           <Ionicons name="wallet" size={16} color={accountType === 'demo' ? '#FFB800' : '#00D7A3'} />
           <Text style={[styles.balanceText, accountType === 'demo' && styles.demoBalanceText]}>
-            {accountType === 'demo' ? 'Demo ' : ''}${(accountType === 'demo' ? user?.demo_balance : user?.real_balance)?.toFixed(2) || '0.00'}
+            {accountType === 'demo' ? 'Demo ' : ''}${currentBalance.toFixed(2)}
           </Text>
           <Ionicons name="chevron-down" size={12} color={accountType === 'demo' ? '#FFB800' : '#00D7A3'} />
         </TouchableOpacity>
@@ -566,7 +585,7 @@ export default function Trade() {
               </View>
               <View style={styles.accountInfo}>
                 <Text style={styles.accountLabel}>Live Account</Text>
-                <Text style={styles.accountBalance}>${user?.real_balance?.toFixed(2) || '0.00'}</Text>
+                <Text style={styles.accountBalance}>${realBalance.toFixed(2)}</Text>
               </View>
               {accountType === 'real' && (
                 <Ionicons name="checkmark-circle" size={24} color="#00D7A3" />
@@ -587,7 +606,7 @@ export default function Trade() {
               </View>
               <View style={styles.accountInfo}>
                 <Text style={styles.accountLabel}>Demo Account</Text>
-                <Text style={[styles.accountBalance, styles.demoAccountBalance]}>${user?.demo_balance?.toFixed(2) || '0.00'}</Text>
+                <Text style={[styles.accountBalance, styles.demoAccountBalance]}>${demoBalance.toFixed(2)}</Text>
               </View>
               {accountType === 'demo' && (
                 <Ionicons name="checkmark-circle" size={24} color="#FFB800" />
@@ -614,10 +633,8 @@ export default function Trade() {
                     style={styles.addDemoBtn}
                     onPress={() => {
                       const addAmount = parseFloat(demoAddAmount) || 0;
-                      if (addAmount > 0 && user) {
-                        const newDemoBalance = (user.demo_balance || 0) + addAmount;
-                        updateBalance(newDemoBalance, user.real_balance || 0);
-                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      if (addAmount > 0) {
+                        addDemoBalance(addAmount);
                         Alert.alert('Success', `Added $${addAmount.toFixed(2)} to demo balance!`);
                         setDemoAddAmount('1000');
                       }
@@ -632,12 +649,8 @@ export default function Trade() {
                       key={val}
                       style={styles.quickDemoBtn}
                       onPress={() => {
-                        if (user) {
-                          const newDemoBalance = (user.demo_balance || 0) + val;
-                          updateBalance(newDemoBalance, user.real_balance || 0);
-                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                          Alert.alert('Success', `Added $${val.toLocaleString()} to demo balance!`);
-                        }
+                        addDemoBalance(val);
+                        Alert.alert('Success', `Added $${val.toLocaleString()} to demo balance!`);
                       }}
                     >
                       <Text style={styles.quickDemoBtnText}>+${val.toLocaleString()}</Text>

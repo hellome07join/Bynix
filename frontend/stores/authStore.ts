@@ -22,7 +22,7 @@ interface AuthState {
   login: (token: string, user: User) => Promise<void>;
   logout: () => Promise<void>;
   loadAuth: () => Promise<void>;
-  updateBalance: (demoBalance: number, realBalance: number) => void;
+  updateBalance: (demoBalance: number, realBalance: number) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -64,10 +64,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  updateBalance: (demoBalance, realBalance) => {
+  updateBalance: async (demoBalance, realBalance) => {
     const { user } = get();
     if (user) {
-      set({ user: { ...user, demo_balance: demoBalance, real_balance: realBalance } });
+      const updatedUser = { ...user, demo_balance: demoBalance, real_balance: realBalance };
+      set({ user: updatedUser });
+      // Persist to AsyncStorage
+      await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
     }
   },
 }));
