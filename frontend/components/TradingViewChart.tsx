@@ -226,18 +226,16 @@ export default function TradingViewChart({
 <html>
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
   <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background-color: #0A1A0F; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background-color: #0A1A0F; touch-action: none; }
     #chart { width: 100%; height: 100%; }
-    .watermark { position: absolute; top: 10px; left: 10px; font-size: 11px; color: rgba(0, 229, 90, 0.6); font-weight: 600; z-index: 10; font-family: sans-serif; }
   </style>
 </head>
 <body>
   <div id="chart"></div>
-  <div class="watermark">BYNIX • ${symbol}</div>
   <script>
     (function() {
       var chartContainer = document.getElementById('chart');
@@ -251,8 +249,25 @@ export default function TradingViewChart({
         grid: { vertLines: { color: 'rgba(255, 255, 255, 0.05)' }, horzLines: { color: 'rgba(255, 255, 255, 0.05)' } },
         crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
         rightPriceScale: { borderColor: 'rgba(255, 255, 255, 0.1)', scaleMargins: { top: 0.1, bottom: 0.2 } },
-        timeScale: { borderColor: 'rgba(255, 255, 255, 0.1)', timeVisible: true, secondsVisible: false },
-        handleScroll: { vertTouchDrag: false }
+        timeScale: { 
+          borderColor: 'rgba(255, 255, 255, 0.1)', 
+          timeVisible: true, 
+          secondsVisible: false,
+          rightOffset: 5,
+          barSpacing: 8,
+          minBarSpacing: 2
+        },
+        handleScroll: {
+          mouseWheel: true,
+          pressedMouseMove: true,
+          horzTouchDrag: true,
+          vertTouchDrag: true
+        },
+        handleScale: {
+          axisPressedMouseMove: true,
+          mouseWheel: true,
+          pinch: true
+        }
       });
 
       var candlestickSeries = chart.addCandlestickSeries({
@@ -353,19 +368,6 @@ export default function TradingViewChart({
             <Text style={styles.priceText}>${internalPrice.toFixed(5)}</Text>
           </View>
         )}
-        
-        {/* Live indicator */}
-        <View style={styles.statusIndicator}>
-          <View style={styles.liveDot} />
-          <Text style={styles.statusText}>LIVE</Text>
-        </View>
-        
-        {/* Error indicator */}
-        {error && (
-          <View style={styles.errorIndicator}>
-            <Text style={styles.errorText}>Using offline data</Text>
-          </View>
-        )}
       </View>
     );
   }
@@ -410,42 +412,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
-  },
-  statusIndicator: {
-    position: 'absolute',
-    left: 8,
-    top: 8,
-    backgroundColor: 'rgba(0, 229, 90, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#00E55A',
-  },
-  statusText: {
-    color: '#00E55A',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  errorIndicator: {
-    position: 'absolute',
-    left: 8,
-    top: 32,
-    backgroundColor: 'rgba(255, 184, 0, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
-  },
-  errorText: {
-    color: '#FFB800',
-    fontSize: 9,
-    fontWeight: '600',
   },
 });
