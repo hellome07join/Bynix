@@ -544,6 +544,9 @@ async def get_trade_history(authorization: Optional[str] = Header(None), request
             now = datetime.now(timezone.utc)
             if isinstance(created_at, str):
                 created_at = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+            elif isinstance(created_at, datetime) and created_at.tzinfo is None:
+                # Make timezone-naive datetime timezone-aware (assume UTC)
+                created_at = created_at.replace(tzinfo=timezone.utc)
             diff = now - created_at
             if diff.days > 0:
                 time_ago = f"{diff.days}d ago"

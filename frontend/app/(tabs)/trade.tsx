@@ -129,9 +129,6 @@ export default function Trade() {
   const [tradeStartTime, setTradeStartTime] = useState(0);
   const [tradeEndTime, setTradeEndTime] = useState(0);
   
-  // Trade history from backend
-  const [tradeHistory, setTradeHistory] = useState<any[]>([]);
-  
   // Trade result
   const [showResult, setShowResult] = useState(false);
   const [tradeResult, setTradeResult] = useState<any>(null);

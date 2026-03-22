@@ -195,6 +195,21 @@ backend:
         agent: "testing"
         comment: "Assets endpoint working perfectly: returns 5 default assets (BTC/USD, ETH/USD, EUR/USD, GBP/USD, AAPL) with correct structure including asset_id, symbol, name, category, and payout_percentage"
 
+  - task: "Trade history endpoint"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented GET /api/trades/history endpoint to return formatted trade history with profit/loss calculations for the authenticated user"
+      - working: true
+        agent: "testing"
+        comment: "Trade history endpoint tested successfully. Fixed timezone issue in datetime calculations. Endpoint returns properly formatted trade history with all required fields: trade_id, asset, type, entry_price, exit_price, amount, profit_loss, status, account_type, time_ago, created_at. Trades sorted by newest first. Auth protection working correctly (401 without token). Tested with multiple trades showing both wins and losses with correct profit/loss calculations."
+
 frontend:
   - task: "Authentication screens"
     implemented: true
@@ -269,10 +284,8 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus:
-    - "Trading terminal"
-  stuck_tasks:
-    - "Trading terminal"
+  current_focus: []
+  stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
@@ -285,3 +298,7 @@ agent_communication:
     message: "Quick authentication test completed successfully. Created test user (trader1774164420@bynix.com) with JWT token for frontend debugging. All authentication endpoints working correctly with production URL. Token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyXzY5ZjE0YzBlYmVmMSIsImV4cCI6MTc3NDc2OTIyMX0.tXdQV-jfixaDQ4tcMjcumdfWPfVq2qTkP4-AbwEatK8"
   - agent: "testing"
     message: "CRITICAL ISSUE IDENTIFIED in Trading Terminal: Comprehensive frontend testing completed. Authentication screens working correctly. Trading terminal UI elements are present (EUR/USD selector, UP/DOWN buttons, investment input) but candlestick chart is completely missing (0 SVG elements found). ROOT CAUSE: Binance API calls blocked by CORS policy ('Access to fetch at https://api.binance.com/api/v3/klines blocked by CORS policy') and WebSocket connections failing with error 451 ('WebSocket connection to wss://stream.binance.com:9443/ws/eurusdt@kline_1m failed'). Price stuck at $0.00. Chart component returns empty view when candles array is empty due to failed data fetching. SOLUTION NEEDED: Implement backend proxy for Binance API calls or use alternative data source that allows CORS."
+  - agent: "main"
+    message: "Implemented trade history endpoint GET /api/trades/history that returns formatted trade history with profit/loss calculations. Ready for backend testing to verify this endpoint works correctly."
+  - agent: "testing"
+    message: "Trade history endpoint testing completed successfully. Fixed timezone issue in datetime calculations that was causing 500 errors. Endpoint now working perfectly: returns formatted trade history with all required fields (trade_id, asset, type, entry_price, exit_price, amount, profit_loss, status, account_type, time_ago, created_at), proper sorting by newest first, correct profit/loss calculations for wins and losses, and proper auth protection (401 without token). All test cases passed."
