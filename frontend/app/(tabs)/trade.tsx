@@ -43,11 +43,18 @@ const DURATIONS = [
   { label: '1h', seconds: 3600 },
 ];
 
+// OTC Markets Only - No Real Markets
 const ASSETS = [
-  { label: 'EUR/USD', value: 'EUR/USD', icon: '🇪🇺🇺🇸', payout: 81 },
-  { label: 'BTC/USD', value: 'BTC/USD', icon: '₿', payout: 85 },
-  { label: 'ETH/USD', value: 'ETH/USD', icon: 'Ξ', payout: 83 },
-  { label: 'GBP/USD', value: 'GBP/USD', icon: '🇬🇧🇺🇸', payout: 80 },
+  { label: 'EUR/USD OTC', value: 'EUR/USD OTC', icon: '🇪🇺🇺🇸', payout: 92 },
+  { label: 'GBP/USD OTC', value: 'GBP/USD OTC', icon: '🇬🇧🇺🇸', payout: 90 },
+  { label: 'USD/JPY OTC', value: 'USD/JPY OTC', icon: '🇺🇸🇯🇵', payout: 88 },
+  { label: 'AUD/USD OTC', value: 'AUD/USD OTC', icon: '🇦🇺🇺🇸', payout: 87 },
+  { label: 'USD/CHF OTC', value: 'USD/CHF OTC', icon: '🇺🇸🇨🇭', payout: 86 },
+  { label: 'EUR/GBP OTC', value: 'EUR/GBP OTC', icon: '🇪🇺🇬🇧', payout: 85 },
+  { label: 'NZD/USD OTC', value: 'NZD/USD OTC', icon: '🇳🇿🇺🇸', payout: 84 },
+  { label: 'USD/CAD OTC', value: 'USD/CAD OTC', icon: '🇺🇸🇨🇦', payout: 83 },
+  { label: 'EUR/JPY OTC', value: 'EUR/JPY OTC', icon: '🇪🇺🇯🇵', payout: 82 },
+  { label: 'GBP/JPY OTC', value: 'GBP/JPY OTC', icon: '🇬🇧🇯🇵', payout: 81 },
 ];
 
 export default function Trade() {
@@ -63,7 +70,7 @@ export default function Trade() {
   const currentBalance = accountType === 'demo' ? demoBalance : realBalance;
   
   // Market data
-  const [selectedAsset, setSelectedAsset] = useState('EUR/USD');
+  const [selectedAsset, setSelectedAsset] = useState('EUR/USD OTC');
   const [candles, setCandles] = useState<Candle[]>([]);
   const [currentPrice, setCurrentPrice] = useState(1.09);
   const [loading, setLoading] = useState(true);
