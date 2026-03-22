@@ -10,7 +10,8 @@ import {
   Modal,
   Animated,
   ScrollView,
-  Switch
+  Switch,
+  Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -444,23 +445,20 @@ export default function Trade() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        {/* Deposit Button */}
+        {/* Logo */}
+        <Image 
+          source={require('../../assets/images/bynix-logo.png')} 
+          style={styles.headerLogo}
+          resizeMode="contain"
+        />
+
+        {/* Deposit Button (moved from left) */}
         <TouchableOpacity 
           style={styles.depositButton}
           onPress={() => router.push('/(tabs)/wallet')}
         >
           <Ionicons name="add-circle" size={18} color="#00D7A3" />
           <Text style={styles.depositText}>Deposit</Text>
-        </TouchableOpacity>
-
-        {/* Currency Selector */}
-        <TouchableOpacity 
-          style={styles.currencyButton}
-          onPress={() => setShowAssetPicker(true)}
-        >
-          <Text style={styles.assetIcon}>{currentAsset.icon}</Text>
-          <Text style={styles.currencyText}>{selectedAsset}</Text>
-          <Ionicons name="chevron-down" size={14} color="#FFFFFF" />
         </TouchableOpacity>
 
         {/* Balance Button */}
@@ -473,12 +471,6 @@ export default function Trade() {
             {accountType === 'demo' ? 'Demo ' : ''}${currentBalance.toFixed(2)}
           </Text>
           <Ionicons name="chevron-down" size={12} color={accountType === 'demo' ? '#FFB800' : '#00D7A3'} />
-        </TouchableOpacity>
-
-        {/* Notification Button */}
-        <TouchableOpacity style={styles.notifButton}>
-          <Ionicons name="notifications" size={18} color="#FFFFFF" />
-          <View style={styles.notifBadge} />
         </TouchableOpacity>
       </View>
 
@@ -533,6 +525,15 @@ export default function Trade() {
               <Text style={styles.runningBadgeText}>1</Text>
             </View>
           )}
+        </TouchableOpacity>
+
+        {/* Market Selection Button */}
+        <TouchableOpacity 
+          style={styles.marketSelectBtn}
+          onPress={() => setShowAssetPicker(true)}
+        >
+          <Text style={styles.marketSelectIcon}>{currentAsset.icon}</Text>
+          <Ionicons name="chevron-down" size={14} color="#00D7A3" />
         </TouchableOpacity>
       </View>
 
@@ -1153,6 +1154,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 20, 40, 0.95)',
     gap: 8,
   },
+  headerLogo: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+  },
   depositButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1405,6 +1411,20 @@ const styles = StyleSheet.create({
     color: '#00D7A3',
     fontSize: 12,
     fontWeight: '700',
+  },
+  marketSelectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 215, 163, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 215, 163, 0.3)',
+  },
+  marketSelectIcon: {
+    fontSize: 16,
   },
   runningBadge: {
     backgroundColor: '#FFB800',
