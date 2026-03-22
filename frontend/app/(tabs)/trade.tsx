@@ -282,6 +282,45 @@ export default function Trade() {
         )}
       </View>
 
+      {/* Trade Buttons - BUY/SELL (Above Investment Amount) */}
+      <View style={styles.tradeButtonsContainer}>
+        <TouchableOpacity
+          style={[styles.tradeButton, styles.buyButton, (activeTrade || loading) && styles.buttonDisabled]}
+          onPress={() => placeTrade('call')}
+          disabled={activeTrade !== null || loading}
+          activeOpacity={0.8}
+        >
+          <View style={styles.buttonContent}>
+            <Ionicons name="trending-up" size={36} color="#FFFFFF" />
+            <View style={styles.buttonTextContainer}>
+              <Text style={styles.tradeButtonLabel}>BUY</Text>
+              <Text style={styles.tradeButtonSubtext}>Price will rise</Text>
+            </View>
+          </View>
+          <View style={styles.payoutBadge}>
+            <Text style={styles.payoutText}>80%</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tradeButton, styles.sellButton, (activeTrade || loading) && styles.buttonDisabled]}
+          onPress={() => placeTrade('put')}
+          disabled={activeTrade !== null || loading}
+          activeOpacity={0.8}
+        >
+          <View style={styles.buttonContent}>
+            <Ionicons name="trending-down" size={36} color="#FFFFFF" />
+            <View style={styles.buttonTextContainer}>
+              <Text style={styles.tradeButtonLabel}>SELL</Text>
+              <Text style={styles.tradeButtonSubtext}>Price will fall</Text>
+            </View>
+          </View>
+          <View style={styles.payoutBadge}>
+            <Text style={styles.payoutText}>80%</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+
       {/* Investment Amount */}
       <View style={styles.investmentContainer}>
         <Text style={styles.investmentLabel}>Investment Amount</Text>
@@ -519,23 +558,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 20,
     gap: 12,
-    marginTop: 'auto',
-    marginBottom: 20,
-    paddingTop: 16,
+    marginVertical: 16,
   },
   tradeButton: {
     flex: 1,
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    borderRadius: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 140,
+    minHeight: 110,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   buyButton: {
     backgroundColor: '#00D7A3',
@@ -557,18 +594,15 @@ const styles = StyleSheet.create({
   },
   tradeButtonLabel: {
     color: '#FFFFFF',
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     letterSpacing: 1,
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
   },
   tradeButtonSubtext: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 11,
     opacity: 0.9,
-    marginTop: 4,
+    marginTop: 2,
     fontWeight: '600',
   },
   payoutBadge: {
