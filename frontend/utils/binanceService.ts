@@ -1,4 +1,7 @@
 // Binance WebSocket service for real-time candlestick data
+import Constants from 'expo-constants';
+
+const API_BASE_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export interface Candle {
   time: number;
@@ -105,8 +108,7 @@ export async function fetchHistoricalCandles(
     const symbol = ASSET_TO_BINANCE[asset] || 'BTCUSDT';
     
     // Use backend proxy instead of direct Binance API
-    const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://bynix-markets.preview.emergentagent.com';
-    const url = `${API_URL}/api/binance/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+    const url = `${API_BASE_URL}/api/binance/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
     
     const response = await fetch(url);
     const data = await response.json();
