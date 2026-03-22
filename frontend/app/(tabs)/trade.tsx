@@ -591,12 +591,13 @@ export default function Trade() {
             theme="dark"
             currentPrice={currentPrice}
             chartType={chartType}
-            tradeMarker={activeTrade ? {
-              entryPrice: activeTrade.entry_price,
-              type: activeTrade.type,
-              amount: activeTrade.amount,
-              remainingTime: countdown
-            } : null}
+            tradeMarkers={activeTrades.map(trade => ({
+              id: trade.id,
+              entryPrice: trade.entry_price,
+              type: trade.type,
+              amount: trade.amount,
+              remainingTime: trade.countdown
+            }))}
             onPriceUpdate={(price) => setCurrentPrice(price)}
           />
         </View>
@@ -630,9 +631,9 @@ export default function Trade() {
         >
           <Ionicons name="time" size={16} color="#FFB800" />
           <Text style={styles.tradeHistoryBtnText}>Trade History</Text>
-          {activeTrade && (
+          {activeTrades.length > 0 && (
             <View style={styles.runningBadge}>
-              <Text style={styles.runningBadgeText}>1</Text>
+              <Text style={styles.runningBadgeText}>{activeTrades.length}</Text>
             </View>
           )}
         </TouchableOpacity>
@@ -662,7 +663,6 @@ export default function Trade() {
                 keyboardType="numeric"
                 placeholder="100"
                 placeholderTextColor="#666"
-                editable={!activeTrade}
               />
             </View>
             <View style={styles.quickButtons}>
@@ -671,7 +671,6 @@ export default function Trade() {
                   key={val}
                   style={styles.quickButton}
                   onPress={() => setAmount(val.toString())}
-                  disabled={!!activeTrade}
                 >
                   <Text style={styles.quickButtonText}>${val}</Text>
                 </TouchableOpacity>
@@ -689,9 +688,9 @@ export default function Trade() {
         {/* Trade Buttons */}
         <View style={styles.tradeButtons}>
           <TouchableOpacity
-            style={[styles.tradeBtn, styles.buyBtn, (activeTrade || loading) && styles.btnDisabled]}
+            style={[styles.tradeBtn, styles.buyBtn, loading && styles.btnDisabled]}
             onPress={() => placeTrade('call')}
-            disabled={!!activeTrade || loading}
+            disabled={loading}
             activeOpacity={0.85}
           >
             <Ionicons name="arrow-up" size={18} color="#FFFFFF" />
@@ -700,9 +699,9 @@ export default function Trade() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tradeBtn, styles.sellBtn, (activeTrade || loading) && styles.btnDisabled]}
+            style={[styles.tradeBtn, styles.sellBtn, loading && styles.btnDisabled]}
             onPress={() => placeTrade('put')}
-            disabled={!!activeTrade || loading}
+            disabled={loading}
             activeOpacity={0.85}
           >
             <Ionicons name="arrow-down" size={18} color="#FFFFFF" />
@@ -1137,63 +1136,75 @@ export default function Trade() {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Running Trade Section */}
-              {activeTrade && (
+              {/* Running Trades Section - Show ALL active trades */}
+              {activeTrades.length > 0 && (
                 <View style={styles.historySection}>
                   <View style={styles.historySectionHeader}>
                     <View style={styles.runningDot} />
-                    <Text style={styles.historySectionTitle}>Running Trade</Text>
+                    <Text style={styles.historySectionTitle}>Running Trades ({activeTrades.length})</Text>
                   </View>
-                  <View style={[styles.tradeCard, isRunningTradeInProfit ? styles.tradeCardProfit : styles.tradeCardLoss]}>
-                    <View style={styles.tradeCardHeader}>
-                      <View style={styles.tradeAsset}>
-                        <Text style={styles.tradeAssetIcon}>{currentAsset.icon}</Text>
-                        <Text style={styles.tradeAssetName}>{selectedAsset}</Text>
+                  {activeTrades.map((trade) => {
+                    const tradeAsset = ASSETS.find(a => a.value === trade.asset) || currentAsset;
+                    const isTradeInProfit = trade.type === 'call' 
+                      ? currentPrice > trade.entry_price 
+                      : currentPrice < trade.entry_price;
+                    const tradePL = isTradeInProfit 
+                      ? trade.amount * (tradeAsset.payout / 100) 
+                      : -trade.amount;
+                    
+                    return (
+                      <View key={trade.id} style={[styles.tradeCard, isTradeInProfit ? styles.tradeCardProfit : styles.tradeCardLoss, { marginBottom: 10 }]}>
+                        <View style={styles.tradeCardHeader}>
+                          <View style={styles.tradeAsset}>
+                            <Text style={styles.tradeAssetIcon}>{tradeAsset.icon}</Text>
+                            <Text style={styles.tradeAssetName}>{trade.asset}</Text>
+                          </View>
+                          <View style={[styles.directionBadge, trade.type === 'call' ? styles.directionUp : styles.directionDown]}>
+                            <Ionicons 
+                              name={trade.type === 'call' ? 'arrow-up' : 'arrow-down'} 
+                              size={12} 
+                              color="#FFFFFF" 
+                            />
+                            <Text style={styles.directionText}>
+                              {trade.type === 'call' ? 'UP' : 'DOWN'}
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={styles.tradeCardBody}>
+                          <View style={styles.tradeInfo}>
+                            <Text style={styles.tradeInfoLabel}>Entry Price</Text>
+                            <Text style={styles.tradeInfoValue}>${trade.entry_price.toFixed(5)}</Text>
+                          </View>
+                          <View style={styles.tradeInfo}>
+                            <Text style={styles.tradeInfoLabel}>Current Price</Text>
+                            <Text style={[styles.tradeInfoValue, isTradeInProfit ? { color: '#00E55A' } : { color: '#FF3B3B' }]}>
+                              ${currentPrice.toFixed(5)}
+                            </Text>
+                          </View>
+                          <View style={styles.tradeInfo}>
+                            <Text style={styles.tradeInfoLabel}>Amount</Text>
+                            <Text style={styles.tradeInfoValue}>${trade.amount}</Text>
+                          </View>
+                          <View style={styles.tradeInfo}>
+                            <Text style={styles.tradeInfoLabel}>P/L</Text>
+                            <Text style={[styles.tradeInfoValue, isTradeInProfit ? { color: '#00E55A' } : { color: '#FF3B3B' }]}>
+                              {isTradeInProfit ? '+' : ''}{tradePL.toFixed(2)}
+                            </Text>
+                          </View>
+                          <View style={styles.tradeInfo}>
+                            <Text style={styles.tradeInfoLabel}>Time Left</Text>
+                            <Text style={[styles.tradeInfoValue, { color: '#FFB800' }]}>{trade.countdown}s</Text>
+                          </View>
+                          <View style={styles.tradeInfo}>
+                            <Text style={styles.tradeInfoLabel}>Status</Text>
+                            <Text style={[styles.tradeInfoValue, isTradeInProfit ? { color: '#00E55A' } : { color: '#FF3B3B' }]}>
+                              {isTradeInProfit ? '📈 PROFIT' : '📉 LOSS'}
+                            </Text>
+                          </View>
+                        </View>
                       </View>
-                      <View style={[styles.directionBadge, activeTrade.type === 'call' ? styles.directionUp : styles.directionDown]}>
-                        <Ionicons 
-                          name={activeTrade.type === 'call' ? 'arrow-up' : 'arrow-down'} 
-                          size={12} 
-                          color="#FFFFFF" 
-                        />
-                        <Text style={styles.directionText}>
-                          {activeTrade.type === 'call' ? 'UP' : 'DOWN'}
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={styles.tradeCardBody}>
-                      <View style={styles.tradeInfo}>
-                        <Text style={styles.tradeInfoLabel}>Entry Price</Text>
-                        <Text style={styles.tradeInfoValue}>${activeTrade.entry_price.toFixed(5)}</Text>
-                      </View>
-                      <View style={styles.tradeInfo}>
-                        <Text style={styles.tradeInfoLabel}>Current Price</Text>
-                        <Text style={[styles.tradeInfoValue, isRunningTradeInProfit ? { color: '#00E55A' } : { color: '#FF3B3B' }]}>
-                          ${currentPrice.toFixed(5)}
-                        </Text>
-                      </View>
-                      <View style={styles.tradeInfo}>
-                        <Text style={styles.tradeInfoLabel}>Amount</Text>
-                        <Text style={styles.tradeInfoValue}>${activeTrade.amount}</Text>
-                      </View>
-                      <View style={styles.tradeInfo}>
-                        <Text style={styles.tradeInfoLabel}>P/L</Text>
-                        <Text style={[styles.tradeInfoValue, isRunningTradeInProfit ? { color: '#00E55A' } : { color: '#FF3B3B' }]}>
-                          {isRunningTradeInProfit ? '+' : ''}{runningTradePL.toFixed(2)}
-                        </Text>
-                      </View>
-                      <View style={styles.tradeInfo}>
-                        <Text style={styles.tradeInfoLabel}>Time Left</Text>
-                        <Text style={[styles.tradeInfoValue, { color: '#FFB800' }]}>{countdown}s</Text>
-                      </View>
-                      <View style={styles.tradeInfo}>
-                        <Text style={styles.tradeInfoLabel}>Status</Text>
-                        <Text style={[styles.tradeInfoValue, isRunningTradeInProfit ? { color: '#00E55A' } : { color: '#FF3B3B' }]}>
-                          {isRunningTradeInProfit ? '📈 PROFIT' : '📉 LOSS'}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
+                    );
+                  })}
                 </View>
               )}
 

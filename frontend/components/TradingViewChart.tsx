@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, Text, Platform, ActivityIndicator } from 'react-native';
 
 interface TradeMarker {
+  id: string;
   entryPrice: number;
   type: 'call' | 'put';
   amount?: number;
@@ -14,7 +15,7 @@ interface TradingViewChartProps {
   theme?: 'dark' | 'light';
   currentPrice?: number;
   chartType?: 'candle' | 'line' | 'bar';
-  tradeMarker?: TradeMarker | null;
+  tradeMarkers?: TradeMarker[];  // Changed to array for multiple trades
   onPriceUpdate?: (price: number) => void;
 }
 
@@ -28,7 +29,7 @@ export default function TradingViewChart({
   theme = 'dark',
   currentPrice,
   chartType = 'candle',
-  tradeMarker,
+  tradeMarkers = [],  // Array of markers
   onPriceUpdate
 }: TradingViewChartProps) {
   const [isLoading, setIsLoading] = useState(true);
@@ -204,23 +205,20 @@ export default function TradingViewChart({
     }
   }, [internalPrice]);
 
-  // Determine bullish/bearish
-  const isBullish = tradeMarker && internalPrice ? internalPrice > tradeMarker.entryPrice : null;
-  
-  // Calculate dot position
-  const calculateDotPosition = useCallback(() => {
-    if (!tradeMarker || !internalPrice) return 50;
+  // Calculate dot position for a specific marker - STATIC position based on entry price
+  const calculateDotPosition = useCallback((marker: TradeMarker) => {
+    if (!marker || !internalPrice) return 50;
     
-    const priceDiff = internalPrice - tradeMarker.entryPrice;
-    const percentChange = (priceDiff / tradeMarker.entryPrice) * 100;
+    // Calculate position based on entry price relative to current price range
+    // The position should be STATIC - only depends on the marker's entry price
+    const priceDiff = internalPrice - marker.entryPrice;
+    const percentChange = (priceDiff / marker.entryPrice) * 100;
     const basePosition = 50;
     const movement = percentChange * 200;
     const newPosition = basePosition - movement;
     
     return Math.max(15, Math.min(85, newPosition));
-  }, [tradeMarker, internalPrice]);
-  
-  const dotPosition = calculateDotPosition();
+  }, [internalPrice]);
 
   // Lightweight Charts HTML with Finage data
   const getHtmlContent = () => {
@@ -355,98 +353,101 @@ export default function TradingViewChart({
             </div>
           )}
           
-          {/* Entry Position Marker with Horizontal Line */}
-          {tradeMarker && (
-            <>
-              {/* Horizontal Entry Line - Full Width Dashed Line */}
-              <div style={{
-                position: 'absolute',
-                left: 0,
-                right: 60,
-                top: `${dotPosition}%`,
-                height: 1,
-                borderTop: `2px dashed ${tradeMarker.type === 'call' ? '#00E55A' : '#FF6B6B'}`,
-                opacity: 0.7,
-                zIndex: 50,
-                pointerEvents: 'none',
-              }} />
-              
-              {/* Entry Badge with Amount */}
-              <div style={{
-                position: 'absolute',
-                left: 10,
-                top: `${dotPosition}%`,
-                transform: 'translateY(-50%)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                zIndex: 100,
-                pointerEvents: 'none',
-              }}>
-                {/* Direction & Amount Badge */}
+          {/* Entry Position Markers - Render multiple trade markers */}
+          {tradeMarkers && tradeMarkers.map((marker, index) => {
+            const markerPosition = calculateDotPosition(marker);
+            return (
+              <React.Fragment key={marker.id || index}>
+                {/* Horizontal Entry Line - Full Width Dashed Line */}
                 <div style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: 60,
+                  top: `${markerPosition}%`,
+                  height: 1,
+                  borderTop: `2px dashed ${marker.type === 'call' ? '#00E55A' : '#FF6B6B'}`,
+                  opacity: 0.7,
+                  zIndex: 50 + index,
+                  pointerEvents: 'none',
+                }} />
+                
+                {/* Entry Badge with Amount */}
+                <div style={{
+                  position: 'absolute',
+                  left: 10,
+                  top: `${markerPosition}%`,
+                  transform: 'translateY(-50%)',
                   display: 'flex',
                   alignItems: 'center',
-                  backgroundColor: tradeMarker.type === 'call' ? '#00E55A' : '#FF6B6B',
-                  padding: '6px 12px',
-                  borderRadius: 8,
-                  gap: 6,
-                  boxShadow: `0 2px 10px ${tradeMarker.type === 'call' ? 'rgba(0, 229, 90, 0.4)' : 'rgba(255, 107, 107, 0.4)'}`,
+                  gap: 8,
+                  zIndex: 100 + index,
+                  pointerEvents: 'none',
                 }}>
-                  <span style={{ 
-                    fontSize: 14, 
-                    fontWeight: 700, 
-                    color: '#FFFFFF',
-                  }}>
-                    {tradeMarker.type === 'call' ? '↑' : '↓'}
-                  </span>
-                  <span style={{ 
-                    fontSize: 13, 
-                    fontWeight: 700, 
-                    color: '#FFFFFF',
-                  }}>
-                    {tradeMarker.amount ? `${tradeMarker.amount} $` : `${tradeMarker.entryPrice.toFixed(2)} $`}
-                  </span>
-                </div>
-                
-                {/* Countdown Timer */}
-                {tradeMarker.remainingTime !== undefined && tradeMarker.remainingTime > 0 && (
+                  {/* Direction & Amount Badge */}
                   <div style={{
-                    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                    padding: '6px 10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    backgroundColor: marker.type === 'call' ? '#00E55A' : '#FF6B6B',
+                    padding: '6px 12px',
                     borderRadius: 8,
-                    border: `1px solid ${tradeMarker.type === 'call' ? '#00E55A' : '#FF6B6B'}`,
+                    gap: 6,
+                    boxShadow: `0 2px 10px ${marker.type === 'call' ? 'rgba(0, 229, 90, 0.4)' : 'rgba(255, 107, 107, 0.4)'}`,
                   }}>
+                    <span style={{ 
+                      fontSize: 14, 
+                      fontWeight: 700, 
+                      color: '#FFFFFF',
+                    }}>
+                      {marker.type === 'call' ? '↑' : '↓'}
+                    </span>
                     <span style={{ 
                       fontSize: 13, 
                       fontWeight: 700, 
                       color: '#FFFFFF',
-                      fontFamily: 'monospace',
                     }}>
-                      {Math.floor(tradeMarker.remainingTime / 60).toString().padStart(2, '0')}:{(tradeMarker.remainingTime % 60).toString().padStart(2, '0')}
+                      {marker.amount ? `${marker.amount} $` : `${marker.entryPrice.toFixed(2)} $`}
                     </span>
                   </div>
-                )}
-              </div>
-              
-              {/* Current Position Dot */}
-              <div style={{
-                position: 'absolute',
-                right: 65,
-                top: `${dotPosition}%`,
-                transform: 'translateY(-50%)',
-                width: 12,
-                height: 12,
-                borderRadius: '50%',
-                backgroundColor: tradeMarker.type === 'call' ? '#00E55A' : '#FF6B6B',
-                border: '2px solid #FFFFFF',
-                boxShadow: `0 0 12px ${tradeMarker.type === 'call' ? '#00E55A' : '#FF6B6B'}`,
-                zIndex: 100,
-                pointerEvents: 'none',
-                animation: 'pulse 1.5s ease-in-out infinite',
-              }} />
-            </>
-          )}
+                  
+                  {/* Countdown Timer */}
+                  {marker.remainingTime !== undefined && marker.remainingTime > 0 && (
+                    <div style={{
+                      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                      padding: '6px 10px',
+                      borderRadius: 8,
+                      border: `1px solid ${marker.type === 'call' ? '#00E55A' : '#FF6B6B'}`,
+                    }}>
+                      <span style={{ 
+                        fontSize: 13, 
+                        fontWeight: 700, 
+                        color: '#FFFFFF',
+                        fontFamily: 'monospace',
+                      }}>
+                        {Math.floor(marker.remainingTime / 60).toString().padStart(2, '0')}:{(marker.remainingTime % 60).toString().padStart(2, '0')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Current Position Dot */}
+                <div style={{
+                  position: 'absolute',
+                  right: 65,
+                  top: `${markerPosition}%`,
+                  transform: 'translateY(-50%)',
+                  width: 12,
+                  height: 12,
+                  borderRadius: '50%',
+                  backgroundColor: marker.type === 'call' ? '#00E55A' : '#FF6B6B',
+                  border: '2px solid #FFFFFF',
+                  boxShadow: `0 0 12px ${marker.type === 'call' ? '#00E55A' : '#FF6B6B'}`,
+                  zIndex: 100 + index,
+                  pointerEvents: 'none',
+                  animation: 'pulse 1.5s ease-in-out infinite',
+                }} />
+              </React.Fragment>
+            );
+          })}
           
           {/* CSS Animation */}
           <style>{`
