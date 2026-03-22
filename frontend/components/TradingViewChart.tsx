@@ -127,6 +127,29 @@ export default function TradingViewChart({
 
   // Determine if market is bullish or bearish from entry
   const isBullish = tradeMarker && currentPrice ? currentPrice > tradeMarker.entryPrice : null;
+  
+  // Calculate dynamic position based on price movement
+  // When price goes UP (bullish) → dot moves DOWN on screen (lower percentage = higher on screen)
+  // When price goes DOWN (bearish) → dot moves UP on screen
+  const calculateDotPosition = () => {
+    if (!tradeMarker || !currentPrice) return 50;
+    
+    const priceDiff = currentPrice - tradeMarker.entryPrice;
+    const percentChange = (priceDiff / tradeMarker.entryPrice) * 100;
+    
+    // Map percentage change to visual position
+    // Each 0.01% price change = 2% visual movement
+    // Negative percentChange (bearish) → dot goes up (lower top%)
+    // Positive percentChange (bullish) → dot goes down (higher top%)
+    const basePosition = 50; // Center
+    const movement = percentChange * 200; // Amplify for visibility
+    const newPosition = basePosition - movement; // Invert: price up = dot down visually
+    
+    // Clamp between 15% and 85%
+    return Math.max(15, Math.min(85, newPosition));
+  };
+  
+  const dotPosition = calculateDotPosition();
 
   // For web platform, render iframe directly
   if (Platform.OS === 'web') {
@@ -168,13 +191,14 @@ export default function TradingViewChart({
             </div>
           )}
           
-          {/* Entry Position Marker - Dot on right side of chart */}
+          {/* Entry Position Marker - Moves with price */}
           {tradeMarker && (
             <div style={{
               position: 'absolute',
               right: 65,
-              top: '50%',
+              top: `${dotPosition}%`,
               transform: 'translateY(-50%)',
+              transition: 'top 0.3s ease-out',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
