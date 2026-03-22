@@ -49,7 +49,6 @@ export default function TradingViewChart({
   useEffect(() => {
     const basePrice = getBasePrice(symbol);
     setInternalPrice(basePrice);
-    if (onPriceUpdate) onPriceUpdate(basePrice);
     
     // Fake price ticker - updates every 500ms
     priceTickerRef.current = setInterval(() => {
@@ -57,7 +56,6 @@ export default function TradingViewChart({
         const volatility = prev * 0.0002; // 0.02% per tick
         const change = (Math.random() - 0.5) * volatility * 2;
         const newPrice = prev + change;
-        if (onPriceUpdate) onPriceUpdate(newPrice);
         return newPrice;
       });
     }, 500);
@@ -67,7 +65,14 @@ export default function TradingViewChart({
         clearInterval(priceTickerRef.current);
       }
     };
-  }, [symbol, getBasePrice, onPriceUpdate]);
+  }, [symbol, getBasePrice]);
+
+  // Call onPriceUpdate when price changes (separate effect to avoid render issues)
+  useEffect(() => {
+    if (onPriceUpdate) {
+      onPriceUpdate(internalPrice);
+    }
+  }, [internalPrice]);
 
   // Map interval to TradingView format
   const getIntervalForTV = (int: string) => {
