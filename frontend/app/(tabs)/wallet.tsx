@@ -44,7 +44,7 @@ interface DepositRecord {
 
 export default function WalletScreen() {
   const router = useRouter();
-  const { user, token, loadAuth } = useAuthStore();
+  const { user, token, refreshUser } = useAuthStore();
   
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
@@ -99,7 +99,7 @@ export default function WalletScreen() {
   const onRefresh = async () => {
     setRefreshing(true);
     await loadDepositHistory();
-    await loadAuth();
+    await refreshUser();
     setRefreshing(false);
   };
 
@@ -169,18 +169,35 @@ export default function WalletScreen() {
       if (response.ok) {
         const data = await response.json();
         
-        if (data.status === 'finished') {
-          Alert.alert('Success', 'Deposit completed! Your balance has been updated.');
+        if (data.credited) {
+          // Balance was credited - refresh user data
+          if (Platform.OS === 'web') {
+            window.alert(`Deposit credited! $${data.actually_paid} has been added to your balance.`);
+          } else {
+            Alert.alert('Success', `Deposit credited! $${data.actually_paid} has been added to your balance.`);
+          }
           setShowAddressModal(false);
           setCurrentDeposit(null);
-          await loadAuth();
+          await refreshUser();
           await loadDepositHistory();
         } else if (data.status === 'waiting') {
-          Alert.alert('Pending', 'Waiting for payment. Please send the exact amount to the address.');
+          if (Platform.OS === 'web') {
+            window.alert('Waiting for payment. Please send the exact amount to the address.');
+          } else {
+            Alert.alert('Pending', 'Waiting for payment. Please send the exact amount to the address.');
+          }
         } else if (data.status === 'confirming') {
-          Alert.alert('Confirming', 'Payment received! Waiting for blockchain confirmations.');
+          if (Platform.OS === 'web') {
+            window.alert('Payment received! Waiting for blockchain confirmations.');
+          } else {
+            Alert.alert('Confirming', 'Payment received! Waiting for blockchain confirmations.');
+          }
         } else {
-          Alert.alert('Status', `Payment status: ${data.status}`);
+          if (Platform.OS === 'web') {
+            window.alert(`Payment status: ${data.status}`);
+          } else {
+            Alert.alert('Status', `Payment status: ${data.status}`);
+          }
         }
       }
     } catch (error) {

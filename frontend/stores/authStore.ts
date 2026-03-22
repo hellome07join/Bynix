@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_URL } from '../utils/api';
 
 interface User {
   user_id: string;
@@ -22,6 +23,7 @@ interface AuthState {
   login: (token: string, user: User) => Promise<void>;
   logout: () => Promise<void>;
   loadAuth: () => Promise<void>;
+  refreshUser: () => Promise<void>;
   updateBalance: (demoBalance: number, realBalance: number) => Promise<void>;
 }
 
@@ -55,12 +57,46 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (token && userStr) {
         const user = JSON.parse(userStr);
         set({ token, user, isLoading: false });
+        
+        // Also refresh from server to get latest balance
+        const { refreshUser } = get();
+        await refreshUser();
       } else {
         set({ isLoading: false });
       }
     } catch (error) {
       console.error('Failed to load auth:', error);
       set({ isLoading: false });
+    }
+  },
+  
+  refreshUser: async () => {
+    const { token } = get();
+    if (!token) return;
+    
+    try {
+      const response = await fetch(`${API_URL}/auth/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (response.ok) {
+        const userData = await response.json();
+        const updatedUser = {
+          user_id: userData.user_id,
+          email: userData.email,
+          name: userData.name,
+          picture: userData.picture,
+          demo_balance: userData.demo_balance || 10000,
+          real_balance: userData.real_balance || 0,
+          is_admin: userData.is_admin || false,
+        };
+        set({ user: updatedUser });
+        await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+      }
+    } catch (error) {
+      console.error('Failed to refresh user:', error);
     }
   },
 
