@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 12,
-    paddingTop: 50,
+    paddingTop: 12,
     paddingBottom: 10,
     backgroundColor: 'rgba(15, 20, 40, 0.95)',
     gap: 8,
