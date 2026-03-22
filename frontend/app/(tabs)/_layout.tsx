@@ -22,15 +22,6 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen
-        name="home"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="trade"
         options={{
           title: 'Trade',
@@ -40,11 +31,20 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="wallet"
+        name="leaderboard"
         options={{
-          title: 'Wallet',
+          title: 'Leaderboard',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="wallet" size={size} color={color} />
+            <Ionicons name="trophy" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="support"
+        options={{
+          title: 'Support',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="headset" size={size} color={color} />
           ),
         }}
       />
@@ -55,6 +55,19 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={size} color={color} />
           ),
+        }}
+      />
+      {/* Hidden tabs */}
+      <Tabs.Screen
+        name="home"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="wallet"
+        options={{
+          href: null,
         }}
       />
     </Tabs>
