@@ -258,11 +258,91 @@ export default function Profile() {
   );
 
   const renderSecurityTab = () => (
-    <View style={styles.comingSoon}>
-      <Ionicons name="shield-checkmark" size={64} color="#666" />
-      <Text style={styles.comingSoonTitle}>Security Settings</Text>
-      <Text style={styles.comingSoonText}>Change password, enable 2FA, and manage security settings.</Text>
-    </View>
+    <>
+      {/* Security Level Section */}
+      <View style={styles.sectionCard}>
+        <View style={styles.securityHeader}>
+          <Text style={styles.securityTitle}>Security Level</Text>
+          <Text style={styles.securitySubtitle}>Strengthen your account security</Text>
+        </View>
+
+        {/* Password Row */}
+        <View style={styles.securityRow}>
+          <View style={[styles.securityIcon, { backgroundColor: 'rgba(255, 184, 0, 0.15)' }]}>
+            <Ionicons name="lock-closed" size={20} color="#FFB800" />
+          </View>
+          <View style={styles.securityInfo}>
+            <View style={styles.securityLabelRow}>
+              <Text style={styles.securityLabel}>Password</Text>
+              <View style={[styles.statusBadge, { backgroundColor: 'rgba(0, 215, 163, 0.2)' }]}>
+                <Text style={[styles.statusText, { color: '#00D7A3' }]}>Set</Text>
+              </View>
+            </View>
+            <Text style={styles.securityDetail}>Last changed: Unknown</Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.securityBtn}
+            onPress={() => Alert.alert('Change Password', 'Password change feature coming soon!')}
+          >
+            <Text style={styles.securityBtnText}>Change</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* 2FA Row */}
+        <View style={styles.securityRow}>
+          <View style={[styles.securityIcon, { backgroundColor: 'rgba(255, 184, 0, 0.15)' }]}>
+            <Ionicons name="shield-checkmark" size={20} color="#FFB800" />
+          </View>
+          <View style={styles.securityInfo}>
+            <View style={styles.securityLabelRow}>
+              <Text style={styles.securityLabel}>2FA</Text>
+              <View style={[styles.statusBadge, { backgroundColor: 'rgba(255, 59, 59, 0.2)' }]}>
+                <Text style={[styles.statusText, { color: '#FF3B3B' }]}>Off</Text>
+              </View>
+            </View>
+            <Text style={styles.securityDetail}>Disabled — Enable for extra security</Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.securityBtn}
+            onPress={() => Alert.alert('Enable 2FA', '2FA authentication feature coming soon!')}
+          >
+            <Text style={styles.securityBtnText}>Enable</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Email Row */}
+        <View style={[styles.securityRow, { borderBottomWidth: 0 }]}>
+          <View style={[styles.securityIcon, { backgroundColor: 'rgba(0, 215, 163, 0.15)' }]}>
+            <Ionicons name="mail" size={20} color="#00D7A3" />
+          </View>
+          <View style={styles.securityInfo}>
+            <View style={styles.securityLabelRow}>
+              <Text style={styles.securityLabel}>Email</Text>
+              <View style={[styles.statusBadge, { backgroundColor: 'rgba(0, 215, 163, 0.2)' }]}>
+                <Text style={[styles.statusText, { color: '#00D7A3' }]}>Verified</Text>
+              </View>
+            </View>
+            <Text style={styles.securityDetail}>{user?.email || userData.email}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Active Session Section */}
+      <View style={styles.sectionCard}>
+        <Text style={styles.sessionTitle}>Active Session</Text>
+        
+        <View style={styles.sessionRow}>
+          <View style={[styles.securityIcon, { backgroundColor: 'rgba(0, 215, 163, 0.15)' }]}>
+            <Ionicons name="desktop-outline" size={20} color="#00D7A3" />
+          </View>
+          <View style={styles.sessionInfo}>
+            <Text style={styles.sessionDevice}>Safari / macOS</Text>
+            <Text style={styles.sessionDetail}>192.168.1.xxx · Online</Text>
+          </View>
+          <View style={styles.onlineDot} />
+        </View>
+      </View>
+    </>
   );
 
   const renderKYCTab = () => (
@@ -898,5 +978,103 @@ const styles = StyleSheet.create({
     fontSize: 14,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  // Security Tab Styles
+  securityHeader: {
+    marginBottom: 16,
+  },
+  securityTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  securitySubtitle: {
+    color: '#666',
+    fontSize: 12,
+  },
+  securityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  securityIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  securityInfo: {
+    flex: 1,
+  },
+  securityLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  securityLabel: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  securityDetail: {
+    color: '#666',
+    fontSize: 12,
+  },
+  securityBtn: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#FFB800',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  securityBtnText: {
+    color: '#FFB800',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  sessionTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 14,
+  },
+  sessionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sessionInfo: {
+    flex: 1,
+  },
+  sessionDevice: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  sessionDetail: {
+    color: '#666',
+    fontSize: 12,
+  },
+  onlineDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#00D7A3',
   },
 });
