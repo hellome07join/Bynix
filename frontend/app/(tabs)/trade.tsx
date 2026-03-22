@@ -1063,7 +1063,7 @@ export default function Trade() {
                           styles.historyStatus, 
                           trade.status === 'won' ? { color: '#00D7A3' } : { color: '#FF3B3B' }
                         ]}>
-                          {(trade.status || 'pending').toUpperCase()}
+                          {trade.status === 'won' ? 'Profit' : 'Loss'}
                         </Text>
                       </View>
                     </View>
