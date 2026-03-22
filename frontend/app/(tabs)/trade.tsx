@@ -408,13 +408,7 @@ export default function Trade() {
 
       {/* Trading Panel */}
       <ScrollView style={styles.tradingPanel}>
-        {/* Payout Display */}
-        <View style={styles.payoutDisplay}>
-          <Text style={styles.payoutLabel}>Payout</Text>
-          <Text style={styles.payoutValue}>{payoutPercentage}%</Text>
-        </View>
-
-        {/* Duration Selector */}
+      {/* Duration Selector */}
         <View style={styles.durationRow}>
           <Text style={styles.labelText}>Duration</Text>
           <View style={styles.durationButtons}>
