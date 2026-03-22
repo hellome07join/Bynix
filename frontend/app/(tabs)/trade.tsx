@@ -1104,7 +1104,7 @@ export default function Trade() {
         </View>
       </Modal>
 
-      {/* Trade Result Popup */}
+      {/* Trade Result Popup - Compact Version */}
       {showResult && tradeResult && (
         <Animated.View 
           style={[
@@ -1123,20 +1123,23 @@ export default function Trade() {
           ]}
         >
           <View style={[styles.resultCard, tradeResult.won ? styles.resultWin : styles.resultLoss]}>
-            <Ionicons 
-              name={tradeResult.won ? 'checkmark-circle' : 'close-circle'} 
-              size={64} 
-              color="#FFFFFF" 
-            />
-            <Text style={styles.resultTitle}>
-              {tradeResult.won ? 'YOU WON!' : 'YOU LOST'}
+            <View style={styles.resultIconContainer}>
+              <Ionicons 
+                name={tradeResult.won ? 'checkmark' : 'close'} 
+                size={24} 
+                color={tradeResult.won ? '#00D7A3' : '#FF3B3B'} 
+              />
+            </View>
+            <Text style={styles.resultLabel}>
+              {tradeResult.won ? 'Profit' : 'Loss'}
             </Text>
             <Text style={styles.resultAmount}>
-              {tradeResult.profitLoss >= 0 ? '+' : ''}${Math.abs(tradeResult.profitLoss).toFixed(2)}
+              {tradeResult.won ? '+' : '-'}${Math.abs(tradeResult.profitLoss).toFixed(2)}
             </Text>
-            <View style={styles.resultDetails}>
-              <Text style={styles.resultDetailText}>Entry: ${tradeResult.entryPrice.toFixed(5)}</Text>
-              <Text style={styles.resultDetailText}>Exit: ${tradeResult.exitPrice.toFixed(5)}</Text>
+            <View style={styles.resultPriceRow}>
+              <Text style={styles.resultPriceText}>
+                {tradeResult.entryPrice.toFixed(5)} → {tradeResult.exitPrice.toFixed(5)}
+              </Text>
             </View>
           </View>
         </Animated.View>
@@ -2071,15 +2074,16 @@ const styles = StyleSheet.create({
   },
   resultPopup: {
     position: 'absolute',
-    top: '30%',
-    left: '10%',
-    right: '10%',
+    top: '35%',
+    left: '15%',
+    right: '15%',
     alignItems: 'center',
   },
   resultCard: {
     width: '100%',
-    padding: 32,
-    borderRadius: 24,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 16,
     alignItems: 'center',
   },
   resultWin: {
@@ -2087,6 +2091,22 @@ const styles = StyleSheet.create({
   },
   resultLoss: {
     backgroundColor: 'rgba(255, 59, 59, 0.95)',
+  },
+  resultIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  resultLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   resultTitle: {
     fontSize: 28,
@@ -2096,10 +2116,18 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   resultAmount: {
-    fontSize: 40,
+    fontSize: 28,
     fontWeight: '800',
     color: '#FFFFFF',
+    marginTop: 4,
+  },
+  resultPriceRow: {
     marginTop: 8,
+    alignItems: 'center',
+  },
+  resultPriceText: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.85)',
   },
   resultDetails: {
     marginTop: 16,
