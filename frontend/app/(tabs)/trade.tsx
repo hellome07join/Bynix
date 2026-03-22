@@ -199,11 +199,21 @@ export default function Trade() {
     }
   };
   
-  // Active trade
-  const [activeTrade, setActiveTrade] = useState<any>(null);
-  const [countdown, setCountdown] = useState(0);
-  const [tradeStartTime, setTradeStartTime] = useState(0);
-  const [tradeEndTime, setTradeEndTime] = useState(0);
+  // Active trades - support multiple simultaneous trades
+  interface ActiveTrade {
+    id: string;
+    trade_id?: string;
+    type: 'call' | 'put';
+    entry_price: number;
+    amount: number;
+    duration: number;
+    startTime: number;
+    endTime: number;
+    countdown: number;
+    asset: string;
+  }
+  
+  const [activeTrades, setActiveTrades] = useState<ActiveTrade[]>([]);
   
   // Trade result
   const [showResult, setShowResult] = useState(false);
@@ -211,7 +221,6 @@ export default function Trade() {
   const resultAnim = useRef(new Animated.Value(0)).current;
   
   const wsRef = useRef<any>(null);
-  const tradeIntervalRef = useRef<any>(null);
   const cooldownRef = useRef(false);
 
   // Fetch trade history from backend
@@ -241,19 +250,6 @@ export default function Trade() {
   const currentAsset = ASSETS.find(a => a.value === selectedAsset) || ASSETS[0];
   const payoutPercentage = currentAsset.payout;
 
-  // Calculate if running trade is in profit or loss
-  const isRunningTradeInProfit = activeTrade 
-    ? (activeTrade.type === 'call' 
-        ? currentPrice > activeTrade.entry_price 
-        : currentPrice < activeTrade.entry_price)
-    : null;
-  
-  const runningTradePL = activeTrade 
-    ? (isRunningTradeInProfit 
-        ? activeTrade.amount * (payoutPercentage / 100) 
-        : -activeTrade.amount)
-    : 0;
-  
   // Calculate potential profit
   const tradeAmount = parseFloat(amount) || 0;
   const potentialProfit = tradeAmount + (tradeAmount * payoutPercentage / 100);
@@ -265,32 +261,34 @@ export default function Trade() {
       if (wsRef.current?.disconnect) {
         wsRef.current.disconnect();
       }
-      if (tradeIntervalRef.current) {
-        clearInterval(tradeIntervalRef.current);
-      }
     };
   }, [selectedAsset]);
 
-  // Handle countdown
+  // Handle countdown for all active trades
   useEffect(() => {
-    if (activeTrade && countdown > 0) {
-      tradeIntervalRef.current = setInterval(() => {
-        setCountdown(prev => {
-          if (prev <= 1) {
-            settleTrade();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
+    if (activeTrades.length === 0) return;
     
-    return () => {
-      if (tradeIntervalRef.current) {
-        clearInterval(tradeIntervalRef.current);
-      }
-    };
-  }, [activeTrade, countdown]);
+    const interval = setInterval(() => {
+      setActiveTrades(prev => {
+        const updated = prev.map(trade => ({
+          ...trade,
+          countdown: Math.max(0, trade.countdown - 1)
+        }));
+        
+        // Settle trades that have finished
+        updated.forEach(trade => {
+          if (trade.countdown === 0) {
+            settleTradeById(trade.id);
+          }
+        });
+        
+        // Remove settled trades
+        return updated.filter(trade => trade.countdown > 0);
+      });
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [activeTrades.length > 0]);
 
   const loadMarketData = async () => {
     setLoading(true);
@@ -325,11 +323,6 @@ export default function Trade() {
       return;
     }
 
-    if (activeTrade) {
-      Alert.alert('Error', 'You already have an active trade');
-      return;
-    }
-
     const tradeAmount = parseFloat(amount);
     if (isNaN(tradeAmount) || tradeAmount <= 0) {
       Alert.alert('Error', 'Please enter a valid amount');
@@ -342,17 +335,17 @@ export default function Trade() {
       return;
     }
 
-    // Cooldown
+    // Cooldown - short to allow multiple trades
     cooldownRef.current = true;
     setTimeout(() => {
       cooldownRef.current = false;
-    }, 2000);
+    }, 500);
+
+    const now = Date.now();
+    const tradeId = `trade_${now}_${Math.random().toString(36).substr(2, 9)}`;
 
     // For demo mode, execute trade locally without API
     if (accountType === 'demo' || !token) {
-      const now = Date.now();
-      const tradeId = `demo_${now}`;
-      
       // Deduct amount from demo balance
       if (user) {
         const newDemoBalance = (user.demo_balance || 0) - tradeAmount;
@@ -361,17 +354,21 @@ export default function Trade() {
         setLocalDemoBalance(prev => prev - tradeAmount);
       }
       
-      setActiveTrade({
+      // Add new trade to the array
+      const newTrade: ActiveTrade = {
+        id: tradeId,
         trade_id: tradeId,
         type,
         amount: tradeAmount,
         entry_price: currentPrice,
         duration,
-      });
+        startTime: now,
+        endTime: now + duration * 1000,
+        countdown: duration,
+        asset: selectedAsset,
+      };
       
-      setTradeStartTime(now);
-      setTradeEndTime(now + duration * 1000);
-      setCountdown(duration);
+      setActiveTrades(prev => [...prev, newTrade]);
       
       // Success haptic
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -395,18 +392,21 @@ export default function Trade() {
         updateBalance(user.demo_balance || 10000, newRealBalance);
       }
 
-      const now = Date.now();
-      setActiveTrade({
+      // Add new trade to the array
+      const newTrade: ActiveTrade = {
+        id: tradeId,
         trade_id: response.trade_id,
         type,
         amount: tradeAmount,
         entry_price: currentPrice,
         duration,
-      });
+        startTime: now,
+        endTime: now + duration * 1000,
+        countdown: duration,
+        asset: selectedAsset,
+      };
       
-      setTradeStartTime(now);
-      setTradeEndTime(now + duration * 1000);
-      setCountdown(duration);
+      setActiveTrades(prev => [...prev, newTrade]);
       
       // Success haptic
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -416,8 +416,10 @@ export default function Trade() {
     }
   };
 
-  const settleTrade = async () => {
-    if (!activeTrade) return;
+  // Settle a specific trade by ID
+  const settleTradeById = async (tradeId: string) => {
+    const trade = activeTrades.find(t => t.id === tradeId);
+    if (!trade) return;
 
     // RIGGED TRADE LOGIC:
     // Demo account: 85% WIN rate (user wins most of the time to get hooked)
@@ -433,14 +435,14 @@ export default function Trade() {
       won = randomValue < 20;
     }
 
-    const profitLoss = won ? activeTrade.amount * (payoutPercentage / 100) : -activeTrade.amount;
+    const profitLoss = won ? trade.amount * (payoutPercentage / 100) : -trade.amount;
 
     // Update balance based on result
     if (accountType === 'demo') {
       // Demo account balance update
       if (won) {
         // Add back the amount plus profit
-        const winnings = activeTrade.amount + (activeTrade.amount * payoutPercentage / 100);
+        const winnings = trade.amount + (trade.amount * payoutPercentage / 100);
         if (user) {
           const newDemoBalance = (user.demo_balance || 0) + winnings;
           updateBalance(newDemoBalance, user.real_balance || 0);
@@ -452,19 +454,16 @@ export default function Trade() {
     } else if (accountType === 'real') {
       // Real account balance update
       if (won) {
-        const winnings = activeTrade.amount + (activeTrade.amount * payoutPercentage / 100);
+        const winnings = trade.amount + (trade.amount * payoutPercentage / 100);
         if (user) {
           const newRealBalance = (user.real_balance || 0) + winnings;
           updateBalance(user.demo_balance || 10000, newRealBalance);
-          console.log(`Real account WIN: Added $${winnings.toFixed(2)} to balance. New balance: $${newRealBalance.toFixed(2)}`);
         }
-      } else {
-        console.log(`Real account LOSS: Lost $${activeTrade.amount}`);
       }
       // Try to call API but don't block on it
-      if (token) {
+      if (token && trade.trade_id) {
         try {
-          await api.settleTrade(activeTrade.trade_id, currentPrice, token);
+          await api.settleTrade(trade.trade_id, currentPrice, token);
         } catch (error: any) {
           console.error('Error settling trade:', error);
         }
@@ -474,7 +473,7 @@ export default function Trade() {
     setTradeResult({
       won,
       profitLoss,
-      entryPrice: activeTrade.entry_price,
+      entryPrice: trade.entry_price,
       exitPrice: currentPrice,
     });
 
@@ -487,10 +486,8 @@ export default function Trade() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
     
-    setActiveTrade(null);
-    setCountdown(0);
-    setTradeStartTime(0);
-    setTradeEndTime(0);
+    // Refresh trade history
+    fetchTradeHistory();
   };
 
   const showResultPopup = () => {
