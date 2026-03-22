@@ -142,7 +142,7 @@ export default function Trade() {
   const fetchTradeHistory = async () => {
     if (!token) return;
     try {
-      const response = await fetch(`${API_URL}/trades/history`, {
+      const response = await fetch(`${API_URL}/trades/history?account_type=${accountType}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (response.ok) {
@@ -154,12 +154,12 @@ export default function Trade() {
     }
   };
   
-  // Fetch trade history on mount and when trade settles
+  // Fetch trade history on mount, when trade settles, or when account type changes
   useEffect(() => {
     if (token) {
       fetchTradeHistory();
     }
-  }, [token]);
+  }, [token, accountType]);
 
   // Get current asset data
   const currentAsset = ASSETS.find(a => a.value === selectedAsset) || ASSETS[0];

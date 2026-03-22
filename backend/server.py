@@ -526,12 +526,22 @@ async def get_trades(authorization: Optional[str] = Header(None), request: Reque
     return trades
 
 @api_router.get("/trades/history")
-async def get_trade_history(authorization: Optional[str] = Header(None), request: Request = None, limit: int = 50):
+async def get_trade_history(
+    authorization: Optional[str] = Header(None), 
+    request: Request = None, 
+    limit: int = 50,
+    account_type: Optional[str] = None
+):
     """Get user's formatted trade history for display"""
     user = await get_current_user(authorization, request)
     
+    # Build query filter
+    query_filter = {"user_id": user.user_id}
+    if account_type and account_type in ["demo", "real"]:
+        query_filter["account_type"] = account_type
+    
     trades = await db.trades.find(
-        {"user_id": user.user_id},
+        query_filter,
         {"_id": 0}
     ).sort("created_at", -1).limit(limit).to_list(limit)
     
