@@ -454,30 +454,33 @@ export default function Trade() {
           <Text style={styles.depositText}>Deposit</Text>
         </TouchableOpacity>
 
-        {/* Logo - Center */}
-        <Image 
-          source={require('../../assets/images/bynix-logo.png')} 
-          style={styles.headerLogo}
-          resizeMode="contain"
-        />
+        {/* Logo - Absolute Center */}
+        <View style={styles.headerLogoContainer}>
+          <Image 
+            source={require('../../assets/images/bynix-logo.png')} 
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
+        </View>
 
-        {/* Balance Button */}
-        <TouchableOpacity 
-          style={[styles.balanceButton, accountType === 'demo' && styles.demoBalance]}
-          onPress={() => setShowAccountPicker(true)}
-        >
-          <Ionicons name="wallet" size={16} color={accountType === 'demo' ? '#FFB800' : '#00E55A'} />
-          <Text style={[styles.balanceText, accountType === 'demo' && styles.demoBalanceText]}>
-            {accountType === 'demo' ? 'Demo ' : ''}${currentBalance.toFixed(2)}
-          </Text>
-          <Ionicons name="chevron-down" size={12} color={accountType === 'demo' ? '#FFB800' : '#00E55A'} />
-        </TouchableOpacity>
+        {/* Right Side - Balance and Notification */}
+        <View style={styles.headerRight}>
+          <TouchableOpacity 
+            style={[styles.balanceButton, accountType === 'demo' && styles.demoBalance]}
+            onPress={() => setShowAccountPicker(true)}
+          >
+            <Ionicons name="wallet" size={16} color={accountType === 'demo' ? '#FFB800' : '#00E55A'} />
+            <Text style={[styles.balanceText, accountType === 'demo' && styles.demoBalanceText]}>
+              {accountType === 'demo' ? 'Demo ' : ''}${currentBalance.toFixed(2)}
+            </Text>
+            <Ionicons name="chevron-down" size={12} color={accountType === 'demo' ? '#FFB800' : '#00E55A'} />
+          </TouchableOpacity>
 
-        {/* Notification Button - Right */}
-        <TouchableOpacity style={styles.notifButton}>
-          <Ionicons name="notifications" size={20} color="#FFFFFF" />
-          <View style={styles.notifBadge} />
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.notifButton}>
+            <Ionicons name="notifications" size={20} color="#FFFFFF" />
+            <View style={styles.notifBadge} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Chart Area - Takes remaining space */}
@@ -1158,11 +1161,23 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 10,
     backgroundColor: 'rgba(10, 26, 15, 0.95)',
-    gap: 8,
+  },
+  headerLogoContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: -1,
   },
   headerLogo: {
-    width: 56,
-    height: 56,
+    width: 60,
+    height: 60,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   depositButton: {
     flexDirection: 'row',
