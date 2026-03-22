@@ -431,6 +431,16 @@ export default function Trade() {
 
         {/* Tools Bar */}
         <View style={styles.toolsBar}>
+          {/* Set Time Button */}
+          <TouchableOpacity 
+            style={styles.setTimeBtn}
+            onPress={() => setShowTimePicker(true)}
+          >
+            <Ionicons name="time" size={16} color="#00D7A3" />
+            <Text style={styles.setTimeText}>{formatDuration(duration)}</Text>
+            <Ionicons name="chevron-down" size={14} color="#00D7A3" />
+          </TouchableOpacity>
+
           {/* Tools Button */}
           <TouchableOpacity 
             style={styles.toolsBtn}
@@ -478,41 +488,6 @@ export default function Trade() {
 
       {/* Bottom Trading Panel - Fixed at bottom */}
       <View style={styles.bottomPanel}>
-        {/* Time Selector Row */}
-        <View style={styles.timeRow}>
-          {/* Set Time Button */}
-          <TouchableOpacity 
-            style={styles.setTimeBtn}
-            onPress={() => setShowTimePicker(true)}
-          >
-            <Ionicons name="time" size={16} color="#00D7A3" />
-            <Text style={styles.setTimeText}>{formatDuration(duration)}</Text>
-            <Ionicons name="chevron-down" size={14} color="#00D7A3" />
-          </TouchableOpacity>
-
-          {/* Quick Time Buttons */}
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.quickTimeContainer}
-          >
-            {DURATIONS.map((d) => (
-              <TouchableOpacity
-                key={d.label}
-                style={[styles.quickTimeChip, duration === d.seconds && styles.quickTimeActive]}
-                onPress={() => {
-                  setDuration(d.seconds);
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }}
-              >
-                <Text style={[styles.quickTimeText, duration === d.seconds && styles.quickTimeTextActive]}>
-                  {d.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
         {/* Investment Amount */}
         <View style={styles.amountSection}>
           <Text style={styles.labelText}>Investment Amount</Text>
