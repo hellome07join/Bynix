@@ -31,9 +31,15 @@ const TIMEFRAMES = [
 ];
 
 const DURATIONS = [
+  { label: '5s', seconds: 5 },
+  { label: '10s', seconds: 10 },
   { label: '30s', seconds: 30 },
   { label: '1m', seconds: 60 },
+  { label: '2m', seconds: 120 },
   { label: '5m', seconds: 300 },
+  { label: '10m', seconds: 600 },
+  { label: '30m', seconds: 1800 },
+  { label: '1h', seconds: 3600 },
 ];
 
 const ASSETS = [
@@ -68,6 +74,9 @@ export default function Trade() {
   const [duration, setDuration] = useState(60);
   const [showAssetPicker, setShowAssetPicker] = useState(false);
   const [showAccountPicker, setShowAccountPicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [customMinutes, setCustomMinutes] = useState('1');
+  const [customSeconds, setCustomSeconds] = useState('0');
   const [demoAddAmount, setDemoAddAmount] = useState('1000');
   
   // Function to add demo balance
@@ -79,6 +88,27 @@ export default function Trade() {
       setLocalDemoBalance(prev => prev + amount);
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+  
+  // Format duration for display
+  const formatDuration = (seconds: number): string => {
+    if (seconds < 60) return `${seconds}s`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+    return `${Math.floor(seconds / 3600)}h`;
+  };
+  
+  // Set custom time from modal
+  const setCustomTime = () => {
+    const mins = parseInt(customMinutes) || 0;
+    const secs = parseInt(customSeconds) || 0;
+    const totalSeconds = mins * 60 + secs;
+    if (totalSeconds >= 5 && totalSeconds <= 86400) {
+      setDuration(totalSeconds);
+      setShowTimePicker(false);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } else {
+      Alert.alert('Invalid Time', 'Trade time must be between 5 seconds and 24 hours.');
+    }
   };
   
   // Active trade
@@ -438,22 +468,39 @@ export default function Trade() {
 
       {/* Bottom Trading Panel - Fixed at bottom */}
       <View style={styles.bottomPanel}>
-        {/* Duration Selector */}
-        <View style={styles.durationRow}>
-          <Text style={styles.labelText}>Duration</Text>
-          <View style={styles.durationButtons}>
+        {/* Time Selector Row */}
+        <View style={styles.timeRow}>
+          {/* Set Time Button */}
+          <TouchableOpacity 
+            style={styles.setTimeBtn}
+            onPress={() => setShowTimePicker(true)}
+          >
+            <Ionicons name="time" size={16} color="#00D7A3" />
+            <Text style={styles.setTimeText}>{formatDuration(duration)}</Text>
+            <Ionicons name="chevron-down" size={14} color="#00D7A3" />
+          </TouchableOpacity>
+
+          {/* Quick Time Buttons */}
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.quickTimeContainer}
+          >
             {DURATIONS.map((d) => (
               <TouchableOpacity
                 key={d.label}
-                style={[styles.durationChip, duration === d.seconds && styles.durationActive]}
-                onPress={() => setDuration(d.seconds)}
+                style={[styles.quickTimeChip, duration === d.seconds && styles.quickTimeActive]}
+                onPress={() => {
+                  setDuration(d.seconds);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
               >
-                <Text style={[styles.durationText, duration === d.seconds && styles.durationTextActive]}>
+                <Text style={[styles.quickTimeText, duration === d.seconds && styles.quickTimeTextActive]}>
                   {d.label}
                 </Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
         </View>
 
         {/* Investment Amount */}
@@ -662,6 +709,80 @@ export default function Trade() {
                 </View>
               </View>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Time Picker Modal */}
+      <Modal
+        visible={showTimePicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowTimePicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Set Trade Time</Text>
+              <TouchableOpacity onPress={() => setShowTimePicker(false)}>
+                <Ionicons name="close-circle" size={28} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Manual Time Input */}
+            <View style={styles.timeInputSection}>
+              <Text style={styles.timeInputLabel}>Custom Time</Text>
+              <View style={styles.timeInputRow}>
+                <View style={styles.timeInputBox}>
+                  <TextInput
+                    style={styles.timeInput}
+                    value={customMinutes}
+                    onChangeText={setCustomMinutes}
+                    keyboardType="numeric"
+                    placeholder="0"
+                    placeholderTextColor="#666"
+                    maxLength={3}
+                  />
+                  <Text style={styles.timeUnit}>min</Text>
+                </View>
+                <Text style={styles.timeSeparator}>:</Text>
+                <View style={styles.timeInputBox}>
+                  <TextInput
+                    style={styles.timeInput}
+                    value={customSeconds}
+                    onChangeText={setCustomSeconds}
+                    keyboardType="numeric"
+                    placeholder="0"
+                    placeholderTextColor="#666"
+                    maxLength={2}
+                  />
+                  <Text style={styles.timeUnit}>sec</Text>
+                </View>
+              </View>
+              <TouchableOpacity style={styles.setCustomTimeBtn} onPress={setCustomTime}>
+                <Text style={styles.setCustomTimeBtnText}>Set Time</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Quick Time Options */}
+            <Text style={styles.quickTimeLabel}>Quick Select</Text>
+            <View style={styles.quickTimeGrid}>
+              {DURATIONS.map((d) => (
+                <TouchableOpacity
+                  key={d.label}
+                  style={[styles.quickTimeGridItem, duration === d.seconds && styles.quickTimeGridItemActive]}
+                  onPress={() => {
+                    setDuration(d.seconds);
+                    setShowTimePicker(false);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <Text style={[styles.quickTimeGridText, duration === d.seconds && styles.quickTimeGridTextActive]}>
+                    {d.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </View>
       </Modal>
@@ -971,6 +1092,144 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 6,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    gap: 8,
+  },
+  setTimeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 215, 163, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 215, 163, 0.3)',
+  },
+  setTimeText: {
+    color: '#00D7A3',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  quickTimeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingRight: 8,
+  },
+  quickTimeChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  quickTimeActive: {
+    backgroundColor: 'rgba(0, 215, 163, 0.2)',
+    borderColor: '#00D7A3',
+  },
+  quickTimeText: {
+    color: '#888',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  quickTimeTextActive: {
+    color: '#00D7A3',
+  },
+  timeInputSection: {
+    marginBottom: 20,
+  },
+  timeInputLabel: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  timeInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  timeInputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  timeInput: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '800',
+    minWidth: 50,
+    textAlign: 'center',
+  },
+  timeUnit: {
+    color: '#666',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  timeSeparator: {
+    color: '#666',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  setCustomTimeBtn: {
+    backgroundColor: '#00D7A3',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  setCustomTimeBtnText: {
+    color: '#0A0E27',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  quickTimeLabel: {
+    color: '#888',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  quickTimeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  quickTimeGridItem: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    minWidth: 60,
+    alignItems: 'center',
+  },
+  quickTimeGridItemActive: {
+    backgroundColor: 'rgba(0, 215, 163, 0.2)',
+    borderColor: '#00D7A3',
+  },
+  quickTimeGridText: {
+    color: '#888',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  quickTimeGridTextActive: {
+    color: '#00D7A3',
   },
   labelText: {
     color: '#999',
