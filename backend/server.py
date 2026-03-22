@@ -136,6 +136,23 @@ class PasswordReset(BaseModel):
 class TradeSettle(BaseModel):
     exit_price: float
 
+# Chart Data Models
+class ChartTick(BaseModel):
+    time: int
+    open: float
+    high: float
+    low: float
+    close: float
+
+class ChartDataRequest(BaseModel):
+    symbol: str
+    ticks: List[ChartTick]
+
+class ChartDataResponse(BaseModel):
+    symbol: str
+    ticks: List[ChartTick]
+    last_updated: datetime
+
 # ============= Helper Functions =============
 
 def hash_password(password: str) -> str:
@@ -1382,6 +1399,177 @@ async def get_deposit_history(
             dep["completed_at"] = dep["completed_at"].isoformat()
     
     return {"deposits": deposits}
+
+# ============= Chart Data API (Synced across all devices) =============
+
+def get_base_price(symbol: str) -> float:
+    """Get base price for a symbol"""
+    symbol_upper = symbol.upper()
+    if 'EUR/USD' in symbol_upper: return 1.0850
+    if 'GBP/USD' in symbol_upper: return 1.2650
+    if 'USD/JPY' in symbol_upper: return 149.50
+    if 'AUD/USD' in symbol_upper: return 0.6550
+    if 'USD/CHF' in symbol_upper: return 0.8750
+    if 'EUR/GBP' in symbol_upper: return 0.8550
+    if 'NZD/USD' in symbol_upper: return 0.6150
+    if 'USD/CAD' in symbol_upper: return 1.3550
+    if 'EUR/JPY' in symbol_upper: return 162.50
+    if 'GBP/JPY' in symbol_upper: return 189.50
+    if 'BTC' in symbol_upper: return 67500
+    if 'ETH' in symbol_upper: return 3500
+    if 'XRP' in symbol_upper: return 0.55
+    if 'SOL' in symbol_upper: return 145
+    if 'ADA' in symbol_upper: return 0.45
+    if 'DOGE' in symbol_upper: return 0.12
+    if 'AAPL' in symbol_upper: return 178
+    if 'GOOGL' in symbol_upper: return 141
+    if 'MSFT' in symbol_upper: return 378
+    if 'AMZN' in symbol_upper: return 178
+    if 'TSLA' in symbol_upper: return 245
+    return 1.0850
+
+def generate_server_chart_data(symbol: str) -> list:
+    """Generate chart data on the server (consistent across all devices)"""
+    import hashlib
+    
+    base_price = get_base_price(symbol)
+    ticks = []
+    now = int(datetime.now(timezone.utc).timestamp())
+    
+    # Use symbol hash as seed for deterministic randomness
+    seed = int(hashlib.md5(symbol.encode()).hexdigest()[:8], 16)
+    random.seed(seed)
+    
+    price = base_price
+    
+    # Generate 1800 ticks (30 minutes of 1-second data)
+    for i in range(1800, 0, -1):
+        tick_time = now - i
+        volatility = price * 0.00008
+        change = (random.random() - 0.5) * volatility * 2
+        
+        open_price = price
+        close_price = open_price + change
+        high_price = max(open_price, close_price) + abs((random.random() - 0.5) * volatility)
+        low_price = min(open_price, close_price) - abs((random.random() - 0.5) * volatility)
+        
+        ticks.append({
+            "time": tick_time,
+            "open": round(open_price, 6),
+            "high": round(high_price, 6),
+            "low": round(low_price, 6),
+            "close": round(close_price, 6)
+        })
+        
+        price = close_price
+    
+    # Reset random seed
+    random.seed()
+    
+    return ticks
+
+@api_router.get("/chart/data/{symbol}")
+async def get_chart_data(symbol: str):
+    """Get chart data for a symbol - synced across all devices"""
+    # Normalize symbol
+    symbol_key = symbol.replace("/", "_").replace(" ", "_").upper()
+    
+    # Check if we have existing data in database
+    chart_doc = await db.chart_data.find_one({"symbol": symbol_key})
+    
+    if chart_doc:
+        # Check if data is recent (within last 30 minutes)
+        last_updated = chart_doc.get("last_updated")
+        if last_updated:
+            # Ensure timezone awareness
+            if last_updated.tzinfo is None:
+                last_updated = last_updated.replace(tzinfo=timezone.utc)
+            age = datetime.now(timezone.utc) - last_updated
+            if age.total_seconds() < 1800:  # 30 minutes
+                return {
+                    "symbol": symbol,
+                    "ticks": chart_doc.get("ticks", []),
+                    "last_updated": last_updated.isoformat()
+                }
+    
+    # Generate new data
+    ticks = generate_server_chart_data(symbol)
+    
+    # Save to database
+    await db.chart_data.update_one(
+        {"symbol": symbol_key},
+        {
+            "$set": {
+                "symbol": symbol_key,
+                "ticks": ticks,
+                "last_updated": datetime.now(timezone.utc)
+            }
+        },
+        upsert=True
+    )
+    
+    return {
+        "symbol": symbol,
+        "ticks": ticks,
+        "last_updated": datetime.now(timezone.utc).isoformat()
+    }
+
+@api_router.post("/chart/tick/{symbol}")
+async def add_chart_tick(symbol: str):
+    """Add a new tick to the chart data - called periodically to keep data fresh"""
+    symbol_key = symbol.replace("/", "_").replace(" ", "_").upper()
+    
+    # Get existing data
+    chart_doc = await db.chart_data.find_one({"symbol": symbol_key})
+    
+    if not chart_doc or not chart_doc.get("ticks"):
+        # No existing data, generate it first
+        ticks = generate_server_chart_data(symbol)
+    else:
+        ticks = chart_doc.get("ticks", [])
+    
+    if len(ticks) == 0:
+        return {"error": "No chart data found"}
+    
+    # Generate new tick based on last tick
+    last_tick = ticks[-1]
+    now = int(datetime.now(timezone.utc).timestamp())
+    
+    # Only add new tick if enough time has passed (1 second)
+    if now <= last_tick["time"]:
+        return {"message": "Too soon for new tick", "ticks_count": len(ticks)}
+    
+    base_price = last_tick["close"]
+    volatility = base_price * 0.00008
+    change = (random.random() - 0.5) * volatility * 2
+    
+    new_tick = {
+        "time": now,
+        "open": round(base_price, 6),
+        "high": round(max(base_price, base_price + change) + abs((random.random() - 0.5) * volatility), 6),
+        "low": round(min(base_price, base_price + change) - abs((random.random() - 0.5) * volatility), 6),
+        "close": round(base_price + change, 6)
+    }
+    
+    ticks.append(new_tick)
+    
+    # Keep only last 3600 ticks (1 hour)
+    if len(ticks) > 3600:
+        ticks = ticks[-3600:]
+    
+    # Update database
+    await db.chart_data.update_one(
+        {"symbol": symbol_key},
+        {
+            "$set": {
+                "ticks": ticks,
+                "last_updated": datetime.now(timezone.utc)
+            }
+        },
+        upsert=True
+    )
+    
+    return {"message": "Tick added", "new_tick": new_tick, "ticks_count": len(ticks)}
 
 # Include router - must be after all endpoint definitions
 app.include_router(api_router)

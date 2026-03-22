@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { View, StyleSheet, Text, Platform, ActivityIndicator } from 'react-native';
+import Constants from 'expo-constants';
 
 interface TradeMarker {
   id: string;
@@ -27,46 +28,29 @@ interface TradingViewChartProps {
   onPriceUpdate?: (price: number) => void;
 }
 
-// Finage API Configuration
-const FINAGE_API_KEY = 'API_KEY2fMV88KTKK8ELBC7H6LDHDNCAQPKEJXM';
-const FINAGE_API_URL = 'https://api.finage.co.uk';
+// Get API URL from environment
+const getApiUrl = () => {
+  // Check if we're in a browser with a proper host
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    // If running on preview URL, use it directly
+    const currentUrl = window.location.origin;
+    if (currentUrl.includes('preview.emergentagent.com') || currentUrl.includes('ngrok')) {
+      return `${currentUrl}/api`;
+    }
+    // For localhost development, try to use backend URL env var
+    const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
+    if (backendUrl) {
+      return `${backendUrl}/api`;
+    }
+  }
+  // Native apps use the backend URL directly
+  const backendUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || 
+                     process.env.EXPO_PUBLIC_BACKEND_URL || '';
+  return backendUrl ? `${backendUrl}/api` : '/api';
+};
 
 // Store base tick data globally to persist across re-renders
 const baseTickDataStore: { [symbol: string]: CandleData[] } = {};
-
-// LocalStorage key prefix
-const STORAGE_KEY_PREFIX = 'bynix_chart_data_';
-
-// Helper to save data to localStorage
-const saveToLocalStorage = (symbol: string, data: CandleData[]) => {
-  if (typeof window !== 'undefined' && window.localStorage) {
-    try {
-      // Only save last 1800 ticks to keep storage size manageable
-      const dataToSave = data.slice(-1800);
-      localStorage.setItem(STORAGE_KEY_PREFIX + symbol.replace(/[^a-zA-Z0-9]/g, '_'), JSON.stringify(dataToSave));
-    } catch (e) {
-      console.warn('Failed to save chart data to localStorage:', e);
-    }
-  }
-};
-
-// Helper to load data from localStorage
-const loadFromLocalStorage = (symbol: string): CandleData[] | null => {
-  if (typeof window !== 'undefined' && window.localStorage) {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY_PREFIX + symbol.replace(/[^a-zA-Z0-9]/g, '_'));
-      if (stored) {
-        const data = JSON.parse(stored);
-        if (Array.isArray(data) && data.length > 0) {
-          return data;
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to load chart data from localStorage:', e);
-    }
-  }
-  return null;
-};
 
 export default function TradingViewChart({ 
   symbol = 'EUR/USD OTC', 
@@ -125,52 +109,54 @@ export default function TradingViewChart({
     return 1.0850;
   }, []);
 
-  // Generate initial tick data (1-second base data)
-  const generateInitialData = useCallback(() => {
-    // Check if we already have data in memory for this symbol
-    if (baseTickDataStore[symbol] && baseTickDataStore[symbol].length > 0) {
-      console.log(`Using memory cached data for ${symbol}`);
-      setBaseTickData(baseTickDataStore[symbol]);
-      const lastTick = baseTickDataStore[symbol][baseTickDataStore[symbol].length - 1];
-      setInternalPrice(lastTick.close);
-      setIsLoading(false);
-      return;
+  // Fetch chart data from backend (synced across all devices)
+  const fetchChartDataFromServer = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const apiUrl = getApiUrl();
+      // Clean symbol for API: remove OTC, replace / with empty, uppercase
+      const cleanSymbol = symbol.replace(' OTC', '').replace('/', '').toUpperCase();
+      
+      console.log(`Fetching chart data from server for ${cleanSymbol}...`);
+      const response = await fetch(`${apiUrl}/chart/data/${cleanSymbol}`);
+      
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.ticks && data.ticks.length > 0) {
+        console.log(`Loaded ${data.ticks.length} ticks from server for ${symbol}`);
+        
+        // Store in memory cache
+        baseTickDataStore[symbol] = data.ticks;
+        setBaseTickData(data.ticks);
+        
+        const lastTick = data.ticks[data.ticks.length - 1];
+        setInternalPrice(lastTick.close);
+        setIsLoading(false);
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Failed to fetch chart data from server:', error);
+      return false;
     }
+  }, [symbol]);
 
-    // Check localStorage for persisted data
-    const storedData = loadFromLocalStorage(symbol);
-    if (storedData && storedData.length > 0) {
-      console.log(`Loaded ${storedData.length} ticks from localStorage for ${symbol}`);
-      
-      // Update timestamps to be current (shift all times to now)
-      const now = Math.floor(Date.now() / 1000);
-      const lastStoredTime = storedData[storedData.length - 1].time;
-      const timeDiff = now - lastStoredTime;
-      
-      const updatedData = storedData.map(tick => ({
-        ...tick,
-        time: tick.time + timeDiff
-      }));
-      
-      baseTickDataStore[symbol] = updatedData;
-      setBaseTickData(updatedData);
-      const lastTick = updatedData[updatedData.length - 1];
-      setInternalPrice(lastTick.close);
-      setIsLoading(false);
-      return;
-    }
-
-    // Generate new data if nothing exists
+  // Generate fallback data if server fetch fails
+  const generateFallbackData = useCallback(() => {
     const basePrice = getBasePrice(symbol);
     const ticks: CandleData[] = [];
     const now = Date.now();
-    const tickIntervalMs = 1000; // 1 second base ticks
+    const tickIntervalMs = 1000;
     
     let price = basePrice;
     
-    // Generate 3600 ticks (1 hour of 1-second data)
-    for (let i = 3600; i >= 0; i--) {
-      const volatility = price * 0.00005; // Small volatility for 1-second ticks
+    for (let i = 1800; i >= 0; i--) {
+      const volatility = price * 0.00005;
       const open = price;
       const change = (Math.random() - 0.5) * volatility * 2;
       const close = open + change;
@@ -188,14 +174,34 @@ export default function TradingViewChart({
       price = close;
     }
     
-    // Store in global cache and localStorage
     baseTickDataStore[symbol] = ticks;
-    saveToLocalStorage(symbol, ticks);
     setBaseTickData(ticks);
     setInternalPrice(price);
     setIsLoading(false);
-    console.log(`Generated ${ticks.length} base ticks for ${symbol}`);
+    console.log(`Generated ${ticks.length} fallback ticks for ${symbol}`);
   }, [symbol, getBasePrice]);
+
+  // Initialize chart data
+  const initializeChartData = useCallback(async () => {
+    // Check memory cache first
+    if (baseTickDataStore[symbol] && baseTickDataStore[symbol].length > 0) {
+      console.log(`Using memory cached data for ${symbol}`);
+      setBaseTickData(baseTickDataStore[symbol]);
+      const lastTick = baseTickDataStore[symbol][baseTickDataStore[symbol].length - 1];
+      setInternalPrice(lastTick.close);
+      setIsLoading(false);
+      return;
+    }
+
+    // Try to fetch from server (synced across all devices)
+    const serverSuccess = await fetchChartDataFromServer();
+    
+    if (!serverSuccess) {
+      // Fallback to local generation if server fails
+      console.log('Server fetch failed, generating local data');
+      generateFallbackData();
+    }
+  }, [symbol, fetchChartDataFromServer, generateFallbackData]);
 
   // Aggregate base tick data into candles based on interval
   const aggregatedCandles = useMemo(() => {
@@ -242,11 +248,10 @@ export default function TradingViewChart({
   // Initialize data on mount or symbol change
   useEffect(() => {
     dataInitializedRef.current = false;
-    generateInitialData();
-  }, [symbol]); // Only regenerate when symbol changes, NOT interval
+    initializeChartData();
+  }, [symbol, initializeChartData]); // Only regenerate when symbol changes, NOT interval
 
   // Real-time price updates - add new tick every second
-  const saveCounterRef = useRef(0);
   useEffect(() => {
     priceTickerRef.current = setInterval(() => {
       setInternalPrice(prev => {
@@ -290,13 +295,6 @@ export default function TradingViewChart({
         // Update global cache
         baseTickDataStore[symbol] = newData;
         
-        // Save to localStorage every 10 seconds
-        saveCounterRef.current++;
-        if (saveCounterRef.current >= 10) {
-          saveCounterRef.current = 0;
-          saveToLocalStorage(symbol, newData);
-        }
-        
         return newData;
       });
     }, 1000);
@@ -304,10 +302,6 @@ export default function TradingViewChart({
     return () => {
       if (priceTickerRef.current) {
         clearInterval(priceTickerRef.current);
-      }
-      // Save on unmount
-      if (baseTickDataStore[symbol]) {
-        saveToLocalStorage(symbol, baseTickDataStore[symbol]);
       }
     };
   }, [symbol]);
