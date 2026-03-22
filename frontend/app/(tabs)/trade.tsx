@@ -216,6 +216,15 @@ export default function Trade() {
 
   return (
     <View style={styles.container}>
+      {/* Debug Info */}
+      {__DEV__ && (
+        <View style={{position: 'absolute', top: 10, left: 10, zIndex: 999, backgroundColor: 'yellow', padding: 8}}>
+          <Text style={{color: 'black', fontSize: 10}}>
+            Candles: {candles.length} | Loading: {loading ? 'YES' : 'NO'} | Price: {currentPrice.toFixed(2)}
+          </Text>
+        </View>
+      )}
+      
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
