@@ -57,7 +57,17 @@ export default function Profile() {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [tempValue, setTempValue] = useState('');
   
-  // KYC State
+  // Activity State
+  const [activitySubTab, setActivitySubTab] = useState('Login History');
+  
+  // Settings State
+  const [notificationSettings, setNotificationSettings] = useState({
+    email: true,
+    tradeAlerts: true,
+    depositUpdates: true,
+    withdrawalUpdates: true,
+    securityAlerts: true,
+  });
   const [kycStep, setKycStep] = useState(1);
   const [kycData, setKycData] = useState({
     fullName: '',
@@ -576,21 +586,201 @@ export default function Profile() {
     );
   };
 
-  const renderActivityTab = () => (
-    <View style={styles.comingSoon}>
-      <Ionicons name="time" size={64} color="#666" />
-      <Text style={styles.comingSoonTitle}>Activity Log</Text>
-      <Text style={styles.comingSoonText}>View your recent account activities and login history.</Text>
-    </View>
-  );
+  const renderActivityTab = () => {
+    const LOGIN_HISTORY = [
+      { id: 1, device: 'Safari / macOS', ip: '202.166.206.20', location: 'Nepal', date: '22/03/2026 14:42' },
+      { id: 2, device: 'Chrome / Windows', ip: '192.168.1.100', location: 'United States', date: '21/03/2026 10:15' },
+      { id: 3, device: 'Mobile App / iOS', ip: '10.0.0.50', location: 'Germany', date: '20/03/2026 18:30' },
+    ];
 
-  const renderSettingsTab = () => (
-    <View style={styles.comingSoon}>
-      <Ionicons name="settings" size={64} color="#666" />
-      <Text style={styles.comingSoonTitle}>Settings</Text>
-      <Text style={styles.comingSoonText}>Manage notifications, preferences, and app settings.</Text>
-    </View>
-  );
+    const ACTIVITY_LOG = [
+      { id: 1, action: 'Password Changed', time: '22/03/2026 14:30', icon: 'key' },
+      { id: 2, action: 'Profile Updated', time: '21/03/2026 09:45', icon: 'person' },
+      { id: 3, action: 'Trade Placed - EUR/USD', time: '20/03/2026 16:20', icon: 'trending-up' },
+    ];
+
+    return (
+      <>
+        {/* Sub Tabs */}
+        <View style={styles.activitySubTabs}>
+          <TouchableOpacity
+            style={[styles.activitySubTab, activitySubTab === 'Login History' && styles.activitySubTabActive]}
+            onPress={() => setActivitySubTab('Login History')}
+          >
+            <Text style={[styles.activitySubTabText, activitySubTab === 'Login History' && styles.activitySubTabTextActive]}>
+              Login History
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.activitySubTab, activitySubTab === 'Activity Log' && styles.activitySubTabActive]}
+            onPress={() => setActivitySubTab('Activity Log')}
+          >
+            <Text style={[styles.activitySubTabText, activitySubTab === 'Activity Log' && styles.activitySubTabTextActive]}>
+              Activity Log
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Content */}
+        {activitySubTab === 'Login History' ? (
+          <View style={styles.activityList}>
+            {LOGIN_HISTORY.map((item) => (
+              <View key={item.id} style={styles.activityItem}>
+                <View style={styles.activityIcon}>
+                  <Ionicons name="log-in" size={20} color="#00D7A3" />
+                </View>
+                <View style={styles.activityInfo}>
+                  <Text style={styles.activityDevice}>{item.device}</Text>
+                  <Text style={styles.activityDetail}>{item.ip} · {item.location}</Text>
+                </View>
+                <Text style={styles.activityDate}>{item.date}</Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.activityList}>
+            {ACTIVITY_LOG.map((item) => (
+              <View key={item.id} style={styles.activityItem}>
+                <View style={[styles.activityIcon, { backgroundColor: 'rgba(255, 184, 0, 0.15)' }]}>
+                  <Ionicons name={item.icon as any} size={20} color="#FFB800" />
+                </View>
+                <View style={styles.activityInfo}>
+                  <Text style={styles.activityDevice}>{item.action}</Text>
+                </View>
+                <Text style={styles.activityDate}>{item.time}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </>
+    );
+  };
+
+  const renderSettingsTab = () => {
+    const toggleSetting = (key: keyof typeof notificationSettings) => {
+      setNotificationSettings(prev => ({ ...prev, [key]: !prev[key] }));
+    };
+
+    const handleDeleteAccount = () => {
+      Alert.alert(
+        'Delete Account',
+        'Are you sure you want to delete your account? This action cannot be undone.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Delete', 
+            style: 'destructive',
+            onPress: () => Alert.alert('Request Sent', 'Your account deletion request has been submitted.')
+          },
+        ]
+      );
+    };
+
+    return (
+      <>
+        {/* Notifications Section */}
+        <View style={styles.settingsSection}>
+          <Text style={styles.settingsSectionTitle}>Notifications</Text>
+          <Text style={styles.settingsSectionSubtitle}>Manage how you receive notifications</Text>
+
+          {/* Email Notifications */}
+          <View style={styles.settingsRow}>
+            <View style={[styles.settingsIcon, { backgroundColor: 'rgba(155, 89, 182, 0.15)' }]}>
+              <Ionicons name="mail" size={18} color="#9B59B6" />
+            </View>
+            <View style={styles.settingsInfo}>
+              <Text style={styles.settingsLabel}>Email Notifications</Text>
+              <Text style={styles.settingsDetail}>Receive updates via email</Text>
+            </View>
+            <TouchableOpacity 
+              style={[styles.toggleBtn, notificationSettings.email && styles.toggleBtnActive]}
+              onPress={() => toggleSetting('email')}
+            >
+              <View style={[styles.toggleCircle, notificationSettings.email && styles.toggleCircleActive]} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Trade Alerts */}
+          <View style={styles.settingsRow}>
+            <View style={[styles.settingsIcon, { backgroundColor: 'rgba(0, 215, 163, 0.15)' }]}>
+              <Ionicons name="trending-up" size={18} color="#00D7A3" />
+            </View>
+            <View style={styles.settingsInfo}>
+              <Text style={styles.settingsLabel}>Trade Alerts</Text>
+              <Text style={styles.settingsDetail}>Trade result notifications</Text>
+            </View>
+            <TouchableOpacity 
+              style={[styles.toggleBtn, notificationSettings.tradeAlerts && styles.toggleBtnActive]}
+              onPress={() => toggleSetting('tradeAlerts')}
+            >
+              <View style={[styles.toggleCircle, notificationSettings.tradeAlerts && styles.toggleCircleActive]} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Deposit Updates */}
+          <View style={styles.settingsRow}>
+            <View style={[styles.settingsIcon, { backgroundColor: 'rgba(255, 184, 0, 0.15)' }]}>
+              <Ionicons name="arrow-down" size={18} color="#FFB800" />
+            </View>
+            <View style={styles.settingsInfo}>
+              <Text style={styles.settingsLabel}>Deposit Updates</Text>
+              <Text style={styles.settingsDetail}>Deposit status alerts</Text>
+            </View>
+            <TouchableOpacity 
+              style={[styles.toggleBtn, notificationSettings.depositUpdates && styles.toggleBtnActive]}
+              onPress={() => toggleSetting('depositUpdates')}
+            >
+              <View style={[styles.toggleCircle, notificationSettings.depositUpdates && styles.toggleCircleActive]} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Withdrawal Updates */}
+          <View style={styles.settingsRow}>
+            <View style={[styles.settingsIcon, { backgroundColor: 'rgba(0, 215, 163, 0.15)' }]}>
+              <Ionicons name="arrow-up" size={18} color="#00D7A3" />
+            </View>
+            <View style={styles.settingsInfo}>
+              <Text style={styles.settingsLabel}>Withdrawal Updates</Text>
+              <Text style={styles.settingsDetail}>Withdrawal status alerts</Text>
+            </View>
+            <TouchableOpacity 
+              style={[styles.toggleBtn, notificationSettings.withdrawalUpdates && styles.toggleBtnActive]}
+              onPress={() => toggleSetting('withdrawalUpdates')}
+            >
+              <View style={[styles.toggleCircle, notificationSettings.withdrawalUpdates && styles.toggleCircleActive]} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Security Alerts */}
+          <View style={[styles.settingsRow, { borderBottomWidth: 0 }]}>
+            <View style={[styles.settingsIcon, { backgroundColor: 'rgba(255, 184, 0, 0.15)' }]}>
+              <Ionicons name="shield" size={18} color="#FFB800" />
+            </View>
+            <View style={styles.settingsInfo}>
+              <Text style={styles.settingsLabel}>Security Alerts</Text>
+              <Text style={styles.settingsDetail}>Login and security alerts</Text>
+            </View>
+            <TouchableOpacity 
+              style={[styles.toggleBtn, notificationSettings.securityAlerts && styles.toggleBtnActive]}
+              onPress={() => toggleSetting('securityAlerts')}
+            >
+              <View style={[styles.toggleCircle, notificationSettings.securityAlerts && styles.toggleCircleActive]} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Danger Zone */}
+        <View style={styles.dangerZone}>
+          <Text style={styles.dangerZoneTitle}>Danger Zone</Text>
+          <Text style={styles.dangerZoneSubtitle}>Once deleted, all data is permanently removed.</Text>
+          <TouchableOpacity style={styles.deleteBtn} onPress={handleDeleteAccount}>
+            <Ionicons name="trash" size={18} color="#FF3B3B" />
+            <Text style={styles.deleteBtnText}>Request Account Deletion</Text>
+          </TouchableOpacity>
+        </View>
+      </>
+    );
+  };
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -1482,5 +1672,170 @@ const styles = StyleSheet.create({
   pickerItemText: {
     color: '#FFFFFF',
     fontSize: 15,
+  },
+  // Activity Tab Styles
+  activitySubTabs: {
+    flexDirection: 'row',
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  activitySubTab: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginRight: 8,
+  },
+  activitySubTabActive: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#FFB800',
+  },
+  activitySubTabText: {
+    color: '#666',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  activitySubTabTextActive: {
+    color: '#FFB800',
+  },
+  activityList: {
+    gap: 8,
+  },
+  activityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  activityIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 215, 163, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  activityInfo: {
+    flex: 1,
+  },
+  activityDevice: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  activityDetail: {
+    color: '#666',
+    fontSize: 12,
+  },
+  activityDate: {
+    color: '#888',
+    fontSize: 11,
+  },
+  // Settings Tab Styles
+  settingsSection: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  settingsSectionTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  settingsSectionSubtitle: {
+    color: '#666',
+    fontSize: 12,
+    marginBottom: 16,
+  },
+  settingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  settingsIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  settingsInfo: {
+    flex: 1,
+  },
+  settingsLabel: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  settingsDetail: {
+    color: '#666',
+    fontSize: 12,
+  },
+  toggleBtn: {
+    width: 50,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  toggleBtnActive: {
+    backgroundColor: '#FFB800',
+  },
+  toggleCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#666',
+  },
+  toggleCircleActive: {
+    backgroundColor: '#0A0E27',
+    alignSelf: 'flex-end',
+  },
+  dangerZone: {
+    backgroundColor: 'rgba(255, 59, 59, 0.05)',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 59, 59, 0.2)',
+  },
+  dangerZoneTitle: {
+    color: '#FF3B3B',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  dangerZoneSubtitle: {
+    color: '#888',
+    fontSize: 12,
+    marginBottom: 16,
+  },
+  deleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#FF3B3B',
+    borderRadius: 12,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  deleteBtnText: {
+    color: '#FF3B3B',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
