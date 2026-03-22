@@ -466,14 +466,14 @@ export default function Trade() {
         {/* Right Side - Balance and Notification */}
         <View style={styles.headerRight}>
           <TouchableOpacity 
-            style={[styles.balanceButton, accountType === 'demo' && styles.demoBalance]}
+            style={[styles.balanceButton, accountType === 'demo' ? styles.demoBalance : styles.realBalance]}
             onPress={() => setShowAccountPicker(true)}
           >
-            <Ionicons name="wallet" size={16} color={accountType === 'demo' ? '#FFB800' : '#00E55A'} />
-            <Text style={[styles.balanceText, accountType === 'demo' && styles.demoBalanceText]}>
-              {accountType === 'demo' ? 'Demo ' : ''}${currentBalance.toFixed(2)}
+            <Ionicons name="wallet" size={16} color={accountType === 'demo' ? '#FF3B3B' : '#FFB800'} />
+            <Text style={[styles.balanceText, accountType === 'demo' ? styles.demoBalanceText : styles.realBalanceText]}>
+              ${currentBalance.toFixed(2)}
             </Text>
-            <Ionicons name="chevron-down" size={12} color={accountType === 'demo' ? '#FFB800' : '#00E55A'} />
+            <Ionicons name="chevron-down" size={12} color={accountType === 'demo' ? '#FF3B3B' : '#FFB800'} />
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.notifButton}>
@@ -1240,9 +1240,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF3B3B',
   },
   demoBalance: {
-    backgroundColor: 'rgba(255, 184, 0, 0.15)',
+    backgroundColor: 'rgba(255, 59, 59, 0.15)',
   },
   demoBalanceText: {
+    color: '#FF3B3B',
+  },
+  realBalance: {
+    backgroundColor: 'rgba(255, 184, 0, 0.15)',
+  },
+  realBalanceText: {
     color: '#FFB800',
   },
   accountOption: {
