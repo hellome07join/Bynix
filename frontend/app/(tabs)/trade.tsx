@@ -1161,8 +1161,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerLogo: {
-    width: 40,
-    height: 40,
+    width: 56,
+    height: 56,
   },
   depositButton: {
     flexDirection: 'row',
