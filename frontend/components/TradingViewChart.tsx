@@ -1,11 +1,5 @@
-import React, { useRef, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator, Text, Platform } from 'react-native';
-
-// Conditionally import WebView only for native platforms
-let WebView: any = null;
-if (Platform.OS !== 'web') {
-  WebView = require('react-native-webview').WebView;
-}
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { View, StyleSheet, Text, Platform, ActivityIndicator } from 'react-native';
 
 interface TradeMarker {
   entryPrice: number;
@@ -18,28 +12,66 @@ interface TradingViewChartProps {
   theme?: 'dark' | 'light';
   currentPrice?: number;
   tradeMarker?: TradeMarker | null;
+  onPriceUpdate?: (price: number) => void;
 }
 
 export default function TradingViewChart({ 
-  symbol = 'EURUSD', 
-  interval = '1',
+  symbol = 'EUR/USD OTC', 
+  interval = '1m',
   theme = 'dark',
   currentPrice,
-  tradeMarker
+  tradeMarker,
+  onPriceUpdate
 }: TradingViewChartProps) {
-  const webViewRef = useRef<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
-
-  // Convert symbol format for TradingView OTC (e.g., EUR/USD OTC -> EURUSD)
+  const [internalPrice, setInternalPrice] = useState(currentPrice || 1.0850);
+  const priceTickerRef = useRef<any>(null);
+  
+  // Convert symbol for TradingView
   const tvSymbol = symbol.replace(' OTC', '').replace('/', '');
   
+  // Get base price based on asset
+  const getBasePrice = useCallback((asset: string): number => {
+    if (asset.includes('EUR/USD')) return 1.0850;
+    if (asset.includes('GBP/USD')) return 1.2650;
+    if (asset.includes('USD/JPY')) return 149.50;
+    if (asset.includes('AUD/USD')) return 0.6550;
+    if (asset.includes('USD/CHF')) return 0.8750;
+    if (asset.includes('EUR/GBP')) return 0.8550;
+    if (asset.includes('NZD/USD')) return 0.6150;
+    if (asset.includes('USD/CAD')) return 1.3550;
+    if (asset.includes('EUR/JPY')) return 162.50;
+    if (asset.includes('GBP/JPY')) return 189.50;
+    return 1.0850;
+  }, []);
+
+  // Start price ticker on mount
+  useEffect(() => {
+    const basePrice = getBasePrice(symbol);
+    setInternalPrice(basePrice);
+    if (onPriceUpdate) onPriceUpdate(basePrice);
+    
+    // Fake price ticker - updates every 500ms
+    priceTickerRef.current = setInterval(() => {
+      setInternalPrice(prev => {
+        const volatility = prev * 0.0002; // 0.02% per tick
+        const change = (Math.random() - 0.5) * volatility * 2;
+        const newPrice = prev + change;
+        if (onPriceUpdate) onPriceUpdate(newPrice);
+        return newPrice;
+      });
+    }, 500);
+    
+    return () => {
+      if (priceTickerRef.current) {
+        clearInterval(priceTickerRef.current);
+      }
+    };
+  }, [symbol, getBasePrice, onPriceUpdate]);
+
   // Map interval to TradingView format
   const getIntervalForTV = (int: string) => {
     const map: Record<string, string> = {
-      '1s': '1S',
-      '5s': '5S',
-      '15s': '15S',
       '1m': '1',
       '5m': '5',
       '15m': '15',
@@ -52,7 +84,25 @@ export default function TradingViewChart({
 
   const tvInterval = getIntervalForTV(interval);
 
-  // TradingView widget HTML with 1000 candles range
+  // Determine bullish/bearish
+  const isBullish = tradeMarker && internalPrice ? internalPrice > tradeMarker.entryPrice : null;
+  
+  // Calculate dot position
+  const calculateDotPosition = useCallback(() => {
+    if (!tradeMarker || !internalPrice) return 50;
+    
+    const priceDiff = internalPrice - tradeMarker.entryPrice;
+    const percentChange = (priceDiff / tradeMarker.entryPrice) * 100;
+    const basePosition = 50;
+    const movement = percentChange * 200;
+    const newPosition = basePosition - movement;
+    
+    return Math.max(15, Math.min(85, newPosition));
+  }, [tradeMarker, internalPrice]);
+  
+  const dotPosition = calculateDotPosition();
+
+  // TradingView widget HTML
   const getHtmlContent = () => `
     <!DOCTYPE html>
     <html>
@@ -96,13 +146,7 @@ export default function TradingViewChart({
             "edit_buttons_in_legend",
             "context_menus",
             "control_bar",
-            "border_around_the_chart",
-            "header_symbol_search",
-            "header_settings",
-            "header_compare",
-            "header_undo_redo",
-            "header_screenshot",
-            "header_fullscreen_button"
+            "border_around_the_chart"
           ],
           "enabled_features": [],
           "overrides": {
@@ -111,7 +155,6 @@ export default function TradingViewChart({
             "paneProperties.vertGridProperties.color": "rgba(255, 255, 255, 0.05)",
             "paneProperties.horzGridProperties.color": "rgba(255, 255, 255, 0.05)",
             "scalesProperties.textColor": "#888888",
-            "scalesProperties.backgroundColor": "#0A0E27",
             "mainSeriesProperties.candleStyle.upColor": "#00D7A3",
             "mainSeriesProperties.candleStyle.downColor": "#FF3B3B",
             "mainSeriesProperties.candleStyle.wickUpColor": "#00D7A3",
@@ -125,33 +168,7 @@ export default function TradingViewChart({
     </html>
   `;
 
-  // Determine if market is bullish or bearish from entry
-  const isBullish = tradeMarker && currentPrice ? currentPrice > tradeMarker.entryPrice : null;
-  
-  // Calculate dynamic position based on price movement
-  // When price goes UP (bullish) → dot moves DOWN on screen (lower percentage = higher on screen)
-  // When price goes DOWN (bearish) → dot moves UP on screen
-  const calculateDotPosition = () => {
-    if (!tradeMarker || !currentPrice) return 50;
-    
-    const priceDiff = currentPrice - tradeMarker.entryPrice;
-    const percentChange = (priceDiff / tradeMarker.entryPrice) * 100;
-    
-    // Map percentage change to visual position
-    // Each 0.01% price change = 2% visual movement
-    // Negative percentChange (bearish) → dot goes up (lower top%)
-    // Positive percentChange (bullish) → dot goes down (higher top%)
-    const basePosition = 50; // Center
-    const movement = percentChange * 200; // Amplify for visibility
-    const newPosition = basePosition - movement; // Invert: price up = dot down visually
-    
-    // Clamp between 15% and 85%
-    return Math.max(15, Math.min(85, newPosition));
-  };
-  
-  const dotPosition = calculateDotPosition();
-
-  // For web platform, render iframe directly
+  // Web platform rendering
   if (Platform.OS === 'web') {
     return (
       <View style={styles.container}>
@@ -164,7 +181,6 @@ export default function TradingViewChart({
           }}
         >
           <iframe
-            ref={iframeRef as any}
             srcDoc={getHtmlContent()}
             style={{
               width: '100%',
@@ -175,6 +191,7 @@ export default function TradingViewChart({
             sandbox="allow-scripts allow-same-origin"
             onLoad={() => setIsLoading(false)}
           />
+          
           {isLoading && (
             <div style={{
               position: 'absolute',
@@ -186,12 +203,13 @@ export default function TradingViewChart({
               justifyContent: 'center',
               alignItems: 'center',
               backgroundColor: '#0A0E27',
+              zIndex: 10,
             }}>
               <Text style={styles.loadingText}>Loading Chart...</Text>
             </div>
           )}
           
-          {/* Entry Position Marker - Moves with price */}
+          {/* Entry Position Marker */}
           {tradeMarker && (
             <div style={{
               position: 'absolute',
@@ -205,7 +223,6 @@ export default function TradingViewChart({
               zIndex: 100,
               pointerEvents: 'none',
             }}>
-              {/* Entry dot with pulse animation */}
               <div style={{
                 width: 14,
                 height: 14,
@@ -215,7 +232,6 @@ export default function TradingViewChart({
                 boxShadow: `0 0 10px ${tradeMarker.type === 'call' ? '#00D7A3' : '#FF3B3B'}`,
                 animation: 'pulse 1.5s ease-in-out infinite',
               }} />
-              {/* Entry price label */}
               <div style={{
                 marginTop: 4,
                 backgroundColor: tradeMarker.type === 'call' ? '#00D7A3' : '#FF3B3B',
@@ -228,7 +244,6 @@ export default function TradingViewChart({
               }}>
                 {tradeMarker.type === 'call' ? '▲' : '▼'} ${tradeMarker.entryPrice.toFixed(5)}
               </div>
-              {/* Bullish/Bearish indicator */}
               {isBullish !== null && (
                 <div style={{
                   marginTop: 2,
@@ -242,13 +257,19 @@ export default function TradingViewChart({
             </div>
           )}
         </div>
+        
         {/* Current Price Overlay */}
-        {currentPrice && (
+        {internalPrice > 0 && (
           <View style={styles.priceOverlay}>
-            <Text style={styles.priceText}>${currentPrice.toFixed(5)}</Text>
+            <Text style={styles.priceText}>${internalPrice.toFixed(5)}</Text>
           </View>
         )}
-        {/* Add CSS animation for pulse */}
+        
+        {/* Live indicator */}
+        <View style={styles.statusIndicator}>
+          <Text style={styles.statusText}>● LIVE</Text>
+        </View>
+        
         <style>{`
           @keyframes pulse {
             0% { transform: scale(1); opacity: 1; }
@@ -260,50 +281,13 @@ export default function TradingViewChart({
     );
   }
 
-  // For native platforms, use WebView
-  if (!WebView) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading Chart...</Text>
-        </View>
-      </View>
-    );
-  }
-
+  // Native platform fallback
   return (
     <View style={styles.container}>
-      <WebView
-        ref={webViewRef}
-        source={{ html: getHtmlContent() }}
-        style={styles.webview}
-        scrollEnabled={false}
-        bounces={false}
-        javaScriptEnabled={true}
-        domStorageEnabled={true}
-        startInLoadingState={true}
-        scalesPageToFit={true}
-        mixedContentMode="always"
-        allowsInlineMediaPlayback={true}
-        mediaPlaybackRequiresUserAction={false}
-        onLoadEnd={() => setIsLoading(false)}
-        renderLoading={() => (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#00D7A3" />
-            <Text style={styles.loadingText}>Loading TradingView...</Text>
-          </View>
-        )}
-        onError={(syntheticEvent: any) => {
-          const { nativeEvent } = syntheticEvent;
-          console.warn('WebView error:', nativeEvent);
-        }}
-      />
-      {/* Current Price Overlay */}
-      {currentPrice && (
-        <View style={styles.priceOverlay}>
-          <Text style={styles.priceText}>${currentPrice.toFixed(5)}</Text>
-        </View>
-      )}
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#00D7A3" />
+        <Text style={styles.loadingText}>Loading Chart...</Text>
+      </View>
     </View>
   );
 }
@@ -313,16 +297,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0A0E27',
   },
-  webview: {
-    flex: 1,
-    backgroundColor: '#0A0E27',
-  },
   loadingContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#0A0E27',
@@ -345,5 +321,19 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
+  },
+  statusIndicator: {
+    position: 'absolute',
+    left: 8,
+    top: 8,
+    backgroundColor: 'rgba(0, 215, 163, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  statusText: {
+    color: '#00D7A3',
+    fontSize: 10,
+    fontWeight: '600',
   },
 });

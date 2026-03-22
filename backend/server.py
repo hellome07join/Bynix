@@ -761,10 +761,6 @@ async def connect(sid, environ):
     print(f"Client connected: {sid}")
 
 @sio.event
-async def disconnect(sid):
-    print(f"Client disconnected: {sid}")
-
-@sio.event
 async def subscribe_market(sid, data):
     """Subscribe to market price updates"""
     asset = data.get("asset", "BTC/USD")
@@ -838,7 +834,161 @@ async def subscribe_binance(sid, data):
     # Start sending updates in background
     asyncio.create_task(send_binance_updates())
 
-# Include router
+# ============= OTC Market Data Generator =============
+
+# Store active market subscriptions
+active_subscriptions = {}
+
+# OTC Market base prices
+OTC_BASE_PRICES = {
+    'EUR/USD OTC': 1.0850,
+    'GBP/USD OTC': 1.2650,
+    'USD/JPY OTC': 149.50,
+    'AUD/USD OTC': 0.6550,
+    'USD/CHF OTC': 0.8750,
+    'EUR/GBP OTC': 0.8550,
+    'NZD/USD OTC': 0.6150,
+    'USD/CAD OTC': 1.3550,
+    'EUR/JPY OTC': 162.50,
+    'GBP/JPY OTC': 189.50,
+}
+
+# Store current prices for each market
+current_market_prices = {asset: price for asset, price in OTC_BASE_PRICES.items()}
+
+def generate_historical_candles(asset: str, count: int = 1000, interval_seconds: int = 60):
+    """Generate fake historical OHLC data for OTC markets"""
+    base_price = OTC_BASE_PRICES.get(asset, 1.0)
+    candles = []
+    current_time = int(datetime.now(timezone.utc).timestamp()) - (count * interval_seconds)
+    price = base_price
+    
+    for i in range(count):
+        # Random walk with trend
+        volatility = base_price * 0.0003  # 0.03% volatility per candle
+        change = (random.random() - 0.5) * volatility * 2
+        
+        open_price = price
+        close_price = price + change
+        high_price = max(open_price, close_price) + random.random() * volatility
+        low_price = min(open_price, close_price) - random.random() * volatility
+        volume = random.uniform(100, 1000)
+        
+        candles.append({
+            'time': current_time + (i * interval_seconds),
+            'open': round(open_price, 5),
+            'high': round(high_price, 5),
+            'low': round(low_price, 5),
+            'close': round(close_price, 5),
+            'volume': round(volume, 2)
+        })
+        
+        price = close_price
+    
+    # Update current price
+    current_market_prices[asset] = price
+    return candles
+
+@api_router.get("/otc/history")
+async def get_otc_history(asset: str = "EUR/USD OTC", count: int = 1000, interval: str = "1m"):
+    """Get historical candle data for OTC markets"""
+    interval_map = {
+        '1m': 60,
+        '5m': 300,
+        '15m': 900,
+        '1h': 3600,
+        '4h': 14400,
+        '1d': 86400
+    }
+    interval_seconds = interval_map.get(interval, 60)
+    candles = generate_historical_candles(asset, count, interval_seconds)
+    return {"asset": asset, "interval": interval, "candles": candles}
+
+@api_router.get("/otc/price")
+async def get_otc_price(asset: str = "EUR/USD OTC"):
+    """Get current price for OTC market"""
+    price = current_market_prices.get(asset, OTC_BASE_PRICES.get(asset, 1.0))
+    return {"asset": asset, "price": round(price, 5)}
+
+@sio.event
+async def subscribe_otc(sid, data):
+    """Subscribe to OTC market real-time updates"""
+    import asyncio
+    
+    asset = data.get('asset', 'EUR/USD OTC')
+    print(f"Client {sid} subscribing to OTC market: {asset}")
+    
+    # Cancel any existing subscription for this client
+    if sid in active_subscriptions:
+        active_subscriptions[sid]['active'] = False
+    
+    subscription = {'active': True, 'asset': asset}
+    active_subscriptions[sid] = subscription
+    
+    async def send_otc_updates():
+        try:
+            price = current_market_prices.get(asset, OTC_BASE_PRICES.get(asset, 1.0))
+            last_candle_time = int(datetime.now(timezone.utc).timestamp())
+            
+            while subscription['active']:
+                await asyncio.sleep(0.5)  # Update every 500ms for smooth movement
+                
+                if not subscription['active']:
+                    break
+                
+                # Generate price movement
+                volatility = price * 0.0001  # 0.01% per tick
+                change = (random.random() - 0.5) * volatility * 2
+                price += change
+                current_market_prices[asset] = price
+                
+                current_time = int(datetime.now(timezone.utc).timestamp())
+                
+                # Emit tick update
+                tick_data = {
+                    'asset': asset,
+                    'price': round(price, 5),
+                    'time': current_time,
+                    'change': round(change, 7)
+                }
+                await sio.emit('otc_tick', tick_data, room=sid)
+                
+                # Every 60 seconds, emit a new candle
+                if current_time - last_candle_time >= 60:
+                    candle = {
+                        'time': current_time,
+                        'open': round(price - change, 5),
+                        'high': round(price + abs(change), 5),
+                        'low': round(price - abs(change), 5),
+                        'close': round(price, 5),
+                        'volume': round(random.uniform(100, 500), 2)
+                    }
+                    await sio.emit('otc_candle', candle, room=sid)
+                    last_candle_time = current_time
+                    
+        except Exception as e:
+            print(f"Error in OTC updates for {sid}: {e}")
+        finally:
+            if sid in active_subscriptions:
+                del active_subscriptions[sid]
+    
+    asyncio.create_task(send_otc_updates())
+
+@sio.event
+async def unsubscribe_otc(sid, data=None):
+    """Unsubscribe from OTC market updates"""
+    if sid in active_subscriptions:
+        active_subscriptions[sid]['active'] = False
+        print(f"Client {sid} unsubscribed from OTC market")
+
+@sio.event
+async def disconnect(sid):
+    """Handle client disconnect"""
+    if sid in active_subscriptions:
+        active_subscriptions[sid]['active'] = False
+    print(f"Client disconnected: {sid}")
+
+# Include router - must be after all endpoint definitions
 app.include_router(api_router)
 
 app.add_middleware(

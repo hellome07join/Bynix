@@ -184,37 +184,24 @@ export default function Trade() {
     setLoading(true);
     setConnectionStatus('live');
     
-    // Generate fake initial price based on asset
+    // Generate initial price based on asset (fallback until WebSocket connects)
     const getBasePrice = (asset: string): number => {
-      if (asset.includes('EUR/USD')) return 1.0850 + (Math.random() - 0.5) * 0.02;
-      if (asset.includes('GBP/USD')) return 1.2650 + (Math.random() - 0.5) * 0.02;
-      if (asset.includes('USD/JPY')) return 149.50 + (Math.random() - 0.5) * 2;
-      if (asset.includes('AUD/USD')) return 0.6550 + (Math.random() - 0.5) * 0.01;
-      if (asset.includes('USD/CHF')) return 0.8750 + (Math.random() - 0.5) * 0.01;
-      if (asset.includes('EUR/GBP')) return 0.8550 + (Math.random() - 0.5) * 0.01;
-      if (asset.includes('NZD/USD')) return 0.6150 + (Math.random() - 0.5) * 0.01;
-      if (asset.includes('USD/CAD')) return 1.3550 + (Math.random() - 0.5) * 0.02;
-      if (asset.includes('EUR/JPY')) return 162.50 + (Math.random() - 0.5) * 2;
-      if (asset.includes('GBP/JPY')) return 189.50 + (Math.random() - 0.5) * 2;
+      if (asset.includes('EUR/USD')) return 1.0850;
+      if (asset.includes('GBP/USD')) return 1.2650;
+      if (asset.includes('USD/JPY')) return 149.50;
+      if (asset.includes('AUD/USD')) return 0.6550;
+      if (asset.includes('USD/CHF')) return 0.8750;
+      if (asset.includes('EUR/GBP')) return 0.8550;
+      if (asset.includes('NZD/USD')) return 0.6150;
+      if (asset.includes('USD/CAD')) return 1.3550;
+      if (asset.includes('EUR/JPY')) return 162.50;
+      if (asset.includes('GBP/JPY')) return 189.50;
       return 1.0850;
     };
     
-    const basePrice = getBasePrice(selectedAsset);
-    setCurrentPrice(basePrice);
+    setCurrentPrice(getBasePrice(selectedAsset));
     setLoading(false);
-
-    // FAKE PRICE TICKER - Updates every 500ms for realistic movement
-    const priceTickerInterval = setInterval(() => {
-      setCurrentPrice(prev => {
-        // Random walk with slight bias for natural movement
-        const volatility = prev * 0.0002; // 0.02% volatility per tick
-        const change = (Math.random() - 0.5) * volatility * 2;
-        const newPrice = prev + change;
-        return newPrice;
-      });
-    }, 500);
-
-    wsRef.current = { disconnect: () => clearInterval(priceTickerInterval) };
+    // Price updates now come from TradingViewChart component via onPriceUpdate callback
   };
 
   const placeTrade = async (type: 'call' | 'put') => {
@@ -460,6 +447,7 @@ export default function Trade() {
               entryPrice: activeTrade.entry_price,
               type: activeTrade.type
             } : null}
+            onPriceUpdate={(price) => setCurrentPrice(price)}
           />
         </View>
       </View>
