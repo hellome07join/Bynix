@@ -251,91 +251,99 @@ export default function TradingViewChart({
     initializeChartData();
   }, [symbol, initializeChartData]); // Only regenerate when symbol changes, NOT interval
 
-  // Real-time price updates - add new tick every second
+  // Sync with server - fetch latest tick data every 2 seconds
+  const syncWithServerRef = useRef<any>(null);
   useEffect(() => {
-    priceTickerRef.current = setInterval(() => {
-      setInternalPrice(prev => {
-        const volatility = prev * 0.00008;
-        const change = (Math.random() - 0.5) * volatility * 2;
-        const newPrice = prev + change;
-        return newPrice;
-      });
-      
-      // Add new tick to base data
-      setBaseTickData(prevData => {
-        if (prevData.length === 0) return prevData;
+    const syncWithServer = async () => {
+      try {
+        const apiUrl = getApiUrl();
+        const cleanSymbol = symbol.replace(' OTC', '').replace('/', '').toUpperCase();
         
-        const now = Math.floor(Date.now() / 1000);
-        const lastTick = prevData[prevData.length - 1];
-        
-        // Create new 1-second tick
-        const newTick: CandleData = {
-          time: now,
-          open: lastTick.close,
-          high: lastTick.close,
-          low: lastTick.close,
-          close: lastTick.close,
-        };
-        
-        // Update the new tick with price movement
-        setInternalPrice(currentPrice => {
-          newTick.close = currentPrice;
-          newTick.high = Math.max(newTick.open, currentPrice);
-          newTick.low = Math.min(newTick.open, currentPrice);
-          return currentPrice;
+        // Call server to add new tick and get updated data
+        const response = await fetch(`${apiUrl}/chart/tick/${cleanSymbol}`, {
+          method: 'POST'
         });
         
-        const newData = [...prevData, newTick];
-        
-        // Keep max 7200 ticks (2 hours of 1-second data)
-        if (newData.length > 7200) {
-          newData.shift();
+        if (response.ok) {
+          const data = await response.json();
+          if (data.new_tick) {
+            // Add the new tick from server
+            setBaseTickData(prevData => {
+              if (prevData.length === 0) return prevData;
+              
+              // Check if this tick already exists
+              const lastTick = prevData[prevData.length - 1];
+              if (lastTick.time >= data.new_tick.time) {
+                // Update the last tick with server data
+                const newData = [...prevData];
+                newData[newData.length - 1] = {
+                  ...lastTick,
+                  high: Math.max(lastTick.high, data.new_tick.high),
+                  low: Math.min(lastTick.low, data.new_tick.low),
+                  close: data.new_tick.close
+                };
+                baseTickDataStore[symbol] = newData;
+                return newData;
+              }
+              
+              // Add new tick
+              const newData = [...prevData, data.new_tick];
+              if (newData.length > 7200) {
+                newData.shift();
+              }
+              baseTickDataStore[symbol] = newData;
+              return newData;
+            });
+            
+            // Update displayed price
+            setInternalPrice(data.new_tick.close);
+          }
         }
-        
-        // Update global cache
-        baseTickDataStore[symbol] = newData;
-        
-        return newData;
-      });
-    }, 1000);
+      } catch (error) {
+        // Silently fail - will retry on next interval
+      }
+    };
+
+    // Sync every 2 seconds
+    syncWithServerRef.current = setInterval(syncWithServer, 2000);
     
     return () => {
-      if (priceTickerRef.current) {
-        clearInterval(priceTickerRef.current);
+      if (syncWithServerRef.current) {
+        clearInterval(syncWithServerRef.current);
       }
     };
   }, [symbol]);
 
-  // Update last tick with current price changes (faster updates for visual smoothness)
+  // Local price animation for smooth visual updates between server syncs
+  const priceAnimationRef = useRef<any>(null);
   useEffect(() => {
-    const updateInterval = setInterval(() => {
+    priceAnimationRef.current = setInterval(() => {
       setBaseTickData(prevData => {
         if (prevData.length === 0) return prevData;
         
         const newData = [...prevData];
         const lastTick = { ...newData[newData.length - 1] };
         
-        // Apply small price change
-        const volatility = lastTick.close * 0.00003;
+        // Small visual fluctuation (will be overwritten by server sync)
+        const volatility = lastTick.close * 0.00002;
         const change = (Math.random() - 0.5) * volatility * 2;
         lastTick.close = lastTick.close + change;
         lastTick.high = Math.max(lastTick.high, lastTick.close);
         lastTick.low = Math.min(lastTick.low, lastTick.close);
         
         newData[newData.length - 1] = lastTick;
-        
-        // Update internal price
         setInternalPrice(lastTick.close);
-        
-        // Update global cache
-        baseTickDataStore[symbol] = newData;
         
         return newData;
       });
-    }, 200); // Update every 200ms for smooth animation
+    }, 300);
     
-    return () => clearInterval(updateInterval);
-  }, [symbol]);
+    return () => {
+      if (priceAnimationRef.current) {
+        clearInterval(priceAnimationRef.current);
+      }
+    };
+  }, []);
 
   // Call onPriceUpdate when price changes
   useEffect(() => {

@@ -1535,9 +1535,18 @@ async def add_chart_tick(symbol: str):
     last_tick = ticks[-1]
     now = int(datetime.now(timezone.utc).timestamp())
     
-    # Only add new tick if enough time has passed (1 second)
+    # Only add new tick if at least 1 second has passed
     if now <= last_tick["time"]:
-        return {"message": "Too soon for new tick", "ticks_count": len(ticks)}
+        # Return the current last tick so all clients stay synced
+        return {
+            "message": "Synced", 
+            "new_tick": last_tick, 
+            "ticks_count": len(ticks),
+            "synced": True
+        }
+    
+    # Use deterministic random based on timestamp so all requests get same result
+    random.seed(now + hash(symbol_key))
     
     base_price = last_tick["close"]
     volatility = base_price * 0.00008
@@ -1550,6 +1559,9 @@ async def add_chart_tick(symbol: str):
         "low": round(min(base_price, base_price + change) - abs((random.random() - 0.5) * volatility), 6),
         "close": round(base_price + change, 6)
     }
+    
+    # Reset random seed
+    random.seed()
     
     ticks.append(new_tick)
     
@@ -1569,7 +1581,7 @@ async def add_chart_tick(symbol: str):
         upsert=True
     )
     
-    return {"message": "Tick added", "new_tick": new_tick, "ticks_count": len(ticks)}
+    return {"message": "Tick added", "new_tick": new_tick, "ticks_count": len(ticks), "synced": True}
 
 # Include router - must be after all endpoint definitions
 app.include_router(api_router)
