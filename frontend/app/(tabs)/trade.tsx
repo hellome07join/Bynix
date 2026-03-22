@@ -9,12 +9,15 @@ import {
   Dimensions,
   Modal,
   Animated,
-  ScrollView
+  ScrollView,
+  Switch
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../stores/authStore';
 import { fetchHistoricalCandles, Candle } from '../../utils/binanceService';
-import CandlestickChart from '../../components/CandlestickChart';
+import EnhancedCandlestickChart from '../../components/EnhancedCandlestickChart';
 import { api } from '../../utils/api';
 
 const { width, height } = Dimensions.get('window');
@@ -34,13 +37,14 @@ const DURATIONS = [
 ];
 
 const ASSETS = [
-  { label: 'EUR/USD', value: 'EUR/USD', icon: '🇪🇺🇺🇸' },
-  { label: 'BTC/USD', value: 'BTC/USD', icon: '₿' },
-  { label: 'ETH/USD', value: 'ETH/USD', icon: 'Ξ' },
-  { label: 'GBP/USD', value: 'GBP/USD', icon: '🇬🇧🇺🇸' },
+  { label: 'EUR/USD', value: 'EUR/USD', icon: '🇪🇺🇺🇸', payout: 81 },
+  { label: 'BTC/USD', value: 'BTC/USD', icon: '₿', payout: 85 },
+  { label: 'ETH/USD', value: 'ETH/USD', icon: 'Ξ', payout: 83 },
+  { label: 'GBP/USD', value: 'GBP/USD', icon: '🇬🇧🇺🇸', payout: 80 },
 ];
 
 export default function Trade() {
+  const router = useRouter();
   const { user, token, accountType } = useAuthStore();
   
   // Market data
@@ -55,11 +59,14 @@ export default function Trade() {
   const [timeframe, setTimeframe] = useState('1m');
   const [duration, setDuration] = useState(60);
   const [showAssetPicker, setShowAssetPicker] = useState(false);
+  const [pendingTradeMode, setPendingTradeMode] = useState(false);
   
   // Active trade
   const [activeTrade, setActiveTrade] = useState<any>(null);
   const [countdown, setCountdown] = useState(0);
   const [tradeEntry, setTradeEntry] = useState<any>(null);
+  const [tradeStartTime, setTradeStartTime] = useState(0);
+  const [tradeEndTime, setTradeEndTime] = useState(0);
   
   // Trade result
   const [showResult, setShowResult] = useState(false);
@@ -69,6 +76,14 @@ export default function Trade() {
   const wsRef = useRef<any>(null);
   const tradeIntervalRef = useRef<any>(null);
   const cooldownRef = useRef(false);
+
+  // Get current asset data
+  const currentAsset = ASSETS.find(a => a.value === selectedAsset) || ASSETS[0];
+  const payoutPercentage = currentAsset.payout;
+  
+  // Calculate potential profit
+  const tradeAmount = parseFloat(amount) || 0;
+  const potentialProfit = tradeAmount + (tradeAmount * payoutPercentage / 100);
 
   // Load market data
   useEffect(() => {
@@ -154,6 +169,9 @@ export default function Trade() {
   };
 
   const placeTrade = async (type: 'call' | 'put') => {
+    // Haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
     if (cooldownRef.current) {
       Alert.alert('Please wait', 'Cooldown active');
       return;
@@ -197,6 +215,7 @@ export default function Trade() {
         account_type: accountType,
       }, token);
 
+      const now = Date.now();
       setActiveTrade({
         trade_id: response.trade_id,
         type,
@@ -207,13 +226,19 @@ export default function Trade() {
       
       setTradeEntry({
         price: currentPrice,
-        time: Date.now(),
+        time: now,
         type,
       });
       
+      setTradeStartTime(now);
+      setTradeEndTime(now + duration * 1000);
       setCountdown(duration);
+      
+      // Success haptic
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error: any) {
       Alert.alert('Trade Failed', error.message);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   };
 
@@ -228,7 +253,7 @@ export default function Trade() {
         ? exitPrice > activeTrade.entry_price 
         : exitPrice < activeTrade.entry_price;
 
-      const profitLoss = won ? activeTrade.amount * 0.8 : -activeTrade.amount;
+      const profitLoss = won ? activeTrade.amount * (payoutPercentage / 100) : -activeTrade.amount;
 
       setTradeResult({
         won,
@@ -239,9 +264,18 @@ export default function Trade() {
 
       showResultPopup();
       
+      // Result haptic
+      if (won) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+      
       setActiveTrade(null);
       setTradeEntry(null);
       setCountdown(0);
+      setTradeStartTime(0);
+      setTradeEndTime(0);
     } catch (error: any) {
       Alert.alert('Error', error.message);
     }
@@ -272,46 +306,63 @@ export default function Trade() {
   const priceChange = candles.length >= 2 
     ? ((currentPrice - candles[candles.length - 2].close) / candles[candles.length - 2].close) * 100
     : 0;
+  
+  // Determine if currently winning
+  const isWinning = activeTrade 
+    ? (activeTrade.type === 'call' ? currentPrice > activeTrade.entry_price : currentPrice < activeTrade.entry_price)
+    : null;
 
   return (
     <View style={styles.container}>
-      {/* Status Bar */}
-      <View style={styles.statusBar}>
-        <View style={styles.statusLeft}>
-          <View style={[styles.statusDot, connectionStatus === 'live' ? styles.statusLive : styles.statusReconnecting]} />
-          <Text style={styles.statusText}>
-            {connectionStatus === 'live' ? 'LIVE' : 'RECONNECTING'}
-          </Text>
-        </View>
-        <Text style={styles.statusInfo}>Candles: {candles.length}</Text>
-        <View style={styles.balanceChip}>
-          <Text style={styles.balanceLabel}>Balance</Text>
-          <Text style={styles.balanceValue}>${balance?.toFixed(2)}</Text>
-        </View>
-      </View>
-
-      {/* Asset Selector & Price */}
-      <View style={styles.priceSection}>
+      {/* Header */}
+      <View style={styles.header}>
+        {/* Deposit Button */}
         <TouchableOpacity 
-          style={styles.assetButton}
-          onPress={() => setShowAssetPicker(true)}
+          style={styles.depositButton}
+          onPress={() => router.push('/(tabs)/wallet')}
         >
-          <Text style={styles.assetIcon}>{ASSETS.find(a => a.value === selectedAsset)?.icon}</Text>
-          <Text style={styles.assetText}>{selectedAsset}</Text>
-          <Ionicons name="chevron-down" size={18} color="#FFFFFF" />
+          <Ionicons name="add-circle" size={20} color="#00D7A3" />
+          <Text style={styles.depositText}>Deposit</Text>
         </TouchableOpacity>
 
-        <View style={styles.priceDisplay}>
-          <Text style={styles.currentPrice}>${currentPrice.toFixed(5)}</Text>
-          <View style={[styles.priceChangeBadge, priceChange >= 0 ? styles.priceUp : styles.priceDown]}>
-            <Ionicons 
-              name={priceChange >= 0 ? 'arrow-up' : 'arrow-down'} 
-              size={12} 
-              color={priceChange >= 0 ? '#00D7A3' : '#FF3B3B'} 
-            />
-            <Text style={[styles.priceChangeText, priceChange >= 0 ? styles.priceUp : styles.priceDown]}>
-              {Math.abs(priceChange).toFixed(2)}%
-            </Text>
+        {/* Center - Asset & Price */}
+        <View style={styles.centerSection}>
+          <TouchableOpacity 
+            style={styles.assetButton}
+            onPress={() => setShowAssetPicker(true)}
+          >
+            <Text style={styles.assetIcon}>{currentAsset.icon}</Text>
+            <Text style={styles.assetText}>{selectedAsset}</Text>
+            <Ionicons name="chevron-down" size={16} color="#FFFFFF" />
+          </TouchableOpacity>
+
+          <View style={styles.priceDisplay}>
+            <View style={styles.liveIndicator}>
+              <View style={styles.liveDot} />
+              <Text style={styles.liveText}>LIVE</Text>
+            </View>
+            <Text style={styles.currentPrice}>${currentPrice.toFixed(5)}</Text>
+            <View style={[styles.priceChangeBadge, priceChange >= 0 ? styles.priceUp : styles.priceDown]}>
+              <Ionicons 
+                name={priceChange >= 0 ? 'arrow-up' : 'arrow-down'} 
+                size={10} 
+                color={priceChange >= 0 ? '#00D7A3' : '#FF3B3B'} 
+              />
+              <Text style={styles.priceChangeText}>
+                {Math.abs(priceChange).toFixed(2)}%
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Right - Balance & Notifications */}
+        <View style={styles.rightSection}>
+          <TouchableOpacity style={styles.notificationButton}>
+            <Ionicons name="notifications" size={20} color="#FFFFFF" />
+            <View style={styles.notificationBadge} />
+          </TouchableOpacity>
+          <View style={styles.balanceChip}>
+            <Text style={styles.balanceValue}>${balance?.toFixed(2)}</Text>
           </View>
         </View>
       </View>
@@ -323,11 +374,14 @@ export default function Trade() {
             <Text style={styles.loadingText}>Loading chart...</Text>
           </View>
         ) : (
-          <CandlestickChart
+          <EnhancedCandlestickChart
             candles={candles}
             currentPrice={currentPrice}
             tradeEntry={tradeEntry}
             countdown={countdown}
+            tradeStartTime={tradeStartTime}
+            tradeEndTime={tradeEndTime}
+            isWinning={isWinning}
           />
         )}
       </View>
@@ -353,7 +407,13 @@ export default function Trade() {
       </ScrollView>
 
       {/* Trading Panel */}
-      <View style={styles.tradingPanel}>
+      <ScrollView style={styles.tradingPanel}>
+        {/* Payout Display */}
+        <View style={styles.payoutDisplay}>
+          <Text style={styles.payoutLabel}>Payout</Text>
+          <Text style={styles.payoutValue}>{payoutPercentage}%</Text>
+        </View>
+
         {/* Duration Selector */}
         <View style={styles.durationRow}>
           <Text style={styles.labelText}>Duration</Text>
@@ -403,6 +463,23 @@ export default function Trade() {
           </View>
         </View>
 
+        {/* Profit Preview */}
+        <View style={styles.profitPreview}>
+          <Text style={styles.profitPreviewLabel}>You will get:</Text>
+          <Text style={styles.profitPreviewValue}>${potentialProfit.toFixed(2)}</Text>
+        </View>
+
+        {/* Pending Trade Toggle */}
+        <View style={styles.pendingTradeRow}>
+          <Text style={styles.pendingTradeLabel}>Pending Trade</Text>
+          <Switch
+            value={pendingTradeMode}
+            onValueChange={setPendingTradeMode}
+            trackColor={{ false: '#3e3e3e', true: '#00D7A3' }}
+            thumbColor={pendingTradeMode ? '#FFFFFF' : '#f4f3f4'}
+          />
+        </View>
+
         {/* Trade Buttons */}
         <View style={styles.tradeButtons}>
           <TouchableOpacity
@@ -413,7 +490,7 @@ export default function Trade() {
           >
             <Ionicons name="arrow-up-circle" size={28} color="#FFFFFF" />
             <Text style={styles.tradeBtnText}>UP</Text>
-            <Text style={styles.payoutLabel}>80%</Text>
+            <Text style={styles.payoutLabel}>{payoutPercentage}%</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -424,28 +501,30 @@ export default function Trade() {
           >
             <Ionicons name="arrow-down-circle" size={28} color="#FFFFFF" />
             <Text style={styles.tradeBtnText}>DOWN</Text>
-            <Text style={styles.payoutLabel}>80%</Text>
+            <Text style={styles.payoutLabel}>{payoutPercentage}%</Text>
           </TouchableOpacity>
         </View>
 
         {/* Active Trade Info */}
         {activeTrade && (
-          <View style={styles.activeTradeBox}>
+          <View style={[styles.activeTradeBox, isWinning ? styles.tradeWinning : styles.tradeLosing]}>
             <View style={styles.tradeInfoRow}>
-              <Text style={styles.tradeInfoLabel}>Entry Price</Text>
+              <Text style={styles.tradeInfoLabel}>Entry</Text>
               <Text style={styles.tradeInfoValue}>${activeTrade.entry_price.toFixed(5)}</Text>
             </View>
             <View style={styles.tradeInfoRow}>
-              <Text style={styles.tradeInfoLabel}>Current Price</Text>
+              <Text style={styles.tradeInfoLabel}>Current</Text>
               <Text style={styles.tradeInfoValue}>${currentPrice.toFixed(5)}</Text>
             </View>
-            <View style={styles.countdownBadge}>
-              <Ionicons name="timer" size={16} color="#00D7A3" />
-              <Text style={styles.countdownText}>{countdown}s remaining</Text>
+            <View style={styles.tradeInfoRow}>
+              <Text style={styles.tradeInfoLabel}>Status</Text>
+              <Text style={[styles.statusText, isWinning ? styles.statusWin : styles.statusLoss]}>
+                {isWinning ? 'WINNING' : 'LOSING'}
+              </Text>
             </View>
           </View>
         )}
-      </View>
+      </ScrollView>
 
       {/* Asset Picker Modal */}
       <Modal
@@ -469,10 +548,14 @@ export default function Trade() {
                 onPress={() => {
                   setSelectedAsset(asset.value);
                   setShowAssetPicker(false);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 }}
               >
                 <Text style={styles.assetOptionIcon}>{asset.icon}</Text>
-                <Text style={styles.assetOptionText}>{asset.label}</Text>
+                <View style={styles.assetOptionInfo}>
+                  <Text style={styles.assetOptionText}>{asset.label}</Text>
+                  <Text style={styles.assetOptionPayout}>Payout: {asset.payout}%</Text>
+                </View>
                 {selectedAsset === asset.value && (
                   <Ionicons name="checkmark-circle" size={24} color="#00D7A3" />
                 )}
@@ -504,7 +587,7 @@ export default function Trade() {
             <Ionicons 
               name={tradeResult.won ? 'checkmark-circle' : 'close-circle'} 
               size={64} 
-              color={tradeResult.won ? '#00D7A3' : '#FF3B3B'} 
+              color="#FFFFFF" 
             />
             <Text style={styles.resultTitle}>
               {tradeResult.won ? 'YOU WON!' : 'YOU LOST'}
@@ -528,104 +611,90 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0A0E27',
   },
-  statusBar: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingTop: 50,
-    paddingBottom: 8,
+    paddingBottom: 12,
     backgroundColor: 'rgba(15, 20, 40, 0.95)',
   },
-  statusLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 6,
-  },
-  statusLive: {
-    backgroundColor: '#00D7A3',
-  },
-  statusReconnecting: {
-    backgroundColor: '#FF9500',
-  },
-  statusText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  statusInfo: {
-    color: '#999',
-    fontSize: 11,
-  },
-  balanceChip: {
+  depositButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 215, 163, 0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 12,
+    gap: 6,
   },
-  balanceLabel: {
-    color: '#999',
-    fontSize: 10,
-    marginRight: 6,
-  },
-  balanceValue: {
+  depositText: {
     color: '#00D7A3',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
   },
-  priceSection: {
+  centerSection: {
     alignItems: 'center',
-    paddingVertical: 12,
-    backgroundColor: 'rgba(15, 20, 40, 0.5)',
+    flex: 1,
   },
   assetButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+    marginBottom: 6,
   },
   assetIcon: {
-    fontSize: 18,
-    marginRight: 6,
+    fontSize: 16,
   },
   assetText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    marginRight: 6,
   },
   priceDisplay: {
     alignItems: 'center',
   },
-  currentPrice: {
-    fontSize: 32,
+  liveIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#00D7A3',
+    marginRight: 4,
+  },
+  liveText: {
+    color: '#00D7A3',
+    fontSize: 10,
     fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  currentPrice: {
+    fontSize: 28,
+    fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
   priceChangeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginTop: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    marginTop: 3,
   },
   priceChangeText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    marginLeft: 4,
+    marginLeft: 3,
   },
   priceUp: {
     backgroundColor: 'rgba(0, 215, 163, 0.2)',
@@ -635,8 +704,35 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 59, 59, 0.2)',
     color: '#FF3B3B',
   },
+  rightSection: {
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  notificationButton: {
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF3B3B',
+  },
+  balanceChip: {
+    backgroundColor: 'rgba(0, 215, 163, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  balanceValue: {
+    color: '#00D7A3',
+    fontSize: 13,
+    fontWeight: '700',
+  },
   chartWrapper: {
-    height: 300,
+    height: 320,
     marginBottom: 8,
   },
   chartLoading: {
@@ -676,6 +772,29 @@ const styles = StyleSheet.create({
   tradingPanel: {
     flex: 1,
     paddingHorizontal: 16,
+  },
+  payoutDisplay: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 215, 163, 0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 215, 163, 0.3)',
+  },
+  payoutLabel: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    opacity: 0.9,
+  },
+  payoutValue: {
+    color: '#00D7A3',
+    fontSize: 18,
+    fontWeight: '800',
   },
   durationRow: {
     marginBottom: 16,
@@ -755,6 +874,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+  profitPreview: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  profitPreviewLabel: {
+    color: '#999',
+    fontSize: 13,
+  },
+  profitPreviewValue: {
+    color: '#00D7A3',
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  pendingTradeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  pendingTradeLabel: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   tradeButtons: {
     flexDirection: 'row',
     gap: 12,
@@ -783,17 +936,19 @@ const styles = StyleSheet.create({
     marginTop: 4,
     letterSpacing: 1,
   },
-  payoutLabel: {
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 11,
-    marginTop: 2,
-  },
   activeTradeBox: {
-    backgroundColor: 'rgba(0, 215, 163, 0.1)',
-    borderWidth: 1,
-    borderColor: '#00D7A3',
+    borderWidth: 2,
     borderRadius: 12,
     padding: 16,
+    marginBottom: 16,
+  },
+  tradeWinning: {
+    backgroundColor: 'rgba(0, 215, 163, 0.1)',
+    borderColor: '#00D7A3',
+  },
+  tradeLosing: {
+    backgroundColor: 'rgba(255, 59, 59, 0.1)',
+    borderColor: '#FF3B3B',
   },
   tradeInfoRow: {
     flexDirection: 'row',
@@ -809,20 +964,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  countdownBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0, 215, 163, 0.2)',
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginTop: 8,
+  statusText: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
-  countdownText: {
+  statusWin: {
     color: '#00D7A3',
-    fontSize: 14,
-    fontWeight: '700',
-    marginLeft: 6,
+  },
+  statusLoss: {
+    color: '#FF3B3B',
   },
   modalOverlay: {
     flex: 1,
@@ -858,11 +1009,18 @@ const styles = StyleSheet.create({
     fontSize: 24,
     marginRight: 12,
   },
-  assetOptionText: {
+  assetOptionInfo: {
     flex: 1,
+  },
+  assetOptionText: {
     fontSize: 16,
     color: '#FFFFFF',
     fontWeight: '600',
+  },
+  assetOptionPayout: {
+    fontSize: 12,
+    color: '#00D7A3',
+    marginTop: 2,
   },
   resultPopup: {
     position: 'absolute',
