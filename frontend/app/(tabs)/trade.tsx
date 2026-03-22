@@ -1104,7 +1104,7 @@ export default function Trade() {
         </View>
       </Modal>
 
-      {/* Trade Result Popup - Compact Version */}
+      {/* Trade Result Popup - Small Badge Style */}
       {showResult && tradeResult && (
         <Animated.View 
           style={[
@@ -1122,25 +1122,15 @@ export default function Trade() {
             },
           ]}
         >
-          <View style={[styles.resultCard, tradeResult.won ? styles.resultWin : styles.resultLoss]}>
-            <View style={styles.resultIconContainer}>
-              <Ionicons 
-                name={tradeResult.won ? 'checkmark' : 'close'} 
-                size={24} 
-                color={tradeResult.won ? '#00D7A3' : '#FF3B3B'} 
-              />
-            </View>
-            <Text style={styles.resultLabel}>
-              {tradeResult.won ? 'Profit' : 'Loss'}
+          <View style={[styles.resultBadge, tradeResult.won ? styles.resultBadgeWin : styles.resultBadgeLoss]}>
+            <Ionicons 
+              name={tradeResult.won ? 'checkmark-circle' : 'close-circle'} 
+              size={18} 
+              color={tradeResult.won ? '#00D7A3' : '#FF3B3B'} 
+            />
+            <Text style={[styles.resultBadgeText, tradeResult.won ? styles.resultTextWin : styles.resultTextLoss]}>
+              {tradeResult.won ? 'Profit' : 'Loss'} {tradeResult.won ? '+' : '-'}${Math.abs(tradeResult.profitLoss).toFixed(2)}
             </Text>
-            <Text style={styles.resultAmount}>
-              {tradeResult.won ? '+' : '-'}${Math.abs(tradeResult.profitLoss).toFixed(2)}
-            </Text>
-            <View style={styles.resultPriceRow}>
-              <Text style={styles.resultPriceText}>
-                {tradeResult.entryPrice.toFixed(5)} → {tradeResult.exitPrice.toFixed(5)}
-              </Text>
-            </View>
           </View>
         </Animated.View>
       )}
@@ -2074,10 +2064,38 @@ const styles = StyleSheet.create({
   },
   resultPopup: {
     position: 'absolute',
-    top: '35%',
-    left: '15%',
-    right: '15%',
+    top: '40%',
+    left: 0,
+    right: 0,
     alignItems: 'center',
+    zIndex: 1000,
+  },
+  resultBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 8,
+    borderWidth: 1,
+  },
+  resultBadgeWin: {
+    backgroundColor: 'rgba(0, 215, 163, 0.15)',
+    borderColor: 'rgba(0, 215, 163, 0.4)',
+  },
+  resultBadgeLoss: {
+    backgroundColor: 'rgba(255, 59, 59, 0.15)',
+    borderColor: 'rgba(255, 59, 59, 0.4)',
+  },
+  resultBadgeText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  resultTextWin: {
+    color: '#00D7A3',
+  },
+  resultTextLoss: {
+    color: '#FF3B3B',
   },
   resultCard: {
     width: '100%',
