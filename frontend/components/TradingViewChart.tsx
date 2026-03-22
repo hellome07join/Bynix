@@ -1,5 +1,5 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, Text, Platform, ActivityIndicator, PanResponder, Dimensions } from 'react-native';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import { View, StyleSheet, Text, Platform, ActivityIndicator } from 'react-native';
 
 interface TradeMarker {
   id: string;
@@ -7,6 +7,14 @@ interface TradeMarker {
   type: 'call' | 'put';
   amount?: number;
   remainingTime?: number;
+}
+
+interface CandleData {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
 }
 
 interface TradingViewChartProps {
@@ -23,6 +31,9 @@ interface TradingViewChartProps {
 const FINAGE_API_KEY = 'API_KEY2fMV88KTKK8ELBC7H6LDHDNCAQPKEJXM';
 const FINAGE_API_URL = 'https://api.finage.co.uk';
 
+// Store base tick data globally to persist across re-renders
+const baseTickDataStore: { [symbol: string]: CandleData[] } = {};
+
 export default function TradingViewChart({ 
   symbol = 'EUR/USD OTC', 
   interval = '1m',
@@ -34,16 +45,35 @@ export default function TradingViewChart({
 }: TradingViewChartProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [internalPrice, setInternalPrice] = useState(currentPrice || 1.0850);
-  const [chartData, setChartData] = useState<any[]>([]);
+  const [baseTickData, setBaseTickData] = useState<CandleData[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [scale, setScale] = useState(1);
   const priceTickerRef = useRef<any>(null);
+  const candleIntervalRef = useRef<any>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const lastCandleTimeRef = useRef<number>(Date.now());
+  const dataInitializedRef = useRef(false);
   
-  // Convert symbol for API (e.g., "EUR/USD OTC" -> "EURUSD")
+  // Convert symbol for API
   const apiSymbol = symbol.replace(' OTC', '').replace('/', '');
   
+  // Get interval in seconds
+  const getIntervalSeconds = useCallback((int: string): number => {
+    switch(int) {
+      case '1s': return 1;
+      case '5s': return 5;
+      case '15s': return 15;
+      case '1m': return 60;
+      case '5m': return 300;
+      case '15m': return 900;
+      case '1h': return 3600;
+      case '4h': return 14400;
+      case '1d': return 86400;
+      default: return 60;
+    }
+  }, []);
+
   // Get base price based on asset
   const getBasePrice = useCallback((asset: string): number => {
     if (asset.includes('EUR/USD')) return 1.0850;
@@ -61,96 +91,36 @@ export default function TradingViewChart({
     return 1.0850;
   }, []);
 
-  // Fetch historical candle data from Finage API
-  const fetchHistoricalData = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      const toDate = new Date();
-      const fromDate = new Date();
-      fromDate.setDate(fromDate.getDate() - 7);
-      
-      const formatDate = (date: Date) => date.toISOString().split('T')[0];
-      
-      const intervalMap: Record<string, { multiply: number; time: string }> = {
-        '1s': { multiply: 1, time: 'minute' },
-        '5s': { multiply: 1, time: 'minute' },
-        '15s': { multiply: 1, time: 'minute' },
-        '1m': { multiply: 1, time: 'minute' },
-        '5m': { multiply: 5, time: 'minute' },
-        '15m': { multiply: 15, time: 'minute' },
-        '1h': { multiply: 1, time: 'hour' },
-        '4h': { multiply: 4, time: 'hour' },
-        '1d': { multiply: 1, time: 'day' },
-      };
-      
-      const { multiply, time } = intervalMap[interval] || { multiply: 1, time: 'minute' };
-      
-      const url = `${FINAGE_API_URL}/agg/forex/${apiSymbol}/${multiply}/${time}/${formatDate(fromDate)}/${formatDate(toDate)}?apikey=${FINAGE_API_KEY}&limit=500&sort=asc`;
-      
-      console.log('Fetching Finage data:', url.replace(FINAGE_API_KEY, 'API_KEY***'));
-      
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data.results && data.results.length > 0) {
-        const candles = data.results.map((item: any) => ({
-          time: Math.floor(item.t / 1000),
-          open: item.o,
-          high: item.h,
-          low: item.l,
-          close: item.c,
-        }));
-        
-        setChartData(candles);
-        
-        const lastCandle = candles[candles.length - 1];
-        if (lastCandle) {
-          setInternalPrice(lastCandle.close);
-        }
-        
-        console.log(`Loaded ${candles.length} candles from Finage`);
-      } else {
-        console.log('No data from API, using generated data');
-        generateFallbackData();
-      }
-    } catch (err: any) {
-      console.error('Finage API error:', err);
-      setError(err.message);
-      generateFallbackData();
-    } finally {
+  // Generate initial tick data (1-second base data)
+  const generateInitialData = useCallback(() => {
+    // Check if we already have data for this symbol
+    if (baseTickDataStore[symbol] && baseTickDataStore[symbol].length > 0) {
+      console.log(`Using cached data for ${symbol}`);
+      setBaseTickData(baseTickDataStore[symbol]);
+      const lastTick = baseTickDataStore[symbol][baseTickDataStore[symbol].length - 1];
+      setInternalPrice(lastTick.close);
       setIsLoading(false);
+      return;
     }
-  }, [apiSymbol, interval]);
 
-  // Generate fallback candle data
-  const generateFallbackData = useCallback(() => {
     const basePrice = getBasePrice(symbol);
-    const candles = [];
+    const ticks: CandleData[] = [];
     const now = Date.now();
-    const intervalMs = 60000;
+    const tickIntervalMs = 1000; // 1 second base ticks
     
     let price = basePrice;
     
-    for (let i = 200; i >= 0; i--) {
-      const volatility = price * 0.001;
+    // Generate 3600 ticks (1 hour of 1-second data)
+    for (let i = 3600; i >= 0; i--) {
+      const volatility = price * 0.00005; // Small volatility for 1-second ticks
       const open = price;
-      const change1 = (Math.random() - 0.5) * volatility * 2;
-      const change2 = (Math.random() - 0.5) * volatility * 2;
-      const change3 = (Math.random() - 0.5) * volatility * 2;
+      const change = (Math.random() - 0.5) * volatility * 2;
+      const close = open + change;
+      const high = Math.max(open, close) + Math.abs((Math.random() - 0.5) * volatility);
+      const low = Math.min(open, close) - Math.abs((Math.random() - 0.5) * volatility);
       
-      const close = open + change1;
-      const high = Math.max(open, close) + Math.abs(change2);
-      const low = Math.min(open, close) - Math.abs(change3);
-      
-      candles.push({
-        time: Math.floor((now - i * intervalMs) / 1000),
+      ticks.push({
+        time: Math.floor((now - i * tickIntervalMs) / 1000),
         open,
         high,
         low,
@@ -160,131 +130,158 @@ export default function TradingViewChart({
       price = close;
     }
     
-    setChartData(candles);
+    // Store in global cache
+    baseTickDataStore[symbol] = ticks;
+    setBaseTickData(ticks);
     setInternalPrice(price);
+    setIsLoading(false);
+    console.log(`Generated ${ticks.length} base ticks for ${symbol}`);
   }, [symbol, getBasePrice]);
 
-  // Fetch data on mount and when symbol/interval changes
-  useEffect(() => {
-    fetchHistoricalData();
-  }, [fetchHistoricalData]);
+  // Aggregate base tick data into candles based on interval
+  const aggregatedCandles = useMemo(() => {
+    if (baseTickData.length === 0) return [];
+    
+    const intervalSeconds = getIntervalSeconds(interval);
+    const candles: CandleData[] = [];
+    
+    let currentCandle: CandleData | null = null;
+    let candleStartTime = 0;
+    
+    for (const tick of baseTickData) {
+      const tickCandleStart = Math.floor(tick.time / intervalSeconds) * intervalSeconds;
+      
+      if (currentCandle === null || tickCandleStart !== candleStartTime) {
+        // Start new candle
+        if (currentCandle !== null) {
+          candles.push(currentCandle);
+        }
+        candleStartTime = tickCandleStart;
+        currentCandle = {
+          time: tickCandleStart,
+          open: tick.open,
+          high: tick.high,
+          low: tick.low,
+          close: tick.close,
+        };
+      } else {
+        // Update current candle
+        currentCandle.high = Math.max(currentCandle.high, tick.high);
+        currentCandle.low = Math.min(currentCandle.low, tick.low);
+        currentCandle.close = tick.close;
+      }
+    }
+    
+    // Add the last candle
+    if (currentCandle !== null) {
+      candles.push(currentCandle);
+    }
+    
+    return candles;
+  }, [baseTickData, interval, getIntervalSeconds]);
 
-  // Real-time price updates with simulated tick
+  // Initialize data on mount or symbol change
+  useEffect(() => {
+    dataInitializedRef.current = false;
+    generateInitialData();
+  }, [symbol]); // Only regenerate when symbol changes, NOT interval
+
+  // Real-time price updates - add new tick every second
   useEffect(() => {
     priceTickerRef.current = setInterval(() => {
       setInternalPrice(prev => {
-        const volatility = prev * 0.0002;
+        const volatility = prev * 0.00008;
         const change = (Math.random() - 0.5) * volatility * 2;
         const newPrice = prev + change;
-        
-        setChartData(prevData => {
-          if (prevData.length === 0) return prevData;
-          const newData = [...prevData];
-          const lastCandle = { ...newData[newData.length - 1] };
-          lastCandle.close = newPrice;
-          lastCandle.high = Math.max(lastCandle.high, newPrice);
-          lastCandle.low = Math.min(lastCandle.low, newPrice);
-          newData[newData.length - 1] = lastCandle;
-          return newData;
-        });
-        
         return newPrice;
       });
-    }, 500);
+      
+      // Add new tick to base data
+      setBaseTickData(prevData => {
+        if (prevData.length === 0) return prevData;
+        
+        const now = Math.floor(Date.now() / 1000);
+        const lastTick = prevData[prevData.length - 1];
+        
+        // Create new 1-second tick
+        const newTick: CandleData = {
+          time: now,
+          open: lastTick.close,
+          high: lastTick.close,
+          low: lastTick.close,
+          close: lastTick.close,
+        };
+        
+        // Update the new tick with price movement
+        setInternalPrice(currentPrice => {
+          newTick.close = currentPrice;
+          newTick.high = Math.max(newTick.open, currentPrice);
+          newTick.low = Math.min(newTick.open, currentPrice);
+          return currentPrice;
+        });
+        
+        const newData = [...prevData, newTick];
+        
+        // Keep max 7200 ticks (2 hours of 1-second data)
+        if (newData.length > 7200) {
+          newData.shift();
+        }
+        
+        // Update global cache
+        baseTickDataStore[symbol] = newData;
+        
+        return newData;
+      });
+    }, 1000);
     
     return () => {
       if (priceTickerRef.current) {
         clearInterval(priceTickerRef.current);
       }
     };
-  }, []);
+  }, [symbol]);
 
-  // Create new candles at regular intervals based on selected timeframe
-  const candleIntervalRef = useRef<any>(null);
-  const lastCandleTimeRef = useRef<number>(Date.now());
-  
+  // Update last tick with current price changes (faster updates for visual smoothness)
   useEffect(() => {
-    // Get interval in milliseconds based on timeframe
-    const getIntervalMs = () => {
-      switch(interval) {
-        case '1s': return 1000;      // 1 second
-        case '5s': return 5000;      // 5 seconds
-        case '15s': return 15000;    // 15 seconds
-        case '1m': return 60000;     // 1 minute
-        case '5m': return 300000;    // 5 minutes
-        case '15m': return 900000;   // 15 minutes
-        case '1h': return 3600000;   // 1 hour
-        case '4h': return 14400000;  // 4 hours
-        case '1d': return 86400000;  // 1 day
-        default: return 60000;       // Default 1 minute
-      }
-    };
-    
-    const intervalMs = getIntervalMs();
-    
-    // Reset the last candle time when interval changes
-    lastCandleTimeRef.current = Date.now();
-    
-    // Check every second if it's time to create a new candle
-    candleIntervalRef.current = setInterval(() => {
-      const now = Date.now();
-      const elapsed = now - lastCandleTimeRef.current;
-      
-      if (elapsed >= intervalMs) {
-        lastCandleTimeRef.current = now;
+    const updateInterval = setInterval(() => {
+      setBaseTickData(prevData => {
+        if (prevData.length === 0) return prevData;
         
-        setChartData(prevData => {
-          if (prevData.length === 0) return prevData;
-          
-          const lastCandle = prevData[prevData.length - 1];
-          const newTime = Math.floor(now / 1000);
-          
-          // Create new candle starting from last close price
-          const newCandle = {
-            time: newTime,
-            open: lastCandle.close,
-            high: lastCandle.close,
-            low: lastCandle.close,
-            close: lastCandle.close,
-          };
-          
-          // Keep max 500 candles, remove oldest if needed
-          const newData = [...prevData, newCandle];
-          if (newData.length > 500) {
-            newData.shift();
-          }
-          
-          console.log(`New candle created at ${new Date(now).toLocaleTimeString()} (${interval} timeframe)`);
-          return newData;
-        });
-      }
-    }, 1000); // Check every second
+        const newData = [...prevData];
+        const lastTick = { ...newData[newData.length - 1] };
+        
+        // Apply small price change
+        const volatility = lastTick.close * 0.00003;
+        const change = (Math.random() - 0.5) * volatility * 2;
+        lastTick.close = lastTick.close + change;
+        lastTick.high = Math.max(lastTick.high, lastTick.close);
+        lastTick.low = Math.min(lastTick.low, lastTick.close);
+        
+        newData[newData.length - 1] = lastTick;
+        
+        // Update internal price
+        setInternalPrice(lastTick.close);
+        
+        // Update global cache
+        baseTickDataStore[symbol] = newData;
+        
+        return newData;
+      });
+    }, 200); // Update every 200ms for smooth animation
     
-    return () => {
-      if (candleIntervalRef.current) {
-        clearInterval(candleIntervalRef.current);
-      }
-    };
-  }, [interval]);
+    return () => clearInterval(updateInterval);
+  }, [symbol]);
 
   // Call onPriceUpdate when price changes
   useEffect(() => {
     if (onPriceUpdate) {
       onPriceUpdate(internalPrice);
     }
-  }, [internalPrice]);
+  }, [internalPrice, onPriceUpdate]);
 
-  // Calculate marker position
-  const calculateMarkerPosition = useCallback((marker: TradeMarker, chartHeight: number, minPrice: number, maxPrice: number) => {
-    const priceRange = maxPrice - minPrice;
-    if (priceRange === 0) return chartHeight / 2;
-    const position = chartHeight - ((marker.entryPrice - minPrice) / priceRange) * chartHeight;
-    return Math.max(20, Math.min(chartHeight - 20, position));
-  }, []);
-
-  // Draw chart on canvas (Web only)
+  // Draw chart on canvas
   const drawChart = useCallback(() => {
-    if (Platform.OS !== 'web' || !canvasRef.current || chartData.length === 0) return;
+    if (Platform.OS !== 'web' || !canvasRef.current || aggregatedCandles.length === 0) return;
     
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -300,18 +297,17 @@ export default function TradingViewChart({
     ctx.fillStyle = '#0A1A0F';
     ctx.fillRect(0, 0, width, height);
     
-    // Calculate visible candles based on scroll and scale
+    // Calculate visible candles
     const baseBarWidth = 10 * scale;
     const barSpacing = 2 * scale;
     const totalBarWidth = baseBarWidth + barSpacing;
     const visibleCandles = Math.floor(chartWidth / totalBarWidth);
     
-    // scrollOffset: positive = show older data (scroll left on chart), negative = show newer data
     const scrollCandles = Math.floor(scrollOffset / totalBarWidth);
-    const baseStartIndex = chartData.length - visibleCandles;
-    const startIndex = Math.max(0, Math.min(chartData.length - visibleCandles, baseStartIndex - scrollCandles));
-    const endIndex = Math.min(chartData.length, startIndex + visibleCandles + 2);
-    const visibleData = chartData.slice(startIndex, endIndex);
+    const baseStartIndex = aggregatedCandles.length - visibleCandles;
+    const startIndex = Math.max(0, Math.min(aggregatedCandles.length - visibleCandles, baseStartIndex - scrollCandles));
+    const endIndex = Math.min(aggregatedCandles.length, startIndex + visibleCandles + 2);
+    const visibleData = aggregatedCandles.slice(startIndex, endIndex);
     
     if (visibleData.length === 0) return;
     
@@ -336,7 +332,7 @@ export default function TradingViewChart({
     
     // Draw candles
     visibleData.forEach((candle, i) => {
-      const x = padding.left + i * totalBarWidth + scrollOffset % totalBarWidth + 15;
+      const x = padding.left + i * totalBarWidth + 15;
       const isGreen = candle.close >= candle.open;
       const color = isGreen ? '#00E55A' : '#FF3B3B';
       
@@ -345,21 +341,7 @@ export default function TradingViewChart({
       const yHigh = padding.top + ((maxPrice - candle.high) / (maxPrice - minPrice)) * chartHeight;
       const yLow = padding.top + ((maxPrice - candle.low) / (maxPrice - minPrice)) * chartHeight;
       
-      // Draw wick
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x + baseBarWidth / 2, yHigh);
-      ctx.lineTo(x + baseBarWidth / 2, yLow);
-      ctx.stroke();
-      
-      // Draw body
-      ctx.fillStyle = color;
-      const bodyTop = Math.min(yOpen, yClose);
-      const bodyHeight = Math.max(1, Math.abs(yClose - yOpen));
-      
       if (chartType === 'line') {
-        // Line chart
         if (i === 0) {
           ctx.beginPath();
           ctx.moveTo(x + baseBarWidth / 2, yClose);
@@ -372,7 +354,6 @@ export default function TradingViewChart({
           ctx.stroke();
         }
       } else if (chartType === 'bar') {
-        // Bar chart (OHLC)
         ctx.strokeStyle = color;
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -384,12 +365,22 @@ export default function TradingViewChart({
         ctx.lineTo(x + baseBarWidth, yClose);
         ctx.stroke();
       } else {
-        // Candle chart
+        // Candlestick
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x + baseBarWidth / 2, yHigh);
+        ctx.lineTo(x + baseBarWidth / 2, yLow);
+        ctx.stroke();
+        
+        ctx.fillStyle = color;
+        const bodyTop = Math.min(yOpen, yClose);
+        const bodyHeight = Math.max(1, Math.abs(yClose - yOpen));
         ctx.fillRect(x, bodyTop, baseBarWidth, bodyHeight);
       }
     });
     
-    // Draw price scale on right
+    // Draw price scale
     ctx.fillStyle = '#888';
     ctx.font = '10px Arial';
     ctx.textAlign = 'right';
@@ -465,7 +456,7 @@ export default function TradingViewChart({
       ctx.stroke();
     });
     
-  }, [chartData, chartType, internalPrice, scrollOffset, scale, tradeMarkers]);
+  }, [aggregatedCandles, chartType, internalPrice, scrollOffset, scale, tradeMarkers]);
 
   // Redraw chart when data changes
   useEffect(() => {
@@ -490,11 +481,9 @@ export default function TradingViewChart({
           }}
           onWheel={(e: any) => {
             if (e.ctrlKey || e.metaKey) {
-              // Zoom
               const delta = e.deltaY > 0 ? 0.9 : 1.1;
               setScale(prev => Math.max(0.5, Math.min(3, prev * delta)));
             } else {
-              // Scroll - wheel up/left = see older, wheel down/right = see newer
               setScrollOffset(prev => prev + e.deltaY * 0.5);
             }
           }}
@@ -504,8 +493,6 @@ export default function TradingViewChart({
             
             const onMouseMove = (moveE: any) => {
               const diff = moveE.clientX - startX;
-              // Drag RIGHT (positive diff) = swipe right = see older data = increase offset
-              // Drag LEFT (negative diff) = swipe left = see newer data = decrease offset
               setScrollOffset(startOffset + diff);
             };
             
@@ -525,7 +512,6 @@ export default function TradingViewChart({
               const onTouchMove = (moveE: any) => {
                 if (moveE.touches.length === 1) {
                   const diff = moveE.touches[0].clientX - startX;
-                  // Same as mouse: drag right = see older, drag left = see newer
                   setScrollOffset(startOffset + diff);
                 }
               };
