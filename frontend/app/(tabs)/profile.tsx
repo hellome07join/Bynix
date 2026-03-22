@@ -56,6 +56,18 @@ export default function Profile() {
   const [nickname, setNickname] = useState(userData.nickname);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [tempValue, setTempValue] = useState('');
+  
+  // KYC State
+  const [kycStep, setKycStep] = useState(1);
+  const [kycData, setKycData] = useState({
+    fullName: '',
+    nationality: '',
+    dateOfBirth: '',
+    idType: '',
+    idNumber: '',
+  });
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [showIdTypePicker, setShowIdTypePicker] = useState(false);
 
   const handleSignOut = () => {
     Alert.alert(
@@ -345,13 +357,224 @@ export default function Profile() {
     </>
   );
 
-  const renderKYCTab = () => (
-    <View style={styles.comingSoon}>
-      <Ionicons name="card" size={64} color="#666" />
-      <Text style={styles.comingSoonTitle}>KYC Verification</Text>
-      <Text style={styles.comingSoonText}>Verify your identity to increase withdrawal limits.</Text>
-    </View>
-  );
+  const renderKYCTab = () => {
+    const COUNTRIES = ['United States', 'United Kingdom', 'Canada', 'Australia', 'Germany', 'France', 'Japan', 'India', 'Brazil', 'Nepal', 'Bangladesh', 'Pakistan'];
+    const ID_TYPES = ['Passport', 'National ID Card', 'Driver\'s License', 'Residence Permit'];
+
+    const KYC_STEPS = [
+      { id: 1, title: 'Personal Info', subtitle: 'Basic details', icon: 'card' },
+      { id: 2, title: 'Document', subtitle: 'ID upload', icon: 'document' },
+      { id: 3, title: 'Face Verify', subtitle: 'Selfie check', icon: 'camera' },
+      { id: 4, title: 'Review', subtitle: 'Final submit', icon: 'paper-plane' },
+      { id: 5, title: 'Verified', subtitle: 'Complete', icon: 'checkmark-circle' },
+    ];
+
+    return (
+      <>
+        {/* Identity Verification Header */}
+        <View style={styles.kycHeader}>
+          <Text style={styles.kycTitle}>Identity Verification</Text>
+          <Text style={styles.kycSubtitle}>Complete all steps to unlock full access</Text>
+        </View>
+
+        {/* Progress Steps */}
+        <View style={styles.kycSteps}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stepsScroll}>
+            {KYC_STEPS.map((step, index) => (
+              <View key={step.id} style={styles.stepItem}>
+                <View style={[
+                  styles.stepCircle,
+                  kycStep === step.id && styles.stepCircleActive,
+                  kycStep > step.id && styles.stepCircleCompleted,
+                ]}>
+                  <Ionicons 
+                    name={step.icon as any} 
+                    size={18} 
+                    color={kycStep >= step.id ? '#0A0E27' : '#666'} 
+                  />
+                </View>
+                <Text style={[styles.stepTitle, kycStep === step.id && styles.stepTitleActive]}>
+                  {step.title}
+                </Text>
+                <Text style={styles.stepSubtitle}>{step.subtitle}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Step 1: Personal Information Form */}
+        <View style={styles.kycFormCard}>
+          <View style={styles.kycFormHeader}>
+            <View style={styles.kycFormIcon}>
+              <Ionicons name="card" size={18} color="#0A0E27" />
+            </View>
+            <View>
+              <Text style={styles.kycFormTitle}>Step 1: Personal Information</Text>
+              <Text style={styles.kycFormSubtitle}>Enter your details exactly as they appear on your ID</Text>
+            </View>
+          </View>
+
+          {/* Full Name */}
+          <View style={styles.kycField}>
+            <View style={styles.kycFieldLabel}>
+              <Ionicons name="person" size={14} color="#FFB800" />
+              <Text style={styles.kycFieldLabelText}>FULL NAME (AS ON ID)</Text>
+            </View>
+            <TextInput
+              style={styles.kycInput}
+              placeholder="e.g. John Michael Smith"
+              placeholderTextColor="#666"
+              value={kycData.fullName}
+              onChangeText={(text) => setKycData(prev => ({ ...prev, fullName: text }))}
+            />
+          </View>
+
+          {/* Nationality/Country */}
+          <View style={styles.kycField}>
+            <View style={styles.kycFieldLabel}>
+              <Ionicons name="globe" size={14} color="#FFB800" />
+              <Text style={styles.kycFieldLabelText}>NATIONALITY / COUNTRY</Text>
+            </View>
+            <TouchableOpacity 
+              style={styles.kycSelect}
+              onPress={() => setShowCountryPicker(true)}
+            >
+              <Text style={[styles.kycSelectText, !kycData.nationality && styles.kycSelectPlaceholder]}>
+                {kycData.nationality || 'Search country...'}
+              </Text>
+              <Ionicons name="chevron-down" size={18} color="#666" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Date of Birth */}
+          <View style={styles.kycField}>
+            <View style={styles.kycFieldLabel}>
+              <Ionicons name="calendar" size={14} color="#FFB800" />
+              <Text style={styles.kycFieldLabelText}>DATE OF BIRTH</Text>
+            </View>
+            <TextInput
+              style={styles.kycInput}
+              placeholder="DD/MM/YYYY"
+              placeholderTextColor="#666"
+              value={kycData.dateOfBirth}
+              onChangeText={(text) => setKycData(prev => ({ ...prev, dateOfBirth: text }))}
+            />
+          </View>
+
+          {/* ID Document Type */}
+          <View style={styles.kycField}>
+            <View style={styles.kycFieldLabel}>
+              <Ionicons name="card" size={14} color="#FFB800" />
+              <Text style={styles.kycFieldLabelText}>ID DOCUMENT TYPE</Text>
+            </View>
+            <TouchableOpacity 
+              style={styles.kycSelect}
+              onPress={() => setShowIdTypePicker(true)}
+            >
+              <Text style={[styles.kycSelectText, !kycData.idType && styles.kycSelectPlaceholder]}>
+                {kycData.idType || 'Select ID type...'}
+              </Text>
+              <Ionicons name="chevron-down" size={18} color="#666" />
+            </TouchableOpacity>
+          </View>
+
+          {/* ID Number */}
+          <View style={styles.kycField}>
+            <View style={styles.kycFieldLabel}>
+              <Ionicons name="keypad" size={14} color="#FFB800" />
+              <Text style={styles.kycFieldLabelText}>ID NUMBER</Text>
+            </View>
+            <TextInput
+              style={styles.kycInput}
+              placeholder="Enter your ID number"
+              placeholderTextColor="#666"
+              value={kycData.idNumber}
+              onChangeText={(text) => setKycData(prev => ({ ...prev, idNumber: text }))}
+            />
+          </View>
+
+          {/* Security Notice */}
+          <View style={styles.kycNotice}>
+            <Ionicons name="shield-checkmark" size={18} color="#9B59B6" />
+            <Text style={styles.kycNoticeText}>
+              Your information is encrypted and securely stored. We only use it for identity verification purposes.
+            </Text>
+          </View>
+
+          {/* Continue Button */}
+          <TouchableOpacity 
+            style={styles.kycContinueBtn}
+            onPress={() => Alert.alert('KYC', 'Document upload feature coming soon!')}
+          >
+            <Ionicons name="arrow-forward" size={18} color="#0A0E27" />
+            <Text style={styles.kycContinueBtnText}>Continue to Document Upload</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Country Picker Modal */}
+        <Modal visible={showCountryPicker} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Select Country</Text>
+                <TouchableOpacity onPress={() => setShowCountryPicker(false)}>
+                  <Ionicons name="close-circle" size={28} color="#666" />
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.pickerList}>
+                {COUNTRIES.map((country) => (
+                  <TouchableOpacity
+                    key={country}
+                    style={styles.pickerItem}
+                    onPress={() => {
+                      setKycData(prev => ({ ...prev, nationality: country }));
+                      setShowCountryPicker(false);
+                    }}
+                  >
+                    <Text style={styles.pickerItemText}>{country}</Text>
+                    {kycData.nationality === country && (
+                      <Ionicons name="checkmark" size={20} color="#00D7A3" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ID Type Picker Modal */}
+        <Modal visible={showIdTypePicker} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Select ID Type</Text>
+                <TouchableOpacity onPress={() => setShowIdTypePicker(false)}>
+                  <Ionicons name="close-circle" size={28} color="#666" />
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.pickerList}>
+                {ID_TYPES.map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={styles.pickerItem}
+                    onPress={() => {
+                      setKycData(prev => ({ ...prev, idType: type }));
+                      setShowIdTypePicker(false);
+                    }}
+                  >
+                    <Text style={styles.pickerItemText}>{type}</Text>
+                    {kycData.idType === type && (
+                      <Ionicons name="checkmark" size={20} color="#00D7A3" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      </>
+    );
+  };
 
   const renderActivityTab = () => (
     <View style={styles.comingSoon}>
@@ -1076,5 +1299,188 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     backgroundColor: '#00D7A3',
+  },
+  // KYC Tab Styles
+  kycHeader: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  kycTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  kycSubtitle: {
+    color: '#666',
+    fontSize: 13,
+  },
+  kycSteps: {
+    marginBottom: 12,
+  },
+  stepsScroll: {
+    paddingHorizontal: 4,
+    gap: 8,
+  },
+  stepItem: {
+    alignItems: 'center',
+    width: 70,
+  },
+  stepCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  stepCircleActive: {
+    backgroundColor: '#FFB800',
+    borderColor: '#FFB800',
+  },
+  stepCircleCompleted: {
+    backgroundColor: '#00D7A3',
+    borderColor: '#00D7A3',
+  },
+  stepTitle: {
+    color: '#666',
+    fontSize: 10,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  stepTitleActive: {
+    color: '#FFB800',
+  },
+  stepSubtitle: {
+    color: '#444',
+    fontSize: 9,
+    textAlign: 'center',
+  },
+  kycFormCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  kycFormHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+    gap: 12,
+  },
+  kycFormIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFB800',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  kycFormTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  kycFormSubtitle: {
+    color: '#666',
+    fontSize: 12,
+    flexShrink: 1,
+  },
+  kycField: {
+    marginBottom: 16,
+  },
+  kycFieldLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  kycFieldLabelText: {
+    color: '#888',
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  kycInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    color: '#FFFFFF',
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  kycSelect: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  kycSelectText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+  },
+  kycSelectPlaceholder: {
+    color: '#666',
+  },
+  kycNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(155, 89, 182, 0.1)',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+    gap: 10,
+  },
+  kycNoticeText: {
+    color: '#999',
+    fontSize: 12,
+    flex: 1,
+    lineHeight: 18,
+  },
+  kycContinueBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFB800',
+    borderRadius: 12,
+    paddingVertical: 16,
+    gap: 8,
+  },
+  kycContinueBtnText: {
+    color: '#0A0E27',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  pickerList: {
+    maxHeight: 300,
+  },
+  pickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  pickerItemText: {
+    color: '#FFFFFF',
+    fontSize: 15,
   },
 });
