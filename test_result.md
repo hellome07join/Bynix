@@ -273,3 +273,5 @@ agent_communication:
     message: "Completed initial implementation of Bynix trading platform. All backend endpoints and frontend screens are created. Ready for backend testing to verify API functionality."
   - agent: "testing"
     message: "Comprehensive backend testing completed successfully. All 15 test cases passed including authentication flow, trading operations, wallet functionality, assets management, and admin protection. Fixed one minor issue with settle trade endpoint to accept exit_price in request body. Backend APIs are fully functional and ready for frontend integration."
+  - agent: "testing"
+    message: "Quick authentication test completed successfully. Created test user (trader1774164420@bynix.com) with JWT token for frontend debugging. All authentication endpoints working correctly with production URL. Token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyXzY5ZjE0YzBlYmVmMSIsImV4cCI6MTc3NDc2OTIyMX0.tXdQV-jfixaDQ4tcMjcumdfWPfVq2qTkP4-AbwEatK8"
