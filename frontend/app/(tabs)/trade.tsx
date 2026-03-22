@@ -321,50 +321,31 @@ export default function Trade() {
           style={styles.depositButton}
           onPress={() => router.push('/(tabs)/wallet')}
         >
-          <Ionicons name="add-circle" size={20} color="#00D7A3" />
+          <Ionicons name="add-circle" size={18} color="#00D7A3" />
           <Text style={styles.depositText}>Deposit</Text>
         </TouchableOpacity>
 
-        {/* Center - Asset & Price */}
-        <View style={styles.centerSection}>
-          <TouchableOpacity 
-            style={styles.assetButton}
-            onPress={() => setShowAssetPicker(true)}
-          >
-            <Text style={styles.assetIcon}>{currentAsset.icon}</Text>
-            <Text style={styles.assetText}>{selectedAsset}</Text>
-            <Ionicons name="chevron-down" size={16} color="#FFFFFF" />
-          </TouchableOpacity>
+        {/* Currency Selector */}
+        <TouchableOpacity 
+          style={styles.currencyButton}
+          onPress={() => setShowAssetPicker(true)}
+        >
+          <Text style={styles.assetIcon}>{currentAsset.icon}</Text>
+          <Text style={styles.currencyText}>{selectedAsset}</Text>
+          <Ionicons name="chevron-down" size={14} color="#FFFFFF" />
+        </TouchableOpacity>
 
-          <View style={styles.priceDisplay}>
-            <View style={styles.liveIndicator}>
-              <View style={styles.liveDot} />
-              <Text style={styles.liveText}>LIVE</Text>
-            </View>
-            <Text style={styles.currentPrice}>${currentPrice.toFixed(5)}</Text>
-            <View style={[styles.priceChangeBadge, priceChange >= 0 ? styles.priceUp : styles.priceDown]}>
-              <Ionicons 
-                name={priceChange >= 0 ? 'arrow-up' : 'arrow-down'} 
-                size={10} 
-                color={priceChange >= 0 ? '#00D7A3' : '#FF3B3B'} 
-              />
-              <Text style={styles.priceChangeText}>
-                {Math.abs(priceChange).toFixed(2)}%
-              </Text>
-            </View>
-          </View>
+        {/* Balance Button */}
+        <View style={styles.balanceButton}>
+          <Ionicons name="wallet" size={16} color="#00D7A3" />
+          <Text style={styles.balanceText}>${balance?.toFixed(2) || '0.00'}</Text>
         </View>
 
-        {/* Right - Balance & Notifications */}
-        <View style={styles.rightSection}>
-          <TouchableOpacity style={styles.notificationButton}>
-            <Ionicons name="notifications" size={20} color="#FFFFFF" />
-            <View style={styles.notificationBadge} />
-          </TouchableOpacity>
-          <View style={styles.balanceChip}>
-            <Text style={styles.balanceValue}>${balance?.toFixed(2)}</Text>
-          </View>
-        </View>
+        {/* Notification Button */}
+        <TouchableOpacity style={styles.notifButton}>
+          <Ionicons name="notifications" size={18} color="#FFFFFF" />
+          <View style={styles.notifBadge} />
+        </TouchableOpacity>
       </View>
 
       {/* Chart */}
@@ -598,121 +579,71 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingTop: 50,
-    paddingBottom: 12,
+    paddingBottom: 10,
     backgroundColor: 'rgba(15, 20, 40, 0.95)',
+    gap: 8,
   },
   depositButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 215, 163, 0.15)',
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 8,
-    borderRadius: 12,
-    gap: 6,
+    borderRadius: 10,
+    gap: 4,
   },
   depositText: {
     color: '#00D7A3',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
   },
-  centerSection: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  assetButton: {
+  currencyButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
     gap: 4,
-    marginBottom: 6,
   },
   assetIcon: {
-    fontSize: 16,
+    fontSize: 14,
   },
-  assetText: {
+  currencyText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
   },
-  priceDisplay: {
-    alignItems: 'center',
-  },
-  liveIndicator: {
+  balanceButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    backgroundColor: 'rgba(0, 215, 163, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 4,
   },
-  liveDot: {
+  balanceText: {
+    color: '#00D7A3',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  notifButton: {
+    position: 'relative',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 8,
+    borderRadius: 10,
+  },
+  notifBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#00D7A3',
-    marginRight: 4,
-  },
-  liveText: {
-    color: '#00D7A3',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  currentPrice: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
-  },
-  priceChangeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    marginTop: 3,
-  },
-  priceChangeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginLeft: 3,
-  },
-  priceUp: {
-    backgroundColor: 'rgba(0, 215, 163, 0.2)',
-    color: '#00D7A3',
-  },
-  priceDown: {
-    backgroundColor: 'rgba(255, 59, 59, 0.2)',
-    color: '#FF3B3B',
-  },
-  rightSection: {
-    alignItems: 'flex-end',
-    gap: 8,
-  },
-  notificationButton: {
-    position: 'relative',
-  },
-  notificationBadge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
     backgroundColor: '#FF3B3B',
-  },
-  balanceChip: {
-    backgroundColor: 'rgba(0, 215, 163, 0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  balanceValue: {
-    color: '#00D7A3',
-    fontSize: 13,
-    fontWeight: '700',
   },
   chartWrapper: {
     height: 200,
