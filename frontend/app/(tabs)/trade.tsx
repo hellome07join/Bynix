@@ -277,6 +277,12 @@ export default function Trade() {
         account_type: accountType,
       }, token);
 
+      // Deduct amount from real balance
+      if (user) {
+        const newRealBalance = (user.real_balance || 0) - tradeAmount;
+        updateBalance(user.demo_balance || 10000, newRealBalance);
+      }
+
       const now = Date.now();
       setActiveTrade({
         trade_id: response.trade_id,
