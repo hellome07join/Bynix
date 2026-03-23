@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -166,6 +166,59 @@ export default function Trade() {
   const [customMinutes, setCustomMinutes] = useState('1');
   const [customSeconds, setCustomSeconds] = useState('0');
   const [demoAddAmount, setDemoAddAmount] = useState('1000');
+  
+  // UTC Time and Candle Countdown
+  const [utcTime, setUtcTime] = useState('');
+  const [candleCountdown, setCandleCountdown] = useState(0);
+  
+  // Get candle duration in seconds based on timeframe
+  const getCandleDuration = useCallback(() => {
+    switch(timeframe) {
+      case '1s': return 1;
+      case '5s': return 5;
+      case '15s': return 15;
+      case '1m': return 60;
+      case '5m': return 300;
+      case '15m': return 900;
+      case '1h': return 3600;
+      default: return 60;
+    }
+  }, [timeframe]);
+  
+  // Update UTC time and candle countdown every second
+  useEffect(() => {
+    const updateTimeAndCountdown = () => {
+      const now = new Date();
+      
+      // Format UTC time as HH:MM:SS
+      const hours = now.getUTCHours().toString().padStart(2, '0');
+      const minutes = now.getUTCMinutes().toString().padStart(2, '0');
+      const seconds = now.getUTCSeconds().toString().padStart(2, '0');
+      setUtcTime(`${hours}:${minutes}:${seconds}`);
+      
+      // Calculate candle countdown
+      const candleDuration = getCandleDuration();
+      const currentTimestamp = Math.floor(now.getTime() / 1000);
+      const secondsIntoCandle = currentTimestamp % candleDuration;
+      const secondsRemaining = candleDuration - secondsIntoCandle;
+      setCandleCountdown(secondsRemaining);
+    };
+    
+    updateTimeAndCountdown();
+    const interval = setInterval(updateTimeAndCountdown, 1000);
+    
+    return () => clearInterval(interval);
+  }, [getCandleDuration]);
+  
+  // Format countdown for display
+  const formatCandleCountdown = () => {
+    if (candleCountdown >= 60) {
+      const mins = Math.floor(candleCountdown / 60);
+      const secs = candleCountdown % 60;
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${candleCountdown}s`;
+  };
   
   // Function to add demo balance
   const addDemoBalance = (amount: number) => {
@@ -610,6 +663,15 @@ export default function Trade() {
               <Text style={styles.depositTextAnimated}>Deposit</Text>
             </TouchableOpacity>
           </Animated.View>
+          
+          {/* Candle Countdown & UTC Time */}
+          <View style={styles.timeInfoContainer}>
+            <View style={styles.candleCountdownBox}>
+              <Ionicons name="timer-outline" size={12} color="#FFB800" />
+              <Text style={styles.candleCountdownText}>{formatCandleCountdown()}</Text>
+            </View>
+            <Text style={styles.utcTimeText}>UTC {utcTime}</Text>
+          </View>
         </View>
 
         {/* Logo - Absolute Center */}
@@ -1459,6 +1521,32 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
+  },
+  timeInfoContainer: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    marginLeft: 4,
+  },
+  candleCountdownBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 184, 0, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    gap: 3,
+  },
+  candleCountdownText: {
+    color: '#FFB800',
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: 'monospace',
+  },
+  utcTimeText: {
+    color: '#888888',
+    fontSize: 9,
+    fontWeight: '500',
+    marginTop: 2,
   },
   currencyButton: {
     flexDirection: 'row',
