@@ -697,18 +697,15 @@ export default function Trade() {
             <View style={styles.notifBadge} />
           </TouchableOpacity>
 
-          {/* Premium 3D Deposit Button with 200% Bonus */}
+          {/* Premium 3D Deposit Button with Neon Glass Effect */}
           <TouchableOpacity 
             style={styles.depositButton3D}
             onPress={() => router.push('/(tabs)/wallet')}
             activeOpacity={0.8}
           >
             <View style={styles.depositButton3DInner}>
-              <View style={styles.depositBonusBadge3D}>
-                <Ionicons name="gift" size={10} color="#000000" />
-                <Text style={styles.depositBonusText3D}>200%</Text>
-              </View>
-              <Ionicons name="add-circle" size={14} color="#FFFFFF" />
+              <Ionicons name="gift" size={12} color="#FFD700" />
+              <Text style={styles.depositBonusText3D}>200%</Text>
               <Text style={styles.depositText3D}>Deposit</Text>
             </View>
           </TouchableOpacity>
@@ -1644,61 +1641,49 @@ const styles = StyleSheet.create({
     elevation: 8,
     position: 'relative',
   },
-  // Premium 3D Deposit Button Styles
+  // Premium 3D Deposit Button Styles - Neon Glass Effect
   depositButton3D: {
-    borderRadius: 12,
+    borderRadius: 8,
     overflow: 'hidden',
-    // 3D effect with multiple shadows
-    shadowColor: '#00E55A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 10,
   },
   depositButton3DInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#00E55A',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    gap: 4,
-    // 3D gradient effect using border
-    borderTopWidth: 2,
-    borderTopColor: 'rgba(255, 255, 255, 0.4)',
-    borderBottomWidth: 3,
-    borderBottomColor: 'rgba(0, 100, 40, 0.8)',
-    borderLeftWidth: 1,
-    borderLeftColor: 'rgba(255, 255, 255, 0.2)',
-    borderRightWidth: 1,
-    borderRightColor: 'rgba(0, 100, 40, 0.4)',
-    borderRadius: 12,
+    backgroundColor: 'rgba(0, 229, 90, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    gap: 3,
+    borderRadius: 8,
+    // Neon glass border effect
+    borderWidth: 1.5,
+    borderColor: '#00E55A',
+    // Glass shadow glow
+    shadowColor: '#00E55A',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+    elevation: 8,
   },
   depositBonusBadge3D: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFD700',
-    paddingHorizontal: 5,
-    paddingVertical: 3,
-    borderRadius: 6,
+    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 4,
     gap: 2,
-    // 3D badge effect
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.6)',
-    borderBottomWidth: 2,
-    borderBottomColor: 'rgba(180, 140, 0, 0.8)',
+    borderWidth: 1,
+    borderColor: '#FFD700',
   },
   depositBonusText3D: {
-    color: '#000000',
-    fontSize: 10,
+    color: '#FFD700',
+    fontSize: 8,
     fontWeight: '900',
   },
   depositText3D: {
-    color: '#FFFFFF',
-    fontSize: 12,
+    color: '#00E55A',
+    fontSize: 10,
     fontWeight: '700',
-    textShadowColor: 'rgba(0, 80, 30, 0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
   },
   depositText: {
     flexDirection: 'row',
