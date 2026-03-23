@@ -74,11 +74,11 @@ export default function WalletScreen() {
   const [selectedNetwork, setSelectedNetwork] = useState('TRC20');
   const [promoCode, setPromoCode] = useState('');
   const [networks, setNetworks] = useState<CryptoNetwork[]>([
-    { id: 'TRC20', name: 'USDT (TRC20)', fee: '~1 USDT' },
-    { id: 'ERC20', name: 'USDT (ERC20)', fee: '~5-20 USDT' },
-    { id: 'BEP20', name: 'USDT (BEP20/BSC)', fee: '~0.5 USDT' },
-    { id: 'SOL', name: 'USDT (Solana)', fee: '~0.01 USDT' },
-    { id: 'MATIC', name: 'USDT (Polygon)', fee: '~0.1 USDT' },
+    { id: 'TRC20', name: 'USDT (TRC20)', fee: 'No fee' },
+    { id: 'ERC20', name: 'USDT (ERC20)', fee: 'No fee' },
+    { id: 'BEP20', name: 'USDT (BEP20/BSC)', fee: 'No fee' },
+    { id: 'SOL', name: 'USDT (Solana)', fee: 'No fee' },
+    { id: 'MATIC', name: 'USDT (Polygon)', fee: 'No fee' },
   ]);
   const [showNetworkPicker, setShowNetworkPicker] = useState(false);
   
@@ -549,9 +549,7 @@ export default function WalletScreen() {
                 </Text>
                 <Ionicons name="chevron-down" size={18} color="#888" />
               </TouchableOpacity>
-              <Text style={styles.networkFeeText}>
-                Network Fee: {networks.find(n => n.id === selectedNetwork)?.fee || '~1 USDT'}
-              </Text>
+              <Text style={styles.noFeeText}>No fees - Pay exact amount only</Text>
 
               {/* Promo Code */}
               <Text style={styles.inputLabel}>Promo Code (Optional)</Text>
@@ -837,16 +835,16 @@ export default function WalletScreen() {
               autoCorrect={false}
             />
 
-            {/* Fee Info */}
+            {/* Fee Info - No fees */}
             <View style={styles.feeInfoBox}>
               <View style={styles.feeRow}>
                 <Text style={styles.feeLabel}>Network Fee</Text>
-                <Text style={styles.feeValue}>$1.00</Text>
+                <Text style={styles.feeValueGreen}>FREE</Text>
               </View>
               <View style={styles.feeRow}>
                 <Text style={styles.feeLabel}>You will receive</Text>
                 <Text style={styles.feeValueGreen}>
-                  ${Math.max(0, parseFloat(withdrawAmount || '0') - 1).toFixed(2)}
+                  ${parseFloat(withdrawAmount || '0').toFixed(2)}
                 </Text>
               </View>
             </View>
@@ -1346,6 +1344,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#888888',
     marginBottom: 16,
+  },
+  noFeeText: {
+    fontSize: 12,
+    color: '#00E55A',
+    marginBottom: 16,
+    fontWeight: '600',
   },
   // Promo code styles
   promoInput: {

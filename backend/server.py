@@ -1921,11 +1921,11 @@ class DepositResponse(BaseModel):
 
 # Supported crypto networks
 CRYPTO_NETWORKS = {
-    "TRC20": {"currency": "usdttrc20", "name": "USDT (TRC20)", "fee": "~1 USDT"},
-    "ERC20": {"currency": "usdterc20", "name": "USDT (ERC20)", "fee": "~5-20 USDT"},
-    "BEP20": {"currency": "usdtbsc", "name": "USDT (BEP20/BSC)", "fee": "~0.5 USDT"},
-    "SOL": {"currency": "usdtsol", "name": "USDT (Solana)", "fee": "~0.01 USDT"},
-    "MATIC": {"currency": "usdtmatic", "name": "USDT (Polygon)", "fee": "~0.1 USDT"},
+    "TRC20": {"currency": "usdttrc20", "name": "USDT (TRC20)", "fee": "No fee"},
+    "ERC20": {"currency": "usdterc20", "name": "USDT (ERC20)", "fee": "No fee"},
+    "BEP20": {"currency": "usdtbsc", "name": "USDT (BEP20/BSC)", "fee": "No fee"},
+    "SOL": {"currency": "usdtsol", "name": "USDT (Solana)", "fee": "No fee"},
+    "MATIC": {"currency": "usdtmatic", "name": "USDT (Polygon)", "fee": "No fee"},
 }
 
 # Promo codes - requires minimum $100 deposit
