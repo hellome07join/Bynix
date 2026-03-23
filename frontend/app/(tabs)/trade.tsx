@@ -2180,15 +2180,17 @@ const styles = StyleSheet.create({
   balanceButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 229, 90, 0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 10,
-    gap: 4,
+    backgroundColor: '#1A1A1A',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 6,
+    borderWidth: 1.5,
+    borderColor: '#00E55A',
   },
   balanceText: {
     color: '#00E55A',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
   },
   notifButton: {
@@ -2207,13 +2209,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF3B3B',
   },
   demoBalance: {
-    backgroundColor: 'rgba(255, 59, 59, 0.15)',
+    backgroundColor: '#1A1A1A',
+    borderColor: '#FF3B3B',
   },
   demoBalanceText: {
     color: '#FF3B3B',
   },
   realBalance: {
-    backgroundColor: 'rgba(255, 184, 0, 0.15)',
+    backgroundColor: '#1A1A1A',
+    borderColor: '#FFB800',
   },
   realBalanceText: {
     color: '#FFB800',
