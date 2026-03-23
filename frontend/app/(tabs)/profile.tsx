@@ -848,14 +848,9 @@ export default function Profile() {
             <Ionicons name="person" size={18} color="#FFB800" />
             <Text style={styles.sectionTitle}>Personal Info</Text>
           </View>
-          <TouchableOpacity style={styles.editBtn} onPress={() => setShowPersonalInfoModal(true)}>
-            <Ionicons name="create-outline" size={16} color="#00E55A" />
-            <Text style={styles.editBtnText}>Edit</Text>
-          </TouchableOpacity>
         </View>
         
         <View style={styles.infoList}>
-          <InfoRow icon="link" label="REFERRAL CODE" value={userData.referralCode || '—'} iconColor="#00E55A" />
           <InfoRow icon="calendar-outline" label="JOINED" value={userData.joinedDate} iconColor="#00E55A" />
         </View>
       </View>
