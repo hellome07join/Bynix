@@ -1604,8 +1604,8 @@ const styles = StyleSheet.create({
     zIndex: -1,
   },
   headerLogo: {
-    width: 60,
-    height: 60,
+    width: 80,
+    height: 80,
   },
   headerLeft: {
     flexDirection: 'row',
