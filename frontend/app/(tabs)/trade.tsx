@@ -11,7 +11,8 @@ import {
   Animated,
   ScrollView,
   Switch,
-  Image
+  Image,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -22,12 +23,46 @@ import { fetchHistoricalCandles, Candle } from '../../utils/binanceService';
 import EnhancedCandlestickChart from '../../components/EnhancedCandlestickChart';
 import TradingViewChart from '../../components/TradingViewChart';
 import { api, API_URL } from '../../utils/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+declare const window: any;
 
 // Sound effects
 const lossSound = require('../../assets/sounds/loss.mp3');
 const winSound = require('../../assets/sounds/win.wav');
 
 const { width, height } = Dimensions.get('window');
+
+// Onboarding Tutorial Steps
+const TUTORIAL_STEPS = [
+  {
+    id: 0,
+    title: 'HOW TO TRADE?',
+    description: 'Learn trading using a risk-free demo account with $10,000 balance. No deposit needed.',
+    isIntro: true,
+  },
+  {
+    id: 1,
+    title: 'PRICE MOVEMENT CHART',
+    description: 'This chart updates in real time to show price changes of your selected asset.',
+  },
+  {
+    id: 2,
+    title: 'YOUR GOAL',
+    description: 'Your goal is to predict where the price will go next — UP or DOWN — based on the chart.',
+  },
+  {
+    id: 3,
+    title: 'TRADE SETTINGS',
+    description: 'Set TIME (duration) and AMOUNT (investment). Higher amount = higher possible profit.',
+  },
+  {
+    id: 4,
+    title: 'YOUR PROFIT AND PLACING A TRADE',
+    description: 'Estimate your possible profit and choose direction:\n«UP» if you expect the price to rise,\n«DOWN» if you expect it to fall.',
+    isFinal: true,
+  },
+];
 
 const TIMEFRAMES = [
   { label: '1s', value: '1s', seconds: 1 },
@@ -147,6 +182,10 @@ export default function Trade() {
   const demoBalance = user?.demo_balance ?? localDemoBalance;
   const realBalance = user?.real_balance ?? 0;
   const currentBalance = accountType === 'demo' ? demoBalance : realBalance;
+  
+  // Onboarding Tutorial State
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(0);
   
   // Market data
   const [selectedAsset, setSelectedAsset] = useState('EUR/USD OTC');
@@ -303,6 +342,53 @@ export default function Trade() {
       fetchTradeHistory();
     }
   }, [token, accountType]);
+
+  // Check if user needs to see tutorial (new users)
+  useEffect(() => {
+    checkTutorialStatus();
+  }, [token]);
+
+  const checkTutorialStatus = async () => {
+    try {
+      // Check if user has seen tutorial
+      const hasSeenTutorial = await AsyncStorage.getItem('hasSeenTradingTutorial');
+      if (!hasSeenTutorial && token) {
+        // New user - show tutorial
+        setShowTutorial(true);
+        setTutorialStep(0);
+      }
+    } catch (error) {
+      console.error('Error checking tutorial status:', error);
+    }
+  };
+
+  const completeTutorial = async () => {
+    try {
+      await AsyncStorage.setItem('hasSeenTradingTutorial', 'true');
+      setShowTutorial(false);
+      setTutorialStep(0);
+    } catch (error) {
+      console.error('Error saving tutorial status:', error);
+    }
+  };
+
+  const skipTutorial = async () => {
+    await completeTutorial();
+  };
+
+  const nextTutorialStep = () => {
+    if (tutorialStep < TUTORIAL_STEPS.length - 1) {
+      setTutorialStep(tutorialStep + 1);
+    } else {
+      completeTutorial();
+    }
+  };
+
+  const prevTutorialStep = () => {
+    if (tutorialStep > 0) {
+      setTutorialStep(tutorialStep - 1);
+    }
+  };
 
   // Get current asset data
   const currentAsset = ASSETS.find(a => a.value === selectedAsset) || ASSETS[0];
@@ -1490,6 +1576,128 @@ export default function Trade() {
           </View>
         </Animated.View>
       )}
+
+      {/* Onboarding Tutorial Modal */}
+      <Modal
+        visible={showTutorial}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={skipTutorial}
+      >
+        <View style={tutorialStyles.overlay}>
+          <View style={tutorialStyles.container}>
+            {/* Close Button */}
+            <TouchableOpacity style={tutorialStyles.closeBtn} onPress={skipTutorial}>
+              <Ionicons name="close" size={24} color="#666" />
+            </TouchableOpacity>
+
+            {/* Logo */}
+            <Image 
+              source={require('../../assets/images/bynix-logo.png')}
+              style={tutorialStyles.logo}
+              resizeMode="contain"
+            />
+
+            {/* Step Counter (for non-intro steps) */}
+            {!TUTORIAL_STEPS[tutorialStep].isIntro && (
+              <Text style={tutorialStyles.stepCounter}>
+                {tutorialStep}/{TUTORIAL_STEPS.length - 1}
+              </Text>
+            )}
+
+            {/* Title */}
+            <Text style={tutorialStyles.title}>{TUTORIAL_STEPS[tutorialStep].title}</Text>
+
+            {/* Description */}
+            <Text style={tutorialStyles.description}>{TUTORIAL_STEPS[tutorialStep].description}</Text>
+
+            {/* Highlight Circle - for specific steps */}
+            {tutorialStep === 1 && (
+              <View style={tutorialStyles.highlightArea}>
+                <Ionicons name="trending-up" size={60} color="#00E55A" />
+                <Text style={tutorialStyles.highlightText}>📈 Price Chart</Text>
+              </View>
+            )}
+            {tutorialStep === 2 && (
+              <View style={tutorialStyles.highlightArea}>
+                <View style={tutorialStyles.upDownContainer}>
+                  <View style={[tutorialStyles.directionBox, { backgroundColor: 'rgba(0, 229, 90, 0.2)' }]}>
+                    <Ionicons name="arrow-up" size={40} color="#00E55A" />
+                    <Text style={[tutorialStyles.directionText, { color: '#00E55A' }]}>UP</Text>
+                  </View>
+                  <View style={[tutorialStyles.directionBox, { backgroundColor: 'rgba(255, 59, 59, 0.2)' }]}>
+                    <Ionicons name="arrow-down" size={40} color="#FF3B3B" />
+                    <Text style={[tutorialStyles.directionText, { color: '#FF3B3B' }]}>DOWN</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+            {tutorialStep === 3 && (
+              <View style={tutorialStyles.highlightArea}>
+                <View style={tutorialStyles.settingsPreview}>
+                  <View style={tutorialStyles.settingItem}>
+                    <Ionicons name="time" size={24} color="#FFB800" />
+                    <Text style={tutorialStyles.settingLabel}>TIME</Text>
+                    <Text style={tutorialStyles.settingValue}>1m 00s</Text>
+                  </View>
+                  <View style={tutorialStyles.settingItem}>
+                    <Ionicons name="cash" size={24} color="#00E55A" />
+                    <Text style={tutorialStyles.settingLabel}>AMOUNT</Text>
+                    <Text style={tutorialStyles.settingValue}>$100</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+            {tutorialStep === 4 && (
+              <View style={tutorialStyles.highlightArea}>
+                <View style={tutorialStyles.profitPreview}>
+                  <Text style={tutorialStyles.profitLabel}>Possible Profit</Text>
+                  <Text style={tutorialStyles.profitValue}>+$85.00</Text>
+                </View>
+                <View style={tutorialStyles.buttonsPreview}>
+                  <View style={[tutorialStyles.tradeBtn, { backgroundColor: '#00E55A' }]}>
+                    <Ionicons name="arrow-up" size={24} color="#000" />
+                    <Text style={tutorialStyles.tradeBtnText}>UP</Text>
+                  </View>
+                  <View style={[tutorialStyles.tradeBtn, { backgroundColor: '#FF3B3B' }]}>
+                    <Ionicons name="arrow-down" size={24} color="#FFF" />
+                    <Text style={[tutorialStyles.tradeBtnText, { color: '#FFF' }]}>DOWN</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* Navigation Buttons */}
+            <View style={tutorialStyles.buttonRow}>
+              {TUTORIAL_STEPS[tutorialStep].isIntro ? (
+                <>
+                  <TouchableOpacity style={tutorialStyles.skipBtn} onPress={skipTutorial}>
+                    <Text style={tutorialStyles.skipBtnText}>Skip</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={tutorialStyles.continueBtn} onPress={nextTutorialStep}>
+                    <Text style={tutorialStyles.continueBtnText}>Continue</Text>
+                  </TouchableOpacity>
+                </>
+              ) : TUTORIAL_STEPS[tutorialStep].isFinal ? (
+                <TouchableOpacity style={tutorialStyles.startTradingBtn} onPress={completeTutorial}>
+                  <Text style={tutorialStyles.startTradingBtnText}>Start Trading</Text>
+                </TouchableOpacity>
+              ) : (
+                <>
+                  <TouchableOpacity style={tutorialStyles.prevBtn} onPress={prevTutorialStep}>
+                    <Ionicons name="chevron-back" size={20} color="#00E55A" />
+                    <Text style={tutorialStyles.prevBtnText}>Previous</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={tutorialStyles.nextBtn} onPress={nextTutorialStep}>
+                    <Text style={tutorialStyles.nextBtnText}>Next</Text>
+                    <Ionicons name="chevron-forward" size={20} color="#000" />
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -2831,5 +3039,211 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 12,
     fontSize: 14,
+  },
+});
+
+// Tutorial Styles
+const tutorialStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  container: {
+    backgroundColor: '#1A2633',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 360,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#00E55A33',
+  },
+  closeBtn: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    padding: 4,
+  },
+  logo: {
+    width: 60,
+    height: 60,
+    marginBottom: 16,
+  },
+  stepCounter: {
+    color: '#00E55A',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  title: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  description: {
+    color: '#AAA',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 20,
+  },
+  highlightArea: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 24,
+    padding: 16,
+    backgroundColor: 'rgba(0, 229, 90, 0.05)',
+    borderRadius: 12,
+  },
+  highlightText: {
+    color: '#00E55A',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  upDownContainer: {
+    flexDirection: 'row',
+    gap: 20,
+  },
+  directionBox: {
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  directionText: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  settingsPreview: {
+    flexDirection: 'row',
+    gap: 24,
+  },
+  settingItem: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  settingLabel: {
+    color: '#888',
+    fontSize: 11,
+  },
+  settingValue: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  profitPreview: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  profitLabel: {
+    color: '#888',
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  profitValue: {
+    color: '#00E55A',
+    fontSize: 28,
+    fontWeight: '800',
+  },
+  buttonsPreview: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  tradeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    gap: 8,
+  },
+  tradeBtnText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 12,
+  },
+  skipBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#444',
+    alignItems: 'center',
+  },
+  skipBtnText: {
+    color: '#888',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  continueBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: '#00E55A',
+    alignItems: 'center',
+  },
+  continueBtnText: {
+    color: '#000',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  prevBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#00E55A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  prevBtnText: {
+    color: '#00E55A',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  nextBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: '#00E55A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  nextBtnText: {
+    color: '#000',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  startTradingBtn: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 10,
+    backgroundColor: '#00E55A',
+    alignItems: 'center',
+  },
+  startTradingBtnText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '800',
   },
 });
