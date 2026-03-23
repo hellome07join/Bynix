@@ -707,7 +707,7 @@ async def get_trade_stats(authorization: Optional[str] = Header(None), request: 
 
 @api_router.post("/trades/{trade_id}/settle")
 async def settle_trade(trade_id: str, settle_data: TradeSettle, authorization: Optional[str] = Header(None), request: Request = None):
-    """Settle a trade (for testing purposes)"""
+    """Settle a trade with controlled win probabilities based on account type"""
     user = await get_current_user(authorization, request)
     
     trade = await db.trades.find_one({"trade_id": trade_id, "user_id": user.user_id})
@@ -717,15 +717,43 @@ async def settle_trade(trade_id: str, settle_data: TradeSettle, authorization: O
     if trade["status"] != "pending":
         raise HTTPException(status_code=400, detail="Trade already settled")
     
-    # Determine win/loss
+    # Determine win/loss based on account type with controlled probabilities
+    # Demo account: 90% win rate (to encourage new users)
+    # Real account: 40% win rate (realistic market conditions)
+    account_type = trade.get("account_type", "demo")
+    
+    if account_type == "demo":
+        # Demo: 90% chance of winning
+        win_probability = 0.90
+    else:
+        # Real: 40% chance of winning
+        win_probability = 0.40
+    
+    # Use random to determine if trade wins based on probability
+    won = random.random() < win_probability
+    
+    # Calculate exit price to match the outcome
     entry_price = trade["entry_price"]
     trade_type = trade["trade_type"]
     exit_price = settle_data.exit_price
     
+    # Adjust exit price based on controlled outcome to make it look realistic
+    price_diff = abs(exit_price - entry_price)
+    if price_diff == 0:
+        price_diff = entry_price * 0.0001  # Small movement if no change
+    
     if trade_type == "call":
-        won = exit_price > entry_price
+        # Call wins if price goes up
+        if won:
+            exit_price = entry_price + price_diff if exit_price <= entry_price else exit_price
+        else:
+            exit_price = entry_price - price_diff if exit_price > entry_price else exit_price
     else:  # put
-        won = exit_price < entry_price
+        # Put wins if price goes down
+        if won:
+            exit_price = entry_price - price_diff if exit_price >= entry_price else exit_price
+        else:
+            exit_price = entry_price + price_diff if exit_price < entry_price else exit_price
     
     status = "won" if won else "lost"
     profit_loss = trade["amount"] * (trade["payout_percentage"] / 100) if won else -trade["amount"]

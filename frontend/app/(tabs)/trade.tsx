@@ -85,7 +85,7 @@ const DURATIONS = [
 ];
 
 // Market Categories
-type MarketCategory = 'forex' | 'crypto' | 'stocks';
+type MarketCategory = 'forex' | 'crypto' | 'stocks' | 'commodities';
 
 interface Asset {
   label: string;
@@ -196,68 +196,18 @@ const REAL_ASSETS: Asset[] = [
   { label: 'Coffee OTC', value: 'COFFEE OTC', icon: '☕', payout: 70, category: 'commodities', apiSymbol: 'COFFEE' },
 ];
 
-// Combined for backward compatibility (use this for asset lookup)
+// Combined for asset lookup (used in some utility functions)
 const ALL_ASSETS: Asset[] = [...DEMO_ASSETS, ...REAL_ASSETS];
 
-// Keep old ASSETS for backward compatibility
-const ASSETS = ALL_ASSETS;
-  { label: 'EUR/JPY OTC', value: 'EUR/JPY OTC', icon: '🇪🇺🇯🇵', payout: 82, category: 'forex', apiSymbol: 'EURJPY' },
-  { label: 'GBP/JPY OTC', value: 'GBP/JPY OTC', icon: '🇬🇧🇯🇵', payout: 81, category: 'forex', apiSymbol: 'GBPJPY' },
-  { label: 'EUR/AUD OTC', value: 'EUR/AUD OTC', icon: '🇪🇺🇦🇺', payout: 80, category: 'forex', apiSymbol: 'EURAUD' },
-  { label: 'EUR/CAD OTC', value: 'EUR/CAD OTC', icon: '🇪🇺🇨🇦', payout: 79, category: 'forex', apiSymbol: 'EURCAD' },
-  { label: 'EUR/CHF OTC', value: 'EUR/CHF OTC', icon: '🇪🇺🇨🇭', payout: 78, category: 'forex', apiSymbol: 'EURCHF' },
-  { label: 'GBP/AUD OTC', value: 'GBP/AUD OTC', icon: '🇬🇧🇦🇺', payout: 77, category: 'forex', apiSymbol: 'GBPAUD' },
-  { label: 'GBP/CAD OTC', value: 'GBP/CAD OTC', icon: '🇬🇧🇨🇦', payout: 76, category: 'forex', apiSymbol: 'GBPCAD' },
-  { label: 'AUD/JPY OTC', value: 'AUD/JPY OTC', icon: '🇦🇺🇯🇵', payout: 75, category: 'forex', apiSymbol: 'AUDJPY' },
-  { label: 'CHF/JPY OTC', value: 'CHF/JPY OTC', icon: '🇨🇭🇯🇵', payout: 74, category: 'forex', apiSymbol: 'CHFJPY' },
-  { label: 'CAD/JPY OTC', value: 'CAD/JPY OTC', icon: '🇨🇦🇯🇵', payout: 73, category: 'forex', apiSymbol: 'CADJPY' },
-  { label: 'NZD/JPY OTC', value: 'NZD/JPY OTC', icon: '🇳🇿🇯🇵', payout: 72, category: 'forex', apiSymbol: 'NZDJPY' },
-  { label: 'AUD/NZD OTC', value: 'AUD/NZD OTC', icon: '🇦🇺🇳🇿', payout: 71, category: 'forex', apiSymbol: 'AUDNZD' },
-  
-  // CRYPTOCURRENCY MARKETS (20 coins)
-  { label: 'BTC/USD OTC', value: 'BTC/USD OTC', icon: '₿', payout: 95, category: 'crypto', apiSymbol: 'BTCUSD' },
-  { label: 'ETH/USD OTC', value: 'ETH/USD OTC', icon: 'Ξ', payout: 93, category: 'crypto', apiSymbol: 'ETHUSD' },
-  { label: 'BNB/USD OTC', value: 'BNB/USD OTC', icon: '🔶', payout: 91, category: 'crypto', apiSymbol: 'BNBUSD' },
-  { label: 'XRP/USD OTC', value: 'XRP/USD OTC', icon: '✕', payout: 89, category: 'crypto', apiSymbol: 'XRPUSD' },
-  { label: 'SOL/USD OTC', value: 'SOL/USD OTC', icon: '◎', payout: 88, category: 'crypto', apiSymbol: 'SOLUSD' },
-  { label: 'ADA/USD OTC', value: 'ADA/USD OTC', icon: '₳', payout: 87, category: 'crypto', apiSymbol: 'ADAUSD' },
-  { label: 'DOGE/USD OTC', value: 'DOGE/USD OTC', icon: '🐕', payout: 86, category: 'crypto', apiSymbol: 'DOGEUSD' },
-  { label: 'DOT/USD OTC', value: 'DOT/USD OTC', icon: '●', payout: 85, category: 'crypto', apiSymbol: 'DOTUSD' },
-  { label: 'MATIC/USD OTC', value: 'MATIC/USD OTC', icon: '⬡', payout: 84, category: 'crypto', apiSymbol: 'MATICUSD' },
-  { label: 'LTC/USD OTC', value: 'LTC/USD OTC', icon: 'Ł', payout: 83, category: 'crypto', apiSymbol: 'LTCUSD' },
-  { label: 'AVAX/USD OTC', value: 'AVAX/USD OTC', icon: '🔺', payout: 82, category: 'crypto', apiSymbol: 'AVAXUSD' },
-  { label: 'LINK/USD OTC', value: 'LINK/USD OTC', icon: '⬡', payout: 81, category: 'crypto', apiSymbol: 'LINKUSD' },
-  { label: 'UNI/USD OTC', value: 'UNI/USD OTC', icon: '🦄', payout: 80, category: 'crypto', apiSymbol: 'UNIUSD' },
-  { label: 'ATOM/USD OTC', value: 'ATOM/USD OTC', icon: '⚛', payout: 79, category: 'crypto', apiSymbol: 'ATOMUSD' },
-  { label: 'XLM/USD OTC', value: 'XLM/USD OTC', icon: '✦', payout: 78, category: 'crypto', apiSymbol: 'XLMUSD' },
-  { label: 'ETC/USD OTC', value: 'ETC/USD OTC', icon: 'Ξc', payout: 77, category: 'crypto', apiSymbol: 'ETCUSD' },
-  { label: 'FIL/USD OTC', value: 'FIL/USD OTC', icon: '⬡', payout: 76, category: 'crypto', apiSymbol: 'FILUSD' },
-  { label: 'TRX/USD OTC', value: 'TRX/USD OTC', icon: '◈', payout: 75, category: 'crypto', apiSymbol: 'TRXUSD' },
-  { label: 'NEAR/USD OTC', value: 'NEAR/USD OTC', icon: 'Ⓝ', payout: 74, category: 'crypto', apiSymbol: 'NEARUSD' },
-  { label: 'APT/USD OTC', value: 'APT/USD OTC', icon: '🅰', payout: 73, category: 'crypto', apiSymbol: 'APTUSD' },
-  
-  // STOCK MARKETS (20 stocks)
-  { label: 'Apple OTC', value: 'AAPL OTC', icon: '🍎', payout: 90, category: 'stocks', apiSymbol: 'AAPL' },
-  { label: 'Microsoft OTC', value: 'MSFT OTC', icon: '🪟', payout: 89, category: 'stocks', apiSymbol: 'MSFT' },
-  { label: 'Google OTC', value: 'GOOGL OTC', icon: '🔍', payout: 88, category: 'stocks', apiSymbol: 'GOOGL' },
-  { label: 'Amazon OTC', value: 'AMZN OTC', icon: '📦', payout: 87, category: 'stocks', apiSymbol: 'AMZN' },
-  { label: 'Tesla OTC', value: 'TSLA OTC', icon: '🚗', payout: 86, category: 'stocks', apiSymbol: 'TSLA' },
-  { label: 'Meta OTC', value: 'META OTC', icon: '👤', payout: 85, category: 'stocks', apiSymbol: 'META' },
-  { label: 'NVIDIA OTC', value: 'NVDA OTC', icon: '🎮', payout: 84, category: 'stocks', apiSymbol: 'NVDA' },
-  { label: 'Netflix OTC', value: 'NFLX OTC', icon: '🎬', payout: 83, category: 'stocks', apiSymbol: 'NFLX' },
-  { label: 'AMD OTC', value: 'AMD OTC', icon: '💻', payout: 82, category: 'stocks', apiSymbol: 'AMD' },
-  { label: 'Intel OTC', value: 'INTC OTC', icon: '🔷', payout: 81, category: 'stocks', apiSymbol: 'INTC' },
-  { label: 'Disney OTC', value: 'DIS OTC', icon: '🏰', payout: 80, category: 'stocks', apiSymbol: 'DIS' },
-  { label: 'Nike OTC', value: 'NKE OTC', icon: '👟', payout: 79, category: 'stocks', apiSymbol: 'NKE' },
-  { label: 'Coca-Cola OTC', value: 'KO OTC', icon: '🥤', payout: 78, category: 'stocks', apiSymbol: 'KO' },
-  { label: 'McDonald\'s OTC', value: 'MCD OTC', icon: '🍔', payout: 77, category: 'stocks', apiSymbol: 'MCD' },
-  { label: 'Visa OTC', value: 'V OTC', icon: '💳', payout: 76, category: 'stocks', apiSymbol: 'V' },
-  { label: 'JPMorgan OTC', value: 'JPM OTC', icon: '🏦', payout: 75, category: 'stocks', apiSymbol: 'JPM' },
-  { label: 'Walmart OTC', value: 'WMT OTC', icon: '🛒', payout: 74, category: 'stocks', apiSymbol: 'WMT' },
-  { label: 'Boeing OTC', value: 'BA OTC', icon: '✈️', payout: 73, category: 'stocks', apiSymbol: 'BA' },
-  { label: 'Pfizer OTC', value: 'PFE OTC', icon: '💊', payout: 72, category: 'stocks', apiSymbol: 'PFE' },
-  { label: 'Starbucks OTC', value: 'SBUX OTC', icon: '☕', payout: 71, category: 'stocks', apiSymbol: 'SBUX' },
-];
+// Helper function to get assets based on account type
+const getAssetsForAccount = (accountType: 'demo' | 'real'): Asset[] => {
+  return accountType === 'demo' ? DEMO_ASSETS : REAL_ASSETS;
+};
+
+// Get default asset for an account type
+const getDefaultAssetForAccount = (accountType: 'demo' | 'real'): string => {
+  return accountType === 'demo' ? DEMO_ASSETS[0].value : REAL_ASSETS[0].value;
+};
 
 export default function Trade() {
   const router = useRouter();
@@ -432,6 +382,17 @@ export default function Trade() {
     }
   }, [token, accountType]);
 
+  // Reset selected asset when account type changes to ensure it's valid for the new account
+  useEffect(() => {
+    const validAssets = getAssetsForAccount(accountType);
+    const isCurrentAssetValid = validAssets.some(a => a.value === selectedAsset);
+    if (!isCurrentAssetValid) {
+      // Reset to default asset for the new account type
+      setSelectedAsset(getDefaultAssetForAccount(accountType));
+      setSelectedCategory('forex'); // Reset to default category
+    }
+  }, [accountType]);
+
   // Check if user needs to see tutorial (new users)
   useEffect(() => {
     checkTutorialStatus();
@@ -493,8 +454,11 @@ export default function Trade() {
     }
   };
 
+  // Get assets for current account type
+  const currentAssets = getAssetsForAccount(accountType);
+  
   // Get current asset data
-  const currentAsset = ASSETS.find(a => a.value === selectedAsset) || ASSETS[0];
+  const currentAsset = currentAssets.find(a => a.value === selectedAsset) || currentAssets[0];
   const payoutPercentage = currentAsset.payout;
 
   // Calculate potential profit
@@ -1106,7 +1070,7 @@ export default function Trade() {
             
             {/* Asset List */}
             <ScrollView style={styles.assetList} showsVerticalScrollIndicator={false}>
-              {ASSETS.filter(asset => asset.category === selectedCategory).map((asset) => (
+              {currentAssets.filter(asset => asset.category === selectedCategory).map((asset) => (
                 <TouchableOpacity
                   key={asset.value}
                   style={[
@@ -1498,7 +1462,7 @@ export default function Trade() {
                     <Text style={styles.historySectionTitle}>Running Trades ({activeTrades.length})</Text>
                   </View>
                   {activeTrades.map((trade) => {
-                    const tradeAsset = ASSETS.find(a => a.value === trade.asset) || currentAsset;
+                    const tradeAsset = ALL_ASSETS.find(a => a.value === trade.asset) || currentAsset;
                     const isTradeInProfit = trade.type === 'call' 
                       ? currentPrice > trade.entry_price 
                       : currentPrice < trade.entry_price;

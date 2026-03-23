@@ -11,6 +11,7 @@ from datetime import datetime
 import sys
 import pymongo
 from pymongo import MongoClient
+import random
 
 # Configuration
 BACKEND_URL = "https://bynix-markets.preview.emergentagent.com"
@@ -631,6 +632,219 @@ class BynixDepositBonusAPITester:
             self.log(f"⚠️  {total - passed} tests failed")
             return False
     
+    def create_trade(self, account_type="demo", amount=10):
+        """Create a trade with specified account type"""
+        if not self.auth_token:
+            raise Exception("Not authenticated")
+            
+        trade_data = {
+            "asset": "EUR/USD OTC",
+            "trade_type": "call",
+            "amount": amount,
+            "entry_price": round(1.085 + random.uniform(-0.01, 0.01), 5),
+            "duration": 60,
+            "account_type": account_type
+        }
+        
+        response = self.session.post(
+            f"{API_URL}/trades",
+            json=trade_data,
+            headers={"Authorization": f"Bearer {self.auth_token}"}
+        )
+        
+        if response.status_code != 200:
+            raise Exception(f"Trade creation failed: {response.status_code} - {response.text}")
+        
+        result = response.json()
+        return result["trade_id"]
+    
+    def settle_trade(self, trade_id):
+        """Settle a trade with random exit price"""
+        if not self.auth_token:
+            raise Exception("Not authenticated")
+            
+        settle_data = {
+            "exit_price": round(1.085 + random.uniform(-0.02, 0.02), 5)
+        }
+        
+        response = self.session.post(
+            f"{API_URL}/trades/{trade_id}/settle",
+            json=settle_data,
+            headers={"Authorization": f"Bearer {self.auth_token}"}
+        )
+        
+        if response.status_code != 200:
+            raise Exception(f"Trade settlement failed: {response.status_code} - {response.text}")
+        
+        result = response.json()
+        return result["status"] == "won", result["profit_loss"]
+    
+    def test_trade_settlement_win_rates(self):
+        """Test trade settlement win rates for demo vs real accounts"""
+        self.log("🎯 Testing Trade Settlement Win Rates")
+        self.log("=" * 50)
+        
+        # Test demo account win rates (expected 90%)
+        self.log("Testing DEMO account win rates (Expected: 90%)")
+        demo_wins = 0
+        demo_total = 30
+        
+        for i in range(demo_total):
+            try:
+                trade_id = self.create_trade(account_type="demo", amount=10)
+                won, profit_loss = self.settle_trade(trade_id)
+                if won:
+                    demo_wins += 1
+                if (i + 1) % 10 == 0:
+                    self.log(f"  Demo trades completed: {i + 1}/{demo_total}")
+            except Exception as e:
+                self.log(f"❌ Demo trade {i + 1} failed: {e}", "ERROR")
+                continue
+        
+        demo_win_rate = demo_wins / demo_total if demo_total > 0 else 0
+        self.log(f"📊 Demo Account Results:")
+        self.log(f"  Total trades: {demo_total}")
+        self.log(f"  Wins: {demo_wins}")
+        self.log(f"  Win rate: {demo_win_rate:.1%}")
+        
+        # Add real balance for real account testing
+        self.log("\nAdding real balance for real account testing...")
+        if self.db is not None:
+            try:
+                result = self.db.users.update_one(
+                    {"user_id": self.user_id},
+                    {"$set": {"real_balance": 1000.0}}
+                )
+                if result.modified_count > 0:
+                    self.log("✅ Added $1000 real balance for testing")
+                else:
+                    self.log("⚠️  Failed to add real balance", "WARNING")
+            except Exception as e:
+                self.log(f"❌ Error adding real balance: {e}", "ERROR")
+        
+        # Test real account win rates (expected 40%)
+        self.log("\nTesting REAL account win rates (Expected: 40%)")
+        real_wins = 0
+        real_total = 30
+        
+        for i in range(real_total):
+            try:
+                trade_id = self.create_trade(account_type="real", amount=10)
+                won, profit_loss = self.settle_trade(trade_id)
+                if won:
+                    real_wins += 1
+                if (i + 1) % 10 == 0:
+                    self.log(f"  Real trades completed: {i + 1}/{real_total}")
+            except Exception as e:
+                self.log(f"❌ Real trade {i + 1} failed: {e}", "ERROR")
+                continue
+        
+        real_win_rate = real_wins / real_total if real_total > 0 else 0
+        self.log(f"📊 Real Account Results:")
+        self.log(f"  Total trades: {real_total}")
+        self.log(f"  Wins: {real_wins}")
+        self.log(f"  Win rate: {real_win_rate:.1%}")
+        
+        # Validate results
+        demo_expected = 0.90
+        real_expected = 0.40
+        tolerance = 0.20  # 20% tolerance for randomness
+        
+        demo_valid = abs(demo_win_rate - demo_expected) <= tolerance
+        real_valid = abs(real_win_rate - real_expected) <= tolerance
+        
+        self.log(f"\n🎯 Win Rate Validation:")
+        self.log(f"  Demo account: {'✅ PASSED' if demo_valid else '❌ FAILED'} ({demo_win_rate:.1%} vs expected {demo_expected:.1%})")
+        self.log(f"  Real account: {'✅ PASSED' if real_valid else '❌ FAILED'} ({real_win_rate:.1%} vs expected {real_expected:.1%})")
+        
+        return demo_valid and real_valid
+    
+    def test_profit_loss_calculation(self):
+        """Test that profit/loss calculations are correct"""
+        self.log("💰 Testing Profit/Loss Calculations")
+        
+        try:
+            # Create a demo trade
+            trade_id = self.create_trade(account_type="demo", amount=100)
+            self.log(f"Created test trade: {trade_id}")
+            
+            # Get trade details
+            response = self.session.get(
+                f"{API_URL}/trades",
+                headers={"Authorization": f"Bearer {self.auth_token}"}
+            )
+            
+            if response.status_code != 200:
+                self.log(f"❌ Failed to get trades: {response.status_code}", "ERROR")
+                return False
+            
+            trades = response.json()
+            trade = next((t for t in trades if t["trade_id"] == trade_id), None)
+            
+            if not trade:
+                self.log(f"❌ Trade {trade_id} not found", "ERROR")
+                return False
+            
+            # Settle the trade
+            won, profit_loss = self.settle_trade(trade_id)
+            
+            # Verify calculation
+            if won:
+                expected_profit = trade["amount"] * (trade["payout_percentage"] / 100)
+                if abs(profit_loss - expected_profit) < 0.01:
+                    self.log(f"✅ Win profit calculation correct: ${profit_loss} (expected: ${expected_profit})")
+                    return True
+                else:
+                    self.log(f"❌ Win profit calculation incorrect: ${profit_loss} (expected: ${expected_profit})", "ERROR")
+                    return False
+            else:
+                expected_loss = -trade["amount"]
+                if abs(profit_loss - expected_loss) < 0.01:
+                    self.log(f"✅ Loss calculation correct: ${profit_loss} (expected: ${expected_loss})")
+                    return True
+                else:
+                    self.log(f"❌ Loss calculation incorrect: ${profit_loss} (expected: ${expected_loss})", "ERROR")
+                    return False
+                    
+        except Exception as e:
+            self.log(f"❌ Profit/loss test failed: {e}", "ERROR")
+            return False
+
+    def run_trade_settlement_tests(self):
+        """Run comprehensive trade settlement tests"""
+        self.log("🚀 Starting Trade Settlement Tests")
+        self.log("=" * 60)
+        
+        try:
+            # Create user and authenticate
+            self.create_test_user()
+            
+            # Test profit/loss calculation
+            profit_test_passed = self.test_profit_loss_calculation()
+            
+            # Test win rates
+            win_rate_test_passed = self.test_trade_settlement_win_rates()
+            
+            # Summary
+            self.log("\n" + "=" * 60)
+            self.log("📋 TRADE SETTLEMENT TEST SUMMARY")
+            self.log("=" * 60)
+            self.log(f"Profit/Loss Calculation: {'✅ PASSED' if profit_test_passed else '❌ FAILED'}")
+            self.log(f"Win Rate Testing: {'✅ PASSED' if win_rate_test_passed else '❌ FAILED'}")
+            
+            all_passed = profit_test_passed and win_rate_test_passed
+            
+            if all_passed:
+                self.log("\n🎉 ALL TRADE SETTLEMENT TESTS PASSED!")
+                return True
+            else:
+                self.log("\n⚠️  SOME TRADE SETTLEMENT TESTS FAILED!")
+                return False
+                
+        except Exception as e:
+            self.log(f"❌ Trade settlement test execution failed: {e}", "ERROR")
+            return False
+    
     def cleanup(self):
         """Cleanup resources"""
         if self.mongo_client:
@@ -641,8 +855,8 @@ def main():
     tester = BynixDepositBonusAPITester()
     
     try:
-        test_results = tester.run_all_tests()
-        success = tester.print_summary(test_results)
+        # Run trade settlement tests instead of deposit bonus tests
+        success = tester.run_trade_settlement_tests()
         
         # Exit with appropriate code
         sys.exit(0 if success else 1)
