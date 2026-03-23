@@ -360,7 +360,7 @@ export default function TradingViewChart({
     }
   }, [internalPrice, onPriceUpdate]);
 
-  // Draw chart on canvas
+  // Draw chart on canvas with high-DPI (4K) quality
   const drawChart = useCallback(() => {
     if (Platform.OS !== 'web' || !canvasRef.current || aggregatedCandles.length === 0) return;
     
@@ -368,11 +368,31 @@ export default function TradingViewChart({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    const width = canvas.width;
-    const height = canvas.height;
+    // High-DPI / Retina / 4K support
+    const dpr = window.devicePixelRatio || 2; // Default to 2x for crisp rendering
+    const displayWidth = canvas.clientWidth;
+    const displayHeight = canvas.clientHeight;
+    
+    // Set canvas internal resolution to match device pixel ratio
+    if (canvas.width !== displayWidth * dpr || canvas.height !== displayHeight * dpr) {
+      canvas.width = displayWidth * dpr;
+      canvas.height = displayHeight * dpr;
+      // Scale context to match DPR
+      ctx.scale(dpr, dpr);
+    }
+    
+    const width = displayWidth;
+    const height = displayHeight;
     const padding = { top: 20, right: 60, bottom: 30, left: 10 };
     const chartWidth = width - padding.left - padding.right;
     const chartHeight = height - padding.top - padding.bottom;
+    
+    // Reset transform and clear canvas
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    
+    // Enable image smoothing for crisp rendering
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     
     // Clear canvas
     ctx.fillStyle = '#0A1A0F';
@@ -542,6 +562,26 @@ export default function TradingViewChart({
   // Redraw chart when data changes
   useEffect(() => {
     drawChart();
+  }, [drawChart]);
+
+  // Handle canvas resize for high-DPI rendering
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    
+    const handleResize = () => {
+      // Trigger re-render on resize
+      drawChart();
+    };
+    
+    window.addEventListener('resize', handleResize);
+    
+    // Initial draw after a small delay to ensure canvas is mounted
+    const timer = setTimeout(drawChart, 100);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(timer);
+    };
   }, [drawChart]);
 
   // Web platform rendering with Canvas
@@ -782,9 +822,11 @@ export default function TradingViewChart({
           ) : (
             <canvas
               ref={canvasRef}
-              width={screenWidth}
-              height={chartHeight}
-              style={{ width: '100%', height: '100%' }}
+              style={{ 
+                width: '100%', 
+                height: '100%',
+                imageRendering: 'crisp-edges'
+              }}
             />
           )}
         </div>
