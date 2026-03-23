@@ -273,35 +273,29 @@ export default function TradingViewChart({
         if (response.ok) {
           const data = await response.json();
           if (data.new_tick) {
-            // Add the new tick from server
+            // Replace/Add the tick from server - ensures all devices have identical data
             setBaseTickData(prevData => {
               if (prevData.length === 0) return prevData;
               
-              // Check if this tick already exists
+              const newData = [...prevData];
               const lastTick = prevData[prevData.length - 1];
+              
               if (lastTick.time >= data.new_tick.time) {
-                // Update the last tick with server data
-                const newData = [...prevData];
-                newData[newData.length - 1] = {
-                  ...lastTick,
-                  high: Math.max(lastTick.high, data.new_tick.high),
-                  low: Math.min(lastTick.low, data.new_tick.low),
-                  close: data.new_tick.close
-                };
-                baseTickDataStore[symbol] = newData;
-                return newData;
+                // Same second - replace last tick completely with server data
+                newData[newData.length - 1] = data.new_tick;
+              } else {
+                // New second - add new tick from server
+                newData.push(data.new_tick);
+                if (newData.length > 35000) {
+                  newData.shift();
+                }
               }
               
-              // Add new tick
-              const newData = [...prevData, data.new_tick];
-              if (newData.length > 7200) {
-                newData.shift();
-              }
               baseTickDataStore[symbol] = newData;
               return newData;
             });
             
-            // Update displayed price
+            // Update displayed price from server
             setInternalPrice(data.new_tick.close);
           }
         }
@@ -310,8 +304,11 @@ export default function TradingViewChart({
       }
     };
 
-    // Sync every 2 seconds
-    syncWithServerRef.current = setInterval(syncWithServer, 2000);
+    // Sync with server immediately on mount
+    syncWithServer();
+    
+    // Sync every 1 second for fast data refresh across all devices
+    syncWithServerRef.current = setInterval(syncWithServer, 1000);
     
     return () => {
       if (syncWithServerRef.current) {
@@ -319,37 +316,6 @@ export default function TradingViewChart({
       }
     };
   }, [symbol]);
-
-  // Local price animation for smooth visual updates between server syncs
-  const priceAnimationRef = useRef<any>(null);
-  useEffect(() => {
-    priceAnimationRef.current = setInterval(() => {
-      setBaseTickData(prevData => {
-        if (prevData.length === 0) return prevData;
-        
-        const newData = [...prevData];
-        const lastTick = { ...newData[newData.length - 1] };
-        
-        // Small visual fluctuation (will be overwritten by server sync)
-        const volatility = lastTick.close * 0.00002;
-        const change = (Math.random() - 0.5) * volatility * 2;
-        lastTick.close = lastTick.close + change;
-        lastTick.high = Math.max(lastTick.high, lastTick.close);
-        lastTick.low = Math.min(lastTick.low, lastTick.close);
-        
-        newData[newData.length - 1] = lastTick;
-        setInternalPrice(lastTick.close);
-        
-        return newData;
-      });
-    }, 300);
-    
-    return () => {
-      if (priceAnimationRef.current) {
-        clearInterval(priceAnimationRef.current);
-      }
-    };
-  }, []);
 
   // Call onPriceUpdate when price changes
   useEffect(() => {
