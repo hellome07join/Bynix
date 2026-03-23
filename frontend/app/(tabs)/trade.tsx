@@ -15,12 +15,16 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { Audio } from 'expo-av';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../stores/authStore';
 import { fetchHistoricalCandles, Candle } from '../../utils/binanceService';
 import EnhancedCandlestickChart from '../../components/EnhancedCandlestickChart';
 import TradingViewChart from '../../components/TradingViewChart';
 import { api, API_URL } from '../../utils/api';
+
+// Loss sound
+const lossSound = require('../../assets/sounds/loss.mp3');
 
 const { width, height } = Dimensions.get('window');
 
@@ -585,15 +589,33 @@ export default function Trade() {
 
     showResultPopup();
     
-    // Result haptic
+    // Result haptic and sound
     if (won) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      // Play loss sound
+      playLossSound();
     }
     
     // Refresh trade history
     fetchTradeHistory();
+  };
+
+  // Play loss sound function
+  const playLossSound = async () => {
+    try {
+      const { sound } = await Audio.Sound.createAsync(lossSound);
+      await sound.playAsync();
+      // Unload after playing
+      sound.setOnPlaybackStatusUpdate((status: any) => {
+        if (status.isLoaded && status.didJustFinish) {
+          sound.unloadAsync();
+        }
+      });
+    } catch (error) {
+      console.log('Error playing loss sound:', error);
+    }
   };
 
   const showResultPopup = () => {
