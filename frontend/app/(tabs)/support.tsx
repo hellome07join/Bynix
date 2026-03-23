@@ -8,6 +8,7 @@ import {
   TextInput,
   Linking,
   Alert,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -46,9 +47,6 @@ const FAQ_DATA = [
 
 const SUPPORT_OPTIONS = [
   { id: 1, icon: 'mail', title: 'Email Support', subtitle: 'support@bynix.com', action: 'email' },
-  { id: 2, icon: 'logo-whatsapp', title: 'WhatsApp', subtitle: '+1 234 567 8900', action: 'whatsapp' },
-  { id: 3, icon: 'logo-telegram', title: 'Telegram', subtitle: '@BynixSupport', action: 'telegram' },
-  { id: 4, icon: 'chatbubbles', title: 'Live Chat', subtitle: 'Available 24/7', action: 'chat' },
 ];
 
 export default function Support() {
@@ -164,7 +162,11 @@ export default function Support() {
 
         {/* App Info */}
         <View style={styles.appInfo}>
-          <Text style={styles.appName}>Bynix</Text>
+          <Image 
+            source={require('../../assets/images/bynix-logo.png')}
+            style={styles.footerLogo}
+            resizeMode="contain"
+          />
           <Text style={styles.appVersion}>Version 1.0.0</Text>
           <Text style={styles.appCopyright}>© 2025 Bynix Trading. All rights reserved.</Text>
         </View>
@@ -312,6 +314,11 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.05)',
     marginTop: 8,
+  },
+  footerLogo: {
+    width: 60,
+    height: 60,
+    marginBottom: 8,
   },
   appName: {
     color: '#00E55A',
