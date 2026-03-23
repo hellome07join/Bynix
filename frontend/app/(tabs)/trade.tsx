@@ -489,12 +489,13 @@ export default function Trade() {
           countdown: Math.max(0, trade.countdown - 1)
         }));
         
-        // Settle trades that have finished
-        updated.forEach(trade => {
-          if (trade.countdown === 0) {
-            settleTradeById(trade.id);
-          }
-        });
+        // Find trades that need to be settled
+        const tradesToSettle = updated.filter(trade => trade.countdown === 0);
+        
+        // Settle all completed trades sequentially
+        if (tradesToSettle.length > 0) {
+          settleMultipleTrades(tradesToSettle);
+        }
         
         // Remove settled trades
         return updated.filter(trade => trade.countdown > 0);
@@ -503,6 +504,37 @@ export default function Trade() {
     
     return () => clearInterval(interval);
   }, [activeTrades.length > 0]);
+
+  // Settle multiple trades and refresh balance once at the end
+  const settleMultipleTrades = async (trades: typeof activeTrades) => {
+    let totalWon = 0;
+    let totalLost = 0;
+    let lastResult: any = null;
+    
+    for (const trade of trades) {
+      const result = await settleTradeById(trade.id, false); // Don't refresh after each
+      if (result) {
+        lastResult = result;
+        if (result.won) {
+          totalWon++;
+        } else {
+          totalLost++;
+        }
+      }
+    }
+    
+    // Refresh user balance once after all trades settled
+    if (token) {
+      const { refreshUser } = useAuthStore.getState();
+      await refreshUser();
+    }
+    
+    // Show last result popup (or could show summary)
+    if (lastResult) {
+      setTradeResult(lastResult);
+      showResultPopup();
+    }
+  };
 
   const loadMarketData = async () => {
     setLoading(true);
@@ -654,9 +686,9 @@ export default function Trade() {
   };
 
   // Settle a specific trade by ID
-  const settleTradeById = async (tradeId: string) => {
+  const settleTradeById = async (tradeId: string, shouldRefreshUser: boolean = true) => {
     const trade = activeTrades.find(t => t.id === tradeId);
-    if (!trade) return;
+    if (!trade) return null;
 
     // Get the OFFICIAL exit price from SERVER (synced across all devices)
     let exitPrice = currentPrice;
@@ -716,9 +748,11 @@ export default function Trade() {
         
         console.log(`Trade Settlement from Backend: Status=${result.status}, P/L=${profitLoss}, Exit Price=${finalExitPrice}`);
         
-        // Refresh user balance from server after trade settles
-        const { refreshUser } = useAuthStore.getState();
-        await refreshUser();
+        // Refresh user balance from server after trade settles (unless skipped for batch settlement)
+        if (shouldRefreshUser) {
+          const { refreshUser } = useAuthStore.getState();
+          await refreshUser();
+        }
         
       } catch (error: any) {
         console.error('Error settling trade with backend:', error);
@@ -763,28 +797,34 @@ export default function Trade() {
       }
     }
 
-    setTradeResult({
+    const tradeResultData = {
       won,
       profitLoss,
       entryPrice: trade.entry_price,
       exitPrice: finalExitPrice,
-    });
+    };
 
-    showResultPopup();
-    
-    // Result haptic and sound
-    if (won) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      // Play win sound
-      playWinSound();
-    } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      // Play loss sound
-      playLossSound();
+    // Only show popup and sounds if not batch settling (shouldRefreshUser = true means single trade)
+    if (shouldRefreshUser) {
+      setTradeResult(tradeResultData);
+      showResultPopup();
+      
+      // Result haptic and sound
+      if (won) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        // Play win sound
+        playWinSound();
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        // Play loss sound
+        playLossSound();
+      }
     }
     
     // Refresh trade history
     fetchTradeHistory();
+    
+    return tradeResultData;
   };
 
   // Play win sound function
