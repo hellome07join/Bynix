@@ -436,9 +436,8 @@ export default function Profile() {
     const KYC_STEPS = [
       { id: 1, title: 'Personal Info', subtitle: 'Basic details', icon: 'card' },
       { id: 2, title: 'Document', subtitle: 'ID upload', icon: 'document' },
-      { id: 3, title: 'Face Verify', subtitle: 'Selfie check', icon: 'camera' },
-      { id: 4, title: 'Review', subtitle: 'Final submit', icon: 'paper-plane' },
-      { id: 5, title: 'Verified', subtitle: 'Complete', icon: 'checkmark-circle' },
+      { id: 3, title: 'Review', subtitle: 'Final submit', icon: 'paper-plane' },
+      { id: 4, title: 'Verified', subtitle: 'Complete', icon: 'checkmark-circle' },
     ];
 
     const handleContinueToStep2 = () => {
@@ -450,8 +449,10 @@ export default function Profile() {
       setKycStep(2);
     };
 
-    const handleContinueToStep3 = () => {
-      Alert.alert('Face Verification', 'Face verification feature coming soon!');
+    const handleSubmitForReview = () => {
+      // Submit documents for review
+      setKycStep(3);
+      Alert.alert('Submitted', 'Your documents have been submitted for review. We will notify you once verification is complete.');
     };
 
     const getStepStatus = (stepId: number) => {
@@ -669,11 +670,75 @@ export default function Profile() {
             {/* Continue Button */}
             <TouchableOpacity 
               style={styles.kycContinueBtn}
-              onPress={handleContinueToStep3}
+              onPress={handleSubmitForReview}
             >
-              <Ionicons name="arrow-forward" size={18} color="#0A1A0F" />
-              <Text style={styles.kycContinueBtnText}>Continue to Face Verification</Text>
+              <Ionicons name="paper-plane" size={18} color="#0A1A0F" />
+              <Text style={styles.kycContinueBtnText}>Submit for Review</Text>
             </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Step 3: Under Review */}
+        {kycStep === 3 && (
+          <View style={styles.kycFormCard}>
+            <View style={styles.kycFormHeader}>
+              <View style={[styles.kycFormIcon, { backgroundColor: '#FFB800' }]}>
+                <Ionicons name="time" size={18} color="#0A1A0F" />
+              </View>
+              <View>
+                <Text style={styles.kycFormTitle}>Under Review</Text>
+                <Text style={styles.kycFormSubtitle}>Your documents are being verified</Text>
+              </View>
+            </View>
+
+            <View style={styles.reviewStatusCard}>
+              <Ionicons name="hourglass" size={48} color="#FFB800" />
+              <Text style={styles.reviewTitle}>Verification In Progress</Text>
+              <Text style={styles.reviewText}>
+                Our team is reviewing your documents. This usually takes 1-3 business days.
+              </Text>
+              <Text style={styles.reviewText}>
+                You will receive a notification once your verification is complete.
+              </Text>
+            </View>
+
+            <View style={styles.reviewChecklist}>
+              <View style={styles.reviewCheckItem}>
+                <Ionicons name="checkmark-circle" size={20} color="#00E55A" />
+                <Text style={styles.reviewCheckText}>Personal information submitted</Text>
+              </View>
+              <View style={styles.reviewCheckItem}>
+                <Ionicons name="checkmark-circle" size={20} color="#00E55A" />
+                <Text style={styles.reviewCheckText}>ID documents uploaded</Text>
+              </View>
+              <View style={styles.reviewCheckItem}>
+                <Ionicons name="time" size={20} color="#FFB800" />
+                <Text style={styles.reviewCheckText}>Awaiting manual review</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Step 4: Verified */}
+        {kycStep === 4 && (
+          <View style={styles.kycFormCard}>
+            <View style={styles.kycFormHeader}>
+              <View style={[styles.kycFormIcon, { backgroundColor: '#00E55A' }]}>
+                <Ionicons name="checkmark-circle" size={18} color="#0A1A0F" />
+              </View>
+              <View>
+                <Text style={styles.kycFormTitle}>Verified!</Text>
+                <Text style={styles.kycFormSubtitle}>Your identity has been confirmed</Text>
+              </View>
+            </View>
+
+            <View style={styles.reviewStatusCard}>
+              <Ionicons name="shield-checkmark" size={64} color="#00E55A" />
+              <Text style={[styles.reviewTitle, { color: '#00E55A' }]}>KYC Complete</Text>
+              <Text style={styles.reviewText}>
+                Congratulations! Your account is now fully verified. You have access to all features.
+              </Text>
+            </View>
           </View>
         )}
 
@@ -2033,5 +2098,41 @@ const styles = StyleSheet.create({
     color: '#FF3B3B',
     fontSize: 14,
     fontWeight: '700',
+  },
+  reviewStatusCard: {
+    alignItems: 'center',
+    padding: 24,
+    backgroundColor: 'rgba(255, 184, 0, 0.1)',
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  reviewTitle: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: 16,
+    marginBottom: 12,
+  },
+  reviewText: {
+    color: '#AAA',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 8,
+  },
+  reviewChecklist: {
+    gap: 12,
+  },
+  reviewCheckItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: 14,
+    borderRadius: 10,
+  },
+  reviewCheckText: {
+    color: '#FFFFFF',
+    fontSize: 14,
   },
 });
