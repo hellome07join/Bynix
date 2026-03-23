@@ -855,15 +855,6 @@ export default function Profile() {
         </View>
         
         <View style={styles.infoList}>
-          <InfoRow icon="person" label="FULL NAME" value={user?.full_name || userData.fullName} />
-          <InfoRow icon="mail" label="EMAIL" value={user?.email || userData.email} iconColor="#9B59B6" />
-          <InfoRow icon="call" label="PHONE" value={userData.phone} iconColor="#00E55A" />
-          <TouchableOpacity onPress={() => setShowCountrySelectModal(true)}>
-            <InfoRow icon="globe" label="COUNTRY" value={`${userData.countryFlag} ${userData.country}`} iconColor="#FF6B6B" showEdit />
-          </TouchableOpacity>
-          <InfoRow icon="location" label="ADDRESS" value={userData.address} iconColor="#FF3B3B" />
-          <InfoRow icon="calendar" label="DATE OF BIRTH" value={userData.dateOfBirth} iconColor="#9B59B6" />
-          <InfoRow icon="finger-print" label="ACCOUNT ID" value={userData.accountId} iconColor="#FFB800" />
           <InfoRow icon="link" label="REFERRAL CODE" value={userData.referralCode || '—'} iconColor="#00E55A" />
           <InfoRow icon="calendar-outline" label="JOINED" value={userData.joinedDate} iconColor="#00E55A" />
         </View>
