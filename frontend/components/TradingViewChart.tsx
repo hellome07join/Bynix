@@ -73,6 +73,12 @@ export default function TradingViewChart({
   const lastCandleTimeRef = useRef<number>(Date.now());
   const dataInitializedRef = useRef(false);
   
+  // Smooth scrolling refs
+  const scrollVelocityRef = useRef(0);
+  const lastScrollTimeRef = useRef(0);
+  const animationFrameRef = useRef<number | null>(null);
+  const isDraggingRef = useRef(false);
+  
   // Convert symbol for API
   const apiSymbol = symbol.replace(' OTC', '').replace('/', '');
   
@@ -549,29 +555,64 @@ export default function TradingViewChart({
             height: '100%', 
             backgroundColor: '#0A1A0F', 
             position: 'relative',
-            touchAction: 'pan-x',
-            cursor: 'grab'
+            touchAction: 'none',
+            cursor: isDraggingRef.current ? 'grabbing' : 'grab',
+            userSelect: 'none'
           }}
           onWheel={(e: any) => {
+            e.preventDefault();
             if (e.ctrlKey || e.metaKey) {
               const delta = e.deltaY > 0 ? 0.9 : 1.1;
               setScale(prev => Math.max(0.5, Math.min(3, prev * delta)));
             } else {
-              setScrollOffset(prev => prev + e.deltaY * 0.5);
+              setScrollOffset(prev => prev + e.deltaY * 0.8);
             }
           }}
           onMouseDown={(e: any) => {
+            e.preventDefault();
+            isDraggingRef.current = true;
             const startX = e.clientX;
             const startOffset = scrollOffset;
+            let lastX = startX;
+            let lastTime = Date.now();
+            
+            if (animationFrameRef.current) {
+              cancelAnimationFrame(animationFrameRef.current);
+              animationFrameRef.current = null;
+            }
+            scrollVelocityRef.current = 0;
             
             const onMouseMove = (moveE: any) => {
-              const diff = moveE.clientX - startX;
+              const currentX = moveE.clientX;
+              const currentTime = Date.now();
+              const diff = currentX - startX;
+              const timeDiff = currentTime - lastTime;
+              
+              if (timeDiff > 0) {
+                scrollVelocityRef.current = (currentX - lastX) / timeDiff * 16;
+              }
+              
+              lastX = currentX;
+              lastTime = currentTime;
               setScrollOffset(startOffset + diff);
             };
             
             const onMouseUp = () => {
+              isDraggingRef.current = false;
               document.removeEventListener('mousemove', onMouseMove);
               document.removeEventListener('mouseup', onMouseUp);
+              
+              const applyMomentum = () => {
+                if (Math.abs(scrollVelocityRef.current) > 0.5) {
+                  setScrollOffset(prev => prev + scrollVelocityRef.current);
+                  scrollVelocityRef.current *= 0.95;
+                  animationFrameRef.current = requestAnimationFrame(applyMomentum);
+                }
+              };
+              
+              if (Math.abs(scrollVelocityRef.current) > 1) {
+                animationFrameRef.current = requestAnimationFrame(applyMomentum);
+              }
             };
             
             document.addEventListener('mousemove', onMouseMove);
@@ -579,22 +620,55 @@ export default function TradingViewChart({
           }}
           onTouchStart={(e: any) => {
             if (e.touches.length === 1) {
+              isDraggingRef.current = true;
               const startX = e.touches[0].clientX;
               const startOffset = scrollOffset;
+              let lastX = startX;
+              let lastTime = Date.now();
+              
+              if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current);
+                animationFrameRef.current = null;
+              }
+              scrollVelocityRef.current = 0;
               
               const onTouchMove = (moveE: any) => {
+                moveE.preventDefault();
                 if (moveE.touches.length === 1) {
-                  const diff = moveE.touches[0].clientX - startX;
+                  const currentX = moveE.touches[0].clientX;
+                  const currentTime = Date.now();
+                  const diff = currentX - startX;
+                  const timeDiff = currentTime - lastTime;
+                  
+                  if (timeDiff > 0) {
+                    scrollVelocityRef.current = (currentX - lastX) / timeDiff * 16;
+                  }
+                  
+                  lastX = currentX;
+                  lastTime = currentTime;
                   setScrollOffset(startOffset + diff);
                 }
               };
               
               const onTouchEnd = () => {
+                isDraggingRef.current = false;
                 document.removeEventListener('touchmove', onTouchMove);
                 document.removeEventListener('touchend', onTouchEnd);
+                
+                const applyMomentum = () => {
+                  if (Math.abs(scrollVelocityRef.current) > 0.5) {
+                    setScrollOffset(prev => prev + scrollVelocityRef.current);
+                    scrollVelocityRef.current *= 0.92;
+                    animationFrameRef.current = requestAnimationFrame(applyMomentum);
+                  }
+                };
+                
+                if (Math.abs(scrollVelocityRef.current) > 1) {
+                  animationFrameRef.current = requestAnimationFrame(applyMomentum);
+                }
               };
               
-              document.addEventListener('touchmove', onTouchMove, { passive: true });
+              document.addEventListener('touchmove', onTouchMove, { passive: false });
               document.addEventListener('touchend', onTouchEnd);
             }
           }}
