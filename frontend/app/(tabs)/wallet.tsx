@@ -665,7 +665,7 @@ export default function WalletScreen() {
                     <Ionicons name="gift" size={20} color="#FFB800" />
                     <View style={styles.bonusAppliedContent}>
                       <Text style={styles.bonusAppliedTitle}>
-                        {currentDeposit.is_first_deposit ? '🎉 200% First Deposit Bonus!' : '🎁 Bonus Applied!'}
+                        🎁 {currentDeposit.bonus_percentage}% Promo Bonus Applied!
                       </Text>
                       <Text style={styles.bonusAppliedText}>
                         Deposit: ${parseFloat(depositAmount).toFixed(2)} + Bonus: ${currentDeposit.bonus_amount?.toFixed(2)} = Total: ${currentDeposit.total_credit?.toFixed(2)}
@@ -695,16 +695,16 @@ export default function WalletScreen() {
                   <Text style={styles.depositInfoLabel}>Amount to Send</Text>
                   <View style={styles.amountRow}>
                     <Text style={styles.depositInfoValue}>
-                      {currentDeposit.pay_amount?.toFixed(6)} {currentDeposit.pay_currency}
+                      {parseFloat(depositAmount).toFixed(2)} USDT
                     </Text>
                     <TouchableOpacity 
-                      onPress={() => copyToClipboard(currentDeposit.pay_amount?.toFixed(6) || '')}
+                      onPress={() => copyToClipboard(parseFloat(depositAmount).toFixed(2))}
                       style={styles.copyBtn}
                     >
                       <Ionicons name="copy-outline" size={18} color="#00E55A" />
                     </TouchableOpacity>
                   </View>
-                  <Text style={styles.usdValue}>≈ ${depositAmount} USD</Text>
+                  <Text style={styles.usdValue}>= ${depositAmount} USD (No extra fees)</Text>
                 </View>
 
                 {/* Deposit Address */}
