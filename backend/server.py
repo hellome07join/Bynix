@@ -586,13 +586,30 @@ async def create_trade(trade: TradeCreate, authorization: Optional[str] = Header
     # Predetermine trade outcome at creation time
     # This ensures chart movement will match the final result
     # Demo: 90% win rate, Real: 40% win rate (60% loss)
-    if trade.account_type == "demo":
-        win_probability = 0.90
-    else:
-        win_probability = 0.40
     
-    predetermined_won = random.random() < win_probability
-    predetermined_outcome = "won" if predetermined_won else "lost"
+    # Check if there's already an active trade on the same asset for this user
+    # If yes, use the same predetermined outcome to keep chart movement consistent
+    existing_active_trade = await db.trades.find_one({
+        "user_id": user.user_id,
+        "asset": trade.asset,
+        "status": "pending",
+        "account_type": trade.account_type
+    })
+    
+    if existing_active_trade and existing_active_trade.get("predetermined_outcome"):
+        # Use same outcome as existing trade for consistency
+        predetermined_outcome = existing_active_trade["predetermined_outcome"]
+        print(f"Using existing trade outcome: {predetermined_outcome} for consistency")
+    else:
+        # Generate new outcome based on account type
+        if trade.account_type == "demo":
+            win_probability = 0.90
+        else:
+            win_probability = 0.40
+        
+        predetermined_won = random.random() < win_probability
+        predetermined_outcome = "won" if predetermined_won else "lost"
+        print(f"Generated new outcome: {predetermined_outcome} (win_prob={win_probability})")
     
     # Create trade with predetermined outcome
     trade_id = f"trade_{uuid.uuid4().hex[:12]}"
