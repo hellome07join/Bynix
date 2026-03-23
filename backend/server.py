@@ -1930,13 +1930,13 @@ CRYPTO_NETWORKS = {
 
 # Promo codes - requires minimum $100 deposit
 PROMO_CODES = {
-    "BYNIX": {"bonus": 25, "min_deposit": 100},  # 25% bonus for $100+ deposit
-    "WELCOME": {"bonus": 10, "min_deposit": 50},  # 10% bonus
-    "VIP50": {"bonus": 50, "min_deposit": 200},  # 50% bonus for $200+
+    "BYNIX": {"bonus": 200, "min_deposit": 100, "first_deposit_only": True},  # 200% bonus for new users with $100+ deposit
+    "WELCOME": {"bonus": 10, "min_deposit": 50, "first_deposit_only": False},  # 10% bonus
+    "VIP50": {"bonus": 50, "min_deposit": 200, "first_deposit_only": False},  # 50% bonus for $200+
 }
 
-# First time deposit bonus
-FIRST_DEPOSIT_BONUS_PERCENTAGE = 200  # 200% bonus on first deposit
+# First time deposit bonus - DISABLED (only promo codes give bonus now)
+# FIRST_DEPOSIT_BONUS_PERCENTAGE = 200
 
 # ============= Deposit Endpoints =============
 
@@ -1993,28 +1993,32 @@ async def create_deposit(
     })
     is_first_deposit = existing_deposits == 0
     
-    # Calculate bonus
+    # Calculate bonus - ONLY from promo codes now
     bonus_percentage = 0
     bonus_amount = 0
+    promo_error = None
     
-    # First deposit gets 200% bonus
-    if is_first_deposit:
-        bonus_percentage = FIRST_DEPOSIT_BONUS_PERCENTAGE
-        bonus_amount = request.amount * (bonus_percentage / 100)
-    
-    # Check promo code (only if amount >= min_deposit for that promo)
+    # Check promo code
     if request.promo_code:
         promo_upper = request.promo_code.upper().strip()
         if promo_upper in PROMO_CODES:
             promo = PROMO_CODES[promo_upper]
-            if request.amount >= promo["min_deposit"]:
-                # Add promo bonus on top of first deposit bonus
-                promo_bonus = request.amount * (promo["bonus"] / 100)
-                bonus_amount += promo_bonus
-                if not is_first_deposit:
-                    bonus_percentage = promo["bonus"]
-                else:
-                    bonus_percentage += promo["bonus"]  # Stack with first deposit
+            
+            # Check if promo is first-deposit-only and user already deposited
+            if promo.get("first_deposit_only", False) and not is_first_deposit:
+                promo_error = f"Promo code {promo_upper} is only valid for first deposit"
+            elif request.amount < promo["min_deposit"]:
+                promo_error = f"Minimum deposit for {promo_upper} is ${promo['min_deposit']}"
+            else:
+                # Apply promo bonus
+                bonus_percentage = promo["bonus"]
+                bonus_amount = request.amount * (bonus_percentage / 100)
+        else:
+            promo_error = "Invalid promo code"
+    
+    # If promo code error, raise exception
+    if promo_error:
+        raise HTTPException(status_code=400, detail=promo_error)
     
     total_credit = request.amount + bonus_amount
     

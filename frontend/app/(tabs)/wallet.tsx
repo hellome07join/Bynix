@@ -428,15 +428,15 @@ export default function WalletScreen() {
           </View>
         </LinearGradient>
 
-        {/* First Deposit Bonus Banner */}
+        {/* Promo Code Banner for New Users */}
         {!depositHistory.some(d => d.status === 'completed') && (
           <View style={styles.bonusBanner}>
             <View style={styles.bonusBannerIcon}>
               <Ionicons name="gift" size={24} color="#FFB800" />
             </View>
             <View style={styles.bonusBannerContent}>
-              <Text style={styles.bonusBannerTitle}>🎉 200% First Deposit Bonus!</Text>
-              <Text style={styles.bonusBannerText}>Deposit now and get 200% bonus on your first deposit!</Text>
+              <Text style={styles.bonusBannerTitle}>🎁 New User Promo: BYNIX</Text>
+              <Text style={styles.bonusBannerText}>Use code BYNIX on $100+ deposit to get 200% bonus!</Text>
             </View>
           </View>
         )}
@@ -568,19 +568,19 @@ export default function WalletScreen() {
                   <TouchableOpacity onPress={() => setPromoCode('BYNIX')} style={styles.promoQuickBtn}>
                     <Text style={styles.promoQuickText}>BYNIX</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => setPromoCode('WELCOME')} style={styles.promoQuickBtn}>
-                    <Text style={styles.promoQuickText}>WELCOME</Text>
+                  <TouchableOpacity onPress={() => setPromoCode('VIP50')} style={styles.promoQuickBtn}>
+                    <Text style={styles.promoQuickText}>VIP50</Text>
                   </TouchableOpacity>
                 </View>
               </View>
 
-              {/* Bonus Info - Compact */}
+              {/* Promo Code Info */}
               <View style={styles.bonusInfoCompact}>
                 <Ionicons name="gift" size={16} color="#FFB800" />
                 <Text style={styles.bonusInfoTextCompact}>
                   {!depositHistory.some(d => d.status === 'completed') 
-                    ? '🎉 First deposit: 200% bonus!'
-                    : 'BYNIX: 25% | WELCOME: 10% | VIP50: 50%'}
+                    ? 'BYNIX: 200% bonus ($100+) - New users only!'
+                    : 'WELCOME: 10% | VIP50: 50% ($200+)'}
                 </Text>
               </View>
             </ScrollView>
