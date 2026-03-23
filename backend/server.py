@@ -1106,6 +1106,24 @@ async def submit_kyc_documents(submission: KYCDocumentSubmission, authorization:
     user = await get_current_user(authorization, request)
     
     try:
+        # Check if ID number already used by another account
+        existing_kyc = await db.kyc_submissions.find_one({
+            "id_number": submission.id_number,
+            "user_id": {"$ne": user.user_id},
+            "status": "verified"
+        })
+        
+        if existing_kyc:
+            return {
+                "success": False,
+                "status": "rejected",
+                "ai_result": {
+                    "is_valid_document": False,
+                    "reason": "This ID number is already registered with another account"
+                },
+                "message": "This ID number is already registered with another account. Each document can only be used once."
+            }
+        
         # Get the Emergent LLM key
         llm_key = os.environ.get('EMERGENT_LLM_KEY')
         if not llm_key:
@@ -1115,10 +1133,12 @@ async def submit_kyc_documents(submission: KYCDocumentSubmission, authorization:
         chat = LlmChat(
             api_key=llm_key,
             session_id=f"kyc_verify_{user.user_id}_{uuid.uuid4().hex[:8]}",
-            system_message="""You are a professional KYC document verification AI. Your job is to analyze identity documents and determine:
+            system_message="""You are a professional KYC document verification AI. Your job is to analyze identity documents and verify:
 1. If the document is a valid government-issued ID (Passport, National ID Card, or Driver's License)
 2. Which country issued the document
-3. If the document appears authentic (not obviously fake, edited, or a screenshot of a document)
+3. If the document appears authentic (not obviously fake, edited, or a screenshot)
+4. If the NAME on the document matches or is similar to the provided name
+5. If any ID NUMBER is visible on the document
 
 You must respond ONLY in this exact JSON format:
 {
@@ -1128,28 +1148,37 @@ You must respond ONLY in this exact JSON format:
     "country_code": "XX" | "Unknown",
     "confidence": "high" | "medium" | "low",
     "reason": "Brief explanation",
-    "name_visible": true/false,
-    "id_number_visible": true/false
+    "name_on_document": "Name visible on document or 'Not visible'",
+    "name_matches": true/false,
+    "id_number_visible": true/false,
+    "detected_id_number": "ID number if visible or 'Not visible'"
 }
 
-Be strict but fair. If you cannot clearly identify the document type or country, set is_valid_document to false."""
+IMPORTANT: 
+- If the name on document doesn't match the provided name, set is_valid_document to false
+- If you cannot read the document clearly, set is_valid_document to false
+- Be strict about authenticity"""
         ).with_model("openai", "gpt-4o")
         
-        # Create the verification prompt
-        prompt = f"""Please analyze this identity document:
+        # Create the verification prompt with personal info to match
+        prompt = f"""Please analyze this identity document and verify the information:
 
-Document Type Submitted: {submission.id_type}
-Name on Application: {submission.full_name}
-Nationality Claimed: {submission.nationality}
-ID Number Provided: {submission.id_number}
+INFORMATION PROVIDED BY USER:
+- Full Name: {submission.full_name}
+- Nationality: {submission.nationality}
+- Document Type: {submission.id_type}
+- ID Number: {submission.id_number}
 
-Verify if this is a legitimate {submission.id_type} from {submission.nationality}.
-Check if the document appears authentic and matches the claimed document type.
+YOUR TASK:
+1. Verify this is a real {submission.id_type} from {submission.nationality}
+2. Check if the NAME on the document matches "{submission.full_name}"
+3. Check if any ID number is visible on the document
+4. Verify the document appears authentic (not edited, screenshot, or fake)
 
-Analyze the image(s) and respond with the JSON verification result."""
+Analyze the image carefully and respond with the JSON verification result."""
 
-        # Send message with image using the correct API
-        response = await chat.send_message_async(prompt, image_urls=[f"data:image/jpeg;base64,{submission.front_image_base64}"])
+        # Send message with image
+        response = chat.send_message(prompt, image_urls=[f"data:image/jpeg;base64,{submission.front_image_base64}"])
         
         # Parse AI response
         import json
@@ -1168,10 +1197,16 @@ Analyze the image(s) and respond with the JSON verification result."""
                 "document_type": "Unknown",
                 "country": "Unknown",
                 "confidence": "low",
-                "reason": "Could not parse AI verification response"
+                "reason": "Could not analyze the document properly. Please upload a clearer image."
             }
         
-        # Store KYC submission in database
+        # Check if name matches (additional validation)
+        name_matches = ai_result.get("name_matches", True)
+        if not name_matches:
+            ai_result["is_valid_document"] = False
+            ai_result["reason"] = f"Name on document does not match the provided name '{submission.full_name}'"
+        
+        # Store KYC submission in database (always store for records)
         kyc_record = {
             "kyc_id": f"kyc_{uuid.uuid4().hex[:12]}",
             "user_id": user.user_id,
@@ -1181,24 +1216,31 @@ Analyze the image(s) and respond with the JSON verification result."""
             "id_type": submission.id_type,
             "id_number": submission.id_number,
             "ai_verification": ai_result,
-            "status": "pending",  # pending, verified, rejected
+            "status": "pending",
             "submitted_at": datetime.now(timezone.utc),
             "verified_at": None,
         }
         
-        # Instant verification/rejection based on AI result
-        if ai_result.get("is_valid_document") and ai_result.get("confidence") in ["high", "medium"]:
-            # INSTANT VERIFY - AI confirmed the document
+        # Determine verification status
+        is_verified = ai_result.get("is_valid_document") and ai_result.get("confidence") in ["high", "medium"]
+        
+        if is_verified:
+            # VERIFIED - AI confirmed the document and info matches
             kyc_record["status"] = "verified"
             kyc_record["verified_at"] = datetime.now(timezone.utc)
             
-            # Update user's KYC status to verified immediately
+            # Update user's KYC status and store personal info
             await db.users.update_one(
                 {"user_id": user.user_id},
                 {"$set": {
                     "kyc_status": "verified",
                     "kyc_verified_at": datetime.now(timezone.utc),
-                    "is_kyc_verified": True
+                    "is_kyc_verified": True,
+                    "kyc_full_name": submission.full_name,
+                    "kyc_nationality": submission.nationality,
+                    "kyc_id_type": submission.id_type,
+                    "kyc_id_number": submission.id_number,
+                    "kyc_date_of_birth": submission.date_of_birth
                 }}
             )
             
@@ -1209,13 +1251,23 @@ Analyze the image(s) and respond with the JSON verification result."""
                 f"Your {submission.id_type} from {ai_result.get('country', submission.nationality)} has been verified. You now have full access!",
                 "system"
             )
+            
+            await db.kyc_submissions.insert_one(kyc_record)
+            
+            return {
+                "success": True,
+                "kyc_id": kyc_record["kyc_id"],
+                "status": "verified",
+                "ai_result": ai_result,
+                "message": "Identity verified successfully!"
+            }
         else:
-            # INSTANT REJECT - AI could not confirm the document
+            # REJECTED - AI could not verify
             kyc_record["status"] = "rejected"
             kyc_record["rejected_at"] = datetime.now(timezone.utc)
             kyc_record["rejection_reason"] = ai_result.get("reason", "Document could not be verified")
             
-            # Update user's KYC status to rejected
+            # Update user's KYC status
             await db.users.update_one(
                 {"user_id": user.user_id},
                 {"$set": {
@@ -1227,24 +1279,29 @@ Analyze the image(s) and respond with the JSON verification result."""
             # Create rejection notification
             await create_notification(
                 user.user_id,
-                "KYC Rejected ❌",
-                f"Your document could not be verified. Reason: {ai_result.get('reason', 'Invalid document')}. Please try again with a clear photo.",
+                "KYC Verification Failed ❌",
+                f"Reason: {ai_result.get('reason', 'Invalid document')}. Please try again with a valid document.",
                 "system"
             )
-        
-        await db.kyc_submissions.insert_one(kyc_record)
-        
-        return {
-            "success": kyc_record["status"] == "verified",
-            "kyc_id": kyc_record["kyc_id"],
-            "status": kyc_record["status"],
-            "ai_result": ai_result,
-            "message": "Identity verified successfully!" if kyc_record["status"] == "verified" else f"Verification failed: {ai_result.get('reason', 'Invalid document')}"
-        }
+            
+            await db.kyc_submissions.insert_one(kyc_record)
+            
+            return {
+                "success": False,
+                "kyc_id": kyc_record["kyc_id"],
+                "status": "rejected",
+                "ai_result": ai_result,
+                "message": f"Verification failed: {ai_result.get('reason', 'Invalid document')}"
+            }
         
     except Exception as e:
         logging.error(f"KYC submission error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error processing documents: {str(e)}")
+        return {
+            "success": False,
+            "status": "error",
+            "ai_result": None,
+            "message": f"Error processing documents: {str(e)}"
+        }
 
 @api_router.get("/kyc/status")
 async def get_kyc_status(authorization: Optional[str] = Header(None), request: Request = None):

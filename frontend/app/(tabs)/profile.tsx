@@ -872,12 +872,12 @@ export default function Profile() {
               {isSubmittingKyc ? (
                 <>
                   <ActivityIndicator color="#0A1A0F" size="small" />
-                  <Text style={styles.kycContinueBtnText}>Verifying with AI...</Text>
+                  <Text style={styles.kycContinueBtnText}>Verifying...</Text>
                 </>
               ) : (
                 <>
-                  <Ionicons name="sparkles" size={18} color="#0A1A0F" />
-                  <Text style={styles.kycContinueBtnText}>Submit for AI Verification</Text>
+                  <Ionicons name="shield-checkmark" size={18} color="#0A1A0F" />
+                  <Text style={styles.kycContinueBtnText}>Submit for Verification</Text>
                 </>
               )}
             </TouchableOpacity>
