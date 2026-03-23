@@ -1774,7 +1774,7 @@ export default function Trade() {
               <View style={accountChoiceStyles.benefitsList}>
                 <View style={accountChoiceStyles.benefitRow}>
                   <Ionicons name="checkmark" size={16} color="#00E55A" />
-                  <Text style={accountChoiceStyles.benefitText}>Minimum deposit — $10</Text>
+                  <Text style={accountChoiceStyles.benefitText}>Minimum deposit — $25</Text>
                 </View>
                 <View style={accountChoiceStyles.benefitRow}>
                   <Ionicons name="checkmark" size={16} color="#00E55A" />
@@ -1787,7 +1787,7 @@ export default function Trade() {
               </View>
 
               <View style={accountChoiceStyles.minDepositBadge}>
-                <Text style={accountChoiceStyles.minDepositAmount}>10 $</Text>
+                <Text style={accountChoiceStyles.minDepositAmount}>25 $</Text>
                 <Text style={accountChoiceStyles.minDepositLabel}>Minimum deposit</Text>
               </View>
 
