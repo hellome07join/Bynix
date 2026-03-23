@@ -648,7 +648,10 @@ export default function Trade() {
       <View style={styles.header}>
         {/* Left Side - Notification and Deposit */}
         <View style={styles.headerLeft}>
-          <TouchableOpacity style={styles.notifButton}>
+          <TouchableOpacity 
+            style={styles.notifButton}
+            onPress={() => router.push('/(tabs)/notifications')}
+          >
             <Ionicons name="notifications" size={20} color="#FFFFFF" />
             <View style={styles.notifBadge} />
           </TouchableOpacity>

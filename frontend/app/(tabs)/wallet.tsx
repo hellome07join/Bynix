@@ -48,11 +48,15 @@ export default function WalletScreen() {
   
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [depositAmount, setDepositAmount] = useState('25');
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawAddress, setWithdrawAddress] = useState('');
   const [minAmount, setMinAmount] = useState(20);
   const [isLoading, setIsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [depositHistory, setDepositHistory] = useState<DepositRecord[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
   
   // Current deposit info
   const [currentDeposit, setCurrentDeposit] = useState<DepositResponse | null>(null);
@@ -62,6 +66,7 @@ export default function WalletScreen() {
   useEffect(() => {
     loadDepositHistory();
     loadMinAmount();
+    loadTransactions();
   }, []);
   
   const loadMinAmount = async () => {
@@ -74,6 +79,25 @@ export default function WalletScreen() {
       }
     } catch (error) {
       console.error('Error loading min amount:', error);
+    }
+  };
+
+  const loadTransactions = async () => {
+    if (!token) return;
+    
+    try {
+      const response = await fetch(`${API_URL}/wallet/transactions`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setTransactions(data || []);
+      }
+    } catch (error) {
+      console.error('Error loading transactions:', error);
     }
   };
 
@@ -99,8 +123,79 @@ export default function WalletScreen() {
   const onRefresh = async () => {
     setRefreshing(true);
     await loadDepositHistory();
+    await loadTransactions();
     await refreshUser();
     setRefreshing(false);
+  };
+
+  const handleWithdraw = async () => {
+    if (!token) {
+      Alert.alert('Login Required', 'Please login to withdraw funds', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Login', onPress: () => router.push('/(auth)/login') }
+      ]);
+      return;
+    }
+
+    const amount = parseFloat(withdrawAmount);
+    
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Invalid Amount', 'Please enter a valid withdrawal amount');
+      return;
+    }
+
+    if (amount > realBalance) {
+      Alert.alert('Insufficient Balance', `Your balance is $${realBalance.toFixed(2)}`);
+      return;
+    }
+
+    if (amount < 10) {
+      Alert.alert('Minimum Amount', 'Minimum withdrawal amount is $10');
+      return;
+    }
+
+    if (!withdrawAddress || withdrawAddress.trim().length < 10) {
+      Alert.alert('Invalid Address', 'Please enter a valid wallet address');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/wallet/withdraw`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          amount: amount,
+          crypto_address: withdrawAddress.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        if (Platform.OS === 'web') {
+          window.alert('Withdrawal request submitted! It will be processed within 24 hours.');
+        } else {
+          Alert.alert('Success', 'Withdrawal request submitted! It will be processed within 24 hours.');
+        }
+        setShowWithdrawModal(false);
+        setWithdrawAmount('');
+        setWithdrawAddress('');
+        await refreshUser();
+        await loadTransactions();
+      } else {
+        Alert.alert('Error', data.detail || 'Failed to process withdrawal');
+      }
+    } catch (error) {
+      console.error('Error processing withdrawal:', error);
+      Alert.alert('Error', 'Failed to process withdrawal. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleGenerateAddress = async () => {
@@ -261,7 +356,10 @@ export default function WalletScreen() {
               <Text style={styles.depositBtnText}>Deposit</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.withdrawBtn}>
+            <TouchableOpacity 
+              style={styles.withdrawBtn}
+              onPress={() => setShowWithdrawModal(true)}
+            >
               <Ionicons name="arrow-up-circle" size={20} color="#00E55A" />
               <Text style={styles.withdrawBtnText}>Withdraw</Text>
             </TouchableOpacity>
@@ -460,6 +558,126 @@ export default function WalletScreen() {
                 <Text style={styles.paymentId}>Payment ID: {currentDeposit.payment_id}</Text>
               </>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Withdraw Modal */}
+      <Modal
+        visible={showWithdrawModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowWithdrawModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Withdraw Funds</Text>
+              <TouchableOpacity onPress={() => setShowWithdrawModal(false)}>
+                <Ionicons name="close" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Available Balance */}
+            <View style={styles.availableBalanceBox}>
+              <Text style={styles.availableLabel}>Available Balance</Text>
+              <Text style={styles.availableAmount}>${realBalance.toFixed(2)}</Text>
+            </View>
+
+            {/* Withdraw Amount */}
+            <Text style={styles.inputLabel}>Withdrawal Amount</Text>
+            <View style={styles.amountInputContainer}>
+              <Text style={styles.currencySymbol}>$</Text>
+              <TextInput
+                style={styles.amountInput}
+                value={withdrawAmount}
+                onChangeText={setWithdrawAmount}
+                keyboardType="numeric"
+                placeholder="Enter amount"
+                placeholderTextColor="#666666"
+              />
+            </View>
+
+            {/* Quick Amount Buttons */}
+            <View style={styles.quickAmounts}>
+              {['25', '50', '100', '250'].map((amt) => (
+                <TouchableOpacity 
+                  key={amt}
+                  style={[
+                    styles.quickAmountBtn,
+                    withdrawAmount === amt && styles.quickAmountBtnActive
+                  ]}
+                  onPress={() => setWithdrawAmount(amt)}
+                >
+                  <Text style={[
+                    styles.quickAmountText,
+                    withdrawAmount === amt && styles.quickAmountTextActive
+                  ]}>${amt}</Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity 
+                style={[
+                  styles.quickAmountBtn,
+                  withdrawAmount === String(realBalance) && styles.quickAmountBtnActive
+                ]}
+                onPress={() => setWithdrawAmount(String(Math.floor(realBalance)))}
+              >
+                <Text style={[
+                  styles.quickAmountText,
+                  withdrawAmount === String(realBalance) && styles.quickAmountTextActive
+                ]}>Max</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Wallet Address */}
+            <Text style={styles.inputLabel}>Wallet Address (USDT TRC20)</Text>
+            <TextInput
+              style={styles.addressInput}
+              value={withdrawAddress}
+              onChangeText={setWithdrawAddress}
+              placeholder="Enter your TRC20 wallet address"
+              placeholderTextColor="#666666"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            {/* Fee Info */}
+            <View style={styles.feeInfoBox}>
+              <View style={styles.feeRow}>
+                <Text style={styles.feeLabel}>Network Fee</Text>
+                <Text style={styles.feeValue}>$1.00</Text>
+              </View>
+              <View style={styles.feeRow}>
+                <Text style={styles.feeLabel}>You will receive</Text>
+                <Text style={styles.feeValueGreen}>
+                  ${Math.max(0, parseFloat(withdrawAmount || '0') - 1).toFixed(2)}
+                </Text>
+              </View>
+            </View>
+
+            {/* Warning */}
+            <View style={styles.warningBox}>
+              <Ionicons name="information-circle" size={20} color="#FFB800" />
+              <Text style={styles.warningText}>
+                Minimum withdrawal: $10. Withdrawals are processed within 24 hours.
+              </Text>
+            </View>
+
+            {/* Submit Button */}
+            <TouchableOpacity
+              style={[
+                styles.generateBtn,
+                (isLoading || !withdrawAmount || !withdrawAddress) && styles.generateBtnDisabled
+              ]}
+              onPress={handleWithdraw}
+              disabled={isLoading || !withdrawAmount || !withdrawAddress}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#0A1A0F" />
+              ) : (
+                <Text style={styles.generateBtnText}>Request Withdrawal</Text>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -795,5 +1013,56 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     marginTop: 12,
+  },
+  availableBalanceBox: {
+    backgroundColor: 'rgba(0, 229, 90, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  availableLabel: {
+    fontSize: 12,
+    color: '#888888',
+    marginBottom: 4,
+  },
+  availableAmount: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#00E55A',
+  },
+  addressInput: {
+    backgroundColor: '#0A1A0F',
+    borderRadius: 12,
+    padding: 16,
+    color: '#FFFFFF',
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: '#333333',
+    marginBottom: 16,
+  },
+  feeInfoBox: {
+    backgroundColor: '#0A1A0F',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  feeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  feeLabel: {
+    fontSize: 14,
+    color: '#888888',
+  },
+  feeValue: {
+    fontSize: 14,
+    color: '#FFFFFF',
+  },
+  feeValueGreen: {
+    fontSize: 14,
+    color: '#00E55A',
+    fontWeight: '600',
   },
 });

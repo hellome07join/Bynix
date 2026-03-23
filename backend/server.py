@@ -153,6 +153,23 @@ class ChartDataResponse(BaseModel):
     ticks: List[ChartTick]
     last_updated: datetime
 
+# Notification Models
+class Notification(BaseModel):
+    notification_id: str
+    user_id: str
+    title: str
+    message: str
+    type: str  # trade, deposit, withdrawal, system, promo
+    is_read: bool = False
+    data: Optional[dict] = None
+    created_at: datetime
+
+class NotificationCreate(BaseModel):
+    title: str
+    message: str
+    type: str = "system"
+    data: Optional[dict] = None
+
 # ============= Helper Functions =============
 
 def hash_password(password: str) -> str:
@@ -755,6 +772,86 @@ async def get_transactions(authorization: Optional[str] = Header(None), request:
     ).sort("created_at", -1).to_list(100)
     
     return transactions
+
+# ============= Notification Routes =============
+
+@api_router.get("/notifications")
+async def get_notifications(authorization: Optional[str] = Header(None), request: Request = None):
+    """Get user's notifications"""
+    user = await get_current_user(authorization, request)
+    
+    notifications = await db.notifications.find(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(50).to_list(50)
+    
+    # Count unread
+    unread_count = await db.notifications.count_documents({
+        "user_id": user.user_id,
+        "is_read": False
+    })
+    
+    return {
+        "notifications": notifications,
+        "unread_count": unread_count
+    }
+
+@api_router.post("/notifications/read/{notification_id}")
+async def mark_notification_read(notification_id: str, authorization: Optional[str] = Header(None), request: Request = None):
+    """Mark a notification as read"""
+    user = await get_current_user(authorization, request)
+    
+    result = await db.notifications.update_one(
+        {"notification_id": notification_id, "user_id": user.user_id},
+        {"$set": {"is_read": True}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    
+    return {"success": True}
+
+@api_router.post("/notifications/read-all")
+async def mark_all_notifications_read(authorization: Optional[str] = Header(None), request: Request = None):
+    """Mark all notifications as read"""
+    user = await get_current_user(authorization, request)
+    
+    await db.notifications.update_many(
+        {"user_id": user.user_id, "is_read": False},
+        {"$set": {"is_read": True}}
+    )
+    
+    return {"success": True}
+
+@api_router.delete("/notifications/{notification_id}")
+async def delete_notification(notification_id: str, authorization: Optional[str] = Header(None), request: Request = None):
+    """Delete a notification"""
+    user = await get_current_user(authorization, request)
+    
+    result = await db.notifications.delete_one(
+        {"notification_id": notification_id, "user_id": user.user_id}
+    )
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    
+    return {"success": True}
+
+# Helper function to create notifications
+async def create_notification(user_id: str, title: str, message: str, notif_type: str, data: dict = None):
+    """Create a notification for a user"""
+    notification = {
+        "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
+        "user_id": user_id,
+        "title": title,
+        "message": message,
+        "type": notif_type,
+        "is_read": False,
+        "data": data,
+        "created_at": datetime.now(timezone.utc)
+    }
+    await db.notifications.insert_one(notification)
+    return notification
 
 # ============= Admin Routes =============
 
