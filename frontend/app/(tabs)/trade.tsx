@@ -946,6 +946,7 @@ export default function Trade() {
               remainingTime: trade.countdown
             }))}
             onPriceUpdate={(price) => setCurrentPrice(price)}
+            authToken={token}
           />
         </View>
       </View>

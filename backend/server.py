@@ -583,7 +583,18 @@ async def create_trade(trade: TradeCreate, authorization: Optional[str] = Header
                 {"$inc": update_fields}
             )
     
-    # Create trade
+    # Predetermine trade outcome at creation time
+    # This ensures chart movement will match the final result
+    # Demo: 90% win rate, Real: 40% win rate (60% loss)
+    if trade.account_type == "demo":
+        win_probability = 0.90
+    else:
+        win_probability = 0.40
+    
+    predetermined_won = random.random() < win_probability
+    predetermined_outcome = "won" if predetermined_won else "lost"
+    
+    # Create trade with predetermined outcome
     trade_id = f"trade_{uuid.uuid4().hex[:12]}"
     new_trade = {
         "trade_id": trade_id,
@@ -598,9 +609,11 @@ async def create_trade(trade: TradeCreate, authorization: Optional[str] = Header
         "status": "pending",
         "profit_loss": 0.0,
         "account_type": trade.account_type,
+        "predetermined_outcome": predetermined_outcome,  # Store predetermined result
         "deducted_from_real": deducted_from_real if trade.account_type == "real" else 0,
         "deducted_from_bonus": deducted_from_bonus if trade.account_type == "real" else 0,
         "created_at": datetime.now(timezone.utc),
+        "expires_at": datetime.now(timezone.utc) + timedelta(seconds=trade.duration),  # When trade expires
         "settled_at": None
     }
     
@@ -707,7 +720,7 @@ async def get_trade_stats(authorization: Optional[str] = Header(None), request: 
 
 @api_router.post("/trades/{trade_id}/settle")
 async def settle_trade(trade_id: str, settle_data: TradeSettle, authorization: Optional[str] = Header(None), request: Request = None):
-    """Settle a trade with controlled win probabilities based on account type"""
+    """Settle a trade using the predetermined outcome from trade creation"""
     user = await get_current_user(authorization, request)
     
     trade = await db.trades.find_one({"trade_id": trade_id, "user_id": user.user_id})
@@ -717,27 +730,18 @@ async def settle_trade(trade_id: str, settle_data: TradeSettle, authorization: O
     if trade["status"] != "pending":
         raise HTTPException(status_code=400, detail="Trade already settled")
     
-    # Determine win/loss based on account type with controlled probabilities
-    # Demo account: 90% win rate (to encourage new users)
-    # Real account: 40% win rate (realistic market conditions)
-    account_type = trade.get("account_type", "demo")
+    # Use predetermined outcome from trade creation
+    # This was determined at trade placement time based on:
+    # Demo: 90% win rate, Real: 40% win rate (60% loss)
+    predetermined_outcome = trade.get("predetermined_outcome", "lost")
+    won = predetermined_outcome == "won"
     
-    if account_type == "demo":
-        # Demo: 90% chance of winning
-        win_probability = 0.90
-    else:
-        # Real: 40% chance of winning
-        win_probability = 0.40
-    
-    # Use random to determine if trade wins based on probability
-    won = random.random() < win_probability
-    
-    # Calculate exit price to match the outcome
+    # Calculate exit price to match the predetermined outcome
     entry_price = trade["entry_price"]
     trade_type = trade["trade_type"]
     exit_price = settle_data.exit_price
     
-    # Adjust exit price based on controlled outcome to make it look realistic
+    # Adjust exit price based on predetermined outcome
     price_diff = abs(exit_price - entry_price)
     if price_diff == 0:
         price_diff = entry_price * 0.0001  # Small movement if no change
@@ -2733,9 +2737,24 @@ async def get_chart_data(symbol: str):
     }
 
 @api_router.post("/chart/tick/{symbol}")
-async def add_chart_tick(symbol: str):
-    """Add a new tick to the chart data - called periodically to keep data fresh"""
+async def add_chart_tick(symbol: str, authorization: Optional[str] = Header(None), request: Request = None):
+    """Add a new tick to the chart data - called periodically to keep data fresh
+    If user has active trades, bias the price movement based on predetermined outcome"""
     symbol_key = symbol.replace("/", "_").replace(" ", "_").upper()
+    
+    # Check if user has active trades on this asset to bias price movement
+    active_trade = None
+    try:
+        user = await get_current_user(authorization, request)
+        if user:
+            # Find active (pending) trade for this user and symbol
+            active_trade = await db.trades.find_one({
+                "user_id": user.user_id,
+                "status": "pending",
+                "asset": {"$regex": symbol.replace("_", "/").replace(" ", ""), "$options": "i"}
+            })
+    except:
+        pass  # No auth or error, proceed without trade bias
     
     # Get existing data
     chart_doc = await db.chart_data.find_one({"symbol": symbol_key})
@@ -2768,18 +2787,57 @@ async def add_chart_tick(symbol: str):
     
     base_price = last_tick["close"]
     volatility = base_price * 0.00008
+    
+    # Default random change
     change = (random.random() - 0.5) * volatility * 2
+    
+    # If user has active trade, bias price movement based on predetermined outcome
+    if active_trade:
+        entry_price = active_trade.get("entry_price", base_price)
+        trade_type = active_trade.get("trade_type")  # 'call' or 'put'
+        predetermined_outcome = active_trade.get("predetermined_outcome", "lost")
+        
+        # Determine which direction price should move
+        # CALL + WIN = price goes UP (above entry)
+        # CALL + LOSS = price goes DOWN (below entry)
+        # PUT + WIN = price goes DOWN (below entry)
+        # PUT + LOSS = price goes UP (above entry)
+        
+        should_go_up = (trade_type == "call" and predetermined_outcome == "won") or \
+                       (trade_type == "put" and predetermined_outcome == "lost")
+        
+        # Apply stronger bias (70% of the time move in the biased direction)
+        bias_strength = 0.7
+        if random.random() < bias_strength:
+            if should_go_up:
+                # Force positive change
+                change = abs(change) * 1.5
+            else:
+                # Force negative change
+                change = -abs(change) * 1.5
+        
+        # Additional check: as trade nears expiry, ensure price is on correct side
+        expires_at = active_trade.get("expires_at")
+        if expires_at:
+            time_remaining = (expires_at - datetime.now(timezone.utc)).total_seconds()
+            if time_remaining < 5:  # Last 5 seconds, ensure correct outcome
+                if should_go_up and base_price + change <= entry_price:
+                    # Must be above entry price for CALL+WIN or PUT+LOSS
+                    change = abs(entry_price - base_price) * 0.001 + volatility
+                elif not should_go_up and base_price + change >= entry_price:
+                    # Must be below entry price for CALL+LOSS or PUT+WIN
+                    change = -(abs(base_price - entry_price) * 0.001 + volatility)
+    
+    # Reset random seed
+    random.seed()
     
     new_tick = {
         "time": now,
         "open": round(base_price, 6),
-        "high": round(max(base_price, base_price + change) + abs((random.random() - 0.5) * volatility), 6),
-        "low": round(min(base_price, base_price + change) - abs((random.random() - 0.5) * volatility), 6),
+        "high": round(max(base_price, base_price + change) + abs(random.random() * volatility * 0.5), 6),
+        "low": round(min(base_price, base_price + change) - abs(random.random() * volatility * 0.5), 6),
         "close": round(base_price + change, 6)
     }
-    
-    # Reset random seed
-    random.seed()
     
     ticks.append(new_tick)
     

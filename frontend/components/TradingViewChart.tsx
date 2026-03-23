@@ -26,6 +26,7 @@ interface TradingViewChartProps {
   chartType?: 'candle' | 'line' | 'bar';
   tradeMarkers?: TradeMarker[];
   onPriceUpdate?: (price: number) => void;
+  authToken?: string | null;  // Add auth token for biased price updates
 }
 
 // Get API URL from environment
@@ -59,7 +60,8 @@ export default function TradingViewChart({
   currentPrice,
   chartType = 'candle',
   tradeMarkers = [],
-  onPriceUpdate
+  onPriceUpdate,
+  authToken
 }: TradingViewChartProps) {
   // Generate initial placeholder data synchronously for instant display
   const getInitialPlaceholderData = useCallback((sym: string): CandleData[] => {
@@ -350,8 +352,15 @@ export default function TradingViewChart({
         const cleanSymbol = symbol.replace(' OTC', '').replace('/', '').toUpperCase();
         
         // Call server to add new tick and get updated data
+        // Include auth token so server can bias price based on user's active trades
+        const headers: Record<string, string> = {};
+        if (authToken) {
+          headers['Authorization'] = `Bearer ${authToken}`;
+        }
+        
         const response = await fetch(`${apiUrl}/chart/tick/${cleanSymbol}`, {
-          method: 'POST'
+          method: 'POST',
+          headers
         });
         
         if (response.ok) {
@@ -399,7 +408,7 @@ export default function TradingViewChart({
         clearInterval(syncWithServerRef.current);
       }
     };
-  }, [symbol]);
+  }, [symbol, authToken]);
 
   // Call onPriceUpdate when price changes
   useEffect(() => {
