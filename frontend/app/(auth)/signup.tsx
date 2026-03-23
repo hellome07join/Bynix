@@ -13,7 +13,8 @@ import {
   Image,
   Animated,
   Dimensions,
-  Easing
+  Easing,
+  Modal
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,6 +25,33 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const { width, height } = Dimensions.get('window');
 
 declare const window: any;
+
+// Allowed countries for signup
+const ALLOWED_COUNTRIES = [
+  // Asia
+  { name: 'India', flag: '🇮🇳', region: 'Asia' },
+  { name: 'Bangladesh', flag: '🇧🇩', region: 'Asia' },
+  { name: 'Malaysia', flag: '🇲🇾', region: 'Asia' },
+  { name: 'Pakistan', flag: '🇵🇰', region: 'Asia' },
+  { name: 'Thailand', flag: '🇹🇭', region: 'Asia' },
+  { name: 'Philippines', flag: '🇵🇭', region: 'Asia' },
+  { name: 'Vietnam', flag: '🇻🇳', region: 'Asia' },
+  { name: 'Indonesia', flag: '🇮🇩', region: 'Asia' },
+  { name: 'Uzbekistan', flag: '🇺🇿', region: 'Asia' },
+  // Africa
+  { name: 'South Africa', flag: '🇿🇦', region: 'Africa' },
+  { name: 'Kenya', flag: '🇰🇪', region: 'Africa' },
+  { name: 'Nigeria', flag: '🇳🇬', region: 'Africa' },
+  // Latin America
+  { name: 'Brazil', flag: '🇧🇷', region: 'Latin America' },
+  { name: 'Mexico', flag: '🇲🇽', region: 'Latin America' },
+  { name: 'Argentina', flag: '🇦🇷', region: 'Latin America' },
+];
+
+const RESTRICTED_COUNTRIES = [
+  'United States', 'Canada', 'European Union (EU)', 'European Economic Area (EEA)',
+  'Russia', 'Hong Kong', 'Israel'
+];
 
 // Animated Grid Line Component
 const GridLine = ({ delay, horizontal }: { delay: number; horizontal?: boolean }) => {
@@ -171,6 +199,8 @@ export default function Signup() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState<{name: string; flag: string; region: string} | null>(null);
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
 
   // Animations
   const logoRotate = useRef(new Animated.Value(0)).current;
@@ -290,6 +320,15 @@ export default function Signup() {
       return;
     }
 
+    if (!selectedCountry) {
+      if (Platform.OS === 'web') {
+        window.alert('Please select your country');
+      } else {
+        Alert.alert('Error', 'Please select your country');
+      }
+      return;
+    }
+
     if (password !== confirmPassword) {
       if (Platform.OS === 'web') {
         window.alert('Passwords do not match');
@@ -310,7 +349,13 @@ export default function Signup() {
 
     setLoading(true);
     try {
-      const response = await api.signup({ name, email, password });
+      const response = await api.signup({ 
+        name, 
+        email, 
+        password,
+        country: selectedCountry.name,
+        country_flag: selectedCountry.flag,
+      });
       
       await AsyncStorage.setItem('signup_email', email);
       await AsyncStorage.setItem('dev_otp', response.otp);
@@ -577,6 +622,28 @@ export default function Signup() {
                 )}
               </View>
 
+              {/* Country Selector */}
+              <TouchableOpacity 
+                style={[
+                  styles.inputContainer,
+                  styles.countrySelector,
+                  focusedInput === 'country' && styles.inputFocused
+                ]}
+                onPress={() => setShowCountryPicker(true)}
+              >
+                <View style={styles.inputIconContainer}>
+                  <Ionicons name="globe-outline" size={18} color="#00E55A" />
+                </View>
+                <Text style={[
+                  styles.input,
+                  styles.countrySelectorText,
+                  !selectedCountry && { color: '#444' }
+                ]}>
+                  {selectedCountry ? `${selectedCountry.flag} ${selectedCountry.name}` : 'SELECT COUNTRY'}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color="#00E55A" />
+              </TouchableOpacity>
+
               {/* Password Input */}
               <View style={[
                 styles.inputContainer,
@@ -724,6 +791,96 @@ export default function Signup() {
           <Text style={styles.footerText}>v2.0.0 | ENCRYPTED CONNECTION</Text>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Country Picker Modal */}
+      <Modal visible={showCountryPicker} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>SELECT COUNTRY</Text>
+              <TouchableOpacity onPress={() => setShowCountryPicker(false)}>
+                <Ionicons name="close-circle" size={28} color="#666" />
+              </TouchableOpacity>
+            </View>
+            
+            {/* Restricted Notice */}
+            <View style={styles.restrictedNotice}>
+              <Ionicons name="warning" size={16} color="#FF6B6B" />
+              <Text style={styles.restrictedText}>
+                Service not available in: US, Canada, EU, EEA, Russia, Hong Kong, Israel
+              </Text>
+            </View>
+
+            <ScrollView style={styles.countryList}>
+              {/* Asia */}
+              <Text style={styles.regionHeader}>ASIA</Text>
+              {ALLOWED_COUNTRIES.filter(c => c.region === 'Asia').map((country) => (
+                <TouchableOpacity
+                  key={country.name}
+                  style={[
+                    styles.countryItem,
+                    selectedCountry?.name === country.name && styles.countryItemSelected
+                  ]}
+                  onPress={() => {
+                    setSelectedCountry(country);
+                    setShowCountryPicker(false);
+                  }}
+                >
+                  <Text style={styles.countryFlag}>{country.flag}</Text>
+                  <Text style={styles.countryName}>{country.name}</Text>
+                  {selectedCountry?.name === country.name && (
+                    <Ionicons name="checkmark-circle" size={20} color="#00E55A" />
+                  )}
+                </TouchableOpacity>
+              ))}
+
+              {/* Africa */}
+              <Text style={styles.regionHeader}>AFRICA</Text>
+              {ALLOWED_COUNTRIES.filter(c => c.region === 'Africa').map((country) => (
+                <TouchableOpacity
+                  key={country.name}
+                  style={[
+                    styles.countryItem,
+                    selectedCountry?.name === country.name && styles.countryItemSelected
+                  ]}
+                  onPress={() => {
+                    setSelectedCountry(country);
+                    setShowCountryPicker(false);
+                  }}
+                >
+                  <Text style={styles.countryFlag}>{country.flag}</Text>
+                  <Text style={styles.countryName}>{country.name}</Text>
+                  {selectedCountry?.name === country.name && (
+                    <Ionicons name="checkmark-circle" size={20} color="#00E55A" />
+                  )}
+                </TouchableOpacity>
+              ))}
+
+              {/* Latin America */}
+              <Text style={styles.regionHeader}>LATIN AMERICA</Text>
+              {ALLOWED_COUNTRIES.filter(c => c.region === 'Latin America').map((country) => (
+                <TouchableOpacity
+                  key={country.name}
+                  style={[
+                    styles.countryItem,
+                    selectedCountry?.name === country.name && styles.countryItemSelected
+                  ]}
+                  onPress={() => {
+                    setSelectedCountry(country);
+                    setShowCountryPicker(false);
+                  }}
+                >
+                  <Text style={styles.countryFlag}>{country.flag}</Text>
+                  <Text style={styles.countryName}>{country.name}</Text>
+                  {selectedCountry?.name === country.name && (
+                    <Ionicons name="checkmark-circle" size={20} color="#00E55A" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1139,5 +1296,91 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     letterSpacing: 2,
+  },
+  countrySelector: {
+    justifyContent: 'space-between',
+  },
+  countrySelectorText: {
+    flex: 1,
+    paddingVertical: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#0A1A0F',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: '80%',
+    borderWidth: 1,
+    borderColor: '#00E55A33',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#00E55A',
+    letterSpacing: 2,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  restrictedNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 107, 0.3)',
+    gap: 8,
+  },
+  restrictedText: {
+    flex: 1,
+    color: '#FF6B6B',
+    fontSize: 10,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  countryList: {
+    maxHeight: 400,
+  },
+  regionHeader: {
+    color: '#00E55A',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 2,
+    marginTop: 12,
+    marginBottom: 8,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    opacity: 0.7,
+  },
+  countryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 229, 90, 0.1)',
+  },
+  countryItemSelected: {
+    backgroundColor: 'rgba(0, 229, 90, 0.15)',
+    borderRadius: 8,
+  },
+  countryFlag: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  countryName: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
 });

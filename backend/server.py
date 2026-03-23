@@ -65,6 +65,8 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     name: str
+    country: Optional[str] = None
+    country_flag: Optional[str] = None
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -283,6 +285,8 @@ async def signup(user: UserCreate):
         "name": user.name,
         "full_name": user.name,
         "nickname": None,
+        "country": user.country,
+        "country_flag": user.country_flag or "🌍",
         "password": hashed_password,
         "picture": None,
         "demo_balance": 10000.0,
