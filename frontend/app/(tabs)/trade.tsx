@@ -186,6 +186,7 @@ export default function Trade() {
   // Onboarding Tutorial State
   const [showTutorial, setShowTutorial] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
+  const [showAccountChoice, setShowAccountChoice] = useState(false);
   
   // Market data
   const [selectedAsset, setSelectedAsset] = useState('EUR/USD OTC');
@@ -367,6 +368,8 @@ export default function Trade() {
       await AsyncStorage.setItem('hasSeenTradingTutorial', 'true');
       setShowTutorial(false);
       setTutorialStep(0);
+      // Show account choice popup after tutorial
+      setShowAccountChoice(true);
     } catch (error) {
       console.error('Error saving tutorial status:', error);
     }
@@ -374,6 +377,18 @@ export default function Trade() {
 
   const skipTutorial = async () => {
     await completeTutorial();
+  };
+
+  const selectDemoAccount = () => {
+    setAccountType('demo');
+    setShowAccountChoice(false);
+  };
+
+  const selectRealAccount = () => {
+    setAccountType('real');
+    setShowAccountChoice(false);
+    // Navigate to wallet for deposit
+    router.push('/wallet');
   };
 
   const nextTutorialStep = () => {
@@ -1696,6 +1711,91 @@ export default function Trade() {
               )}
             </View>
           </View>
+        </View>
+      </Modal>
+
+      {/* Account Choice Modal */}
+      <Modal
+        visible={showAccountChoice}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowAccountChoice(false)}
+      >
+        <View style={accountChoiceStyles.overlay}>
+          <ScrollView 
+            contentContainerStyle={accountChoiceStyles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Header */}
+            <Text style={accountChoiceStyles.header}>Choose your account</Text>
+
+            {/* Demo Account Card */}
+            <View style={accountChoiceStyles.card}>
+              <View style={accountChoiceStyles.cardIcon}>
+                <Ionicons name="paper-plane" size={32} color="#00E55A" />
+              </View>
+              <Text style={accountChoiceStyles.cardTitle}>Demo account</Text>
+              <Text style={accountChoiceStyles.cardSubtitle}>
+                Your demo account has a 10,000 $ balance
+              </Text>
+              
+              <View style={accountChoiceStyles.benefitsList}>
+                <View style={accountChoiceStyles.benefitRow}>
+                  <Ionicons name="checkmark" size={16} color="#00E55A" />
+                  <Text style={accountChoiceStyles.benefitText}>Practice trading without risk</Text>
+                </View>
+                <View style={accountChoiceStyles.benefitRow}>
+                  <Ionicons name="checkmark" size={16} color="#00E55A" />
+                  <Text style={accountChoiceStyles.benefitText}>Refill balance anytime</Text>
+                </View>
+                <View style={accountChoiceStyles.benefitRow}>
+                  <Ionicons name="close" size={16} color="#FF6B6B" />
+                  <Text style={accountChoiceStyles.benefitText}>Some assets are unavailable</Text>
+                </View>
+              </View>
+
+              <Text style={accountChoiceStyles.tagText}>Without risk</Text>
+
+              <TouchableOpacity style={accountChoiceStyles.demoBtn} onPress={selectDemoAccount}>
+                <Text style={accountChoiceStyles.demoBtnText}>Trading on a demo account</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Real Account Card - Highlighted */}
+            <View style={[accountChoiceStyles.card, accountChoiceStyles.cardHighlighted]}>
+              <View style={accountChoiceStyles.cardIcon}>
+                <Ionicons name="rocket" size={32} color="#00E55A" />
+              </View>
+              <Text style={accountChoiceStyles.cardTitle}>Real account</Text>
+              <Text style={accountChoiceStyles.cardSubtitle}>
+                Top up your account with the minimum amount and start earning
+              </Text>
+              
+              <View style={accountChoiceStyles.benefitsList}>
+                <View style={accountChoiceStyles.benefitRow}>
+                  <Ionicons name="checkmark" size={16} color="#00E55A" />
+                  <Text style={accountChoiceStyles.benefitText}>Minimum deposit — $10</Text>
+                </View>
+                <View style={accountChoiceStyles.benefitRow}>
+                  <Ionicons name="checkmark" size={16} color="#00E55A" />
+                  <Text style={accountChoiceStyles.benefitText}>Access more assets and features</Text>
+                </View>
+                <View style={accountChoiceStyles.benefitRow}>
+                  <Ionicons name="checkmark" size={16} color="#00E55A" />
+                  <Text style={accountChoiceStyles.benefitText}>Join tournaments and earn real money</Text>
+                </View>
+              </View>
+
+              <View style={accountChoiceStyles.minDepositBadge}>
+                <Text style={accountChoiceStyles.minDepositAmount}>10 $</Text>
+                <Text style={accountChoiceStyles.minDepositLabel}>Minimum deposit</Text>
+              </View>
+
+              <TouchableOpacity style={accountChoiceStyles.realBtn} onPress={selectRealAccount}>
+                <Text style={accountChoiceStyles.realBtnText}>Top up with 100 $</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </View>
       </Modal>
     </View>
@@ -3245,5 +3345,118 @@ const tutorialStyles = StyleSheet.create({
     color: '#000',
     fontSize: 16,
     fontWeight: '800',
+  },
+});
+
+// Account Choice Modal Styles
+const accountChoiceStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 40,
+  },
+  header: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  card: {
+    backgroundColor: '#1A2633',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  cardHighlighted: {
+    borderWidth: 2,
+    borderColor: '#00E55A',
+  },
+  cardIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(0, 229, 90, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  cardTitle: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  cardSubtitle: {
+    color: '#888',
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  benefitsList: {
+    width: '100%',
+    marginBottom: 16,
+  },
+  benefitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 10,
+  },
+  benefitText: {
+    color: '#CCC',
+    fontSize: 13,
+  },
+  tagText: {
+    color: '#00E55A',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  demoBtn: {
+    width: '100%',
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#444',
+    alignItems: 'center',
+  },
+  demoBtnText: {
+    color: '#888',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  minDepositBadge: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  minDepositAmount: {
+    color: '#00E55A',
+    fontSize: 32,
+    fontWeight: '800',
+  },
+  minDepositLabel: {
+    color: '#888',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  realBtn: {
+    width: '100%',
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: '#00E55A',
+    alignItems: 'center',
+  },
+  realBtnText: {
+    color: '#000',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
