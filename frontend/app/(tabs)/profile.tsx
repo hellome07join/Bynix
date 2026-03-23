@@ -112,7 +112,13 @@ export default function Profile() {
             netPnL: stats.net_pnl || 0,
           },
           tierProgress: stats.volume || 0,
+          accountId: stats.account_id || prev.accountId,
+          nickname: stats.nickname || '',
         }));
+        // Also update nickname state for the modal
+        if (stats.nickname) {
+          setNickname(stats.nickname);
+        }
       }
     } catch (error) {
       console.error('Error fetching profile stats:', error);
@@ -434,12 +440,20 @@ export default function Profile() {
 
   const saveNickname = async () => {
     if (!token) {
-      Alert.alert('Error', 'Please login first');
+      if (Platform.OS === 'web') {
+        window.alert('Please login first');
+      } else {
+        Alert.alert('Error', 'Please login first');
+      }
       return;
     }
 
     if (nickname.length < 3 || nickname.length > 20) {
-      Alert.alert('Invalid Nickname', 'Nickname must be 3-20 characters');
+      if (Platform.OS === 'web') {
+        window.alert('Nickname must be 3-20 characters');
+      } else {
+        Alert.alert('Invalid Nickname', 'Nickname must be 3-20 characters');
+      }
       return;
     }
 
@@ -454,14 +468,26 @@ export default function Profile() {
       if (response.ok) {
         setUserData(prev => ({ ...prev, nickname }));
         setShowNicknameModal(false);
-        Alert.alert('Success', 'Nickname updated successfully!');
+        if (Platform.OS === 'web') {
+          window.alert('Nickname updated successfully!');
+        } else {
+          Alert.alert('Success', 'Nickname updated successfully!');
+        }
       } else {
         const data = await response.json();
-        Alert.alert('Error', data.detail || 'Failed to update nickname');
+        if (Platform.OS === 'web') {
+          window.alert(data.detail || 'Failed to update nickname');
+        } else {
+          Alert.alert('Error', data.detail || 'Failed to update nickname');
+        }
       }
     } catch (error) {
       console.error('Error updating nickname:', error);
-      Alert.alert('Error', 'Failed to update nickname');
+      if (Platform.OS === 'web') {
+        window.alert('Failed to update nickname');
+      } else {
+        Alert.alert('Error', 'Failed to update nickname');
+      }
     }
   };
 

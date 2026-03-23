@@ -263,14 +263,31 @@ async def signup(user: UserCreate):
     hashed_password = hash_password(user.password)
     otp = generate_otp()
     
+    # Generate unique account ID (incremental starting from 10000001)
+    last_user = await db.users.find_one(
+        {"account_id": {"$exists": True}},
+        sort=[("account_id", -1)]
+    )
+    if last_user and last_user.get("account_id"):
+        try:
+            account_id = int(last_user["account_id"]) + 1
+        except:
+            account_id = 10000001
+    else:
+        account_id = 10000001
+    
     new_user = {
         "user_id": user_id,
+        "account_id": str(account_id),
         "email": user.email,
         "name": user.name,
+        "full_name": user.name,
+        "nickname": None,
         "password": hashed_password,
         "picture": None,
         "demo_balance": 10000.0,
         "real_balance": 0.0,
+        "bonus_balance": 0.0,
         "is_admin": False,
         "is_verified": False,
         "otp": otp,
@@ -285,6 +302,7 @@ async def signup(user: UserCreate):
     return {
         "message": "User created successfully. Please verify your email.",
         "user_id": user_id,
+        "account_id": str(account_id),
         "otp": otp  # Remove this in production
     }
 
@@ -942,15 +960,20 @@ async def get_leaderboard():
     for i, result in enumerate(results):
         user = await db.users.find_one(
             {"user_id": result["_id"]},
-            {"_id": 0, "user_id": 1, "name": 1, "full_name": 1, "nickname": 1, "country": 1, "country_flag": 1}
+            {"_id": 0, "user_id": 1, "name": 1, "full_name": 1, "nickname": 1, "account_id": 1, "country": 1, "country_flag": 1}
         )
         
         if user:
             win_rate = (result["won_trades"] / result["total_trades"] * 100) if result["total_trades"] > 0 else 0
+            # Use nickname if set, otherwise use ID: {account_id}
+            display_name = user.get("nickname")
+            if not display_name:
+                account_id = user.get("account_id", result['_id'][-8:])
+                display_name = f"ID: {account_id}"
             leaderboard.append({
                 "rank": i + 1,
                 "user_id": result["_id"],
-                "name": user.get("nickname") or user.get("full_name") or user.get("name") or f"Trader#{result['_id'][-6:]}",
+                "name": display_name,
                 "country": user.get("country", "Unknown"),
                 "country_flag": user.get("country_flag", "🌍"),
                 "profit": round(result["total_profit"], 2),
@@ -1059,6 +1082,32 @@ async def get_profile_stats(authorization: Optional[str] = Header(None), request
     """Get user's trading statistics"""
     user = await get_current_user(authorization, request)
     
+    # Get user's profile info
+    user_doc = await db.users.find_one(
+        {"user_id": user.user_id},
+        {"account_id": 1, "nickname": 1, "full_name": 1, "name": 1}
+    )
+    
+    # Ensure user has account_id (migration for existing users)
+    if user_doc and not user_doc.get("account_id"):
+        last_user = await db.users.find_one(
+            {"account_id": {"$exists": True}},
+            sort=[("account_id", -1)]
+        )
+        if last_user and last_user.get("account_id"):
+            try:
+                new_account_id = int(last_user["account_id"]) + 1
+            except:
+                new_account_id = 10000001
+        else:
+            new_account_id = 10000001
+        
+        await db.users.update_one(
+            {"user_id": user.user_id},
+            {"$set": {"account_id": str(new_account_id)}}
+        )
+        user_doc["account_id"] = str(new_account_id)
+    
     # Get all-time stats
     all_time_pipeline = [
         {
@@ -1088,6 +1137,8 @@ async def get_profile_stats(authorization: Optional[str] = Header(None), request
             "win_rate": 0,
             "volume": 0,
             "net_pnl": 0,
+            "account_id": user_doc.get("account_id") if user_doc else None,
+            "nickname": user_doc.get("nickname") if user_doc else None,
         }
     
     stats = results[0]
@@ -1098,6 +1149,8 @@ async def get_profile_stats(authorization: Optional[str] = Header(None), request
         "win_rate": round(win_rate, 1),
         "volume": round(stats["total_volume"], 2),
         "net_pnl": round(stats["net_pnl"], 2),
+        "account_id": user_doc.get("account_id") if user_doc else None,
+        "nickname": user_doc.get("nickname") if user_doc else None,
     }
 
 @api_router.put("/profile/nickname")
