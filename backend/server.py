@@ -790,7 +790,7 @@ async def settle_trade(trade_id: str, settle_data: TradeSettle, authorization: O
             )
         # If lost, the amount was already deducted when trade was placed
     
-    return {"message": "Trade settled", "status": status, "profit_loss": profit_loss}
+    return {"message": "Trade settled", "status": status, "profit_loss": profit_loss, "exit_price": exit_price, "entry_price": entry_price}
 
 # ============= Wallet Routes =============
 

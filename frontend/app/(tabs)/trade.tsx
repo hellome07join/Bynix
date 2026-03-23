@@ -709,7 +709,12 @@ export default function Trade() {
         won = result.status === 'won';
         profitLoss = result.profit_loss;
         
-        console.log(`Trade Settlement from Backend: Status=${result.status}, P/L=${profitLoss}`);
+        // Use backend's adjusted exit price for display (matches the outcome)
+        if (result.exit_price) {
+          finalExitPrice = result.exit_price;
+        }
+        
+        console.log(`Trade Settlement from Backend: Status=${result.status}, P/L=${profitLoss}, Exit Price=${finalExitPrice}`);
         
         // Refresh user balance from server after trade settles
         const { refreshUser } = useAuthStore.getState();
@@ -1487,15 +1492,11 @@ export default function Trade() {
                   </View>
                   {activeTrades.map((trade) => {
                     const tradeAsset = ALL_ASSETS.find(a => a.value === trade.asset) || currentAsset;
-                    const isTradeInProfit = trade.type === 'call' 
-                      ? currentPrice > trade.entry_price 
-                      : currentPrice < trade.entry_price;
-                    const tradePL = isTradeInProfit 
-                      ? trade.amount * (tradeAsset.payout / 100) 
-                      : -trade.amount;
+                    // Don't show real-time P/L - final result will be determined by backend
+                    // This prevents confusion when chart shows profit but backend decides loss
                     
                     return (
-                      <View key={trade.id} style={[styles.tradeCard, isTradeInProfit ? styles.tradeCardProfit : styles.tradeCardLoss, { marginBottom: 10 }]}>
+                      <View key={trade.id} style={[styles.tradeCard, styles.tradeCardPending, { marginBottom: 10 }]}>
                         <View style={styles.tradeCardHeader}>
                           <View style={styles.tradeAsset}>
                             <Text style={styles.tradeAssetIcon}>{tradeAsset.icon}</Text>
@@ -1518,19 +1519,13 @@ export default function Trade() {
                             <Text style={styles.tradeInfoValue}>${trade.entry_price.toFixed(5)}</Text>
                           </View>
                           <View style={styles.tradeInfo}>
-                            <Text style={styles.tradeInfoLabel}>Current Price</Text>
-                            <Text style={[styles.tradeInfoValue, isTradeInProfit ? { color: '#00E55A' } : { color: '#FF3B3B' }]}>
-                              ${currentPrice.toFixed(5)}
-                            </Text>
-                          </View>
-                          <View style={styles.tradeInfo}>
                             <Text style={styles.tradeInfoLabel}>Amount</Text>
                             <Text style={styles.tradeInfoValue}>${trade.amount}</Text>
                           </View>
                           <View style={styles.tradeInfo}>
-                            <Text style={styles.tradeInfoLabel}>P/L</Text>
-                            <Text style={[styles.tradeInfoValue, isTradeInProfit ? { color: '#00E55A' } : { color: '#FF3B3B' }]}>
-                              {isTradeInProfit ? '+' : ''}{tradePL.toFixed(2)}
+                            <Text style={styles.tradeInfoLabel}>Potential Profit</Text>
+                            <Text style={[styles.tradeInfoValue, { color: '#FFB800' }]}>
+                              +${(trade.amount * (tradeAsset.payout / 100)).toFixed(2)}
                             </Text>
                           </View>
                           <View style={styles.tradeInfo}>
@@ -1539,9 +1534,7 @@ export default function Trade() {
                           </View>
                           <View style={styles.tradeInfo}>
                             <Text style={styles.tradeInfoLabel}>Status</Text>
-                            <Text style={[styles.tradeInfoValue, isTradeInProfit ? { color: '#00E55A' } : { color: '#FF3B3B' }]}>
-                              {isTradeInProfit ? '📈 PROFIT' : '📉 LOSS'}
-                            </Text>
+                            <Text style={[styles.tradeInfoValue, { color: '#FFB800' }]}>⏳ Running...</Text>
                           </View>
                         </View>
                       </View>
@@ -3205,6 +3198,10 @@ const styles = StyleSheet.create({
   },
   tradeCardLoss: {
     borderColor: '#FF3B3B',
+    borderWidth: 2,
+  },
+  tradeCardPending: {
+    borderColor: '#FFB800',
     borderWidth: 2,
   },
   emptyHistory: {
