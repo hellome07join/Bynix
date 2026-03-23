@@ -386,12 +386,15 @@ export default function Trade() {
   useEffect(() => {
     const validAssets = getAssetsForAccount(accountType);
     const isCurrentAssetValid = validAssets.some(a => a.value === selectedAsset);
+    console.log(`Account type changed to: ${accountType}, current asset: ${selectedAsset}, valid: ${isCurrentAssetValid}`);
     if (!isCurrentAssetValid) {
       // Reset to default asset for the new account type
-      setSelectedAsset(getDefaultAssetForAccount(accountType));
+      const newAsset = getDefaultAssetForAccount(accountType);
+      console.log(`Resetting asset to: ${newAsset}`);
+      setSelectedAsset(newAsset);
       setSelectedCategory('forex'); // Reset to default category
     }
-  }, [accountType]);
+  }, [accountType, selectedAsset]);
 
   // Check if user needs to see tutorial (new users)
   useEffect(() => {
@@ -542,7 +545,13 @@ export default function Trade() {
 
     // Check balance
     if (tradeAmount > currentBalance) {
-      Alert.alert('Error', 'Insufficient balance');
+      Alert.alert('Error', `Insufficient balance. You have $${currentBalance.toFixed(2)} but trying to trade $${tradeAmount}`);
+      return;
+    }
+
+    // Additional check for real account with 0 balance
+    if (accountType === 'real' && currentBalance <= 0) {
+      Alert.alert('No Balance', 'Please deposit funds to your real account first');
       return;
     }
 
@@ -555,8 +564,16 @@ export default function Trade() {
     const now = Date.now();
     const tradeId = `trade_${now}_${Math.random().toString(36).substr(2, 9)}`;
 
+    console.log('=== PLACE TRADE DEBUG ===');
+    console.log('accountType:', accountType);
+    console.log('token:', token ? 'EXISTS' : 'NULL');
+    console.log('selectedAsset:', selectedAsset);
+    console.log('tradeAmount:', tradeAmount);
+    console.log('currentPrice:', currentPrice);
+
     // For demo mode, execute trade locally without API
     if (accountType === 'demo' || !token) {
+      console.log('>>> DEMO MODE - Local execution');
       // Deduct amount from demo balance
       if (user) {
         const newDemoBalance = (user.demo_balance || 0) - tradeAmount;
@@ -587,7 +604,16 @@ export default function Trade() {
     }
 
     // For real account with token, use API
+    console.log('>>> REAL MODE - API call');
     try {
+      console.log('Calling api.createTrade with:', {
+        asset: selectedAsset,
+        trade_type: type,
+        amount: tradeAmount,
+        duration,
+        entry_price: currentPrice,
+        account_type: accountType,
+      });
       const response = await api.createTrade({
         asset: selectedAsset,
         trade_type: type,
