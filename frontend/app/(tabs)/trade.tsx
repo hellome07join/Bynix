@@ -171,11 +171,6 @@ export default function Trade() {
   const [utcTime, setUtcTime] = useState('');
   const [candleCountdown, setCandleCountdown] = useState(0);
   
-  // Promo banner state
-  const [showPromoBanner, setShowPromoBanner] = useState(true);
-  const promoBannerAnim = useRef(new Animated.Value(0)).current;
-  const promoShimmerAnim = useRef(new Animated.Value(0)).current;
-  
   // Get candle duration in seconds based on timeframe
   const getCandleDuration = useCallback(() => {
     switch(timeframe) {
@@ -647,34 +642,6 @@ export default function Trade() {
     return () => pulseAnimation.stop();
   }, []);
 
-  // Promo banner animations
-  useEffect(() => {
-    // Slide in animation
-    Animated.timing(promoBannerAnim, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
-
-    // Shimmer effect
-    const shimmerAnimation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(promoShimmerAnim, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(promoShimmerAnim, {
-          toValue: 0,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    shimmerAnimation.start();
-    return () => shimmerAnimation.stop();
-  }, []);
-
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -689,13 +656,16 @@ export default function Trade() {
             <View style={styles.notifBadge} />
           </TouchableOpacity>
 
-          {/* Animated Deposit Button */}
+          {/* Animated Deposit Button with 200% Bonus */}
           <Animated.View style={{ transform: [{ scale: depositPulseAnim }] }}>
             <TouchableOpacity 
               style={styles.depositButtonAnimated}
               onPress={() => router.push('/(tabs)/wallet')}
             >
-              <Ionicons name="add-circle" size={18} color="#FFFFFF" />
+              <View style={styles.depositBonusBadge}>
+                <Text style={styles.depositBonusText}>200%</Text>
+              </View>
+              <Ionicons name="add-circle" size={16} color="#FFFFFF" />
               <Text style={styles.depositTextAnimated}>Deposit</Text>
             </TouchableOpacity>
           </Animated.View>
@@ -722,18 +692,18 @@ export default function Trade() {
           <Ionicons name="chevron-down" size={12} color={accountType === 'demo' ? '#FF3B3B' : '#FFB800'} />
         </TouchableOpacity>
       </View>
-      
-      {/* Chart Area - Takes remaining space (includes time info and promo banner) */}
-      <View style={styles.chartContainer}>
-        {/* Candle Countdown & UTC Time - Inside chart area */}
-        <View style={styles.timeInfoRowOverlay}>
-          <View style={styles.candleCountdownBox}>
-            <Ionicons name="timer-outline" size={14} color="#FFB800" />
-            <Text style={styles.candleCountdownText}>{formatCandleCountdown()}</Text>
-          </View>
-          <Text style={styles.utcTimeText}>UTC {utcTime}</Text>
-        </View>
 
+      {/* Candle Countdown & UTC Time - Below Header */}
+      <View style={styles.timeInfoRow}>
+        <View style={styles.candleCountdownBox}>
+          <Ionicons name="timer-outline" size={14} color="#FFB800" />
+          <Text style={styles.candleCountdownText}>{formatCandleCountdown()}</Text>
+        </View>
+        <Text style={styles.utcTimeText}>UTC {utcTime}</Text>
+      </View>
+      
+      {/* Chart Area - Takes remaining space */}
+      <View style={styles.chartContainer}>
         {/* TradingView Chart */}
         <View style={styles.chartWrapper}>
           <TradingViewChart
@@ -752,60 +722,6 @@ export default function Trade() {
             onPriceUpdate={(price) => setCurrentPrice(price)}
           />
         </View>
-
-        {/* Promo Banner - Inside chart area (like zoom buttons) */}
-        {showPromoBanner && (
-          <Animated.View 
-            style={[
-              styles.promoBannerOverlay,
-              {
-                opacity: promoBannerAnim,
-                transform: [{
-                  scale: promoBannerAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.8, 1],
-                  })
-                }]
-              }
-            ]}
-          >
-            <TouchableOpacity 
-              style={styles.promoBannerTouchable}
-              onPress={() => router.push('/(tabs)/wallet')}
-              activeOpacity={0.9}
-            >
-              <Animated.View 
-                style={[
-                  styles.promoBannerGlow,
-                  {
-                    opacity: promoShimmerAnim.interpolate({
-                      inputRange: [0, 0.5, 1],
-                      outputRange: [0.3, 0.8, 0.3],
-                    })
-                  }
-                ]} 
-              />
-              <View style={styles.promoBannerContent}>
-                <Ionicons name="gift" size={14} color="#FFFFFF" />
-                <Text style={styles.promoBannerText}>
-                  <Text style={styles.promoBannerHighlight}>200%</Text> Bonus
-                </Text>
-                <Ionicons name="chevron-forward" size={12} color="#FFFFFF" />
-              </View>
-              <Animated.View 
-                style={[
-                  styles.promoBannerProgress,
-                  {
-                    width: promoShimmerAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: ['0%', '100%'],
-                    })
-                  }
-                ]} 
-              />
-            </TouchableOpacity>
-          </Animated.View>
-        )}
       </View>
 
       {/* Tools Bar - Between chart and trading panel */}
@@ -1674,15 +1590,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#00E55A',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 10,
-    gap: 6,
+    gap: 4,
     shadowColor: '#00E55A',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,
     shadowRadius: 8,
     elevation: 8,
+    position: 'relative',
+  },
+  depositBonusBadge: {
+    backgroundColor: '#FFB800',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginRight: 2,
+  },
+  depositBonusText: {
+    color: '#000000',
+    fontSize: 9,
+    fontWeight: '900',
   },
   depositText: {
     flexDirection: 'row',
