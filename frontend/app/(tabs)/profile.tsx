@@ -178,7 +178,30 @@ export default function Profile() {
   useEffect(() => {
     fetchProfileStats();
     fetchKycStatus();
+    fetchNotificationSettings();
   }, [fetchProfileStats]);
+
+  // Fetch notification settings
+  const fetchNotificationSettings = useCallback(async () => {
+    if (!token) return;
+
+    try {
+      const response = await fetch(`${API_URL}/profile/notification-settings`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.settings) {
+          setNotificationSettings(data.settings);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching notification settings:', error);
+    }
+  }, [token]);
 
   // Fetch KYC status
   const fetchKycStatus = useCallback(async () => {
@@ -1435,23 +1458,96 @@ export default function Profile() {
   };
 
   const renderSettingsTab = () => {
-    const toggleSetting = (key: keyof typeof notificationSettings) => {
-      setNotificationSettings(prev => ({ ...prev, [key]: !prev[key] }));
+    const toggleSetting = async (key: keyof typeof notificationSettings) => {
+      const newValue = !notificationSettings[key];
+      setNotificationSettings(prev => ({ ...prev, [key]: newValue }));
+      
+      // Save to backend
+      try {
+        const response = await fetch(`${API_URL}/profile/notification-settings`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            setting: key,
+            enabled: newValue,
+          }),
+        });
+        
+        if (response.ok) {
+          // Success - setting saved
+        } else {
+          // Revert on error
+          setNotificationSettings(prev => ({ ...prev, [key]: !newValue }));
+          if (Platform.OS === 'web') {
+            window.alert('Failed to update setting');
+          } else {
+            Alert.alert('Error', 'Failed to update setting');
+          }
+        }
+      } catch (error) {
+        // Revert on error
+        setNotificationSettings(prev => ({ ...prev, [key]: !newValue }));
+        console.error('Error updating setting:', error);
+      }
     };
 
     const handleDeleteAccount = () => {
-      Alert.alert(
-        'Delete Account',
-        'Are you sure you want to delete your account? This action cannot be undone.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Delete', 
-            style: 'destructive',
-            onPress: () => Alert.alert('Request Sent', 'Your account deletion request has been submitted.')
+      if (Platform.OS === 'web') {
+        const confirmed = window.confirm('Are you sure you want to delete your account? This action cannot be undone.');
+        if (confirmed) {
+          submitDeleteRequest();
+        }
+      } else {
+        Alert.alert(
+          'Delete Account',
+          'Are you sure you want to delete your account? This action cannot be undone.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Delete', 
+              style: 'destructive',
+              onPress: submitDeleteRequest
+            },
+          ]
+        );
+      }
+    };
+
+    const submitDeleteRequest = async () => {
+      try {
+        const response = await fetch(`${API_URL}/profile/delete-request`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
           },
-        ]
-      );
+        });
+
+        if (response.ok) {
+          if (Platform.OS === 'web') {
+            window.alert('Your account deletion request has been submitted. We will process it within 24-48 hours.');
+          } else {
+            Alert.alert('Request Sent', 'Your account deletion request has been submitted. We will process it within 24-48 hours.');
+          }
+        } else {
+          const data = await response.json();
+          if (Platform.OS === 'web') {
+            window.alert(data.detail || 'Failed to submit deletion request');
+          } else {
+            Alert.alert('Error', data.detail || 'Failed to submit deletion request');
+          }
+        }
+      } catch (error) {
+        console.error('Error submitting deletion request:', error);
+        if (Platform.OS === 'web') {
+          window.alert('Failed to submit deletion request');
+        } else {
+          Alert.alert('Error', 'Failed to submit deletion request');
+        }
+      }
     };
 
     return (

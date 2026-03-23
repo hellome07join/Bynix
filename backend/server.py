@@ -1403,6 +1403,90 @@ async def send_verification_code(authorization: Optional[str] = Header(None), re
         "dev_code": verification_code  # Remove in production
     }
 
+@api_router.put("/profile/notification-settings")
+async def update_notification_settings(data: dict, authorization: Optional[str] = Header(None), request: Request = None):
+    """Update user notification settings"""
+    user = await get_current_user(authorization, request)
+    
+    setting = data.get("setting")
+    enabled = data.get("enabled", False)
+    
+    valid_settings = ["email", "tradeAlerts", "depositUpdates", "withdrawalUpdates", "securityAlerts"]
+    if setting not in valid_settings:
+        raise HTTPException(status_code=400, detail="Invalid setting")
+    
+    # Update the specific notification setting
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {f"notification_settings.{setting}": enabled}}
+    )
+    
+    return {
+        "success": True,
+        "setting": setting,
+        "enabled": enabled
+    }
+
+@api_router.get("/profile/notification-settings")
+async def get_notification_settings(authorization: Optional[str] = Header(None), request: Request = None):
+    """Get user notification settings"""
+    user = await get_current_user(authorization, request)
+    
+    user_doc = await db.users.find_one(
+        {"user_id": user.user_id},
+        {"notification_settings": 1}
+    )
+    
+    # Default settings if not set
+    default_settings = {
+        "email": True,
+        "tradeAlerts": True,
+        "depositUpdates": True,
+        "withdrawalUpdates": True,
+        "securityAlerts": True
+    }
+    
+    settings = user_doc.get("notification_settings", default_settings) if user_doc else default_settings
+    
+    return {
+        "success": True,
+        "settings": settings
+    }
+
+@api_router.post("/profile/delete-request")
+async def request_account_deletion(authorization: Optional[str] = Header(None), request: Request = None):
+    """Request account deletion"""
+    user = await get_current_user(authorization, request)
+    
+    # Check if there's already a pending deletion request
+    existing_request = await db.deletion_requests.find_one({
+        "user_id": user.user_id,
+        "status": "pending"
+    })
+    
+    if existing_request:
+        raise HTTPException(status_code=400, detail="You already have a pending deletion request")
+    
+    # Create deletion request
+    await db.deletion_requests.insert_one({
+        "user_id": user.user_id,
+        "email": user.email,
+        "requested_at": datetime.now(timezone.utc),
+        "status": "pending",
+        "scheduled_deletion": datetime.now(timezone.utc) + timedelta(days=30)  # 30-day grace period
+    })
+    
+    # Mark user as pending deletion
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {"deletion_requested": True, "deletion_requested_at": datetime.now(timezone.utc)}}
+    )
+    
+    return {
+        "success": True,
+        "message": "Account deletion request submitted. Your account will be deleted in 30 days. You can cancel this request by contacting support."
+    }
+
 @api_router.post("/auth/verify-email")
 async def verify_email_code(code: str, authorization: Optional[str] = Header(None), request: Request = None):
     """Verify email with code"""
