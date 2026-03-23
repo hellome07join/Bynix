@@ -17,7 +17,7 @@ import httpx
 import socketio
 import asyncio
 import base64
-from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+from emergentintegrations.llm.chat import LlmChat
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -1135,18 +1135,6 @@ You must respond ONLY in this exact JSON format:
 Be strict but fair. If you cannot clearly identify the document type or country, set is_valid_document to false."""
         ).with_model("openai", "gpt-4o")
         
-        # Create image content for AI analysis
-        image_contents = []
-        
-        # Add front image
-        front_image = ImageContent(image_base64=submission.front_image_base64)
-        image_contents.append(front_image)
-        
-        # Add back image if provided
-        if submission.back_image_base64:
-            back_image = ImageContent(image_base64=submission.back_image_base64)
-            image_contents.append(back_image)
-        
         # Create the verification prompt
         prompt = f"""Please analyze this identity document:
 
@@ -1160,13 +1148,8 @@ Check if the document appears authentic and matches the claimed document type.
 
 Analyze the image(s) and respond with the JSON verification result."""
 
-        # Send message with images
-        user_message = UserMessage(
-            text=prompt,
-            image_contents=image_contents
-        )
-        
-        response = await chat.send_message(user_message)
+        # Send message with image using the correct API
+        response = await chat.send_message_async(prompt, image_urls=[f"data:image/jpeg;base64,{submission.front_image_base64}"])
         
         # Parse AI response
         import json
@@ -1198,95 +1181,70 @@ Analyze the image(s) and respond with the JSON verification result."""
             "id_type": submission.id_type,
             "id_number": submission.id_number,
             "ai_verification": ai_result,
-            "status": "pending",  # pending, approved, rejected
+            "status": "pending",  # pending, verified, rejected
             "submitted_at": datetime.now(timezone.utc),
             "verified_at": None,
         }
         
-        # Determine verification status based on AI result
+        # Instant verification/rejection based on AI result
         if ai_result.get("is_valid_document") and ai_result.get("confidence") in ["high", "medium"]:
-            kyc_record["status"] = "auto_approved"
-            kyc_record["auto_approve_at"] = datetime.now(timezone.utc) + timedelta(minutes=5)
+            # INSTANT VERIFY - AI confirmed the document
+            kyc_record["status"] = "verified"
+            kyc_record["verified_at"] = datetime.now(timezone.utc)
             
-            # Schedule auto-verification after 5 minutes
-            asyncio.create_task(auto_verify_kyc(user.user_id, kyc_record["kyc_id"]))
+            # Update user's KYC status to verified immediately
+            await db.users.update_one(
+                {"user_id": user.user_id},
+                {"$set": {
+                    "kyc_status": "verified",
+                    "kyc_verified_at": datetime.now(timezone.utc),
+                    "is_kyc_verified": True
+                }}
+            )
+            
+            # Create success notification
+            await create_notification(
+                user.user_id,
+                "KYC Verified! ✅",
+                f"Your {submission.id_type} from {ai_result.get('country', submission.nationality)} has been verified. You now have full access!",
+                "system"
+            )
         else:
-            kyc_record["status"] = "manual_review"
+            # INSTANT REJECT - AI could not confirm the document
+            kyc_record["status"] = "rejected"
+            kyc_record["rejected_at"] = datetime.now(timezone.utc)
+            kyc_record["rejection_reason"] = ai_result.get("reason", "Document could not be verified")
+            
+            # Update user's KYC status to rejected
+            await db.users.update_one(
+                {"user_id": user.user_id},
+                {"$set": {
+                    "kyc_status": "rejected",
+                    "is_kyc_verified": False
+                }}
+            )
+            
+            # Create rejection notification
+            await create_notification(
+                user.user_id,
+                "KYC Rejected ❌",
+                f"Your document could not be verified. Reason: {ai_result.get('reason', 'Invalid document')}. Please try again with a clear photo.",
+                "system"
+            )
         
         await db.kyc_submissions.insert_one(kyc_record)
         
-        # Update user's KYC status
-        await db.users.update_one(
-            {"user_id": user.user_id},
-            {"$set": {
-                "kyc_status": kyc_record["status"],
-                "kyc_submitted_at": datetime.now(timezone.utc)
-            }}
-        )
-        
-        # Create notification
-        if kyc_record["status"] == "auto_approved":
-            await create_notification(
-                user.user_id,
-                "KYC Verification Started",
-                "Your documents have been verified by AI. Your account will be fully verified in 5 minutes.",
-                "system"
-            )
-        else:
-            await create_notification(
-                user.user_id,
-                "KYC Under Manual Review",
-                "Your documents are being reviewed by our team. This may take 1-3 business days.",
-                "system"
-            )
-        
         return {
-            "success": True,
+            "success": kyc_record["status"] == "verified",
             "kyc_id": kyc_record["kyc_id"],
             "status": kyc_record["status"],
             "ai_result": ai_result,
-            "message": "Documents submitted successfully" if kyc_record["status"] == "auto_approved" else "Documents submitted for manual review"
+            "message": "Identity verified successfully!" if kyc_record["status"] == "verified" else f"Verification failed: {ai_result.get('reason', 'Invalid document')}"
         }
         
     except Exception as e:
         logging.error(f"KYC submission error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing documents: {str(e)}")
-
-async def auto_verify_kyc(user_id: str, kyc_id: str):
-    """Auto-verify KYC after 5 minutes delay"""
-    await asyncio.sleep(300)  # 5 minutes = 300 seconds
-    
-    # Check if KYC is still auto_approved (not manually rejected)
-    kyc_record = await db.kyc_submissions.find_one({"kyc_id": kyc_id})
-    if kyc_record and kyc_record.get("status") == "auto_approved":
-        # Update KYC status to verified
-        await db.kyc_submissions.update_one(
-            {"kyc_id": kyc_id},
-            {"$set": {
-                "status": "verified",
-                "verified_at": datetime.now(timezone.utc)
-            }}
-        )
-        
-        # Update user's KYC status
-        await db.users.update_one(
-            {"user_id": user_id},
-            {"$set": {
-                "kyc_status": "verified",
-                "kyc_verified_at": datetime.now(timezone.utc),
-                "is_kyc_verified": True
-            }}
-        )
-        
-        # Send notification
-        await create_notification(
-            user_id,
-            "KYC Verified! ✅",
-            "Congratulations! Your identity has been verified. You now have full access to all features.",
-            "system"
-        )
-        
-        logging.info(f"Auto-verified KYC for user {user_id}")
 
 @api_router.get("/kyc/status")
 async def get_kyc_status(authorization: Optional[str] = Header(None), request: Request = None):

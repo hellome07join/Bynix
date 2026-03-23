@@ -140,12 +140,9 @@ export default function Profile() {
         
         // Update KYC step based on status
         if (data.status === 'verified') {
-          setKycStep(4);
-        } else if (data.status === 'auto_approved' || data.status === 'manual_review') {
-          setKycStep(3);
-          if (data.remaining_seconds) {
-            setKycCountdown(data.remaining_seconds);
-          }
+          setKycStep(3); // Verified step
+        } else if (data.status === 'rejected') {
+          setKycStep(2); // Stay on document step with rejection message
         }
       }
     } catch (error) {
@@ -240,21 +237,24 @@ export default function Profile() {
       if (response.ok) {
         setKycStatus(data);
         
-        if (data.status === 'auto_approved') {
+        if (data.status === 'verified') {
+          // INSTANT VERIFIED!
           Alert.alert(
-            'AI Verification Successful! ✅',
-            `Your ${kycData.idType} from ${kycData.nationality} has been verified by AI. Your account will be fully verified in 5 minutes.`,
+            'KYC Verified! ✅',
+            `Your ${kycData.idType} from ${data.ai_result?.country || kycData.nationality} has been verified successfully!`,
             [{ text: 'OK' }]
           );
-          setKycStep(3);
-          setKycCountdown(300); // 5 minutes
+          setKycStep(3); // Go directly to verified step
         } else {
+          // INSTANT REJECTED
           Alert.alert(
-            'Manual Review Required',
-            'Your documents have been submitted for manual review. This usually takes 1-3 business days.',
-            [{ text: 'OK' }]
+            'Verification Failed ❌',
+            `${data.message || 'Your document could not be verified.'}\n\nPlease try again with a clear photo of a valid ID.`,
+            [{ text: 'Try Again' }]
           );
-          setKycStep(3);
+          // Stay on step 2 to retry
+          setFrontImage(null);
+          setBackImage(null);
         }
       } else {
         Alert.alert('Error', data.detail || 'Failed to submit documents');
@@ -596,8 +596,7 @@ export default function Profile() {
     const KYC_STEPS = [
       { id: 1, title: 'Personal Info', subtitle: 'Basic details', icon: 'card' },
       { id: 2, title: 'Document', subtitle: 'ID upload', icon: 'document' },
-      { id: 3, title: 'Review', subtitle: 'Final submit', icon: 'paper-plane' },
-      { id: 4, title: 'Verified', subtitle: 'Complete', icon: 'checkmark-circle' },
+      { id: 3, title: 'Verified', subtitle: 'Complete', icon: 'checkmark-circle' },
     ];
 
     const handleContinueToStep2 = () => {
@@ -607,12 +606,6 @@ export default function Profile() {
         return;
       }
       setKycStep(2);
-    };
-
-    const handleSubmitForReview = () => {
-      // Submit documents for review
-      setKycStep(3);
-      Alert.alert('Submitted', 'Your documents have been submitted for review. We will notify you once verification is complete.');
     };
 
     const getStepStatus = (stepId: number) => {
@@ -891,98 +884,8 @@ export default function Profile() {
           </View>
         )}
 
-        {/* Step 3: Under Review */}
+        {/* Step 3: Verified */}
         {kycStep === 3 && (
-          <View style={styles.kycFormCard}>
-            <View style={styles.kycFormHeader}>
-              <View style={[styles.kycFormIcon, { backgroundColor: kycStatus?.status === 'auto_approved' ? '#00E55A' : '#FFB800' }]}>
-                <Ionicons name={kycStatus?.status === 'auto_approved' ? 'checkmark-circle' : 'time'} size={18} color="#0A1A0F" />
-              </View>
-              <View>
-                <Text style={styles.kycFormTitle}>
-                  {kycStatus?.status === 'auto_approved' ? 'AI Verified!' : 'Under Review'}
-                </Text>
-                <Text style={styles.kycFormSubtitle}>
-                  {kycStatus?.status === 'auto_approved' ? 'Auto-verification in progress' : 'Your documents are being verified'}
-                </Text>
-              </View>
-            </View>
-
-            {/* AI Verification Success */}
-            {kycStatus?.status === 'auto_approved' && kycCountdown !== null && kycCountdown > 0 && (
-              <View style={[styles.reviewStatusCard, { backgroundColor: 'rgba(0, 229, 90, 0.1)' }]}>
-                <Ionicons name="shield-checkmark" size={48} color="#00E55A" />
-                <Text style={[styles.reviewTitle, { color: '#00E55A' }]}>AI Verification Passed!</Text>
-                <Text style={styles.reviewText}>
-                  Your {kycData.idType || 'document'} has been verified by AI.
-                </Text>
-                
-                {/* Countdown Timer */}
-                <View style={styles.countdownContainer}>
-                  <Text style={styles.countdownLabel}>Account will be verified in:</Text>
-                  <Text style={styles.countdownTimer}>{formatCountdown(kycCountdown)}</Text>
-                </View>
-                
-                {kycStatus?.ai_result && (
-                  <View style={styles.aiResultBox}>
-                    <Text style={styles.aiResultLabel}>Document Type:</Text>
-                    <Text style={styles.aiResultValue}>{kycStatus.ai_result.document_type}</Text>
-                    <Text style={styles.aiResultLabel}>Country:</Text>
-                    <Text style={styles.aiResultValue}>{kycStatus.ai_result.country}</Text>
-                    <Text style={styles.aiResultLabel}>Confidence:</Text>
-                    <Text style={[styles.aiResultValue, { color: kycStatus.ai_result.confidence === 'high' ? '#00E55A' : '#FFB800' }]}>
-                      {kycStatus.ai_result.confidence?.toUpperCase()}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            )}
-
-            {/* Manual Review */}
-            {kycStatus?.status === 'manual_review' && (
-              <View style={styles.reviewStatusCard}>
-                <Ionicons name="hourglass" size={48} color="#FFB800" />
-                <Text style={styles.reviewTitle}>Manual Review Required</Text>
-                <Text style={styles.reviewText}>
-                  Our team is reviewing your documents. This usually takes 1-3 business days.
-                </Text>
-                <Text style={styles.reviewText}>
-                  You will receive a notification once your verification is complete.
-                </Text>
-              </View>
-            )}
-
-            <View style={styles.reviewChecklist}>
-              <View style={styles.reviewCheckItem}>
-                <Ionicons name="checkmark-circle" size={20} color="#00E55A" />
-                <Text style={styles.reviewCheckText}>Personal information submitted</Text>
-              </View>
-              <View style={styles.reviewCheckItem}>
-                <Ionicons name="checkmark-circle" size={20} color="#00E55A" />
-                <Text style={styles.reviewCheckText}>ID documents uploaded</Text>
-              </View>
-              <View style={styles.reviewCheckItem}>
-                <Ionicons 
-                  name={kycStatus?.status === 'auto_approved' ? 'checkmark-circle' : 'time'} 
-                  size={20} 
-                  color={kycStatus?.status === 'auto_approved' ? '#00E55A' : '#FFB800'} 
-                />
-                <Text style={styles.reviewCheckText}>
-                  {kycStatus?.status === 'auto_approved' ? 'AI verification passed' : 'Awaiting review'}
-                </Text>
-              </View>
-              {kycStatus?.status === 'auto_approved' && (
-                <View style={styles.reviewCheckItem}>
-                  <Ionicons name="time" size={20} color="#FFB800" />
-                  <Text style={styles.reviewCheckText}>Pending final verification ({formatCountdown(kycCountdown || 0)})</Text>
-                </View>
-              )}
-            </View>
-          </View>
-        )}
-
-        {/* Step 4: Verified */}
-        {kycStep === 4 && (
           <View style={styles.kycFormCard}>
             <View style={styles.kycFormHeader}>
               <View style={[styles.kycFormIcon, { backgroundColor: '#00E55A' }]}>
@@ -994,12 +897,36 @@ export default function Profile() {
               </View>
             </View>
 
-            <View style={styles.reviewStatusCard}>
+            <View style={[styles.reviewStatusCard, { backgroundColor: 'rgba(0, 229, 90, 0.1)' }]}>
               <Ionicons name="shield-checkmark" size={64} color="#00E55A" />
               <Text style={[styles.reviewTitle, { color: '#00E55A' }]}>KYC Complete</Text>
               <Text style={styles.reviewText}>
                 Congratulations! Your account is now fully verified. You have access to all features.
               </Text>
+              
+              {kycStatus?.ai_result && (
+                <View style={styles.aiResultBox}>
+                  <Text style={styles.aiResultLabel}>Document Type:</Text>
+                  <Text style={styles.aiResultValue}>{kycStatus.ai_result.document_type}</Text>
+                  <Text style={styles.aiResultLabel}>Country:</Text>
+                  <Text style={styles.aiResultValue}>{kycStatus.ai_result.country}</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.reviewChecklist}>
+              <View style={styles.reviewCheckItem}>
+                <Ionicons name="checkmark-circle" size={20} color="#00E55A" />
+                <Text style={styles.reviewCheckText}>Personal information verified</Text>
+              </View>
+              <View style={styles.reviewCheckItem}>
+                <Ionicons name="checkmark-circle" size={20} color="#00E55A" />
+                <Text style={styles.reviewCheckText}>ID documents verified by AI</Text>
+              </View>
+              <View style={styles.reviewCheckItem}>
+                <Ionicons name="checkmark-circle" size={20} color="#00E55A" />
+                <Text style={styles.reviewCheckText}>Account fully verified</Text>
+              </View>
             </View>
           </View>
         )}
