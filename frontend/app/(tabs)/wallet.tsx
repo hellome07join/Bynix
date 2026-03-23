@@ -488,7 +488,7 @@ export default function WalletScreen() {
         onRequestClose={() => setShowDepositModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={styles.depositModalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Deposit Funds</Text>
               <TouchableOpacity onPress={() => setShowDepositModal(false)}>
@@ -496,107 +496,98 @@ export default function WalletScreen() {
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.inputLabel}>Enter Amount</Text>
-            <View style={styles.amountInputContainer}>
-              <Text style={styles.currencySymbol}>$</Text>
-              <TextInput
-                style={styles.amountInput}
-                value={depositAmount}
-                onChangeText={setDepositAmount}
-                keyboardType="numeric"
-                placeholder={String(minAmount)}
-                placeholderTextColor="#666666"
-              />
-            </View>
-            
-            <Text style={styles.minAmountText}>Minimum deposit: ${minAmount}</Text>
-
-            {/* Quick Amount Buttons */}
-            <View style={styles.quickAmounts}>
-              {['50', '100', '250', '500', '1000'].map((amt) => (
-                <TouchableOpacity 
-                  key={amt}
-                  style={[
-                    styles.quickAmountBtn,
-                    depositAmount === amt && styles.quickAmountBtnActive
-                  ]}
-                  onPress={() => setDepositAmount(amt)}
-                >
-                  <Text style={[
-                    styles.quickAmountText,
-                    depositAmount === amt && styles.quickAmountTextActive
-                  ]}>
-                    ${amt}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Network Selection */}
-            <Text style={styles.inputLabel}>Select Network</Text>
-            <TouchableOpacity 
-              style={styles.networkSelector}
-              onPress={() => setShowNetworkPicker(true)}
+            <ScrollView 
+              style={styles.depositScrollView}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.depositScrollContent}
             >
-              <Ionicons name="link" size={18} color="#00E55A" />
-              <Text style={styles.networkSelectorText}>
-                {networks.find(n => n.id === selectedNetwork)?.name || 'Select Network'}
+              <Text style={styles.inputLabel}>Enter Amount</Text>
+              <View style={styles.amountInputContainer}>
+                <Text style={styles.currencySymbol}>$</Text>
+                <TextInput
+                  style={styles.amountInput}
+                  value={depositAmount}
+                  onChangeText={setDepositAmount}
+                  keyboardType="numeric"
+                  placeholder={String(minAmount)}
+                  placeholderTextColor="#666666"
+                />
+              </View>
+              
+              <Text style={styles.minAmountText}>Minimum deposit: ${minAmount}</Text>
+
+              {/* Quick Amount Buttons */}
+              <View style={styles.quickAmounts}>
+                {['50', '100', '250', '500', '1000'].map((amt) => (
+                  <TouchableOpacity 
+                    key={amt}
+                    style={[
+                      styles.quickAmountBtn,
+                      depositAmount === amt && styles.quickAmountBtnActive
+                    ]}
+                    onPress={() => setDepositAmount(amt)}
+                  >
+                    <Text style={[
+                      styles.quickAmountText,
+                      depositAmount === amt && styles.quickAmountTextActive
+                    ]}>
+                      ${amt}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Network Selection */}
+              <Text style={styles.inputLabel}>Select Network</Text>
+              <TouchableOpacity 
+                style={styles.networkSelector}
+                onPress={() => setShowNetworkPicker(true)}
+              >
+                <Ionicons name="link" size={18} color="#00E55A" />
+                <Text style={styles.networkSelectorText}>
+                  {networks.find(n => n.id === selectedNetwork)?.name || 'Select Network'}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color="#888" />
+              </TouchableOpacity>
+              <Text style={styles.networkFeeText}>
+                Network Fee: {networks.find(n => n.id === selectedNetwork)?.fee || '~1 USDT'}
               </Text>
-              <Ionicons name="chevron-down" size={18} color="#888" />
-            </TouchableOpacity>
-            <Text style={styles.networkFeeText}>
-              Network Fee: {networks.find(n => n.id === selectedNetwork)?.fee || '~1 USDT'}
-            </Text>
 
-            {/* Promo Code */}
-            <Text style={styles.inputLabel}>Promo Code (Optional)</Text>
-            <TextInput
-              style={styles.promoInput}
-              value={promoCode}
-              onChangeText={setPromoCode}
-              placeholder="Enter promo code"
-              placeholderTextColor="#666666"
-              autoCapitalize="characters"
-            />
-            {promoCode.toUpperCase() === 'BYNIX' && (
-              <Text style={styles.promoHint}>✨ BYNIX: 25% bonus on $100+ deposit</Text>
-            )}
-
-            {/* Available Promo Codes */}
-            <View style={styles.promoCodesBox}>
-              <Text style={styles.promoCodesTitle}>Available Promo Codes:</Text>
-              <View style={styles.promoCodeItem}>
-                <TouchableOpacity onPress={() => setPromoCode('BYNIX')} style={styles.promoCodeBtn}>
-                  <Text style={styles.promoCodeText}>BYNIX</Text>
-                </TouchableOpacity>
-                <Text style={styles.promoCodeDesc}>25% bonus ($100+ deposit)</Text>
+              {/* Promo Code */}
+              <Text style={styles.inputLabel}>Promo Code (Optional)</Text>
+              <View style={styles.promoRow}>
+                <TextInput
+                  style={styles.promoInputSmall}
+                  value={promoCode}
+                  onChangeText={setPromoCode}
+                  placeholder="Enter code"
+                  placeholderTextColor="#666666"
+                  autoCapitalize="characters"
+                />
+                <View style={styles.promoQuickBtns}>
+                  <TouchableOpacity onPress={() => setPromoCode('BYNIX')} style={styles.promoQuickBtn}>
+                    <Text style={styles.promoQuickText}>BYNIX</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setPromoCode('WELCOME')} style={styles.promoQuickBtn}>
+                    <Text style={styles.promoQuickText}>WELCOME</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-              <View style={styles.promoCodeItem}>
-                <TouchableOpacity onPress={() => setPromoCode('WELCOME')} style={styles.promoCodeBtn}>
-                  <Text style={styles.promoCodeText}>WELCOME</Text>
-                </TouchableOpacity>
-                <Text style={styles.promoCodeDesc}>10% bonus ($50+ deposit)</Text>
-              </View>
-              <View style={styles.promoCodeItem}>
-                <TouchableOpacity onPress={() => setPromoCode('VIP50')} style={styles.promoCodeBtn}>
-                  <Text style={styles.promoCodeText}>VIP50</Text>
-                </TouchableOpacity>
-                <Text style={styles.promoCodeDesc}>50% bonus ($200+ deposit)</Text>
-              </View>
-            </View>
 
-            {/* Bonus Info */}
-            <View style={styles.bonusInfoBox}>
-              <Ionicons name="gift" size={20} color="#FFB800" />
-              <Text style={styles.bonusInfoText}>
-                {!depositHistory.some(d => d.status === 'completed') 
-                  ? '🎉 First deposit: Get 200% bonus!'
-                  : 'Use promo code BYNIX for 25% bonus ($100+ deposit)'}
-              </Text>
-            </View>
+              {/* Bonus Info - Compact */}
+              <View style={styles.bonusInfoCompact}>
+                <Ionicons name="gift" size={16} color="#FFB800" />
+                <Text style={styles.bonusInfoTextCompact}>
+                  {!depositHistory.some(d => d.status === 'completed') 
+                    ? '🎉 First deposit: 200% bonus!'
+                    : 'BYNIX: 25% | WELCOME: 10% | VIP50: 50%'}
+                </Text>
+              </View>
+            </ScrollView>
 
+            {/* Fixed Button at Bottom */}
             <TouchableOpacity
-              style={[styles.generateBtn, isLoading && styles.generateBtnDisabled]}
+              style={[styles.generateBtnFixed, isLoading && styles.generateBtnDisabled]}
               onPress={handleGenerateAddress}
               disabled={isLoading}
             >
@@ -1500,5 +1491,78 @@ const styles = StyleSheet.create({
   promoCodeDesc: {
     fontSize: 11,
     color: '#888888',
+  },
+  // Deposit modal specific styles
+  depositModalContent: {
+    backgroundColor: '#1A1F3D',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+    paddingTop: 20,
+  },
+  depositScrollView: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  depositScrollContent: {
+    paddingBottom: 10,
+  },
+  // Promo row styles
+  promoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+  promoInputSmall: {
+    flex: 1,
+    backgroundColor: '#0A1A0F',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#333333',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: '#FFFFFF',
+    fontSize: 14,
+  },
+  promoQuickBtns: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  promoQuickBtn: {
+    backgroundColor: 'rgba(0, 229, 90, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  promoQuickText: {
+    fontSize: 11,
+    color: '#00E55A',
+    fontWeight: '700',
+  },
+  // Compact bonus info
+  bonusInfoCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,184,0,0.1)',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 10,
+    gap: 8,
+  },
+  bonusInfoTextCompact: {
+    flex: 1,
+    fontSize: 12,
+    color: '#FFB800',
+  },
+  // Fixed button at bottom
+  generateBtnFixed: {
+    backgroundColor: '#00E55A',
+    paddingVertical: 16,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    marginTop: 10,
+    borderRadius: 12,
+    alignItems: 'center',
   },
 });
