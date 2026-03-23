@@ -26,7 +26,6 @@ interface TradingViewChartProps {
   chartType?: 'candle' | 'line' | 'bar';
   tradeMarkers?: TradeMarker[];
   onPriceUpdate?: (price: number) => void;
-  onChartReady?: () => void;  // Callback when chart data is loaded
   authToken?: string | null;  // Add auth token for biased price updates
 }
 
@@ -62,7 +61,6 @@ export default function TradingViewChart({
   chartType = 'candle',
   tradeMarkers = [],
   onPriceUpdate,
-  onChartReady,
   authToken
 }: TradingViewChartProps) {
   // Generate initial placeholder data synchronously for instant display
@@ -218,12 +216,6 @@ export default function TradingViewChart({
         const lastTick = data.ticks[data.ticks.length - 1];
         setInternalPrice(lastTick.close);
         setIsLoading(false);
-        
-        // Notify parent that chart is ready
-        if (onChartReady) {
-          onChartReady();
-        }
-        
         return true;
       }
       

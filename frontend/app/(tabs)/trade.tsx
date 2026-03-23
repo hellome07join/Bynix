@@ -233,7 +233,6 @@ export default function Trade() {
   const [candles, setCandles] = useState<Candle[]>([]);
   const [currentPrice, setCurrentPrice] = useState(1.09);
   const [loading, setLoading] = useState(true);
-  const [chartLoading, setChartLoading] = useState(true); // Track chart loading separately
   const [connectionStatus, setConnectionStatus] = useState<'live' | 'reconnecting'>('live');
   
   // Trading
@@ -470,9 +469,8 @@ export default function Trade() {
   const tradeAmount = parseFloat(amount) || 0;
   const potentialProfit = tradeAmount + (tradeAmount * payoutPercentage / 100);
 
-  // Load market data and show loader when asset changes
+  // Load market data
   useEffect(() => {
-    setChartLoading(true); // Show loader when asset changes
     loadMarketData();
     return () => {
       if (wsRef.current?.disconnect) {
@@ -541,7 +539,6 @@ export default function Trade() {
 
   const loadMarketData = async () => {
     setLoading(true);
-    setChartLoading(true); // Show loader until chart loads
     setConnectionStatus('live');
     
     // Generate initial price based on asset (fallback until WebSocket connects)
@@ -562,7 +559,6 @@ export default function Trade() {
     setCurrentPrice(getBasePrice(selectedAsset));
     setLoading(false);
     // Price updates now come from TradingViewChart component via onPriceUpdate callback
-    // chartLoading will be set to false by onChartReady callback
   };
 
   const placeTrade = async (type: 'call' | 'put') => {
@@ -910,8 +906,8 @@ export default function Trade() {
     return () => pulseAnimation.stop();
   }, []);
 
-  // Show animated loader when chart is loading
-  if (chartLoading) {
+  // Show animated loader when loading
+  if (loading) {
     return <AnimatedLoader message="Loading Market" />;
   }
 
@@ -996,7 +992,6 @@ export default function Trade() {
               remainingTime: trade.countdown
             }))}
             onPriceUpdate={(price) => setCurrentPrice(price)}
-            onChartReady={() => setChartLoading(false)}
             authToken={token}
           />
         </View>
