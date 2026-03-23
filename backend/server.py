@@ -1317,6 +1317,59 @@ async def update_country(country: str, country_flag: str = "🌍", authorization
     
     return {"success": True, "country": country, "country_flag": country_flag}
 
+@api_router.post("/profile/change-password")
+async def change_password(password_data: dict, authorization: Optional[str] = Header(None), request: Request = None):
+    """Change user password"""
+    user = await get_current_user(authorization, request)
+    
+    current_password = password_data.get("current_password")
+    new_password = password_data.get("new_password")
+    
+    if not current_password or not new_password:
+        raise HTTPException(status_code=400, detail="Both current and new password required")
+    
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    
+    # Get user from database
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Verify current password
+    if not verify_password(current_password, user_doc.get("password", "")):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    
+    # Update password
+    hashed_new_password = hash_password(new_password)
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {
+            "password": hashed_new_password,
+            "password_changed_at": datetime.now(timezone.utc)
+        }}
+    )
+    
+    return {"success": True, "message": "Password changed successfully"}
+
+@api_router.post("/profile/toggle-2fa")
+async def toggle_2fa(data: dict, authorization: Optional[str] = Header(None), request: Request = None):
+    """Enable or disable 2FA"""
+    user = await get_current_user(authorization, request)
+    
+    enable = data.get("enable", False)
+    
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {"is_2fa_enabled": enable}}
+    )
+    
+    return {
+        "success": True,
+        "is_2fa_enabled": enable,
+        "message": "2FA enabled successfully" if enable else "2FA disabled successfully"
+    }
+
 @api_router.post("/auth/send-verification")
 async def send_verification_code(authorization: Optional[str] = Header(None), request: Request = None):
     """Send email verification code"""

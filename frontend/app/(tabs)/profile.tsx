@@ -124,6 +124,18 @@ export default function Profile() {
   const [isSubmittingKyc, setIsSubmittingKyc] = useState(false);
   const [kycStatus, setKycStatus] = useState<any>(null);
   const [kycCountdown, setKycCountdown] = useState<number | null>(null);
+  
+  // Password Change State
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  
+  // 2FA State
+  const [show2FAModal, setShow2FAModal] = useState(false);
+  const [is2FAEnabled, setIs2FAEnabled] = useState(false);
+  const [twoFACode, setTwoFACode] = useState('');
 
   // Fetch profile stats from backend
   const fetchProfileStats = useCallback(async () => {
@@ -573,6 +585,137 @@ export default function Profile() {
     }
   };
 
+  // Change password function
+  const handleChangePassword = async () => {
+    if (!token) {
+      if (Platform.OS === 'web') {
+        window.alert('Please login first');
+      } else {
+        Alert.alert('Error', 'Please login first');
+      }
+      return;
+    }
+
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      if (Platform.OS === 'web') {
+        window.alert('Please fill all fields');
+      } else {
+        Alert.alert('Error', 'Please fill all fields');
+      }
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      if (Platform.OS === 'web') {
+        window.alert('New passwords do not match');
+      } else {
+        Alert.alert('Error', 'New passwords do not match');
+      }
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      if (Platform.OS === 'web') {
+        window.alert('Password must be at least 6 characters');
+      } else {
+        Alert.alert('Error', 'Password must be at least 6 characters');
+      }
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const response = await fetch(`${API_URL}/profile/change-password`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password: newPassword,
+        }),
+      });
+
+      if (response.ok) {
+        setShowPasswordModal(false);
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmNewPassword('');
+        if (Platform.OS === 'web') {
+          window.alert('Password changed successfully!');
+        } else {
+          Alert.alert('Success', 'Password changed successfully!');
+        }
+      } else {
+        const data = await response.json();
+        if (Platform.OS === 'web') {
+          window.alert(data.detail || 'Failed to change password');
+        } else {
+          Alert.alert('Error', data.detail || 'Failed to change password');
+        }
+      }
+    } catch (error) {
+      console.error('Error changing password:', error);
+      if (Platform.OS === 'web') {
+        window.alert('Failed to change password');
+      } else {
+        Alert.alert('Error', 'Failed to change password');
+      }
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  // Toggle 2FA function
+  const handleToggle2FA = async () => {
+    if (!token) {
+      if (Platform.OS === 'web') {
+        window.alert('Please login first');
+      } else {
+        Alert.alert('Error', 'Please login first');
+      }
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/profile/toggle-2fa`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          enable: !is2FAEnabled,
+        }),
+      });
+
+      if (response.ok) {
+        setIs2FAEnabled(!is2FAEnabled);
+        setShow2FAModal(false);
+        if (Platform.OS === 'web') {
+          window.alert(is2FAEnabled ? '2FA disabled successfully!' : '2FA enabled successfully!');
+        } else {
+          Alert.alert('Success', is2FAEnabled ? '2FA disabled successfully!' : '2FA enabled successfully!');
+        }
+      } else {
+        const data = await response.json();
+        if (Platform.OS === 'web') {
+          window.alert(data.detail || 'Failed to update 2FA');
+        } else {
+          Alert.alert('Error', data.detail || 'Failed to update 2FA');
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling 2FA:', error);
+      if (Platform.OS === 'web') {
+        window.alert('Failed to update 2FA');
+      } else {
+        Alert.alert('Error', 'Failed to update 2FA');
+      }
+    }
+  };
+
   const getTierColor = (tier: string) => {
     switch (tier) {
       case 'Bronze': return '#CD7F32';
@@ -772,48 +915,32 @@ export default function Profile() {
           </View>
           <TouchableOpacity 
             style={styles.securityBtn}
-            onPress={() => Alert.alert('Change Password', 'Password change feature coming soon!')}
+            onPress={() => setShowPasswordModal(true)}
           >
             <Text style={styles.securityBtnText}>Change</Text>
           </TouchableOpacity>
         </View>
 
         {/* 2FA Row */}
-        <View style={styles.securityRow}>
+        <View style={[styles.securityRow, { borderBottomWidth: 0 }]}>
           <View style={[styles.securityIcon, { backgroundColor: 'rgba(255, 184, 0, 0.15)' }]}>
             <Ionicons name="shield-checkmark" size={20} color="#FFB800" />
           </View>
           <View style={styles.securityInfo}>
             <View style={styles.securityLabelRow}>
               <Text style={styles.securityLabel}>2FA</Text>
-              <View style={[styles.statusBadge, { backgroundColor: 'rgba(255, 59, 59, 0.2)' }]}>
-                <Text style={[styles.statusText, { color: '#FF3B3B' }]}>Off</Text>
+              <View style={[styles.statusBadge, { backgroundColor: is2FAEnabled ? 'rgba(0, 229, 90, 0.2)' : 'rgba(255, 59, 59, 0.2)' }]}>
+                <Text style={[styles.statusText, { color: is2FAEnabled ? '#00E55A' : '#FF3B3B' }]}>{is2FAEnabled ? 'On' : 'Off'}</Text>
               </View>
             </View>
-            <Text style={styles.securityDetail}>Disabled — Enable for extra security</Text>
+            <Text style={styles.securityDetail}>{is2FAEnabled ? 'Enabled — Extra security active' : 'Disabled — Enable for extra security'}</Text>
           </View>
           <TouchableOpacity 
             style={styles.securityBtn}
-            onPress={() => Alert.alert('Enable 2FA', '2FA authentication feature coming soon!')}
+            onPress={() => setShow2FAModal(true)}
           >
-            <Text style={styles.securityBtnText}>Enable</Text>
+            <Text style={styles.securityBtnText}>{is2FAEnabled ? 'Disable' : 'Enable'}</Text>
           </TouchableOpacity>
-        </View>
-
-        {/* Email Row */}
-        <View style={[styles.securityRow, { borderBottomWidth: 0 }]}>
-          <View style={[styles.securityIcon, { backgroundColor: 'rgba(0, 229, 90, 0.15)' }]}>
-            <Ionicons name="mail" size={20} color="#00E55A" />
-          </View>
-          <View style={styles.securityInfo}>
-            <View style={styles.securityLabelRow}>
-              <Text style={styles.securityLabel}>Email</Text>
-              <View style={[styles.statusBadge, { backgroundColor: 'rgba(0, 229, 90, 0.2)' }]}>
-                <Text style={[styles.statusText, { color: '#00E55A' }]}>Verified</Text>
-              </View>
-            </View>
-            <Text style={styles.securityDetail}>{user?.email || userData.email}</Text>
-          </View>
         </View>
       </View>
 
@@ -1585,6 +1712,112 @@ export default function Profile() {
               }}
             >
               <Text style={styles.saveBtnText}>Save Changes</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Password Change Modal */}
+      <Modal visible={showPasswordModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Change Password</Text>
+              <TouchableOpacity onPress={() => {
+                setShowPasswordModal(false);
+                setCurrentPassword('');
+                setNewPassword('');
+                setConfirmNewPassword('');
+              }}>
+                <Ionicons name="close-circle" size={28} color="#666" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalSubtitle}>Enter your current and new password</Text>
+            
+            <View style={styles.passwordInputContainer}>
+              <Ionicons name="lock-closed-outline" size={18} color="#00E55A" />
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Current Password"
+                placeholderTextColor="#666"
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+                secureTextEntry
+              />
+            </View>
+
+            <View style={styles.passwordInputContainer}>
+              <Ionicons name="key-outline" size={18} color="#00E55A" />
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="New Password"
+                placeholderTextColor="#666"
+                value={newPassword}
+                onChangeText={setNewPassword}
+                secureTextEntry
+              />
+            </View>
+
+            <View style={styles.passwordInputContainer}>
+              <Ionicons name="checkmark-circle-outline" size={18} color="#00E55A" />
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Confirm New Password"
+                placeholderTextColor="#666"
+                value={confirmNewPassword}
+                onChangeText={setConfirmNewPassword}
+                secureTextEntry
+              />
+            </View>
+
+            <TouchableOpacity 
+              style={styles.saveBtn} 
+              onPress={handleChangePassword}
+              disabled={isChangingPassword}
+            >
+              {isChangingPassword ? (
+                <ActivityIndicator color="#0A1A0F" />
+              ) : (
+                <Text style={styles.saveBtnText}>Change Password</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 2FA Modal */}
+      <Modal visible={show2FAModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{is2FAEnabled ? 'Disable 2FA' : 'Enable 2FA'}</Text>
+              <TouchableOpacity onPress={() => setShow2FAModal(false)}>
+                <Ionicons name="close-circle" size={28} color="#666" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.twoFAInfo}>
+              <Ionicons name="shield-checkmark" size={48} color="#FFB800" />
+              <Text style={styles.twoFATitle}>Two-Factor Authentication</Text>
+              <Text style={styles.twoFADescription}>
+                {is2FAEnabled 
+                  ? 'Disabling 2FA will make your account less secure. Are you sure you want to continue?'
+                  : 'Add an extra layer of security to your account by enabling two-factor authentication.'}
+              </Text>
+            </View>
+
+            <TouchableOpacity 
+              style={[styles.saveBtn, is2FAEnabled && styles.disableBtn]} 
+              onPress={handleToggle2FA}
+            >
+              <Text style={styles.saveBtnText}>{is2FAEnabled ? 'Disable 2FA' : 'Enable 2FA'}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.cancelBtn} 
+              onPress={() => setShow2FAModal(false)}
+            >
+              <Text style={styles.cancelBtnText}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -2695,5 +2928,53 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
+  },
+  // Password Change Modal Styles
+  passwordInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 229, 90, 0.05)',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 90, 0.2)',
+    gap: 10,
+  },
+  passwordInput: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 14,
+    paddingVertical: 14,
+  },
+  // 2FA Modal Styles
+  twoFAInfo: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  twoFATitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  twoFADescription: {
+    color: '#888',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  disableBtn: {
+    backgroundColor: '#FF3B3B',
+  },
+  cancelBtn: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  cancelBtnText: {
+    color: '#888',
+    fontSize: 14,
   },
 });
