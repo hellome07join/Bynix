@@ -20,6 +20,7 @@ import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../stores/authStore';
 import { API_URL, apiRequest } from '../../utils/api';
 import * as Clipboard from 'expo-clipboard';
+import AnimatedLoader from '../../components/AnimatedLoader';
 
 interface DepositResponse {
   success: boolean;

@@ -22,6 +22,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { fetchHistoricalCandles, Candle } from '../../utils/binanceService';
 import EnhancedCandlestickChart from '../../components/EnhancedCandlestickChart';
 import TradingViewChart from '../../components/TradingViewChart';
+import AnimatedLoader from '../../components/AnimatedLoader';
 import { api, API_URL } from '../../utils/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -904,6 +905,11 @@ export default function Trade() {
     pulseAnimation.start();
     return () => pulseAnimation.stop();
   }, []);
+
+  // Show animated loader when loading
+  if (loading) {
+    return <AnimatedLoader message="Loading Market" />;
+  }
 
   return (
     <View style={styles.container}>

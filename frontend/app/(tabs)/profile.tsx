@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../stores/authStore';
 import { API_URL } from '../../utils/api';
 import * as ImagePicker from 'expo-image-picker';
+import AnimatedLoader from '../../components/AnimatedLoader';
 
 declare const window: any;
 

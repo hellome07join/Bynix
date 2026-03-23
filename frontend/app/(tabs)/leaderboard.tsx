@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../stores/authStore';
 import { API_URL } from '../../utils/api';
+import AnimatedLoader from '../../components/AnimatedLoader';
 
 interface LeaderboardUser {
   rank: number;
@@ -180,14 +181,7 @@ export default function Leaderboard() {
   };
 
   if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#00E55A" />
-          <Text style={styles.loadingText}>Loading Leaderboard...</Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <AnimatedLoader message="Loading Leaderboard" />;
   }
 
   return (
