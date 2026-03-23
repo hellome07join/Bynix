@@ -725,7 +725,11 @@ export default function Trade() {
           style={[styles.balanceButton, accountType === 'demo' ? styles.demoBalance : styles.realBalance]}
           onPress={() => setShowAccountPicker(true)}
         >
-          <Ionicons name="wallet" size={16} color={accountType === 'demo' ? '#FF3B3B' : '#FFB800'} />
+          <Ionicons 
+            name={accountType === 'demo' ? 'school' : 'radio'} 
+            size={14} 
+            color={accountType === 'demo' ? '#FF3B3B' : '#FFB800'} 
+          />
           <Text style={[styles.balanceText, accountType === 'demo' ? styles.demoBalanceText : styles.realBalanceText]}>
             ${currentBalance.toFixed(2)}
           </Text>
