@@ -663,15 +663,6 @@ export default function Trade() {
               <Text style={styles.depositTextAnimated}>Deposit</Text>
             </TouchableOpacity>
           </Animated.View>
-          
-          {/* Candle Countdown & UTC Time */}
-          <View style={styles.timeInfoContainer}>
-            <View style={styles.candleCountdownBox}>
-              <Ionicons name="timer-outline" size={12} color="#FFB800" />
-              <Text style={styles.candleCountdownText}>{formatCandleCountdown()}</Text>
-            </View>
-            <Text style={styles.utcTimeText}>UTC {utcTime}</Text>
-          </View>
         </View>
 
         {/* Logo - Absolute Center */}
@@ -694,6 +685,15 @@ export default function Trade() {
           </Text>
           <Ionicons name="chevron-down" size={12} color={accountType === 'demo' ? '#FF3B3B' : '#FFB800'} />
         </TouchableOpacity>
+      </View>
+      
+      {/* Candle Countdown & UTC Time - Below Header */}
+      <View style={styles.timeInfoRow}>
+        <View style={styles.candleCountdownBox}>
+          <Ionicons name="timer-outline" size={14} color="#FFB800" />
+          <Text style={styles.candleCountdownText}>{formatCandleCountdown()}</Text>
+        </View>
+        <Text style={styles.utcTimeText}>UTC {utcTime}</Text>
       </View>
 
       {/* Chart Area - Takes remaining space */}
@@ -1522,31 +1522,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  timeInfoContainer: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    marginLeft: 4,
+  timeInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    gap: 12,
   },
   candleCountdownBox: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 184, 0, 0.15)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    gap: 4,
   },
   candleCountdownText: {
     color: '#FFB800',
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
     fontFamily: 'monospace',
   },
   utcTimeText: {
-    color: '#888888',
-    fontSize: 9,
+    color: '#AAAAAA',
+    fontSize: 12,
     fontWeight: '500',
-    marginTop: 2,
   },
   currencyButton: {
     flexDirection: 'row',
