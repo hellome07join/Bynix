@@ -15,6 +15,9 @@ import jwt
 import random
 import httpx
 import socketio
+import asyncio
+import base64
+from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -1085,6 +1088,241 @@ async def update_country(country: str, country_flag: str = "🌍", authorization
     )
     
     return {"success": True, "country": country, "country_flag": country_flag}
+
+# ============= KYC Document Verification Routes =============
+
+class KYCDocumentSubmission(BaseModel):
+    full_name: str
+    nationality: str
+    date_of_birth: Optional[str] = None
+    id_type: str  # Passport, National ID Card, Driver's License
+    id_number: str
+    front_image_base64: str
+    back_image_base64: Optional[str] = None
+
+@api_router.post("/kyc/submit")
+async def submit_kyc_documents(submission: KYCDocumentSubmission, authorization: Optional[str] = Header(None), request: Request = None):
+    """Submit KYC documents for AI verification"""
+    user = await get_current_user(authorization, request)
+    
+    try:
+        # Get the Emergent LLM key
+        llm_key = os.environ.get('EMERGENT_LLM_KEY')
+        if not llm_key:
+            raise HTTPException(status_code=500, detail="AI verification service not configured")
+        
+        # Initialize the AI chat for document verification
+        chat = LlmChat(
+            api_key=llm_key,
+            session_id=f"kyc_verify_{user.user_id}_{uuid.uuid4().hex[:8]}",
+            system_message="""You are a professional KYC document verification AI. Your job is to analyze identity documents and determine:
+1. If the document is a valid government-issued ID (Passport, National ID Card, or Driver's License)
+2. Which country issued the document
+3. If the document appears authentic (not obviously fake, edited, or a screenshot of a document)
+
+You must respond ONLY in this exact JSON format:
+{
+    "is_valid_document": true/false,
+    "document_type": "Passport" | "National ID Card" | "Driver's License" | "Unknown",
+    "country": "Country Name" | "Unknown",
+    "country_code": "XX" | "Unknown",
+    "confidence": "high" | "medium" | "low",
+    "reason": "Brief explanation",
+    "name_visible": true/false,
+    "id_number_visible": true/false
+}
+
+Be strict but fair. If you cannot clearly identify the document type or country, set is_valid_document to false."""
+        ).with_model("openai", "gpt-4o")
+        
+        # Create image content for AI analysis
+        image_contents = []
+        
+        # Add front image
+        front_image = ImageContent(image_base64=submission.front_image_base64)
+        image_contents.append(front_image)
+        
+        # Add back image if provided
+        if submission.back_image_base64:
+            back_image = ImageContent(image_base64=submission.back_image_base64)
+            image_contents.append(back_image)
+        
+        # Create the verification prompt
+        prompt = f"""Please analyze this identity document:
+
+Document Type Submitted: {submission.id_type}
+Name on Application: {submission.full_name}
+Nationality Claimed: {submission.nationality}
+ID Number Provided: {submission.id_number}
+
+Verify if this is a legitimate {submission.id_type} from {submission.nationality}.
+Check if the document appears authentic and matches the claimed document type.
+
+Analyze the image(s) and respond with the JSON verification result."""
+
+        # Send message with images
+        user_message = UserMessage(
+            text=prompt,
+            image_contents=image_contents
+        )
+        
+        response = await chat.send_message(user_message)
+        
+        # Parse AI response
+        import json
+        try:
+            # Extract JSON from response
+            response_text = response.strip()
+            if "```json" in response_text:
+                response_text = response_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in response_text:
+                response_text = response_text.split("```")[1].split("```")[0].strip()
+            
+            ai_result = json.loads(response_text)
+        except json.JSONDecodeError:
+            ai_result = {
+                "is_valid_document": False,
+                "document_type": "Unknown",
+                "country": "Unknown",
+                "confidence": "low",
+                "reason": "Could not parse AI verification response"
+            }
+        
+        # Store KYC submission in database
+        kyc_record = {
+            "kyc_id": f"kyc_{uuid.uuid4().hex[:12]}",
+            "user_id": user.user_id,
+            "full_name": submission.full_name,
+            "nationality": submission.nationality,
+            "date_of_birth": submission.date_of_birth,
+            "id_type": submission.id_type,
+            "id_number": submission.id_number,
+            "ai_verification": ai_result,
+            "status": "pending",  # pending, approved, rejected
+            "submitted_at": datetime.now(timezone.utc),
+            "verified_at": None,
+        }
+        
+        # Determine verification status based on AI result
+        if ai_result.get("is_valid_document") and ai_result.get("confidence") in ["high", "medium"]:
+            kyc_record["status"] = "auto_approved"
+            kyc_record["auto_approve_at"] = datetime.now(timezone.utc) + timedelta(minutes=5)
+            
+            # Schedule auto-verification after 5 minutes
+            asyncio.create_task(auto_verify_kyc(user.user_id, kyc_record["kyc_id"]))
+        else:
+            kyc_record["status"] = "manual_review"
+        
+        await db.kyc_submissions.insert_one(kyc_record)
+        
+        # Update user's KYC status
+        await db.users.update_one(
+            {"user_id": user.user_id},
+            {"$set": {
+                "kyc_status": kyc_record["status"],
+                "kyc_submitted_at": datetime.now(timezone.utc)
+            }}
+        )
+        
+        # Create notification
+        if kyc_record["status"] == "auto_approved":
+            await create_notification(
+                user.user_id,
+                "KYC Verification Started",
+                "Your documents have been verified by AI. Your account will be fully verified in 5 minutes.",
+                "system"
+            )
+        else:
+            await create_notification(
+                user.user_id,
+                "KYC Under Manual Review",
+                "Your documents are being reviewed by our team. This may take 1-3 business days.",
+                "system"
+            )
+        
+        return {
+            "success": True,
+            "kyc_id": kyc_record["kyc_id"],
+            "status": kyc_record["status"],
+            "ai_result": ai_result,
+            "message": "Documents submitted successfully" if kyc_record["status"] == "auto_approved" else "Documents submitted for manual review"
+        }
+        
+    except Exception as e:
+        logging.error(f"KYC submission error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing documents: {str(e)}")
+
+async def auto_verify_kyc(user_id: str, kyc_id: str):
+    """Auto-verify KYC after 5 minutes delay"""
+    await asyncio.sleep(300)  # 5 minutes = 300 seconds
+    
+    # Check if KYC is still auto_approved (not manually rejected)
+    kyc_record = await db.kyc_submissions.find_one({"kyc_id": kyc_id})
+    if kyc_record and kyc_record.get("status") == "auto_approved":
+        # Update KYC status to verified
+        await db.kyc_submissions.update_one(
+            {"kyc_id": kyc_id},
+            {"$set": {
+                "status": "verified",
+                "verified_at": datetime.now(timezone.utc)
+            }}
+        )
+        
+        # Update user's KYC status
+        await db.users.update_one(
+            {"user_id": user_id},
+            {"$set": {
+                "kyc_status": "verified",
+                "kyc_verified_at": datetime.now(timezone.utc),
+                "is_kyc_verified": True
+            }}
+        )
+        
+        # Send notification
+        await create_notification(
+            user_id,
+            "KYC Verified! ✅",
+            "Congratulations! Your identity has been verified. You now have full access to all features.",
+            "system"
+        )
+        
+        logging.info(f"Auto-verified KYC for user {user_id}")
+
+@api_router.get("/kyc/status")
+async def get_kyc_status(authorization: Optional[str] = Header(None), request: Request = None):
+    """Get user's KYC status"""
+    user = await get_current_user(authorization, request)
+    
+    # Get latest KYC submission
+    kyc_record = await db.kyc_submissions.find_one(
+        {"user_id": user.user_id},
+        sort=[("submitted_at", -1)]
+    )
+    
+    if not kyc_record:
+        return {
+            "status": "not_submitted",
+            "is_verified": False
+        }
+    
+    # Calculate remaining time for auto-approval
+    remaining_seconds = None
+    if kyc_record.get("status") == "auto_approved" and kyc_record.get("auto_approve_at"):
+        now = datetime.now(timezone.utc)
+        auto_approve_at = kyc_record["auto_approve_at"]
+        if isinstance(auto_approve_at, datetime):
+            remaining = (auto_approve_at - now).total_seconds()
+            remaining_seconds = max(0, int(remaining))
+    
+    return {
+        "kyc_id": kyc_record.get("kyc_id"),
+        "status": kyc_record.get("status"),
+        "is_verified": kyc_record.get("status") == "verified",
+        "submitted_at": kyc_record.get("submitted_at"),
+        "verified_at": kyc_record.get("verified_at"),
+        "ai_result": kyc_record.get("ai_verification"),
+        "remaining_seconds": remaining_seconds
+    }
 
 # ============= Admin Routes =============
 

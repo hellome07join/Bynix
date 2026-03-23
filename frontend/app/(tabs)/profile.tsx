@@ -9,11 +9,14 @@ import {
   TextInput,
   Modal,
   Alert,
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../stores/authStore';
 import { API_URL } from '../../utils/api';
+import * as ImagePicker from 'expo-image-picker';
 
 const TABS = ['Overview', 'Security', 'KYC', 'Activity', 'Settings'];
 
@@ -79,6 +82,11 @@ export default function Profile() {
   });
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [showIdTypePicker, setShowIdTypePicker] = useState(false);
+  const [frontImage, setFrontImage] = useState<string | null>(null);
+  const [backImage, setBackImage] = useState<string | null>(null);
+  const [isSubmittingKyc, setIsSubmittingKyc] = useState(false);
+  const [kycStatus, setKycStatus] = useState<any>(null);
+  const [kycCountdown, setKycCountdown] = useState<number | null>(null);
 
   // Fetch profile stats from backend
   const fetchProfileStats = useCallback(async () => {
@@ -112,7 +120,159 @@ export default function Profile() {
   // Fetch stats on mount
   useEffect(() => {
     fetchProfileStats();
+    fetchKycStatus();
   }, [fetchProfileStats]);
+
+  // Fetch KYC status
+  const fetchKycStatus = useCallback(async () => {
+    if (!token) return;
+
+    try {
+      const response = await fetch(`${API_URL}/kyc/status`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setKycStatus(data);
+        
+        // Update KYC step based on status
+        if (data.status === 'verified') {
+          setKycStep(4);
+        } else if (data.status === 'auto_approved' || data.status === 'manual_review') {
+          setKycStep(3);
+          if (data.remaining_seconds) {
+            setKycCountdown(data.remaining_seconds);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching KYC status:', error);
+    }
+  }, [token]);
+
+  // Countdown timer for auto-verification
+  useEffect(() => {
+    if (kycCountdown === null || kycCountdown <= 0) return;
+
+    const timer = setInterval(() => {
+      setKycCountdown(prev => {
+        if (prev === null || prev <= 1) {
+          clearInterval(timer);
+          // Refresh KYC status when countdown ends
+          fetchKycStatus();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [kycCountdown, fetchKycStatus]);
+
+  // Pick image for document upload
+  const pickImage = async (side: 'front' | 'back') => {
+    try {
+      // Request permission
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please allow access to your photo library to upload documents.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0].base64) {
+        if (side === 'front') {
+          setFrontImage(result.assets[0].base64);
+        } else {
+          setBackImage(result.assets[0].base64);
+        }
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
+    }
+  };
+
+  // Submit KYC documents
+  const submitKycDocuments = async () => {
+    if (!token) {
+      Alert.alert('Error', 'Please login first');
+      return;
+    }
+
+    if (!frontImage) {
+      Alert.alert('Missing Document', 'Please upload the front side of your ID');
+      return;
+    }
+
+    setIsSubmittingKyc(true);
+
+    try {
+      const response = await fetch(`${API_URL}/kyc/submit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          full_name: kycData.fullName,
+          nationality: kycData.nationality,
+          date_of_birth: kycData.dateOfBirth,
+          id_type: kycData.idType,
+          id_number: kycData.idNumber,
+          front_image_base64: frontImage,
+          back_image_base64: backImage,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setKycStatus(data);
+        
+        if (data.status === 'auto_approved') {
+          Alert.alert(
+            'AI Verification Successful! ✅',
+            `Your ${kycData.idType} from ${kycData.nationality} has been verified by AI. Your account will be fully verified in 5 minutes.`,
+            [{ text: 'OK' }]
+          );
+          setKycStep(3);
+          setKycCountdown(300); // 5 minutes
+        } else {
+          Alert.alert(
+            'Manual Review Required',
+            'Your documents have been submitted for manual review. This usually takes 1-3 business days.',
+            [{ text: 'OK' }]
+          );
+          setKycStep(3);
+        }
+      } else {
+        Alert.alert('Error', data.detail || 'Failed to submit documents');
+      }
+    } catch (error) {
+      console.error('Error submitting KYC:', error);
+      Alert.alert('Error', 'Failed to submit documents. Please try again.');
+    } finally {
+      setIsSubmittingKyc(false);
+    }
+  };
+
+  // Format countdown time
+  const formatCountdown = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const handleSignOut = () => {
     Alert.alert(
@@ -633,20 +793,44 @@ export default function Profile() {
               </View>
             </View>
 
+            {/* AI Verification Notice */}
+            <View style={[styles.kycNotice, { backgroundColor: 'rgba(0, 229, 90, 0.1)', borderColor: 'rgba(0, 229, 90, 0.3)' }]}>
+              <Ionicons name="sparkles" size={18} color="#00E55A" />
+              <Text style={[styles.kycNoticeText, { color: '#00E55A' }]}>
+                AI-Powered Verification: Your documents will be verified instantly by AI. If approved, your account will be verified in 5 minutes!
+              </Text>
+            </View>
+
             {/* Front Side Upload */}
             <View style={styles.kycField}>
               <View style={styles.kycFieldLabel}>
                 <Ionicons name="card" size={14} color="#FFB800" />
-                <Text style={styles.kycFieldLabelText}>FRONT SIDE</Text>
+                <Text style={styles.kycFieldLabelText}>FRONT SIDE *</Text>
               </View>
               <TouchableOpacity 
-                style={styles.uploadArea}
-                onPress={() => Alert.alert('Upload', 'Image picker coming soon!')}
+                style={[styles.uploadArea, frontImage && styles.uploadAreaWithImage]}
+                onPress={() => pickImage('front')}
               >
-                <View style={styles.uploadIconWrapper}>
-                  <Ionicons name="cloud-upload" size={28} color="#666" />
-                </View>
-                <Text style={styles.uploadText}>Tap to upload</Text>
+                {frontImage ? (
+                  <>
+                    <Image 
+                      source={{ uri: `data:image/jpeg;base64,${frontImage}` }}
+                      style={styles.uploadedImage}
+                      resizeMode="cover"
+                    />
+                    <View style={styles.uploadedOverlay}>
+                      <Ionicons name="checkmark-circle" size={32} color="#00E55A" />
+                      <Text style={styles.uploadedText}>Tap to change</Text>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.uploadIconWrapper}>
+                      <Ionicons name="camera" size={28} color="#666" />
+                    </View>
+                    <Text style={styles.uploadText}>Tap to upload front side</Text>
+                  </>
+                )}
               </TouchableOpacity>
             </View>
 
@@ -654,26 +838,55 @@ export default function Profile() {
             <View style={styles.kycField}>
               <View style={styles.kycFieldLabel}>
                 <Ionicons name="card-outline" size={14} color="#FFB800" />
-                <Text style={styles.kycFieldLabelText}>BACK SIDE</Text>
+                <Text style={styles.kycFieldLabelText}>BACK SIDE (Optional)</Text>
               </View>
               <TouchableOpacity 
-                style={styles.uploadArea}
-                onPress={() => Alert.alert('Upload', 'Image picker coming soon!')}
+                style={[styles.uploadArea, backImage && styles.uploadAreaWithImage]}
+                onPress={() => pickImage('back')}
               >
-                <View style={styles.uploadIconWrapper}>
-                  <Ionicons name="cloud-upload" size={28} color="#666" />
-                </View>
-                <Text style={styles.uploadText}>Tap to upload</Text>
+                {backImage ? (
+                  <>
+                    <Image 
+                      source={{ uri: `data:image/jpeg;base64,${backImage}` }}
+                      style={styles.uploadedImage}
+                      resizeMode="cover"
+                    />
+                    <View style={styles.uploadedOverlay}>
+                      <Ionicons name="checkmark-circle" size={32} color="#00E55A" />
+                      <Text style={styles.uploadedText}>Tap to change</Text>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.uploadIconWrapper}>
+                      <Ionicons name="camera" size={28} color="#666" />
+                    </View>
+                    <Text style={styles.uploadText}>Tap to upload back side</Text>
+                  </>
+                )}
               </TouchableOpacity>
             </View>
 
-            {/* Continue Button */}
+            {/* Submit Button */}
             <TouchableOpacity 
-              style={styles.kycContinueBtn}
-              onPress={handleSubmitForReview}
+              style={[
+                styles.kycContinueBtn,
+                (!frontImage || isSubmittingKyc) && styles.kycContinueBtnDisabled
+              ]}
+              onPress={submitKycDocuments}
+              disabled={!frontImage || isSubmittingKyc}
             >
-              <Ionicons name="paper-plane" size={18} color="#0A1A0F" />
-              <Text style={styles.kycContinueBtnText}>Submit for Review</Text>
+              {isSubmittingKyc ? (
+                <>
+                  <ActivityIndicator color="#0A1A0F" size="small" />
+                  <Text style={styles.kycContinueBtnText}>Verifying with AI...</Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="sparkles" size={18} color="#0A1A0F" />
+                  <Text style={styles.kycContinueBtnText}>Submit for AI Verification</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
         )}
@@ -682,25 +895,62 @@ export default function Profile() {
         {kycStep === 3 && (
           <View style={styles.kycFormCard}>
             <View style={styles.kycFormHeader}>
-              <View style={[styles.kycFormIcon, { backgroundColor: '#FFB800' }]}>
-                <Ionicons name="time" size={18} color="#0A1A0F" />
+              <View style={[styles.kycFormIcon, { backgroundColor: kycStatus?.status === 'auto_approved' ? '#00E55A' : '#FFB800' }]}>
+                <Ionicons name={kycStatus?.status === 'auto_approved' ? 'checkmark-circle' : 'time'} size={18} color="#0A1A0F" />
               </View>
               <View>
-                <Text style={styles.kycFormTitle}>Under Review</Text>
-                <Text style={styles.kycFormSubtitle}>Your documents are being verified</Text>
+                <Text style={styles.kycFormTitle}>
+                  {kycStatus?.status === 'auto_approved' ? 'AI Verified!' : 'Under Review'}
+                </Text>
+                <Text style={styles.kycFormSubtitle}>
+                  {kycStatus?.status === 'auto_approved' ? 'Auto-verification in progress' : 'Your documents are being verified'}
+                </Text>
               </View>
             </View>
 
-            <View style={styles.reviewStatusCard}>
-              <Ionicons name="hourglass" size={48} color="#FFB800" />
-              <Text style={styles.reviewTitle}>Verification In Progress</Text>
-              <Text style={styles.reviewText}>
-                Our team is reviewing your documents. This usually takes 1-3 business days.
-              </Text>
-              <Text style={styles.reviewText}>
-                You will receive a notification once your verification is complete.
-              </Text>
-            </View>
+            {/* AI Verification Success */}
+            {kycStatus?.status === 'auto_approved' && kycCountdown !== null && kycCountdown > 0 && (
+              <View style={[styles.reviewStatusCard, { backgroundColor: 'rgba(0, 229, 90, 0.1)' }]}>
+                <Ionicons name="shield-checkmark" size={48} color="#00E55A" />
+                <Text style={[styles.reviewTitle, { color: '#00E55A' }]}>AI Verification Passed!</Text>
+                <Text style={styles.reviewText}>
+                  Your {kycData.idType || 'document'} has been verified by AI.
+                </Text>
+                
+                {/* Countdown Timer */}
+                <View style={styles.countdownContainer}>
+                  <Text style={styles.countdownLabel}>Account will be verified in:</Text>
+                  <Text style={styles.countdownTimer}>{formatCountdown(kycCountdown)}</Text>
+                </View>
+                
+                {kycStatus?.ai_result && (
+                  <View style={styles.aiResultBox}>
+                    <Text style={styles.aiResultLabel}>Document Type:</Text>
+                    <Text style={styles.aiResultValue}>{kycStatus.ai_result.document_type}</Text>
+                    <Text style={styles.aiResultLabel}>Country:</Text>
+                    <Text style={styles.aiResultValue}>{kycStatus.ai_result.country}</Text>
+                    <Text style={styles.aiResultLabel}>Confidence:</Text>
+                    <Text style={[styles.aiResultValue, { color: kycStatus.ai_result.confidence === 'high' ? '#00E55A' : '#FFB800' }]}>
+                      {kycStatus.ai_result.confidence?.toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Manual Review */}
+            {kycStatus?.status === 'manual_review' && (
+              <View style={styles.reviewStatusCard}>
+                <Ionicons name="hourglass" size={48} color="#FFB800" />
+                <Text style={styles.reviewTitle}>Manual Review Required</Text>
+                <Text style={styles.reviewText}>
+                  Our team is reviewing your documents. This usually takes 1-3 business days.
+                </Text>
+                <Text style={styles.reviewText}>
+                  You will receive a notification once your verification is complete.
+                </Text>
+              </View>
+            )}
 
             <View style={styles.reviewChecklist}>
               <View style={styles.reviewCheckItem}>
@@ -712,9 +962,21 @@ export default function Profile() {
                 <Text style={styles.reviewCheckText}>ID documents uploaded</Text>
               </View>
               <View style={styles.reviewCheckItem}>
-                <Ionicons name="time" size={20} color="#FFB800" />
-                <Text style={styles.reviewCheckText}>Awaiting manual review</Text>
+                <Ionicons 
+                  name={kycStatus?.status === 'auto_approved' ? 'checkmark-circle' : 'time'} 
+                  size={20} 
+                  color={kycStatus?.status === 'auto_approved' ? '#00E55A' : '#FFB800'} 
+                />
+                <Text style={styles.reviewCheckText}>
+                  {kycStatus?.status === 'auto_approved' ? 'AI verification passed' : 'Awaiting review'}
+                </Text>
               </View>
+              {kycStatus?.status === 'auto_approved' && (
+                <View style={styles.reviewCheckItem}>
+                  <Ionicons name="time" size={20} color="#FFB800" />
+                  <Text style={styles.reviewCheckText}>Pending final verification ({formatCountdown(kycCountdown || 0)})</Text>
+                </View>
+              )}
             </View>
           </View>
         )}
@@ -2134,5 +2396,70 @@ const styles = StyleSheet.create({
   reviewCheckText: {
     color: '#FFFFFF',
     fontSize: 14,
+  },
+  uploadAreaWithImage: {
+    padding: 0,
+    overflow: 'hidden',
+  },
+  uploadedImage: {
+    width: '100%',
+    height: 140,
+    borderRadius: 10,
+  },
+  uploadedOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 10,
+  },
+  uploadedText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  kycContinueBtnDisabled: {
+    opacity: 0.5,
+  },
+  countdownContainer: {
+    marginTop: 20,
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 229, 90, 0.2)',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    width: '100%',
+  },
+  countdownLabel: {
+    color: '#AAAAAA',
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  countdownTimer: {
+    color: '#00E55A',
+    fontSize: 36,
+    fontWeight: '800',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  aiResultBox: {
+    marginTop: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: 16,
+    borderRadius: 10,
+    width: '100%',
+  },
+  aiResultLabel: {
+    color: '#888',
+    fontSize: 11,
+    marginTop: 8,
+  },
+  aiResultValue: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
