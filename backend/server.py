@@ -1178,8 +1178,9 @@ YOUR TASK:
 Analyze the image carefully and respond with the JSON verification result."""
 
         # Create UserMessage with image as FileContent
+        # The emergentintegrations library expects just the base64 data without data URL prefix
         file_content = FileContent(
-            content_type="image/jpeg",
+            content_type="image/png",
             file_content_base64=submission.front_image_base64
         )
         user_message = UserMessage(
@@ -1188,7 +1189,51 @@ Analyze the image carefully and respond with the JSON verification result."""
         )
         
         # Send message with image
-        response = await chat.send_message(user_message)
+        try:
+            response = await chat.send_message(user_message)
+        except Exception as ai_error:
+            # If AI service fails, provide a fallback response for testing
+            self.log(f"AI service error: {str(ai_error)}")
+            
+            # For now, provide a mock response to allow testing of the flow
+            # In production, this should be handled differently
+            ai_result = {
+                "is_valid_document": False,
+                "document_type": "Unknown",
+                "country": "Unknown",
+                "confidence": "low",
+                "reason": f"AI service temporarily unavailable: {str(ai_error)[:100]}",
+                "name_on_document": "Not visible",
+                "name_matches": False,
+                "id_number_visible": False,
+                "detected_id_number": "Not visible"
+            }
+            
+            # Store KYC submission with error status
+            kyc_record = {
+                "kyc_id": f"kyc_{uuid.uuid4().hex[:12]}",
+                "user_id": user.user_id,
+                "full_name": submission.full_name,
+                "nationality": submission.nationality,
+                "date_of_birth": submission.date_of_birth,
+                "id_type": submission.id_type,
+                "id_number": submission.id_number,
+                "ai_verification": ai_result,
+                "status": "rejected",
+                "submitted_at": datetime.now(timezone.utc),
+                "rejected_at": datetime.now(timezone.utc),
+                "rejection_reason": ai_result["reason"]
+            }
+            
+            await db.kyc_submissions.insert_one(kyc_record)
+            
+            return {
+                "success": False,
+                "kyc_id": kyc_record["kyc_id"],
+                "status": "rejected",
+                "ai_result": ai_result,
+                "message": f"AI verification service error: {ai_result['reason']}"
+            }
         
         # Parse AI response
         import json
