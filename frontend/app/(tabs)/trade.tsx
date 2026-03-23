@@ -2209,18 +2209,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF3B3B',
   },
   demoBalance: {
-    backgroundColor: '#2D1515',
+    backgroundColor: '#8B0000',
     borderColor: '#FF3B3B',
   },
   demoBalanceText: {
-    color: '#FF6B6B',
+    color: '#FFFFFF',
   },
   realBalance: {
-    backgroundColor: '#0D1B2A',
-    borderColor: '#3B82F6',
+    backgroundColor: '#00C853',
+    borderColor: '#00E55A',
   },
   realBalanceText: {
-    color: '#60A5FA',
+    color: '#FFFFFF',
   },
   accountOption: {
     flexDirection: 'row',
