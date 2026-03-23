@@ -1098,6 +1098,110 @@ async def get_my_leaderboard_stats(authorization: Optional[str] = Header(None), 
         "position": position_str,
     }
 
+@api_router.get("/leaderboard/user/{user_id}")
+async def get_leaderboard_user_profile(user_id: str):
+    """Get detailed profile of a user for leaderboard popup"""
+    
+    # Get user's profile info
+    user_doc = await db.users.find_one(
+        {"user_id": user_id},
+        {
+            "user_id": 1, "account_id": 1, "nickname": 1, "full_name": 1, "name": 1,
+            "country": 1, "country_flag": 1, "picture": 1, "demo_balance": 1,
+            "real_balance": 1, "created_at": 1
+        }
+    )
+    
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Determine display name
+    display_name = user_doc.get("nickname")
+    if not display_name:
+        account_id = user_doc.get("account_id")
+        if account_id:
+            display_name = f"ID: {account_id}"
+        else:
+            display_name = user_doc.get("full_name") or user_doc.get("name") or "Trader"
+    
+    # Get all-time trading stats
+    stats_pipeline = [
+        {
+            "$match": {
+                "user_id": user_id,
+                "status": {"$in": ["won", "lost"]},
+            }
+        },
+        {
+            "$group": {
+                "_id": "$user_id",
+                "total_trades": {"$sum": 1},
+                "won_trades": {
+                    "$sum": {"$cond": [{"$eq": ["$status", "won"]}, 1, 0]}
+                },
+                "total_profit": {"$sum": "$profit_loss"},
+                "total_volume": {"$sum": "$amount"},
+                "min_amount": {"$min": "$amount"},
+                "max_amount": {"$max": "$amount"},
+            }
+        }
+    ]
+    
+    stats_results = await db.trades.aggregate(stats_pipeline).to_list(1)
+    
+    # Default stats if no trades
+    if not stats_results:
+        stats = {
+            "total_trades": 0,
+            "won_trades": 0,
+            "total_profit": 0,
+            "total_volume": 0,
+            "min_amount": 0,
+            "max_amount": 0,
+        }
+    else:
+        stats = stats_results[0]
+    
+    # Calculate derived stats
+    total_trades = stats.get("total_trades", 0)
+    won_trades = stats.get("won_trades", 0)
+    total_profit = stats.get("total_profit", 0)
+    avg_profit = total_profit / total_trades if total_trades > 0 else 0
+    
+    # Determine account level based on volume
+    total_volume = stats.get("total_volume", 0)
+    if total_volume >= 100000:
+        account_level = "VIP Diamond"
+        level_color = "#00E5FF"
+    elif total_volume >= 50000:
+        account_level = "VIP Gold"
+        level_color = "#FFD700"
+    elif total_volume >= 10000:
+        account_level = "VIP Silver"
+        level_color = "#C0C0C0"
+    elif total_volume >= 1000:
+        account_level = "Bronze"
+        level_color = "#CD7F32"
+    else:
+        account_level = "Starter"
+        level_color = "#00E55A"
+    
+    return {
+        "user_id": user_id,
+        "name": display_name,
+        "country": user_doc.get("country", "Unknown"),
+        "country_flag": user_doc.get("country_flag", "🌍"),
+        "picture": user_doc.get("picture"),
+        "account_level": account_level,
+        "level_color": level_color,
+        "trades_count": total_trades,
+        "profitable_trades": won_trades,
+        "trades_profit": round(total_profit, 2),
+        "average_profit": round(avg_profit, 2),
+        "min_trade_amount": round(stats.get("min_amount", 0), 2),
+        "max_trade_amount": round(stats.get("max_amount", 0), 2),
+    }
+
 # ============= Profile Stats Routes =============
 
 @api_router.get("/profile/stats")

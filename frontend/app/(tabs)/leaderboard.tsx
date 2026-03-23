@@ -40,6 +40,22 @@ interface MyStats {
   position: string;
 }
 
+interface UserProfile {
+  user_id: string;
+  name: string;
+  country: string;
+  country_flag: string;
+  picture: string | null;
+  account_level: string;
+  level_color: string;
+  trades_count: number;
+  profitable_trades: number;
+  trades_profit: number;
+  average_profit: number;
+  min_trade_amount: number;
+  max_trade_amount: number;
+}
+
 // Country flag mapping
 const COUNTRY_FLAGS: { [key: string]: string } = {
   'Bangladesh': '🇧🇩',
@@ -73,6 +89,9 @@ export default function Leaderboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [showUserProfileModal, setShowUserProfileModal] = useState(false);
+  const [selectedUserProfile, setSelectedUserProfile] = useState<UserProfile | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
 
   const fetchLeaderboard = useCallback(async () => {
     try {
@@ -105,6 +124,23 @@ export default function Leaderboard() {
       console.error('Error fetching my stats:', error);
     }
   }, [token]);
+
+  const fetchUserProfile = async (userId: string) => {
+    setLoadingProfile(true);
+    setShowUserProfileModal(true);
+    
+    try {
+      const response = await fetch(`${API_URL}/leaderboard/user/${userId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setSelectedUserProfile(data);
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -235,12 +271,14 @@ export default function Leaderboard() {
               const isTopThree = trader.rank <= 3;
 
               return (
-                <View 
+                <TouchableOpacity 
                   key={trader.user_id} 
                   style={[
                     styles.traderRow,
                     isTopThree && styles.traderRowTopThree,
                   ]}
+                  onPress={() => fetchUserProfile(trader.user_id)}
+                  activeOpacity={0.7}
                 >
                   {/* Rank */}
                   <View style={styles.rankContainer}>
@@ -276,7 +314,7 @@ export default function Leaderboard() {
                   ]}>
                     {formatProfit(trader.profit, trader.is_profit)}
                   </Text>
-                </View>
+                </TouchableOpacity>
               );
             })
           )}
@@ -341,6 +379,110 @@ export default function Leaderboard() {
             >
               <Text style={styles.modalCloseBtnText}>Got it!</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* User Profile Modal */}
+      <Modal
+        visible={showUserProfileModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowUserProfileModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.profileModalContent}>
+            {/* Close Button */}
+            <TouchableOpacity 
+              style={styles.profileCloseBtn}
+              onPress={() => setShowUserProfileModal(false)}
+            >
+              <Ionicons name="close" size={24} color="#666" />
+            </TouchableOpacity>
+
+            {loadingProfile ? (
+              <View style={styles.profileLoading}>
+                <ActivityIndicator size="large" color="#00E55A" />
+                <Text style={styles.loadingText}>Loading profile...</Text>
+              </View>
+            ) : selectedUserProfile && (
+              <>
+                {/* Profile Header */}
+                <View style={styles.profileHeader}>
+                  {/* Profile Picture */}
+                  <View style={styles.profilePicContainer}>
+                    {selectedUserProfile.picture ? (
+                      <Image 
+                        source={{ uri: selectedUserProfile.picture }}
+                        style={styles.profilePic}
+                      />
+                    ) : (
+                      <View style={styles.profilePicPlaceholder}>
+                        <Ionicons name="person" size={40} color="#00E55A" />
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Country and Name */}
+                  <Text style={styles.profileCountry}>{selectedUserProfile.country}</Text>
+                  <View style={styles.profileNameRow}>
+                    <Text style={styles.profileName}>{selectedUserProfile.name}</Text>
+                    <View style={[styles.levelBadge, { backgroundColor: selectedUserProfile.level_color + '30', borderColor: selectedUserProfile.level_color }]}>
+                      <Text style={[styles.levelBadgeText, { color: selectedUserProfile.level_color }]}>
+                        {selectedUserProfile.account_level}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Stats Grid */}
+                <View style={styles.statsGrid}>
+                  {/* Row 1 */}
+                  <View style={styles.statsRow}>
+                    <View style={styles.statItem}>
+                      <Text style={styles.statValue}>{selectedUserProfile.trades_count}</Text>
+                      <Text style={styles.statLabel}>Trades count</Text>
+                    </View>
+                    <View style={styles.statItem}>
+                      <Text style={styles.statValue}>{selectedUserProfile.profitable_trades}</Text>
+                      <Text style={styles.statLabel}>Profitable trades</Text>
+                    </View>
+                  </View>
+
+                  {/* Row 2 */}
+                  <View style={styles.statsRow}>
+                    <View style={styles.statItem}>
+                      <Text style={[styles.statValue, { color: selectedUserProfile.trades_profit >= 0 ? '#00E55A' : '#FF3B3B' }]}>
+                        ${selectedUserProfile.trades_profit.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </Text>
+                      <Text style={styles.statLabel}>Trades profit</Text>
+                    </View>
+                    <View style={styles.statItem}>
+                      <Text style={[styles.statValue, { color: selectedUserProfile.average_profit >= 0 ? '#00E55A' : '#FF3B3B' }]}>
+                        ${selectedUserProfile.average_profit.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </Text>
+                      <Text style={styles.statLabel}>Average profit</Text>
+                    </View>
+                  </View>
+
+                  {/* Row 3 */}
+                  <View style={styles.statsRow}>
+                    <View style={styles.statItem}>
+                      <Text style={styles.statValue}>
+                        ${selectedUserProfile.min_trade_amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </Text>
+                      <Text style={styles.statLabel}>Min trade amount</Text>
+                    </View>
+                    <View style={styles.statItem}>
+                      <Text style={styles.statValue}>
+                        ${selectedUserProfile.max_trade_amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </Text>
+                      <Text style={styles.statLabel}>Max trade amount</Text>
+                    </View>
+                  </View>
+                </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -647,5 +789,97 @@ const styles = StyleSheet.create({
     color: '#0A1A0F',
     fontSize: 16,
     fontWeight: '700',
+  },
+  // User Profile Modal Styles
+  profileModalContent: {
+    backgroundColor: '#1B2838',
+    borderRadius: 20,
+    padding: 20,
+    marginHorizontal: 20,
+    width: '90%',
+    maxWidth: 360,
+  },
+  profileCloseBtn: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 1,
+    padding: 4,
+  },
+  profileLoading: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  profileHeader: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  profilePicContainer: {
+    marginBottom: 12,
+  },
+  profilePic: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    borderColor: '#00E55A',
+  },
+  profilePicPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#0A1A0F',
+    borderWidth: 3,
+    borderColor: '#00E55A',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileCountry: {
+    fontSize: 14,
+    color: '#888',
+    marginBottom: 4,
+  },
+  profileNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  profileName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  levelBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  levelBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  statsGrid: {
+    backgroundColor: '#0A1A0F',
+    borderRadius: 12,
+    padding: 16,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: '#666',
   },
 });
