@@ -31,6 +31,7 @@ interface LeaderboardUser {
 interface MyStats {
   user_id: string;
   name: string;
+  country_flag?: string;
   profit: number;
   total_trades: number;
   win_rate: number;
@@ -183,8 +184,8 @@ export default function Leaderboard() {
         {token && myStats && (
           <View style={styles.myStatsCard}>
             <View style={styles.myStatsLeft}>
-              <Text style={styles.countryFlag}>🇧🇩</Text>
-              <Text style={styles.myStatsName}>{user?.name || user?.full_name || 'Name'}</Text>
+              <Text style={styles.countryFlag}>{myStats.country_flag || '🌍'}</Text>
+              <Text style={styles.myStatsName}>{myStats.name}</Text>
             </View>
             <Text style={[
               styles.myStatsProfit,

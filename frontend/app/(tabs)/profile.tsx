@@ -22,6 +22,40 @@ declare const window: any;
 
 const TABS = ['Overview', 'Security', 'KYC', 'Activity', 'Settings'];
 
+// Countries with flags
+const COUNTRIES_WITH_FLAGS = [
+  { name: 'Bangladesh', flag: '🇧🇩' },
+  { name: 'India', flag: '🇮🇳' },
+  { name: 'United States', flag: '🇺🇸' },
+  { name: 'United Kingdom', flag: '🇬🇧' },
+  { name: 'Canada', flag: '🇨🇦' },
+  { name: 'Australia', flag: '🇦🇺' },
+  { name: 'Germany', flag: '🇩🇪' },
+  { name: 'France', flag: '🇫🇷' },
+  { name: 'Japan', flag: '🇯🇵' },
+  { name: 'Brazil', flag: '🇧🇷' },
+  { name: 'Nepal', flag: '🇳🇵' },
+  { name: 'Pakistan', flag: '🇵🇰' },
+  { name: 'Russia', flag: '🇷🇺' },
+  { name: 'China', flag: '🇨🇳' },
+  { name: 'South Korea', flag: '🇰🇷' },
+  { name: 'Indonesia', flag: '🇮🇩' },
+  { name: 'Thailand', flag: '🇹🇭' },
+  { name: 'Vietnam', flag: '🇻🇳' },
+  { name: 'Philippines', flag: '🇵🇭' },
+  { name: 'Malaysia', flag: '🇲🇾' },
+  { name: 'Singapore', flag: '🇸🇬' },
+  { name: 'UAE', flag: '🇦🇪' },
+  { name: 'Saudi Arabia', flag: '🇸🇦' },
+  { name: 'Turkey', flag: '🇹🇷' },
+  { name: 'Nigeria', flag: '🇳🇬' },
+  { name: 'South Africa', flag: '🇿🇦' },
+  { name: 'Egypt', flag: '🇪🇬' },
+  { name: 'Mexico', flag: '🇲🇽' },
+  { name: 'Argentina', flag: '🇦🇷' },
+  { name: 'Colombia', flag: '🇨🇴' },
+];
+
 // Mock user data
 const MOCK_USER_DATA = {
   fullName: 'Demo User',
@@ -83,6 +117,7 @@ export default function Profile() {
     idNumber: '',
   });
   const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [showCountrySelectModal, setShowCountrySelectModal] = useState(false);
   const [showIdTypePicker, setShowIdTypePicker] = useState(false);
   const [frontImage, setFrontImage] = useState<string | null>(null);
   const [backImage, setBackImage] = useState<string | null>(null);
@@ -114,6 +149,8 @@ export default function Profile() {
           tierProgress: stats.volume || 0,
           accountId: stats.account_id || prev.accountId,
           nickname: stats.nickname || '',
+          country: stats.country || prev.country,
+          countryFlag: stats.country_flag || prev.countryFlag,
         }));
         // Also update nickname state for the modal
         if (stats.nickname) {
@@ -491,6 +528,51 @@ export default function Profile() {
     }
   };
 
+  // Save country selection
+  const saveCountry = async (countryName: string, countryFlag: string) => {
+    if (!token) {
+      if (Platform.OS === 'web') {
+        window.alert('Please login first');
+      } else {
+        Alert.alert('Error', 'Please login first');
+      }
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/profile/country?country=${encodeURIComponent(countryName)}&country_flag=${encodeURIComponent(countryFlag)}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        setUserData(prev => ({ ...prev, country: countryName, countryFlag: countryFlag }));
+        setShowCountrySelectModal(false);
+        if (Platform.OS === 'web') {
+          window.alert('Country updated successfully!');
+        } else {
+          Alert.alert('Success', 'Country updated successfully!');
+        }
+      } else {
+        const data = await response.json();
+        if (Platform.OS === 'web') {
+          window.alert(data.detail || 'Failed to update country');
+        } else {
+          Alert.alert('Error', data.detail || 'Failed to update country');
+        }
+      }
+    } catch (error) {
+      console.error('Error updating country:', error);
+      if (Platform.OS === 'web') {
+        window.alert('Failed to update country');
+      } else {
+        Alert.alert('Error', 'Failed to update country');
+      }
+    }
+  };
+
   const getTierColor = (tier: string) => {
     switch (tier) {
       case 'Bronze': return '#CD7F32';
@@ -633,7 +715,9 @@ export default function Profile() {
           <InfoRow icon="person" label="FULL NAME" value={user?.full_name || userData.fullName} />
           <InfoRow icon="mail" label="EMAIL" value={user?.email || userData.email} iconColor="#9B59B6" />
           <InfoRow icon="call" label="PHONE" value={userData.phone} iconColor="#00E55A" />
-          <InfoRow icon="globe" label="COUNTRY" value={`${userData.countryFlag} ${userData.country}`} iconColor="#FF6B6B" />
+          <TouchableOpacity onPress={() => setShowCountrySelectModal(true)}>
+            <InfoRow icon="globe" label="COUNTRY" value={`${userData.countryFlag} ${userData.country}`} iconColor="#FF6B6B" showEdit />
+          </TouchableOpacity>
           <InfoRow icon="location" label="ADDRESS" value={userData.address} iconColor="#FF3B3B" />
           <InfoRow icon="calendar" label="DATE OF BIRTH" value={userData.dateOfBirth} iconColor="#9B59B6" />
           <InfoRow icon="finger-print" label="ACCOUNT ID" value={userData.accountId} iconColor="#FFB800" />
@@ -1442,6 +1526,39 @@ export default function Profile() {
         </View>
       </Modal>
 
+      {/* Country Select Modal */}
+      <Modal visible={showCountrySelectModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '70%' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Country</Text>
+              <TouchableOpacity onPress={() => setShowCountrySelectModal(false)}>
+                <Ionicons name="close-circle" size={28} color="#666" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalSubtitle}>This will be shown on the leaderboard</Text>
+            <ScrollView style={styles.countryList}>
+              {COUNTRIES_WITH_FLAGS.map((country) => (
+                <TouchableOpacity
+                  key={country.name}
+                  style={[
+                    styles.countryItem,
+                    userData.country === country.name && styles.countryItemSelected
+                  ]}
+                  onPress={() => saveCountry(country.name, country.flag)}
+                >
+                  <Text style={styles.countryFlag}>{country.flag}</Text>
+                  <Text style={styles.countryName}>{country.name}</Text>
+                  {userData.country === country.name && (
+                    <Ionicons name="checkmark-circle" size={20} color="#00E55A" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       {/* Personal Info Modal */}
       <Modal visible={showPersonalInfoModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
@@ -1477,7 +1594,7 @@ export default function Profile() {
 }
 
 // Helper Components
-const InfoRow = ({ icon, label, value, iconColor = '#00E55A' }: { icon: string; label: string; value: string; iconColor?: string }) => (
+const InfoRow = ({ icon, label, value, iconColor = '#00E55A', showEdit = false }: { icon: string; label: string; value: string; iconColor?: string; showEdit?: boolean }) => (
   <View style={styles.infoRow}>
     <View style={[styles.infoIcon, { backgroundColor: iconColor + '20' }]}>
       <Ionicons name={icon as any} size={16} color={iconColor} />
@@ -1486,7 +1603,11 @@ const InfoRow = ({ icon, label, value, iconColor = '#00E55A' }: { icon: string; 
       <Text style={styles.infoLabel}>{label}</Text>
       <Text style={styles.infoValue}>{value}</Text>
     </View>
-    <Ionicons name="chevron-forward" size={16} color="#444" />
+    {showEdit ? (
+      <Ionicons name="create-outline" size={16} color="#00E55A" />
+    ) : (
+      <Ionicons name="chevron-forward" size={16} color="#444" />
+    )}
   </View>
 );
 
@@ -1920,6 +2041,30 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 13,
     marginBottom: 16,
+  },
+  countryList: {
+    maxHeight: 400,
+  },
+  countryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  countryItemSelected: {
+    backgroundColor: 'rgba(0, 229, 90, 0.1)',
+    borderRadius: 8,
+  },
+  countryFlag: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  countryName: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 15,
   },
   modalInput: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',

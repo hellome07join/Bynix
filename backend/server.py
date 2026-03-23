@@ -994,6 +994,23 @@ async def get_my_leaderboard_stats(authorization: Optional[str] = Header(None), 
     """Get current user's leaderboard stats and position"""
     user = await get_current_user(authorization, request)
     
+    # Get user's profile for nickname and country
+    user_doc = await db.users.find_one(
+        {"user_id": user.user_id},
+        {"nickname": 1, "account_id": 1, "country": 1, "country_flag": 1, "name": 1, "full_name": 1}
+    )
+    
+    # Determine display name (nickname or ID: account_id)
+    display_name = user_doc.get("nickname") if user_doc else None
+    if not display_name:
+        account_id = user_doc.get("account_id") if user_doc else None
+        if account_id:
+            display_name = f"ID: {account_id}"
+        else:
+            display_name = user_doc.get("full_name") or user_doc.get("name") or user.name
+    
+    country_flag = user_doc.get("country_flag", "🌍") if user_doc else "🌍"
+    
     # Calculate the time 24 hours ago
     time_24h_ago = datetime.now(timezone.utc) - timedelta(hours=24)
     
@@ -1024,7 +1041,8 @@ async def get_my_leaderboard_stats(authorization: Optional[str] = Header(None), 
     if not user_results:
         return {
             "user_id": user.user_id,
-            "name": user.name,
+            "name": display_name,
+            "country_flag": country_flag,
             "profit": 0,
             "total_trades": 0,
             "win_rate": 0,
@@ -1067,7 +1085,8 @@ async def get_my_leaderboard_stats(authorization: Optional[str] = Header(None), 
     
     return {
         "user_id": user.user_id,
-        "name": user.name,
+        "name": display_name,
+        "country_flag": country_flag,
         "profit": round(user_stats["total_profit"], 2),
         "total_trades": user_stats["total_trades"],
         "win_rate": round(win_rate, 1),
@@ -1085,7 +1104,7 @@ async def get_profile_stats(authorization: Optional[str] = Header(None), request
     # Get user's profile info
     user_doc = await db.users.find_one(
         {"user_id": user.user_id},
-        {"account_id": 1, "nickname": 1, "full_name": 1, "name": 1}
+        {"account_id": 1, "nickname": 1, "full_name": 1, "name": 1, "country": 1, "country_flag": 1}
     )
     
     # Ensure user has account_id (migration for existing users)
@@ -1139,6 +1158,8 @@ async def get_profile_stats(authorization: Optional[str] = Header(None), request
             "net_pnl": 0,
             "account_id": user_doc.get("account_id") if user_doc else None,
             "nickname": user_doc.get("nickname") if user_doc else None,
+            "country": user_doc.get("country") if user_doc else None,
+            "country_flag": user_doc.get("country_flag", "🌍") if user_doc else "🌍",
         }
     
     stats = results[0]
@@ -1151,6 +1172,8 @@ async def get_profile_stats(authorization: Optional[str] = Header(None), request
         "net_pnl": round(stats["net_pnl"], 2),
         "account_id": user_doc.get("account_id") if user_doc else None,
         "nickname": user_doc.get("nickname") if user_doc else None,
+        "country": user_doc.get("country") if user_doc else None,
+        "country_flag": user_doc.get("country_flag", "🌍") if user_doc else "🌍",
     }
 
 @api_router.put("/profile/nickname")
