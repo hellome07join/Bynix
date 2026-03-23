@@ -210,6 +210,36 @@ backend:
         agent: "testing"
         comment: "Trade history endpoint tested successfully. Fixed timezone issue in datetime calculations. Endpoint returns properly formatted trade history with all required fields: trade_id, asset, type, entry_price, exit_price, amount, profit_loss, status, account_type, time_ago, created_at. Trades sorted by newest first. Auth protection working correctly (401 without token). Tested with multiple trades showing both wins and losses with correct profit/loss calculations."
 
+  - task: "Deposit Bonus System"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented comprehensive deposit bonus system: 1) 200% first-time deposit bonus, 2) Promo code system (BYNIX=25% for $100+, WELCOME=10% for $50+, VIP50=50% for $200+), 3) Network selection for deposits, 4) Bonus balance separate from real balance, 5) Trades deduct from real_balance first then bonus_balance, 6) All profits go to real_balance, 7) Withdrawals only from real_balance"
+      - working: true
+        agent: "testing"
+        comment: "Comprehensive deposit bonus system testing completed successfully. All 9 test cases passed: 1) First deposit 200% bonus calculation verified (100 USD → 200% bonus = 200 USD bonus, total credit 300 USD), 2) Promo code stacking tested - BYNIX (25%) stacks with first deposit (200%) = 225% total bonus, 3) WELCOME (10% for $50+) and VIP50 (50% for $200+) promo codes working correctly, 4) NOWPayments integration functional - real payment addresses generated, 5) Initial user balance state correct (real_balance: 0, bonus_balance: 0), 6) All bonus calculations mathematically accurate and properly stored in database"
+
+  - task: "Dual Balance Trading System"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented dual balance system: real_balance (withdrawable) and bonus_balance (trading only). Trade creation deducts from real_balance first, then bonus_balance. Trade settlement credits all profits to real_balance. Withdrawal endpoint checks only real_balance."
+      - working: true
+        agent: "testing"
+        comment: "Dual balance trading system testing completed successfully. All test scenarios verified: 1) Trade deduction logic working perfectly - $60 trade with $50 real + $100 bonus correctly deducts $50 from real_balance and $10 from bonus_balance, 2) Trade settlement profits go exclusively to real_balance - winning trade credited $36 payout to real_balance only, bonus_balance unchanged, 3) Withdrawal validation properly enforced - attempts to withdraw more than real_balance correctly rejected with 'Insufficient balance' even when bonus_balance has funds, 4) /auth/me endpoint displays all balance fields correctly: real_balance, bonus_balance, total_balance (sum), withdrawable_balance (=real_balance), 5) Balance calculations mathematically accurate throughout all operations"
+
 frontend:
   - task: "Authentication screens"
     implemented: true
@@ -302,3 +332,7 @@ agent_communication:
     message: "Implemented trade history endpoint GET /api/trades/history that returns formatted trade history with profit/loss calculations. Ready for backend testing to verify this endpoint works correctly."
   - agent: "testing"
     message: "Trade history endpoint testing completed successfully. Fixed timezone issue in datetime calculations that was causing 500 errors. Endpoint now working perfectly: returns formatted trade history with all required fields (trade_id, asset, type, entry_price, exit_price, amount, profit_loss, status, account_type, time_ago, created_at), proper sorting by newest first, correct profit/loss calculations for wins and losses, and proper auth protection (401 without token). All test cases passed."
+  - agent: "main"
+    message: "Implemented comprehensive deposit bonus system. Need to test: 1) First deposit 200% bonus calculation, 2) Promo codes (BYNIX, WELCOME, VIP50), 3) Network selection in deposits, 4) Dual balance system (real_balance vs bonus_balance), 5) Trades deducting from real first then bonus, 6) Profits going to real_balance, 7) Withdrawals checking only real_balance"
+  - agent: "testing"
+    message: "DEPOSIT BONUS & DUAL BALANCE SYSTEM TESTING COMPLETED SUCCESSFULLY! All 9 comprehensive test cases passed: ✅ User creation and initial balance verification (real_balance: 0, bonus_balance: 0), ✅ First deposit 200% bonus calculation verified ($100 → $200 bonus = $300 total credit), ✅ Promo code stacking tested - BYNIX (25%) + first deposit (200%) = 225% total bonus, ✅ WELCOME (10% for $50+) and VIP50 (50% for $200+) promo codes working correctly, ✅ Dual balance trade deduction logic perfect - $60 trade with $50 real + $100 bonus correctly deducts $50 from real_balance and $10 from bonus_balance, ✅ Trade settlement profits go exclusively to real_balance - $36 payout credited to real_balance only, ✅ Withdrawal validation properly enforced - rejects withdrawals exceeding real_balance even with bonus_balance funds, ✅ /auth/me endpoint displays all balance fields correctly, ✅ NOWPayments integration functional with real payment addresses generated. Both Deposit Bonus System and Dual Balance Trading System are fully operational and mathematically accurate."

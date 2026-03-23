@@ -1247,4 +1247,199 @@ const styles = StyleSheet.create({
     color: '#00E55A',
     fontWeight: '600',
   },
+  // Balance breakdown styles
+  balanceBreakdown: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.1)',
+  },
+  balanceItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  balanceItemLabel: {
+    fontSize: 12,
+    color: '#888888',
+    marginBottom: 4,
+  },
+  balanceItemValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#00E55A',
+  },
+  balanceDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    marginHorizontal: 20,
+  },
+  // Bonus banner styles
+  bonusBanner: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,184,0,0.1)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,184,0,0.3)',
+  },
+  bonusBannerIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,184,0,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  bonusBannerContent: {
+    flex: 1,
+  },
+  bonusBannerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFB800',
+    marginBottom: 4,
+  },
+  bonusBannerText: {
+    fontSize: 13,
+    color: '#CCCCCC',
+    lineHeight: 18,
+  },
+  // Network selector styles
+  networkSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0A1A0F',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#333333',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 8,
+    gap: 10,
+  },
+  networkSelectorText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#FFFFFF',
+  },
+  networkFeeText: {
+    fontSize: 12,
+    color: '#888888',
+    marginBottom: 16,
+  },
+  // Promo code styles
+  promoInput: {
+    backgroundColor: '#0A1A0F',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#333333',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    color: '#FFFFFF',
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  promoHint: {
+    fontSize: 12,
+    color: '#00E55A',
+    marginBottom: 16,
+  },
+  // Bonus info box styles
+  bonusInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,184,0,0.1)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 20,
+    gap: 10,
+  },
+  bonusInfoText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#FFB800',
+  },
+  // Network picker modal styles
+  pickerModalContent: {
+    backgroundColor: '#1A1F3D',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    maxHeight: '60%',
+  },
+  networkList: {
+    maxHeight: 350,
+  },
+  networkOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0A1A0F',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#333333',
+  },
+  networkOptionActive: {
+    borderColor: '#00E55A',
+    backgroundColor: 'rgba(0,229,90,0.1)',
+  },
+  networkOptionName: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  networkOptionFee: {
+    fontSize: 12,
+    color: '#888888',
+  },
+  // Bonus applied banner styles
+  bonusAppliedBanner: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,184,0,0.15)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    gap: 10,
+    alignItems: 'center',
+  },
+  bonusAppliedContent: {
+    flex: 1,
+  },
+  bonusAppliedTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFB800',
+    marginBottom: 2,
+  },
+  bonusAppliedText: {
+    fontSize: 12,
+    color: '#CCCCCC',
+  },
+  // QR Code styles
+  qrCodeContainer: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    alignSelf: 'center',
+  },
+  qrCode: {
+    width: 180,
+    height: 180,
+  },
+  qrCodeHint: {
+    fontSize: 11,
+    color: '#666666',
+    marginTop: 8,
+  },
 });
