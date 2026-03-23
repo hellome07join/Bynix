@@ -382,38 +382,19 @@ export default function Trade() {
     }
   }, [token, accountType]);
 
-  // Full platform refresh when account type changes
+  // Reset selected asset when account type changes to ensure it's valid for the new account
   useEffect(() => {
-    // Clear active trades when switching accounts
-    setActiveTrades([]);
-    
-    // Reset chart data
-    setCandles([]);
-    
-    // Reset trade result
-    setTradeResult(null);
-    
-    // Reset selected asset to valid one for new account type
     const validAssets = getAssetsForAccount(accountType);
     const isCurrentAssetValid = validAssets.some(a => a.value === selectedAsset);
     console.log(`Account type changed to: ${accountType}, current asset: ${selectedAsset}, valid: ${isCurrentAssetValid}`);
     if (!isCurrentAssetValid) {
+      // Reset to default asset for the new account type
       const newAsset = getDefaultAssetForAccount(accountType);
       console.log(`Resetting asset to: ${newAsset}`);
       setSelectedAsset(newAsset);
-      setSelectedCategory('forex');
+      setSelectedCategory('forex'); // Reset to default category
     }
-    
-    // Reload market data
-    loadMarketData();
-    
-    // Fetch fresh trade history for this account type
-    if (token) {
-      fetchTradeHistory();
-    }
-    
-    console.log(`Platform refreshed for ${accountType} account`);
-  }, [accountType]);
+  }, [accountType, selectedAsset]);
 
   // Check if user needs to see tutorial (new users)
   useEffect(() => {
