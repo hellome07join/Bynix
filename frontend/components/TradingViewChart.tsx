@@ -67,17 +67,38 @@ export default function TradingViewChart({
   const [error, setError] = useState<string | null>(null);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [scale, setScale] = useState(1);
+  const [targetScale, setTargetScale] = useState(1);
+  const [targetScrollOffset, setTargetScrollOffset] = useState(0);
   const priceTickerRef = useRef<any>(null);
   const candleIntervalRef = useRef<any>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const lastCandleTimeRef = useRef<number>(Date.now());
   const dataInitializedRef = useRef(false);
   
-  // Smooth scrolling refs
+  // Smooth scrolling and zoom refs
   const scrollVelocityRef = useRef(0);
   const lastScrollTimeRef = useRef(0);
   const animationFrameRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
+  const isPinchingRef = useRef(false);
+  const initialPinchDistanceRef = useRef(0);
+  const initialScaleRef = useRef(1);
+  
+  // Smooth animation for scale and scroll
+  useEffect(() => {
+    let animFrame: number;
+    const animate = () => {
+      // Smooth scale transition
+      setScale(prev => {
+        const diff = targetScale - prev;
+        if (Math.abs(diff) < 0.001) return targetScale;
+        return prev + diff * 0.15; // Smooth easing
+      });
+      animFrame = requestAnimationFrame(animate);
+    };
+    animFrame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animFrame);
+  }, [targetScale]);
   
   // Convert symbol for API
   const apiSymbol = symbol.replace(' OTC', '').replace('/', '');
