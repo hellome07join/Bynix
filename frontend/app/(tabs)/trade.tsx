@@ -722,73 +722,18 @@ export default function Trade() {
           <Ionicons name="chevron-down" size={12} color={accountType === 'demo' ? '#FF3B3B' : '#FFB800'} />
         </TouchableOpacity>
       </View>
-
-      {/* Animated Promo Banner - Compact Button */}
-      {showPromoBanner && (
-        <Animated.View 
-          style={[
-            styles.promoBanner,
-            {
-              opacity: promoBannerAnim,
-              transform: [{
-                translateY: promoBannerAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [-20, 0],
-                })
-              }]
-            }
-          ]}
-        >
-          <TouchableOpacity 
-            style={styles.promoBannerTouchable}
-            onPress={() => router.push('/(tabs)/wallet')}
-            activeOpacity={0.9}
-          >
-            <Animated.View 
-              style={[
-                styles.promoBannerGlow,
-                {
-                  opacity: promoShimmerAnim.interpolate({
-                    inputRange: [0, 0.5, 1],
-                    outputRange: [0.3, 0.8, 0.3],
-                  })
-                }
-              ]} 
-            />
-            <View style={styles.promoBannerContent}>
-              <Ionicons name="gift" size={14} color="#FFFFFF" />
-              <Text style={styles.promoBannerText}>
-                <Text style={styles.promoBannerHighlight}>200%</Text> Bonus
-              </Text>
-              <Ionicons name="chevron-forward" size={12} color="#FFFFFF" />
-            </View>
-            {/* Progress bar animation */}
-            <Animated.View 
-              style={[
-                styles.promoBannerProgress,
-                {
-                  width: promoShimmerAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['0%', '100%'],
-                  })
-                }
-              ]} 
-            />
-          </TouchableOpacity>
-        </Animated.View>
-      )}
       
-      {/* Candle Countdown & UTC Time - Below Header */}
-      <View style={styles.timeInfoRow}>
-        <View style={styles.candleCountdownBox}>
-          <Ionicons name="timer-outline" size={14} color="#FFB800" />
-          <Text style={styles.candleCountdownText}>{formatCandleCountdown()}</Text>
-        </View>
-        <Text style={styles.utcTimeText}>UTC {utcTime}</Text>
-      </View>
-
-      {/* Chart Area - Takes remaining space */}
+      {/* Chart Area - Takes remaining space (includes time info and promo banner) */}
       <View style={styles.chartContainer}>
+        {/* Candle Countdown & UTC Time - Inside chart area */}
+        <View style={styles.timeInfoRowOverlay}>
+          <View style={styles.candleCountdownBox}>
+            <Ionicons name="timer-outline" size={14} color="#FFB800" />
+            <Text style={styles.candleCountdownText}>{formatCandleCountdown()}</Text>
+          </View>
+          <Text style={styles.utcTimeText}>UTC {utcTime}</Text>
+        </View>
+
         {/* TradingView Chart */}
         <View style={styles.chartWrapper}>
           <TradingViewChart
@@ -807,6 +752,60 @@ export default function Trade() {
             onPriceUpdate={(price) => setCurrentPrice(price)}
           />
         </View>
+
+        {/* Promo Banner - Inside chart area (like zoom buttons) */}
+        {showPromoBanner && (
+          <Animated.View 
+            style={[
+              styles.promoBannerOverlay,
+              {
+                opacity: promoBannerAnim,
+                transform: [{
+                  scale: promoBannerAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.8, 1],
+                  })
+                }]
+              }
+            ]}
+          >
+            <TouchableOpacity 
+              style={styles.promoBannerTouchable}
+              onPress={() => router.push('/(tabs)/wallet')}
+              activeOpacity={0.9}
+            >
+              <Animated.View 
+                style={[
+                  styles.promoBannerGlow,
+                  {
+                    opacity: promoShimmerAnim.interpolate({
+                      inputRange: [0, 0.5, 1],
+                      outputRange: [0.3, 0.8, 0.3],
+                    })
+                  }
+                ]} 
+              />
+              <View style={styles.promoBannerContent}>
+                <Ionicons name="gift" size={14} color="#FFFFFF" />
+                <Text style={styles.promoBannerText}>
+                  <Text style={styles.promoBannerHighlight}>200%</Text> Bonus
+                </Text>
+                <Ionicons name="chevron-forward" size={12} color="#FFFFFF" />
+              </View>
+              <Animated.View 
+                style={[
+                  styles.promoBannerProgress,
+                  {
+                    width: promoShimmerAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0%', '100%'],
+                    })
+                  }
+                ]} 
+              />
+            </TouchableOpacity>
+          </Animated.View>
+        )}
       </View>
 
       {/* Tools Bar - Between chart and trading panel */}
@@ -1540,7 +1539,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0A1A0F',
   },
-  // Promo Banner Styles - Compact Button
+  // Promo Banner Styles - Overlay inside chart
   promoBanner: {
     alignSelf: 'center',
     width: '55%',
@@ -1549,6 +1548,16 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     position: 'relative',
+  },
+  promoBannerOverlay: {
+    position: 'absolute',
+    top: 35,
+    alignSelf: 'center',
+    left: '22.5%',
+    width: '55%',
+    borderRadius: 20,
+    overflow: 'hidden',
+    zIndex: 100,
   },
   promoBannerTouchable: {
     backgroundColor: '#00A84D',
@@ -1609,6 +1618,17 @@ const styles = StyleSheet.create({
     right: 2,
     padding: 2,
     zIndex: 10,
+  },
+  // Time info overlay inside chart
+  timeInfoRowOverlay: {
+    position: 'absolute',
+    top: 4,
+    left: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    zIndex: 50,
   },
   header: {
     flexDirection: 'row',
