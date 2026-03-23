@@ -666,71 +666,69 @@ export default function Trade() {
       console.log('Using local price for settlement:', exitPrice, error);
     }
 
-    // PRICE-BASED TRADE LOGIC:
-    // UP (Call): Win if exit price > entry price
-    // DOWN (Put): Win if exit price < entry price
-    
+    // TRADE SETTLEMENT - Get result from backend (uses controlled probabilities)
     const entryPrice = trade.entry_price;
+    let won: boolean = false;
+    let profitLoss: number = -trade.amount;
+    let finalExitPrice = exitPrice;
     
-    let won: boolean;
-    
-    if (trade.type === 'call') {
-      // UP trade: Win if price went UP (exit > entry)
-      won = exitPrice > entryPrice;
-    } else {
-      // DOWN trade: Win if price went DOWN (exit < entry)
-      won = exitPrice < entryPrice;
-    }
-    
-    // If price is exactly the same (rare), consider it a loss
-    if (exitPrice === entryPrice) {
-      won = false;
-    }
-    
-    console.log(`Trade Settlement: Type=${trade.type}, Entry=${entryPrice}, Exit=${exitPrice}, Won=${won}`);
-
-    const profitLoss = won ? trade.amount * (payoutPercentage / 100) : -trade.amount;
-    console.log(`Settlement result: ProfitLoss=${profitLoss}, Amount=${trade.amount}`);
-
-    // Update balance based on result
-    if (accountType === 'demo') {
-      // Demo account balance update
-      console.log(`Demo balance before settlement: ${user?.demo_balance || 'none'}, local: ${localDemoBalance}`);
-      if (won) {
-        // Add back the amount plus profit
-        const winnings = trade.amount + (trade.amount * payoutPercentage / 100);
-        console.log(`Trade WON! Adding winnings: ${winnings}`);
-        if (user) {
-          const newDemoBalance = (user.demo_balance || 0) + winnings;
-          console.log(`Updating user demo balance to: ${newDemoBalance}`);
-          updateBalance(newDemoBalance, user.real_balance || 0);
+    // For logged in users, let backend determine win/loss based on account type probabilities
+    // Demo: 90% win rate, Real: 40% win rate
+    if (token && trade.trade_id) {
+      try {
+        const result = await api.settleTrade(trade.trade_id, exitPrice, token);
+        console.log(`Backend settlement result:`, result);
+        
+        // Use backend's decision
+        won = result.status === 'won';
+        profitLoss = result.profit_loss;
+        
+        console.log(`Trade Settlement from Backend: Status=${result.status}, P/L=${profitLoss}`);
+        
+        // Refresh user balance from server after trade settles
+        const { refreshUser } = useAuthStore.getState();
+        await refreshUser();
+        
+      } catch (error: any) {
+        console.error('Error settling trade with backend:', error);
+        // Fallback to price-based logic if API fails
+        if (trade.type === 'call') {
+          won = exitPrice > entryPrice;
         } else {
-          console.log(`Updating local demo balance, adding: ${winnings}`);
-          setLocalDemoBalance(prev => {
-            console.log(`Local balance: ${prev} + ${winnings} = ${prev + winnings}`);
-            return prev + winnings;
-          });
+          won = exitPrice < entryPrice;
         }
-      } else {
-        console.log(`Trade LOST! Balance stays at current (amount already deducted)`);
+        if (exitPrice === entryPrice) won = false;
+        profitLoss = won ? trade.amount * (payoutPercentage / 100) : -trade.amount;
+        
+        // Update balance locally as fallback
+        if (accountType === 'demo') {
+          if (won && user) {
+            const winnings = trade.amount + (trade.amount * payoutPercentage / 100);
+            updateBalance((user.demo_balance || 0) + winnings, user.real_balance || 0);
+          }
+        } else if (accountType === 'real') {
+          if (won && user) {
+            const winnings = trade.amount + (trade.amount * payoutPercentage / 100);
+            updateBalance(user.demo_balance || 10000, (user.real_balance || 0) + winnings);
+          }
+        }
       }
-      // If lost, amount was already deducted when placing the trade
-    } else if (accountType === 'real') {
-      // Real account balance update
+    } else {
+      // Not logged in - use local demo balance with price-based logic
+      if (trade.type === 'call') {
+        won = exitPrice > entryPrice;
+      } else {
+        won = exitPrice < entryPrice;
+      }
+      if (exitPrice === entryPrice) won = false;
+      profitLoss = won ? trade.amount * (payoutPercentage / 100) : -trade.amount;
+      
+      console.log(`Local Trade Settlement: Type=${trade.type}, Entry=${entryPrice}, Exit=${exitPrice}, Won=${won}`);
+      
+      // Update local demo balance
       if (won) {
         const winnings = trade.amount + (trade.amount * payoutPercentage / 100);
-        if (user) {
-          const newRealBalance = (user.real_balance || 0) + winnings;
-          updateBalance(user.demo_balance || 10000, newRealBalance);
-        }
-      }
-      // Try to call API but don't block on it
-      if (token && trade.trade_id) {
-        try {
-          await api.settleTrade(trade.trade_id, exitPrice, token);
-        } catch (error: any) {
-          console.error('Error settling trade:', error);
-        }
+        setLocalDemoBalance(prev => prev + winnings);
       }
     }
 
@@ -738,7 +736,7 @@ export default function Trade() {
       won,
       profitLoss,
       entryPrice: trade.entry_price,
-      exitPrice: exitPrice,
+      exitPrice: finalExitPrice,
     });
 
     showResultPopup();
