@@ -233,35 +233,59 @@ export default function Profile() {
       });
 
       const data = await response.json();
-
-      if (response.ok) {
-        setKycStatus(data);
-        
-        if (data.status === 'verified') {
-          // INSTANT VERIFIED!
+      console.log('KYC Response:', data);
+      
+      setKycStatus(data);
+      
+      if (data.status === 'verified' && data.success) {
+        // INSTANT VERIFIED!
+        if (Platform.OS === 'web') {
+          window.alert(`KYC Verified! ✅\n\nYour ${kycData.idType} from ${data.ai_result?.country || kycData.nationality} has been verified successfully!`);
+        } else {
           Alert.alert(
             'KYC Verified! ✅',
             `Your ${kycData.idType} from ${data.ai_result?.country || kycData.nationality} has been verified successfully!`,
             [{ text: 'OK' }]
           );
-          setKycStep(3); // Go directly to verified step
+        }
+        setKycStep(3); // Go directly to verified step
+      } else if (data.status === 'rejected' || data.success === false) {
+        // INSTANT REJECTED
+        const reason = data.ai_result?.reason || data.message || 'Your document could not be verified.';
+        if (Platform.OS === 'web') {
+          window.alert(`Verification Failed ❌\n\n${reason}\n\nPlease try again with a clear photo of a valid ID.`);
         } else {
-          // INSTANT REJECTED
           Alert.alert(
             'Verification Failed ❌',
-            `${data.message || 'Your document could not be verified.'}\n\nPlease try again with a clear photo of a valid ID.`,
+            `${reason}\n\nPlease try again with a clear photo of a valid ID.`,
             [{ text: 'Try Again' }]
           );
-          // Stay on step 2 to retry
-          setFrontImage(null);
-          setBackImage(null);
+        }
+        // Stay on step 2 to retry
+        setFrontImage(null);
+        setBackImage(null);
+      } else if (data.status === 'error') {
+        // ERROR occurred
+        if (Platform.OS === 'web') {
+          window.alert(`Error: ${data.message || 'Something went wrong. Please try again.'}`);
+        } else {
+          Alert.alert('Error', data.message || 'Something went wrong. Please try again.');
         }
       } else {
-        Alert.alert('Error', data.detail || 'Failed to submit documents');
+        // Unknown status
+        if (Platform.OS === 'web') {
+          window.alert(`Unexpected response. Please try again.`);
+        } else {
+          Alert.alert('Error', 'Unexpected response. Please try again.');
+        }
       }
     } catch (error) {
       console.error('Error submitting KYC:', error);
-      Alert.alert('Error', 'Failed to submit documents. Please try again.');
+      if (Platform.OS === 'web') {
+        window.alert('Failed to submit documents. Please check your connection and try again.');
+      } else {
+        Alert.alert('Error', 'Failed to submit documents. Please check your connection and try again.');
+      }
     } finally {
       setIsSubmittingKyc(false);
     }

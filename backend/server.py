@@ -17,7 +17,7 @@ import httpx
 import socketio
 import asyncio
 import base64
-from emergentintegrations.llm.chat import LlmChat
+from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContent
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -1177,8 +1177,18 @@ YOUR TASK:
 
 Analyze the image carefully and respond with the JSON verification result."""
 
+        # Create UserMessage with image as FileContent
+        file_content = FileContent(
+            content_type="image/jpeg",
+            file_content_base64=submission.front_image_base64
+        )
+        user_message = UserMessage(
+            text=prompt,
+            file_contents=[file_content]
+        )
+        
         # Send message with image
-        response = chat.send_message(prompt, image_urls=[f"data:image/jpeg;base64,{submission.front_image_base64}"])
+        response = await chat.send_message(user_message)
         
         # Parse AI response
         import json
