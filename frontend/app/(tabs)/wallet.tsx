@@ -562,6 +562,29 @@ export default function WalletScreen() {
               <Text style={styles.promoHint}>✨ BYNIX: 25% bonus on $100+ deposit</Text>
             )}
 
+            {/* Available Promo Codes */}
+            <View style={styles.promoCodesBox}>
+              <Text style={styles.promoCodesTitle}>Available Promo Codes:</Text>
+              <View style={styles.promoCodeItem}>
+                <TouchableOpacity onPress={() => setPromoCode('BYNIX')} style={styles.promoCodeBtn}>
+                  <Text style={styles.promoCodeText}>BYNIX</Text>
+                </TouchableOpacity>
+                <Text style={styles.promoCodeDesc}>25% bonus ($100+ deposit)</Text>
+              </View>
+              <View style={styles.promoCodeItem}>
+                <TouchableOpacity onPress={() => setPromoCode('WELCOME')} style={styles.promoCodeBtn}>
+                  <Text style={styles.promoCodeText}>WELCOME</Text>
+                </TouchableOpacity>
+                <Text style={styles.promoCodeDesc}>10% bonus ($50+ deposit)</Text>
+              </View>
+              <View style={styles.promoCodeItem}>
+                <TouchableOpacity onPress={() => setPromoCode('VIP50')} style={styles.promoCodeBtn}>
+                  <Text style={styles.promoCodeText}>VIP50</Text>
+                </TouchableOpacity>
+                <Text style={styles.promoCodeDesc}>50% bonus ($200+ deposit)</Text>
+              </View>
+            </View>
+
             {/* Bonus Info */}
             <View style={styles.bonusInfoBox}>
               <Ionicons name="gift" size={20} color="#FFB800" />
@@ -1441,5 +1464,41 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#666666',
     marginTop: 8,
+  },
+  // Promo codes box styles
+  promoCodesBox: {
+    backgroundColor: 'rgba(0, 229, 90, 0.05)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 90, 0.2)',
+  },
+  promoCodesTitle: {
+    fontSize: 12,
+    color: '#00E55A',
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  promoCodeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  promoCodeBtn: {
+    backgroundColor: 'rgba(0, 229, 90, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginRight: 10,
+  },
+  promoCodeText: {
+    fontSize: 12,
+    color: '#00E55A',
+    fontWeight: '700',
+  },
+  promoCodeDesc: {
+    fontSize: 11,
+    color: '#888888',
   },
 });

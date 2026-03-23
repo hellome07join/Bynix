@@ -1,13 +1,87 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuthStore } from '../../stores/authStore';
+import { API_URL } from '../../utils/api';
 
 const { width, height } = Dimensions.get('window');
 
 export default function Welcome() {
   const router = useRouter();
+  const { login } = useAuthStore();
+  const [isLoading, setIsLoading] = React.useState(false);
+
+  const handleStartDemo = async () => {
+    setIsLoading(true);
+    try {
+      // Create a demo account with random email
+      const timestamp = Date.now();
+      const demoEmail = `demo_${timestamp}@bynix.com`;
+      const demoPassword = `demo_${timestamp}`;
+      
+      // Signup
+      const signupResponse = await fetch(`${API_URL}/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: demoEmail,
+          password: demoPassword,
+          name: 'Demo User'
+        })
+      });
+      
+      if (!signupResponse.ok) {
+        throw new Error('Failed to create demo account');
+      }
+      
+      const signupData = await signupResponse.json();
+      const otp = signupData.otp; // Get OTP from signup response
+      
+      // Verify OTP using the actual OTP from signup
+      const verifyResponse = await fetch(`${API_URL}/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: demoEmail,
+          otp: otp
+        })
+      });
+      
+      if (!verifyResponse.ok) {
+        throw new Error('Failed to verify demo account');
+      }
+      
+      const data = await verifyResponse.json();
+      
+      // Get user details
+      const meResponse = await fetch(`${API_URL}/auth/me`, {
+        headers: { 'Authorization': `Bearer ${data.access_token}` }
+      });
+      
+      const userData = await meResponse.json();
+      
+      // Login user
+      await login(data.access_token, {
+        user_id: userData.user_id,
+        email: userData.email,
+        name: userData.name || 'Demo User',
+        demo_balance: userData.demo_balance || 10000,
+        real_balance: userData.real_balance || 0,
+        bonus_balance: userData.bonus_balance || 0,
+        is_admin: false,
+      });
+      
+      // Navigate to trade screen
+      router.replace('/(tabs)/trade');
+    } catch (error) {
+      console.error('Demo account error:', error);
+      Alert.alert('Error', 'Failed to create demo account. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -31,9 +105,21 @@ export default function Welcome() {
         </View>
       </View>
 
-      <View style={styles.demoInfo}>
-        <Text style={styles.demoText}>🎁 Get $10,000 demo account to start</Text>
-      </View>
+      {/* Demo Account Button */}
+      <TouchableOpacity 
+        style={styles.demoButton}
+        onPress={handleStartDemo}
+        disabled={isLoading}
+      >
+        {isLoading ? (
+          <ActivityIndicator color="#0A0E27" />
+        ) : (
+          <>
+            <Ionicons name="gift" size={20} color="#0A0E27" />
+            <Text style={styles.demoButtonText}>Get $10,000 Demo Account</Text>
+          </>
+        )}
+      </TouchableOpacity>
 
       <View style={styles.buttonContainer}>
         <TouchableOpacity 
@@ -62,8 +148,8 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginTop: 80,
-    marginBottom: 60,
+    marginTop: 60,
+    marginBottom: 40,
   },
   logo: {
     fontSize: 56,
@@ -78,7 +164,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   features: {
-    marginVertical: 40,
+    marginVertical: 30,
   },
   featureItem: {
     flexDirection: 'row',
@@ -94,18 +180,20 @@ const styles = StyleSheet.create({
     marginLeft: 16,
     fontWeight: '600',
   },
-  demoInfo: {
-    backgroundColor: 'rgba(0, 215, 163, 0.1)',
-    padding: 16,
+  demoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFB800',
+    paddingVertical: 16,
     borderRadius: 12,
-    marginVertical: 24,
-    borderWidth: 1,
-    borderColor: '#00D7A3',
+    marginVertical: 16,
+    gap: 10,
   },
-  demoText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    textAlign: 'center',
+  demoButtonText: {
+    color: '#0A0E27',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   buttonContainer: {
     marginTop: 'auto',
