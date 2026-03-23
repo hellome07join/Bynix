@@ -83,21 +83,36 @@ export default function TradingViewChart({
   const isPinchingRef = useRef(false);
   const initialPinchDistanceRef = useRef(0);
   const initialScaleRef = useRef(1);
+  const lastPinchCenterRef = useRef({ x: 0, y: 0 });
   
-  // Smooth animation for scale and scroll
+  // Zoom constraints
+  const MIN_SCALE = 0.3;
+  const MAX_SCALE = 4;
+  
+  // Smooth animation for scale transitions
   useEffect(() => {
     let animFrame: number;
+    let isAnimating = true;
+    
     const animate = () => {
-      // Smooth scale transition
+      if (!isAnimating) return;
+      
+      // Smooth scale transition with easing
       setScale(prev => {
         const diff = targetScale - prev;
         if (Math.abs(diff) < 0.001) return targetScale;
-        return prev + diff * 0.15; // Smooth easing
+        return prev + diff * 0.2; // Smooth easing factor
       });
+      
       animFrame = requestAnimationFrame(animate);
     };
+    
     animFrame = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animFrame);
+    
+    return () => {
+      isAnimating = false;
+      cancelAnimationFrame(animFrame);
+    };
   }, [targetScale]);
   
   // Convert symbol for API
@@ -534,6 +549,21 @@ export default function TradingViewChart({
     const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 390;
     const chartHeight = 400;
     
+    // Inline style for zoom buttons (web only)
+    const zoomButtonStyle: React.CSSProperties = {
+      width: 32,
+      height: 32,
+      borderRadius: 6,
+      backgroundColor: 'rgba(0, 229, 90, 0.2)',
+      border: '1px solid rgba(0, 229, 90, 0.4)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      cursor: 'pointer',
+      userSelect: 'none',
+      transition: 'background-color 0.2s',
+    };
+    
     return (
       <View style={styles.container}>
         <div 
@@ -548,12 +578,16 @@ export default function TradingViewChart({
           }}
           onWheel={(e: any) => {
             e.preventDefault();
-            if (e.ctrlKey || e.metaKey) {
-              const delta = e.deltaY > 0 ? 0.9 : 1.1;
-              setScale(prev => Math.max(0.5, Math.min(3, prev * delta)));
-            } else {
-              setScrollOffset(prev => prev + e.deltaY * 0.8);
-            }
+            // Mouse wheel zoom - works without modifier keys
+            // Negative deltaY = scroll up = zoom in
+            // Positive deltaY = scroll down = zoom out
+            const zoomIntensity = 0.08;
+            const delta = e.deltaY > 0 ? (1 - zoomIntensity) : (1 + zoomIntensity);
+            
+            setTargetScale(prev => {
+              const newScale = prev * delta;
+              return Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
+            });
           }}
           onMouseDown={(e: any) => {
             e.preventDefault();
@@ -606,7 +640,35 @@ export default function TradingViewChart({
             document.addEventListener('mouseup', onMouseUp);
           }}
           onTouchStart={(e: any) => {
-            if (e.touches.length === 1) {
+            // Handle both single touch (pan) and two-finger touch (pinch zoom)
+            if (e.touches.length === 2) {
+              // Pinch gesture start
+              isPinchingRef.current = true;
+              isDraggingRef.current = false;
+              
+              const touch1 = e.touches[0];
+              const touch2 = e.touches[1];
+              
+              // Calculate initial distance between two fingers
+              const dx = touch2.clientX - touch1.clientX;
+              const dy = touch2.clientY - touch1.clientY;
+              initialPinchDistanceRef.current = Math.sqrt(dx * dx + dy * dy);
+              initialScaleRef.current = scale;
+              
+              // Calculate pinch center
+              lastPinchCenterRef.current = {
+                x: (touch1.clientX + touch2.clientX) / 2,
+                y: (touch1.clientY + touch2.clientY) / 2
+              };
+              
+              if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current);
+                animationFrameRef.current = null;
+              }
+              scrollVelocityRef.current = 0;
+              
+            } else if (e.touches.length === 1 && !isPinchingRef.current) {
+              // Single finger pan
               isDraggingRef.current = true;
               const startX = e.touches[0].clientX;
               const startOffset = scrollOffset;
@@ -621,7 +683,27 @@ export default function TradingViewChart({
               
               const onTouchMove = (moveE: any) => {
                 moveE.preventDefault();
-                if (moveE.touches.length === 1) {
+                
+                if (moveE.touches.length === 2) {
+                  // Transition to pinch
+                  isPinchingRef.current = true;
+                  isDraggingRef.current = false;
+                  
+                  const t1 = moveE.touches[0];
+                  const t2 = moveE.touches[1];
+                  const dx = t2.clientX - t1.clientX;
+                  const dy = t2.clientY - t1.clientY;
+                  initialPinchDistanceRef.current = Math.sqrt(dx * dx + dy * dy);
+                  initialScaleRef.current = scale;
+                  
+                  lastPinchCenterRef.current = {
+                    x: (t1.clientX + t2.clientX) / 2,
+                    y: (t1.clientY + t2.clientY) / 2
+                  };
+                  return;
+                }
+                
+                if (moveE.touches.length === 1 && isDraggingRef.current) {
                   const currentX = moveE.touches[0].clientX;
                   const currentTime = Date.now();
                   const diff = currentX - startX;
@@ -639,6 +721,7 @@ export default function TradingViewChart({
               
               const onTouchEnd = () => {
                 isDraggingRef.current = false;
+                isPinchingRef.current = false;
                 document.removeEventListener('touchmove', onTouchMove);
                 document.removeEventListener('touchend', onTouchEnd);
                 
@@ -657,6 +740,38 @@ export default function TradingViewChart({
               
               document.addEventListener('touchmove', onTouchMove, { passive: false });
               document.addEventListener('touchend', onTouchEnd);
+            }
+          }}
+          onTouchMove={(e: any) => {
+            // Handle pinch zoom movement
+            if (isPinchingRef.current && e.touches.length === 2) {
+              e.preventDefault();
+              
+              const touch1 = e.touches[0];
+              const touch2 = e.touches[1];
+              
+              // Calculate current distance
+              const dx = touch2.clientX - touch1.clientX;
+              const dy = touch2.clientY - touch1.clientY;
+              const currentDistance = Math.sqrt(dx * dx + dy * dy);
+              
+              // Calculate scale factor
+              if (initialPinchDistanceRef.current > 0) {
+                const scaleFactor = currentDistance / initialPinchDistanceRef.current;
+                const newScale = initialScaleRef.current * scaleFactor;
+                
+                // Apply with constraints
+                setTargetScale(Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale)));
+              }
+            }
+          }}
+          onTouchEnd={(e: any) => {
+            if (e.touches.length < 2) {
+              isPinchingRef.current = false;
+            }
+            if (e.touches.length === 0) {
+              isDraggingRef.current = false;
+              isPinchingRef.current = false;
             }
           }}
         >
@@ -680,6 +795,31 @@ export default function TradingViewChart({
             <Text style={styles.priceText}>${internalPrice.toFixed(5)}</Text>
           </View>
         )}
+        
+        {/* Zoom Controls */}
+        <View style={styles.zoomControls}>
+          <div 
+            style={zoomButtonStyle}
+            onClick={() => setTargetScale(prev => Math.min(MAX_SCALE, prev * 1.3))}
+          >
+            <Text style={styles.zoomButtonText}>+</Text>
+          </div>
+          <View style={styles.zoomLevelContainer}>
+            <Text style={styles.zoomLevelText}>{Math.round(scale * 100)}%</Text>
+          </View>
+          <div 
+            style={zoomButtonStyle}
+            onClick={() => setTargetScale(prev => Math.max(MIN_SCALE, prev / 1.3))}
+          >
+            <Text style={styles.zoomButtonText}>−</Text>
+          </div>
+          <div 
+            style={{...zoomButtonStyle, marginTop: 8}}
+            onClick={() => setTargetScale(1)}
+          >
+            <Text style={styles.zoomButtonText}>⟲</Text>
+          </div>
+        </View>
       </View>
     );
   }
@@ -724,5 +864,28 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
+  },
+  zoomControls: {
+    position: 'absolute',
+    left: 8,
+    top: 8,
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 4,
+  },
+  zoomButtonText: {
+    color: '#00E55A',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  zoomLevelContainer: {
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+  },
+  zoomLevelText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 9,
+    fontWeight: '600',
   },
 });
