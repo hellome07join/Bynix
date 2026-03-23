@@ -171,6 +171,11 @@ export default function Trade() {
   const [utcTime, setUtcTime] = useState('');
   const [candleCountdown, setCandleCountdown] = useState(0);
   
+  // Promo banner state
+  const [showPromoBanner, setShowPromoBanner] = useState(true);
+  const promoBannerAnim = useRef(new Animated.Value(0)).current;
+  const promoShimmerAnim = useRef(new Animated.Value(0)).current;
+  
   // Get candle duration in seconds based on timeframe
   const getCandleDuration = useCallback(() => {
     switch(timeframe) {
@@ -642,6 +647,34 @@ export default function Trade() {
     return () => pulseAnimation.stop();
   }, []);
 
+  // Promo banner animations
+  useEffect(() => {
+    // Slide in animation
+    Animated.timing(promoBannerAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+
+    // Shimmer effect
+    const shimmerAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(promoShimmerAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(promoShimmerAnim, {
+          toValue: 0,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    shimmerAnimation.start();
+    return () => shimmerAnimation.stop();
+  }, []);
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -689,6 +722,72 @@ export default function Trade() {
           <Ionicons name="chevron-down" size={12} color={accountType === 'demo' ? '#FF3B3B' : '#FFB800'} />
         </TouchableOpacity>
       </View>
+
+      {/* Animated Promo Banner - Below Header */}
+      {showPromoBanner && (
+        <Animated.View 
+          style={[
+            styles.promoBanner,
+            {
+              opacity: promoBannerAnim,
+              transform: [{
+                translateY: promoBannerAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-20, 0],
+                })
+              }]
+            }
+          ]}
+        >
+          <TouchableOpacity 
+            style={styles.promoBannerTouchable}
+            onPress={() => router.push('/(tabs)/wallet')}
+            activeOpacity={0.9}
+          >
+            <Animated.View 
+              style={[
+                styles.promoBannerGlow,
+                {
+                  opacity: promoShimmerAnim.interpolate({
+                    inputRange: [0, 0.5, 1],
+                    outputRange: [0.3, 0.8, 0.3],
+                  })
+                }
+              ]} 
+            />
+            <View style={styles.promoBannerContent}>
+              <View style={styles.promoBannerLeft}>
+                <Ionicons name="gift" size={20} color="#FFFFFF" />
+                <Text style={styles.promoBannerText}>
+                  Get a <Text style={styles.promoBannerHighlight}>200% bonus</Text> on your first deposit!
+                </Text>
+              </View>
+              <View style={styles.promoBannerRight}>
+                <Text style={styles.promoBannerPercent}>200%</Text>
+                <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
+              </View>
+            </View>
+            {/* Progress bar animation */}
+            <Animated.View 
+              style={[
+                styles.promoBannerProgress,
+                {
+                  width: promoShimmerAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0%', '100%'],
+                  })
+                }
+              ]} 
+            />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.promoBannerClose}
+            onPress={() => setShowPromoBanner(false)}
+          >
+            <Ionicons name="close" size={16} color="rgba(255,255,255,0.6)" />
+          </TouchableOpacity>
+        </Animated.View>
+      )}
       
       {/* Candle Countdown & UTC Time - Below Header */}
       <View style={styles.timeInfoRow}>
@@ -1451,6 +1550,75 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0A1A0F',
+  },
+  // Promo Banner Styles
+  promoBanner: {
+    marginHorizontal: 8,
+    marginTop: 4,
+    marginBottom: 4,
+    borderRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  promoBannerTouchable: {
+    backgroundColor: '#00A84D',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  promoBannerGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  promoBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  promoBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 8,
+  },
+  promoBannerText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  promoBannerHighlight: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  promoBannerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  promoBannerPercent: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  promoBannerProgress: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    height: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  promoBannerClose: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    padding: 4,
+    zIndex: 10,
   },
   header: {
     flexDirection: 'row',
