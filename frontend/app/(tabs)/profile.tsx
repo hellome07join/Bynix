@@ -18,6 +18,8 @@ import { useAuthStore } from '../../stores/authStore';
 import { API_URL } from '../../utils/api';
 import * as ImagePicker from 'expo-image-picker';
 
+declare const window: any;
+
 const TABS = ['Overview', 'Security', 'KYC', 'Activity', 'Settings'];
 
 // Mock user data
@@ -299,25 +301,135 @@ export default function Profile() {
   };
 
   const handleSignOut = () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Sign Out', 
-          style: 'destructive',
-          onPress: () => {
-            logout();
-            router.replace('/');
-          }
-        },
-      ]
-    );
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('Are you sure you want to sign out?');
+      if (confirmed) {
+        logout();
+        router.replace('/');
+      }
+    } else {
+      Alert.alert(
+        'Sign Out',
+        'Are you sure you want to sign out?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Sign Out', 
+            style: 'destructive',
+            onPress: () => {
+              logout();
+              router.replace('/');
+            }
+          },
+        ]
+      );
+    }
   };
 
-  const handleSendVerificationCode = () => {
-    Alert.alert('Verification Code', 'A verification code has been sent to your email.');
+  const handleSendVerificationCode = async () => {
+    if (!token) {
+      if (Platform.OS === 'web') {
+        window.alert('Please login first');
+      } else {
+        Alert.alert('Error', 'Please login first');
+      }
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/auth/send-verification`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        if (Platform.OS === 'web') {
+          window.alert('A verification code has been sent to your email.');
+        } else {
+          Alert.alert('Success', 'A verification code has been sent to your email.');
+        }
+      } else {
+        const data = await response.json();
+        if (Platform.OS === 'web') {
+          window.alert(data.detail || 'Failed to send verification code');
+        } else {
+          Alert.alert('Error', data.detail || 'Failed to send verification code');
+        }
+      }
+    } catch (error) {
+      console.error('Error sending verification code:', error);
+      if (Platform.OS === 'web') {
+        window.alert('Failed to send verification code. Please try again.');
+      } else {
+        Alert.alert('Error', 'Failed to send verification code. Please try again.');
+      }
+    }
+  };
+
+  // Handle profile photo upload
+  const handlePhotoUpload = async () => {
+    try {
+      // Request permission
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        if (Platform.OS === 'web') {
+          window.alert('Please allow access to your photo library to upload a profile photo.');
+        } else {
+          Alert.alert('Permission Required', 'Please allow access to your photo library to upload a profile photo.');
+        }
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0].base64) {
+        // Upload to backend
+        const response = await fetch(`${API_URL}/profile/photo`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            photo_base64: result.assets[0].base64,
+          }),
+        });
+
+        if (response.ok) {
+          if (Platform.OS === 'web') {
+            window.alert('Profile photo updated successfully!');
+          } else {
+            Alert.alert('Success', 'Profile photo updated successfully!');
+          }
+          // Refresh user data
+          const { refreshUser } = useAuthStore.getState();
+          await refreshUser();
+        } else {
+          const data = await response.json();
+          if (Platform.OS === 'web') {
+            window.alert(data.detail || 'Failed to upload photo');
+          } else {
+            Alert.alert('Error', data.detail || 'Failed to upload photo');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      if (Platform.OS === 'web') {
+        window.alert('Failed to upload photo. Please try again.');
+      } else {
+        Alert.alert('Error', 'Failed to upload photo. Please try again.');
+      }
+    }
   };
 
   const saveNickname = async () => {
@@ -390,7 +502,7 @@ export default function Profile() {
               {(user?.full_name || userData.fullName || 'U').charAt(0).toUpperCase()}
             </Text>
           </View>
-          <TouchableOpacity style={styles.cameraIcon}>
+          <TouchableOpacity style={styles.cameraIcon} onPress={handlePhotoUpload}>
             <Ionicons name="camera" size={14} color="#FFFFFF" />
           </TouchableOpacity>
         </View>

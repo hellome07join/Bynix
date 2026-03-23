@@ -1133,6 +1133,90 @@ async def update_country(country: str, country_flag: str = "🌍", authorization
     
     return {"success": True, "country": country, "country_flag": country_flag}
 
+@api_router.post("/auth/send-verification")
+async def send_verification_code(authorization: Optional[str] = Header(None), request: Request = None):
+    """Send email verification code"""
+    user = await get_current_user(authorization, request)
+    
+    # Check if already verified
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    if user_doc and user_doc.get("is_email_verified"):
+        return {"success": True, "message": "Email already verified"}
+    
+    # Generate a 6-digit code
+    verification_code = str(random.randint(100000, 999999))
+    
+    # Store the code with expiration
+    await db.verification_codes.update_one(
+        {"user_id": user.user_id, "type": "email"},
+        {"$set": {
+            "code": verification_code,
+            "created_at": datetime.now(timezone.utc),
+            "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10),
+            "used": False
+        }},
+        upsert=True
+    )
+    
+    # In production, send email here
+    # For demo, just return success
+    return {
+        "success": True,
+        "message": "Verification code sent to your email",
+        "dev_code": verification_code  # Remove in production
+    }
+
+@api_router.post("/auth/verify-email")
+async def verify_email_code(code: str, authorization: Optional[str] = Header(None), request: Request = None):
+    """Verify email with code"""
+    user = await get_current_user(authorization, request)
+    
+    # Find the verification code
+    verification = await db.verification_codes.find_one({
+        "user_id": user.user_id,
+        "type": "email",
+        "code": code,
+        "used": False,
+        "expires_at": {"$gt": datetime.now(timezone.utc)}
+    })
+    
+    if not verification:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification code")
+    
+    # Mark as verified
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {"is_email_verified": True}}
+    )
+    
+    # Mark code as used
+    await db.verification_codes.update_one(
+        {"_id": verification["_id"]},
+        {"$set": {"used": True}}
+    )
+    
+    return {"success": True, "message": "Email verified successfully"}
+
+@api_router.post("/profile/photo")
+async def upload_profile_photo(photo_data: dict, authorization: Optional[str] = Header(None), request: Request = None):
+    """Upload profile photo"""
+    user = await get_current_user(authorization, request)
+    
+    photo_base64 = photo_data.get("photo_base64")
+    if not photo_base64:
+        raise HTTPException(status_code=400, detail="No photo provided")
+    
+    # Store the photo as base64 (in production, upload to S3/storage)
+    photo_url = f"data:image/jpeg;base64,{photo_base64}"
+    
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {"picture": photo_url}}
+    )
+    
+    return {"success": True, "picture": photo_url}
+
+
 # ============= KYC Document Verification Routes =============
 
 class KYCDocumentSubmission(BaseModel):
