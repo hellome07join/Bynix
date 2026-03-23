@@ -23,8 +23,9 @@ import EnhancedCandlestickChart from '../../components/EnhancedCandlestickChart'
 import TradingViewChart from '../../components/TradingViewChart';
 import { api, API_URL } from '../../utils/api';
 
-// Loss sound
+// Sound effects
 const lossSound = require('../../assets/sounds/loss.mp3');
+const winSound = require('../../assets/sounds/win.wav');
 
 const { width, height } = Dimensions.get('window');
 
@@ -592,6 +593,8 @@ export default function Trade() {
     // Result haptic and sound
     if (won) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Play win sound
+      playWinSound();
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       // Play loss sound
@@ -600,6 +603,22 @@ export default function Trade() {
     
     // Refresh trade history
     fetchTradeHistory();
+  };
+
+  // Play win sound function
+  const playWinSound = async () => {
+    try {
+      const { sound } = await Audio.Sound.createAsync(winSound);
+      await sound.playAsync();
+      // Unload after playing
+      sound.setOnPlaybackStatusUpdate((status: any) => {
+        if (status.isLoaded && status.didJustFinish) {
+          sound.unloadAsync();
+        }
+      });
+    } catch (error) {
+      console.log('Error playing win sound:', error);
+    }
   };
 
   // Play loss sound function
