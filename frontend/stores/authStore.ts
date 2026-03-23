@@ -31,7 +31,7 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   token: null,
-  accountType: 'demo',
+  accountType: 'real',
   isLoading: true,
 
   setUser: (user) => set({ user }),
@@ -41,13 +41,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   login: async (token, user) => {
     await AsyncStorage.setItem('token', token);
     await AsyncStorage.setItem('user', JSON.stringify(user));
-    set({ token, user, isLoading: false });
+    set({ token, user, isLoading: false, accountType: 'real' });
   },
 
   logout: async () => {
     await AsyncStorage.removeItem('token');
     await AsyncStorage.removeItem('user');
-    set({ user: null, token: null, accountType: 'demo' });
+    set({ user: null, token: null, accountType: 'real' });
   },
 
   loadAuth: async () => {
@@ -57,13 +57,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       
       if (token && userStr) {
         const user = JSON.parse(userStr);
-        set({ token, user, isLoading: false });
+        set({ token, user, isLoading: false, accountType: 'real' });
         
         // Also refresh from server to get latest balance
         const { refreshUser } = get();
         await refreshUser();
       } else {
-        set({ isLoading: false });
+        set({ isLoading: false, accountType: 'real' });
       }
     } catch (error) {
       console.error('Failed to load auth:', error);
