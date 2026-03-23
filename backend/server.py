@@ -583,32 +583,28 @@ async def create_trade(trade: TradeCreate, authorization: Optional[str] = Header
                 {"$inc": update_fields}
             )
     
-    # Predetermine trade outcome at creation time
-    # This ensures chart movement will match the final result
-    # Demo: 90% win rate, Real: 40% win rate (60% loss)
+    # For DEMO accounts only: Predetermine outcome for 90% win rate
+    # For REAL accounts: Use actual price movement (no manipulation)
+    predetermined_outcome = None
     
-    # Check if there's already ANY active trade for this user on this account type
-    # All concurrent trades should have the same outcome for consistency
-    existing_active_trade = await db.trades.find_one({
-        "user_id": user.user_id,
-        "status": "pending",
-        "account_type": trade.account_type
-    }, sort=[("created_at", -1)])  # Get most recent one
-    
-    if existing_active_trade and existing_active_trade.get("predetermined_outcome"):
-        # Use same outcome as existing trade for consistency
-        predetermined_outcome = existing_active_trade["predetermined_outcome"]
-    else:
-        # Generate new outcome based on account type
-        if trade.account_type == "demo":
-            win_probability = 0.90
-        else:
-            win_probability = 0.40
+    if trade.account_type == "demo":
+        # Check if there's already an active demo trade for consistency
+        existing_active_trade = await db.trades.find_one({
+            "user_id": user.user_id,
+            "status": "pending",
+            "account_type": "demo"
+        }, sort=[("created_at", -1)])
         
-        predetermined_won = random.random() < win_probability
-        predetermined_outcome = "won" if predetermined_won else "lost"
+        if existing_active_trade and existing_active_trade.get("predetermined_outcome"):
+            predetermined_outcome = existing_active_trade["predetermined_outcome"]
+        else:
+            # Demo: 90% win rate to encourage users
+            win_probability = 0.90
+            predetermined_won = random.random() < win_probability
+            predetermined_outcome = "won" if predetermined_won else "lost"
+    # Real account: predetermined_outcome stays None - will use actual price
     
-    # Create trade with predetermined outcome
+    # Create trade
     trade_id = f"trade_{uuid.uuid4().hex[:12]}"
     new_trade = {
         "trade_id": trade_id,
@@ -623,11 +619,11 @@ async def create_trade(trade: TradeCreate, authorization: Optional[str] = Header
         "status": "pending",
         "profit_loss": 0.0,
         "account_type": trade.account_type,
-        "predetermined_outcome": predetermined_outcome,  # Store predetermined result
+        "predetermined_outcome": predetermined_outcome,  # None for real accounts
         "deducted_from_real": deducted_from_real if trade.account_type == "real" else 0,
         "deducted_from_bonus": deducted_from_bonus if trade.account_type == "real" else 0,
         "created_at": datetime.now(timezone.utc),
-        "expires_at": datetime.now(timezone.utc) + timedelta(seconds=trade.duration),  # When trade expires
+        "expires_at": datetime.now(timezone.utc) + timedelta(seconds=trade.duration),
         "settled_at": None
     }
     
@@ -734,7 +730,7 @@ async def get_trade_stats(authorization: Optional[str] = Header(None), request: 
 
 @api_router.post("/trades/{trade_id}/settle")
 async def settle_trade(trade_id: str, settle_data: TradeSettle, authorization: Optional[str] = Header(None), request: Request = None):
-    """Settle a trade using the predetermined outcome from trade creation"""
+    """Settle a trade - Demo uses predetermined outcome, Real uses actual price"""
     user = await get_current_user(authorization, request)
     
     trade = await db.trades.find_one({"trade_id": trade_id, "user_id": user.user_id})
@@ -744,34 +740,43 @@ async def settle_trade(trade_id: str, settle_data: TradeSettle, authorization: O
     if trade["status"] != "pending":
         raise HTTPException(status_code=400, detail="Trade already settled")
     
-    # Use predetermined outcome from trade creation
-    # This was determined at trade placement time based on:
-    # Demo: 90% win rate, Real: 40% win rate (60% loss)
-    predetermined_outcome = trade.get("predetermined_outcome", "lost")
-    won = predetermined_outcome == "won"
-    
-    # Calculate exit price to match the predetermined outcome
     entry_price = trade["entry_price"]
     trade_type = trade["trade_type"]
     exit_price = settle_data.exit_price
     
-    # Adjust exit price based on predetermined outcome
-    price_diff = abs(exit_price - entry_price)
-    if price_diff == 0:
-        price_diff = entry_price * 0.0001  # Small movement if no change
+    # Determine win/loss based on account type
+    predetermined_outcome = trade.get("predetermined_outcome")
     
-    if trade_type == "call":
-        # Call wins if price goes up
-        if won:
-            exit_price = entry_price + price_diff if exit_price <= entry_price else exit_price
-        else:
-            exit_price = entry_price - price_diff if exit_price > entry_price else exit_price
-    else:  # put
-        # Put wins if price goes down
-        if won:
-            exit_price = entry_price - price_diff if exit_price >= entry_price else exit_price
-        else:
-            exit_price = entry_price + price_diff if exit_price < entry_price else exit_price
+    if predetermined_outcome:
+        # DEMO account: Use predetermined outcome (90% win rate)
+        won = predetermined_outcome == "won"
+        
+        # Adjust exit price to match predetermined outcome for visual consistency
+        price_diff = abs(exit_price - entry_price)
+        if price_diff == 0:
+            price_diff = entry_price * 0.0001
+        
+        if trade_type == "call":
+            if won:
+                exit_price = entry_price + price_diff if exit_price <= entry_price else exit_price
+            else:
+                exit_price = entry_price - price_diff if exit_price > entry_price else exit_price
+        else:  # put
+            if won:
+                exit_price = entry_price - price_diff if exit_price >= entry_price else exit_price
+            else:
+                exit_price = entry_price + price_diff if exit_price < entry_price else exit_price
+    else:
+        # REAL account: Use ACTUAL price movement (like demo account's natural behavior)
+        # CALL wins if price goes UP, PUT wins if price goes DOWN
+        if trade_type == "call":
+            won = exit_price > entry_price
+        else:  # put
+            won = exit_price < entry_price
+        
+        # If price is exactly same, it's a loss
+        if exit_price == entry_price:
+            won = False
     
     status = "won" if won else "lost"
     profit_loss = trade["amount"] * (trade["payout_percentage"] / 100) if won else -trade["amount"]
@@ -2805,11 +2810,12 @@ async def add_chart_tick(symbol: str, authorization: Optional[str] = Header(None
     # Default random change
     change = (random.random() - 0.5) * volatility * 2
     
-    # If user has active trade, bias price movement based on predetermined outcome
-    if active_trade:
+    # If user has active DEMO trade, bias price movement based on predetermined outcome
+    # Real account trades use actual price movement without manipulation
+    if active_trade and active_trade.get("predetermined_outcome"):
         entry_price = active_trade.get("entry_price", base_price)
         trade_type = active_trade.get("trade_type")  # 'call' or 'put'
-        predetermined_outcome = active_trade.get("predetermined_outcome", "lost")
+        predetermined_outcome = active_trade.get("predetermined_outcome")
         
         # Determine which direction price should move
         # CALL + WIN = price goes UP (above entry)
