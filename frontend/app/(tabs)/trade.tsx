@@ -1527,7 +1527,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: '#0A1A0F',
     gap: 12,
   },
   candleCountdownBox: {
