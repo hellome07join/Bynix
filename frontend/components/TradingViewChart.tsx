@@ -61,9 +61,45 @@ export default function TradingViewChart({
   tradeMarkers = [],
   onPriceUpdate
 }: TradingViewChartProps) {
-  const [isLoading, setIsLoading] = useState(true);
+  // Generate initial placeholder data synchronously for instant display
+  const getInitialPlaceholderData = useCallback((sym: string): CandleData[] => {
+    const basePrices: { [key: string]: number } = {
+      'EUR/USD': 1.0850, 'EUR/USD OTC': 1.0850,
+      'GBP/USD': 1.2650, 'GBP/USD OTC': 1.2650,
+      'USD/JPY': 149.50, 'USD/JPY OTC': 149.50,
+      'BTC/USD': 67500, 'BTC/USD OTC': 67500,
+      'ETH/USD': 3500, 'ETH/USD OTC': 3500,
+    };
+    const basePrice = basePrices[sym] || 1.0850;
+    const ticks: CandleData[] = [];
+    const now = Date.now();
+    
+    let price = basePrice;
+    for (let i = 300; i >= 0; i--) {
+      const volatility = price * 0.00005;
+      const open = price;
+      const change = (Math.random() - 0.5) * volatility * 2;
+      const close = open + change;
+      const high = Math.max(open, close) + Math.abs((Math.random() - 0.5) * volatility);
+      const low = Math.min(open, close) - Math.abs((Math.random() - 0.5) * volatility);
+      ticks.push({
+        time: Math.floor((now - i * 1000) / 1000),
+        open, high, low, close,
+      });
+      price = close;
+    }
+    return ticks;
+  }, []);
+
+  const [isLoading, setIsLoading] = useState(false); // Start as false - show instant placeholder
   const [internalPrice, setInternalPrice] = useState(currentPrice || 1.0850);
-  const [baseTickData, setBaseTickData] = useState<CandleData[]>([]);
+  const [baseTickData, setBaseTickData] = useState<CandleData[]>(() => {
+    // Check cache first, then generate placeholder
+    if (baseTickDataStore[symbol] && baseTickDataStore[symbol].length > 0) {
+      return baseTickDataStore[symbol];
+    }
+    return [];
+  });
   const [error, setError] = useState<string | null>(null);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [scale, setScale] = useState(1);
@@ -151,10 +187,10 @@ export default function TradingViewChart({
     return 1.0850;
   }, []);
 
-  // Fetch chart data from backend (synced across all devices)
-  const fetchChartDataFromServer = useCallback(async () => {
+  // Fetch chart data from backend (synced across all devices) - NON-BLOCKING
+  const fetchChartDataFromServer = useCallback(async (showLoading = false) => {
     try {
-      setIsLoading(true);
+      if (showLoading) setIsLoading(true);
       const apiUrl = getApiUrl();
       // Clean symbol for API: remove OTC, replace / with empty, uppercase
       const cleanSymbol = symbol.replace(' OTC', '').replace('/', '').toUpperCase();
@@ -181,9 +217,11 @@ export default function TradingViewChart({
         return true;
       }
       
+      setIsLoading(false);
       return false;
     } catch (error) {
       console.error('Failed to fetch chart data from server:', error);
+      setIsLoading(false);
       return false;
     }
   }, [symbol]);
@@ -223,27 +261,37 @@ export default function TradingViewChart({
     console.log(`Generated ${ticks.length} fallback ticks for ${symbol}`);
   }, [symbol, getBasePrice]);
 
-  // Initialize chart data
+  // Initialize chart data - INSTANT display, background fetch
   const initializeChartData = useCallback(async () => {
-    // Check memory cache first
+    // Check memory cache first - INSTANT
     if (baseTickDataStore[symbol] && baseTickDataStore[symbol].length > 0) {
-      console.log(`Using memory cached data for ${symbol}`);
+      console.log(`Using memory cached data for ${symbol} - INSTANT`);
       setBaseTickData(baseTickDataStore[symbol]);
       const lastTick = baseTickDataStore[symbol][baseTickDataStore[symbol].length - 1];
       setInternalPrice(lastTick.close);
       setIsLoading(false);
+      // Refresh from server in background (no loading state)
+      fetchChartDataFromServer(false);
       return;
     }
 
-    // Try to fetch from server (synced across all devices)
-    const serverSuccess = await fetchChartDataFromServer();
+    // Show instant placeholder immediately - generated synchronously
+    const placeholderData = getInitialPlaceholderData(symbol);
+    setBaseTickData(placeholderData);
+    if (placeholderData.length > 0) {
+      setInternalPrice(placeholderData[placeholderData.length - 1].close);
+    }
+    setIsLoading(false); // Don't show loading - show placeholder instead
+    
+    // Fetch real data in background
+    const serverSuccess = await fetchChartDataFromServer(false);
     
     if (!serverSuccess) {
-      // Fallback to local generation if server fails
+      // Generate more data if server fails
       console.log('Server fetch failed, generating local data');
       generateFallbackData();
     }
-  }, [symbol, fetchChartDataFromServer, generateFallbackData]);
+  }, [symbol, fetchChartDataFromServer, generateFallbackData, getInitialPlaceholderData]);
 
   // Aggregate base tick data into candles based on interval
   const aggregatedCandles = useMemo(() => {
