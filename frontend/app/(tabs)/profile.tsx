@@ -767,8 +767,17 @@ export default function Profile() {
           </View>
           <View style={styles.emailRow}>
             <Text style={styles.userEmail}>{user?.email || userData.email}</Text>
-            {!userData.isEmailVerified && (
+            {userData.isEmailVerified ? (
+              <Ionicons name="checkmark-circle" size={16} color="#00E55A" style={{ marginLeft: 4 }} />
+            ) : (
               <View style={styles.unverifiedDot} />
+            )}
+            {/* KYC Badge */}
+            {kycStatus?.status === 'approved' && (
+              <View style={styles.kycBadge}>
+                <Text style={styles.kycBadgeText}>KYC</Text>
+                <Ionicons name="checkmark-circle" size={14} color="#00BFFF" />
+              </View>
             )}
           </View>
           <Text style={styles.userId}>ID: {userData.accountId}</Text>
@@ -2038,6 +2047,22 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: '#FF3B3B',
+    marginLeft: 4,
+  },
+  kycBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 191, 255, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 8,
+    gap: 4,
+  },
+  kycBadgeText: {
+    color: '#00BFFF',
+    fontSize: 11,
+    fontWeight: '600',
   },
   userId: {
     color: '#666',
