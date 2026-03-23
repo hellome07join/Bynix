@@ -853,6 +853,243 @@ async def create_notification(user_id: str, title: str, message: str, notif_type
     await db.notifications.insert_one(notification)
     return notification
 
+# ============= Leaderboard Routes =============
+
+@api_router.get("/leaderboard")
+async def get_leaderboard():
+    """Get top traders leaderboard for last 24 hours"""
+    # Calculate the time 24 hours ago
+    time_24h_ago = datetime.now(timezone.utc) - timedelta(hours=24)
+    
+    # Aggregate trades to get profit/loss per user in last 24 hours
+    pipeline = [
+        {
+            "$match": {
+                "settled_at": {"$gte": time_24h_ago},
+                "status": {"$in": ["won", "lost"]},
+            }
+        },
+        {
+            "$group": {
+                "_id": "$user_id",
+                "total_profit": {"$sum": "$profit_loss"},
+                "total_trades": {"$sum": 1},
+                "won_trades": {
+                    "$sum": {"$cond": [{"$eq": ["$status", "won"]}, 1, 0]}
+                },
+                "total_volume": {"$sum": "$amount"},
+            }
+        },
+        {
+            "$match": {
+                "total_profit": {"$gt": 0}  # Only show profitable traders
+            }
+        },
+        {
+            "$sort": {"total_profit": -1}
+        },
+        {
+            "$limit": 100
+        }
+    ]
+    
+    results = await db.trades.aggregate(pipeline).to_list(100)
+    
+    # Fetch user details for each result
+    leaderboard = []
+    for i, result in enumerate(results):
+        user = await db.users.find_one(
+            {"user_id": result["_id"]},
+            {"_id": 0, "user_id": 1, "name": 1, "full_name": 1, "nickname": 1, "country": 1, "country_flag": 1}
+        )
+        
+        if user:
+            win_rate = (result["won_trades"] / result["total_trades"] * 100) if result["total_trades"] > 0 else 0
+            leaderboard.append({
+                "rank": i + 1,
+                "user_id": result["_id"],
+                "name": user.get("nickname") or user.get("full_name") or user.get("name") or f"Trader#{result['_id'][-6:]}",
+                "country": user.get("country", "Unknown"),
+                "country_flag": user.get("country_flag", "🌍"),
+                "profit": round(result["total_profit"], 2),
+                "total_trades": result["total_trades"],
+                "win_rate": round(win_rate, 1),
+                "volume": round(result["total_volume"], 2),
+            })
+    
+    return {
+        "leaderboard": leaderboard,
+        "total_traders": len(leaderboard),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+
+@api_router.get("/leaderboard/my-stats")
+async def get_my_leaderboard_stats(authorization: Optional[str] = Header(None), request: Request = None):
+    """Get current user's leaderboard stats and position"""
+    user = await get_current_user(authorization, request)
+    
+    # Calculate the time 24 hours ago
+    time_24h_ago = datetime.now(timezone.utc) - timedelta(hours=24)
+    
+    # Get user's stats for last 24 hours
+    user_stats_pipeline = [
+        {
+            "$match": {
+                "user_id": user.user_id,
+                "settled_at": {"$gte": time_24h_ago},
+                "status": {"$in": ["won", "lost"]},
+            }
+        },
+        {
+            "$group": {
+                "_id": "$user_id",
+                "total_profit": {"$sum": "$profit_loss"},
+                "total_trades": {"$sum": 1},
+                "won_trades": {
+                    "$sum": {"$cond": [{"$eq": ["$status", "won"]}, 1, 0]}
+                },
+                "total_volume": {"$sum": "$amount"},
+            }
+        }
+    ]
+    
+    user_results = await db.trades.aggregate(user_stats_pipeline).to_list(1)
+    
+    if not user_results:
+        return {
+            "user_id": user.user_id,
+            "name": user.name,
+            "profit": 0,
+            "total_trades": 0,
+            "win_rate": 0,
+            "volume": 0,
+            "position": "100+",  # User hasn't traded in last 24h
+        }
+    
+    user_stats = user_results[0]
+    win_rate = (user_stats["won_trades"] / user_stats["total_trades"] * 100) if user_stats["total_trades"] > 0 else 0
+    
+    # Calculate user's position by counting users with higher profit
+    position_pipeline = [
+        {
+            "$match": {
+                "settled_at": {"$gte": time_24h_ago},
+                "status": {"$in": ["won", "lost"]},
+            }
+        },
+        {
+            "$group": {
+                "_id": "$user_id",
+                "total_profit": {"$sum": "$profit_loss"},
+            }
+        },
+        {
+            "$match": {
+                "total_profit": {"$gt": user_stats["total_profit"]}
+            }
+        },
+        {
+            "$count": "higher_ranked"
+        }
+    ]
+    
+    position_result = await db.trades.aggregate(position_pipeline).to_list(1)
+    position = (position_result[0]["higher_ranked"] + 1) if position_result else 1
+    
+    # Format position
+    position_str = str(position) if position <= 100 else "100+"
+    
+    return {
+        "user_id": user.user_id,
+        "name": user.name,
+        "profit": round(user_stats["total_profit"], 2),
+        "total_trades": user_stats["total_trades"],
+        "win_rate": round(win_rate, 1),
+        "volume": round(user_stats["total_volume"], 2),
+        "position": position_str,
+    }
+
+# ============= Profile Stats Routes =============
+
+@api_router.get("/profile/stats")
+async def get_profile_stats(authorization: Optional[str] = Header(None), request: Request = None):
+    """Get user's trading statistics"""
+    user = await get_current_user(authorization, request)
+    
+    # Get all-time stats
+    all_time_pipeline = [
+        {
+            "$match": {
+                "user_id": user.user_id,
+                "status": {"$in": ["won", "lost"]},
+            }
+        },
+        {
+            "$group": {
+                "_id": "$user_id",
+                "total_trades": {"$sum": 1},
+                "won_trades": {
+                    "$sum": {"$cond": [{"$eq": ["$status", "won"]}, 1, 0]}
+                },
+                "total_volume": {"$sum": "$amount"},
+                "net_pnl": {"$sum": "$profit_loss"},
+            }
+        }
+    ]
+    
+    results = await db.trades.aggregate(all_time_pipeline).to_list(1)
+    
+    if not results:
+        return {
+            "total_trades": 0,
+            "win_rate": 0,
+            "volume": 0,
+            "net_pnl": 0,
+        }
+    
+    stats = results[0]
+    win_rate = (stats["won_trades"] / stats["total_trades"] * 100) if stats["total_trades"] > 0 else 0
+    
+    return {
+        "total_trades": stats["total_trades"],
+        "win_rate": round(win_rate, 1),
+        "volume": round(stats["total_volume"], 2),
+        "net_pnl": round(stats["net_pnl"], 2),
+    }
+
+@api_router.put("/profile/nickname")
+async def update_nickname(nickname: str, authorization: Optional[str] = Header(None), request: Request = None):
+    """Update user's nickname for leaderboard"""
+    user = await get_current_user(authorization, request)
+    
+    # Validate nickname
+    if len(nickname) < 3 or len(nickname) > 20:
+        raise HTTPException(status_code=400, detail="Nickname must be 3-20 characters")
+    
+    # Check if nickname is already taken
+    existing = await db.users.find_one({"nickname": nickname, "user_id": {"$ne": user.user_id}})
+    if existing:
+        raise HTTPException(status_code=400, detail="Nickname already taken")
+    
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {"nickname": nickname}}
+    )
+    
+    return {"success": True, "nickname": nickname}
+
+@api_router.put("/profile/country")
+async def update_country(country: str, country_flag: str = "🌍", authorization: Optional[str] = Header(None), request: Request = None):
+    """Update user's country for leaderboard"""
+    user = await get_current_user(authorization, request)
+    
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {"country": country, "country_flag": country_flag}}
+    )
+    
+    return {"success": True, "country": country, "country_flag": country_flag}
+
 # ============= Admin Routes =============
 
 @api_router.get("/admin/users")

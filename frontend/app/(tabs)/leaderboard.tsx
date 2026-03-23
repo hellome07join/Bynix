@@ -6,167 +6,323 @@ import {
   ScrollView,
   RefreshControl,
   ActivityIndicator,
+  TouchableOpacity,
+  Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useAuthStore } from '../../stores/authStore';
+import { API_URL } from '../../utils/api';
 
-// Demo users data with country flags
-const DEMO_USERS = [
-  { id: 1, name: 'Alexander K.', country: 'RU', flag: '🇷🇺', profit: 12847.50 },
-  { id: 2, name: 'John Smith', country: 'US', flag: '🇺🇸', profit: 9823.00 },
-  { id: 3, name: 'Hiroshi T.', country: 'JP', flag: '🇯🇵', profit: 8654.25 },
-  { id: 4, name: 'Mohammed A.', country: 'AE', flag: '🇦🇪', profit: 7892.00 },
-  { id: 5, name: 'Chen Wei', country: 'CN', flag: '🇨🇳', profit: 7456.75 },
-  { id: 6, name: 'Maria Garcia', country: 'ES', flag: '🇪🇸', profit: 6987.50 },
-  { id: 7, name: 'Hans Mueller', country: 'DE', flag: '🇩🇪', profit: 6543.00 },
-  { id: 8, name: 'Sophie Martin', country: 'FR', flag: '🇫🇷', profit: 6234.25 },
-  { id: 9, name: 'Raj Patel', country: 'IN', flag: '🇮🇳', profit: 5876.00 },
-  { id: 10, name: 'James Wilson', country: 'GB', flag: '🇬🇧', profit: 5543.50 },
-  { id: 11, name: 'Ana Silva', country: 'BR', flag: '🇧🇷', profit: 5234.00 },
-  { id: 12, name: 'Kim Min-jun', country: 'KR', flag: '🇰🇷', profit: 4987.75 },
-  { id: 13, name: 'Paolo Rossi', country: 'IT', flag: '🇮🇹', profit: 4765.00 },
-  { id: 14, name: 'Oleksandr S.', country: 'UA', flag: '🇺🇦', profit: 4532.50 },
-  { id: 15, name: 'Ahmed Hassan', country: 'EG', flag: '🇪🇬', profit: 4321.00 },
-  { id: 16, name: 'Lisa Anderson', country: 'AU', flag: '🇦🇺', profit: 4123.25 },
-  { id: 17, name: 'Carlos Lopez', country: 'MX', flag: '🇲🇽', profit: 3987.50 },
-  { id: 18, name: 'Anna Kowalski', country: 'PL', flag: '🇵🇱', profit: 3765.00 },
-  { id: 19, name: 'Yuki Tanaka', country: 'JP', flag: '🇯🇵', profit: 3543.75 },
-  { id: 20, name: 'David Lee', country: 'SG', flag: '🇸🇬', profit: 3234.00 },
-];
+interface LeaderboardUser {
+  rank: number;
+  user_id: string;
+  name: string;
+  country: string;
+  country_flag: string;
+  profit: number;
+  total_trades: number;
+  win_rate: number;
+  volume: number;
+}
+
+interface MyStats {
+  user_id: string;
+  name: string;
+  profit: number;
+  total_trades: number;
+  win_rate: number;
+  volume: number;
+  position: string;
+}
+
+// Country flag mapping
+const COUNTRY_FLAGS: { [key: string]: string } = {
+  'Bangladesh': '🇧🇩',
+  'India': '🇮🇳',
+  'United States': '🇺🇸',
+  'United Kingdom': '🇬🇧',
+  'Germany': '🇩🇪',
+  'Japan': '🇯🇵',
+  'China': '🇨🇳',
+  'Russia': '🇷🇺',
+  'Brazil': '🇧🇷',
+  'France': '🇫🇷',
+  'Pakistan': '🇵🇰',
+  'Nepal': '🇳🇵',
+  'UAE': '🇦🇪',
+  'Saudi Arabia': '🇸🇦',
+  'Turkey': '🇹🇷',
+  'Indonesia': '🇮🇩',
+  'Malaysia': '🇲🇾',
+  'Singapore': '🇸🇬',
+  'Australia': '🇦🇺',
+  'Canada': '🇨🇦',
+};
 
 export default function Leaderboard() {
-  const [users, setUsers] = useState(DEMO_USERS);
+  const router = useRouter();
+  const { token, user } = useAuthStore();
+  const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
+  const [myStats, setMyStats] = useState<MyStats | null>(null);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState(new Date());
-  const [nextRefresh, setNextRefresh] = useState(300); // 5 minutes in seconds
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
-  // Function to randomize profits slightly to simulate live updates
-  const updateLeaderboard = useCallback(() => {
-    const updatedUsers = DEMO_USERS.map(user => ({
-      ...user,
-      profit: user.profit + (Math.random() - 0.3) * 500, // Random fluctuation
-    })).sort((a, b) => b.profit - a.profit);
-    
-    setUsers(updatedUsers);
-    setLastUpdated(new Date());
-    setNextRefresh(300);
+  const fetchLeaderboard = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_URL}/leaderboard`);
+      if (response.ok) {
+        const data = await response.json();
+        setLeaderboard(data.leaderboard || []);
+        setLastUpdated(new Date());
+      }
+    } catch (error) {
+      console.error('Error fetching leaderboard:', error);
+    }
   }, []);
 
-  // Auto refresh every 5 minutes
+  const fetchMyStats = useCallback(async () => {
+    if (!token) return;
+
+    try {
+      const response = await fetch(`${API_URL}/leaderboard/my-stats`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setMyStats(data);
+      }
+    } catch (error) {
+      console.error('Error fetching my stats:', error);
+    }
+  }, [token]);
+
   useEffect(() => {
-    const refreshInterval = setInterval(() => {
-      updateLeaderboard();
-    }, 300000); // 5 minutes
-
-    // Countdown timer
-    const countdownInterval = setInterval(() => {
-      setNextRefresh(prev => (prev > 0 ? prev - 1 : 300));
-    }, 1000);
-
-    return () => {
-      clearInterval(refreshInterval);
-      clearInterval(countdownInterval);
+    const loadData = async () => {
+      setLoading(true);
+      await Promise.all([fetchLeaderboard(), fetchMyStats()]);
+      setLoading(false);
     };
-  }, [updateLeaderboard]);
 
-  const onRefresh = useCallback(() => {
+    loadData();
+
+    // Auto refresh every 60 seconds
+    const interval = setInterval(() => {
+      fetchLeaderboard();
+      fetchMyStats();
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [fetchLeaderboard, fetchMyStats]);
+
+  const onRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => {
-      updateLeaderboard();
-      setRefreshing(false);
-    }, 1000);
-  }, [updateLeaderboard]);
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    await Promise.all([fetchLeaderboard(), fetchMyStats()]);
+    setRefreshing(false);
   };
 
-  const getRankStyle = (rank: number) => {
-    if (rank === 1) return { backgroundColor: 'rgba(255, 215, 0, 0.2)', borderColor: '#FFD700' };
-    if (rank === 2) return { backgroundColor: 'rgba(192, 192, 192, 0.2)', borderColor: '#C0C0C0' };
-    if (rank === 3) return { backgroundColor: 'rgba(205, 127, 50, 0.2)', borderColor: '#CD7F32' };
-    return { backgroundColor: 'rgba(255, 255, 255, 0.03)', borderColor: 'transparent' };
+  const getRankBadge = (rank: number) => {
+    if (rank === 1) return { bg: '#FFD700', text: '#0A1A0F' };
+    if (rank === 2) return { bg: '#C0C0C0', text: '#0A1A0F' };
+    if (rank === 3) return { bg: '#CD7F32', text: '#FFFFFF' };
+    return { bg: 'transparent', text: '#888' };
   };
 
-  const getRankIcon = (rank: number) => {
-    if (rank === 1) return '🥇';
-    if (rank === 2) return '🥈';
-    if (rank === 3) return '🥉';
-    return rank.toString();
+  const formatProfit = (profit: number) => {
+    return `$${profit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#00E55A" />
+          <Text style={styles.loadingText}>Loading Leaderboard...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Leaderboard</Text>
-        <View style={styles.timerContainer}>
-          <Ionicons name="time-outline" size={14} color="#00E55A" />
-          <Text style={styles.timerText}>Next update: {formatTime(nextRefresh)}</Text>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitle}>Leader Board</Text>
+          <Text style={styles.headerSubtitle}>of the Day</Text>
         </View>
+        <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
+          <Ionicons name="close" size={24} color="#666" />
+        </TouchableOpacity>
       </View>
 
-      {/* Info Banner */}
-      <View style={styles.infoBanner}>
-        <Ionicons name="trophy" size={20} color="#FFD700" />
-        <Text style={styles.infoText}>Top 20 Traders (Last 24 Hours)</Text>
-      </View>
-
-      {/* Leaderboard List */}
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        style={styles.content}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
             tintColor="#00E55A"
-            colors={['#00E55A']}
           />
         }
         showsVerticalScrollIndicator={false}
       >
-        {users.map((user, index) => {
-          const rank = index + 1;
-          const rankStyle = getRankStyle(rank);
-          
-          return (
-            <View 
-              key={user.id} 
-              style={[styles.userCard, { backgroundColor: rankStyle.backgroundColor, borderColor: rankStyle.borderColor }]}
-            >
-              <View style={styles.rankContainer}>
-                {rank <= 3 ? (
-                  <Text style={styles.rankEmoji}>{getRankIcon(rank)}</Text>
-                ) : (
-                  <Text style={styles.rankNumber}>{rank}</Text>
-                )}
-              </View>
-              
-              <View style={styles.userInfo}>
-                <View style={styles.nameRow}>
-                  <Text style={styles.flag}>{user.flag}</Text>
-                  <Text style={styles.userName}>{user.name}</Text>
-                </View>
-                <Text style={styles.country}>{user.country}</Text>
-              </View>
-              
-              <View style={styles.profitContainer}>
-                <Text style={styles.profitLabel}>Profit</Text>
-                <Text style={styles.profitAmount}>+${user.profit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
-              </View>
+        {/* My Stats Card */}
+        {token && myStats && (
+          <View style={styles.myStatsCard}>
+            <View style={styles.myStatsLeft}>
+              <Text style={styles.countryFlag}>🇧🇩</Text>
+              <Text style={styles.myStatsName}>{user?.name || user?.full_name || 'Name'}</Text>
             </View>
-          );
-        })}
-        
+            <Text style={styles.myStatsProfit}>{formatProfit(myStats.profit)}</Text>
+          </View>
+        )}
+
+        {/* My Position */}
+        {token && myStats && (
+          <View style={styles.myPositionRow}>
+            <Text style={styles.positionLabel}>Your position:</Text>
+            <Text style={styles.positionValue}>{myStats.position}</Text>
+          </View>
+        )}
+
+        {/* How Rating Works */}
+        <TouchableOpacity 
+          style={styles.infoButton}
+          onPress={() => setShowInfoModal(true)}
+        >
+          <Ionicons name="podium" size={20} color="#FFB800" />
+          <Text style={styles.infoButtonText}>How does this rating work?</Text>
+        </TouchableOpacity>
+
+        {/* Leaderboard List */}
+        <View style={styles.leaderboardList}>
+          {leaderboard.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="trophy-outline" size={48} color="#444" />
+              <Text style={styles.emptyText}>No traders yet today</Text>
+              <Text style={styles.emptySubtext}>Start trading to appear on the leaderboard!</Text>
+            </View>
+          ) : (
+            leaderboard.map((trader) => {
+              const rankStyle = getRankBadge(trader.rank);
+              const isTopThree = trader.rank <= 3;
+
+              return (
+                <View 
+                  key={trader.user_id} 
+                  style={[
+                    styles.traderRow,
+                    isTopThree && styles.traderRowTopThree,
+                  ]}
+                >
+                  {/* Rank */}
+                  <View style={styles.rankContainer}>
+                    {isTopThree ? (
+                      <View style={[styles.rankBadge, { backgroundColor: rankStyle.bg }]}>
+                        <Text style={[styles.rankBadgeText, { color: rankStyle.text }]}>
+                          {trader.rank}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.rankNumber}>{trader.rank}</Text>
+                    )}
+                  </View>
+
+                  {/* User Info */}
+                  <View style={styles.userInfo}>
+                    <View style={styles.flagAvatar}>
+                      <Text style={styles.flag}>{trader.country_flag || '🌍'}</Text>
+                      <View style={styles.avatarCircle}>
+                        <Ionicons name="person" size={14} color="#00E55A" />
+                      </View>
+                    </View>
+                    <Text style={styles.userName} numberOfLines={1}>{trader.name}</Text>
+                    {trader.win_rate >= 70 && (
+                      <Ionicons name="star" size={14} color="#FFD700" style={styles.vipStar} />
+                    )}
+                  </View>
+
+                  {/* Profit */}
+                  <Text style={styles.profitAmount}>{formatProfit(trader.profit)}</Text>
+                </View>
+              );
+            })
+          )}
+        </View>
+
+        {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>
             Last updated: {lastUpdated.toLocaleTimeString()}
           </Text>
+          <Text style={styles.footerSubtext}>
+            Rankings based on last 24 hours profit
+          </Text>
         </View>
       </ScrollView>
-    </View>
+
+      {/* Info Modal */}
+      <Modal
+        visible={showInfoModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowInfoModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="trophy" size={28} color="#FFD700" />
+              <Text style={styles.modalTitle}>Leaderboard Ranking</Text>
+            </View>
+
+            <View style={styles.infoItem}>
+              <View style={styles.infoDot} />
+              <Text style={styles.infoText}>
+                Rankings are based on <Text style={styles.infoHighlight}>total profit</Text> earned in the last 24 hours.
+              </Text>
+            </View>
+
+            <View style={styles.infoItem}>
+              <View style={styles.infoDot} />
+              <Text style={styles.infoText}>
+                Only traders with <Text style={styles.infoHighlight}>positive profit</Text> appear on the leaderboard.
+              </Text>
+            </View>
+
+            <View style={styles.infoItem}>
+              <View style={styles.infoDot} />
+              <Text style={styles.infoText}>
+                <Text style={styles.infoHighlight}>Star badge ⭐</Text> indicates traders with 70%+ win rate.
+              </Text>
+            </View>
+
+            <View style={styles.infoItem}>
+              <View style={styles.infoDot} />
+              <Text style={styles.infoText}>
+                Rankings <Text style={styles.infoHighlight}>reset daily</Text> at midnight UTC.
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.modalCloseBtn}
+              onPress={() => setShowInfoModal(false)}
+            >
+              <Text style={styles.modalCloseBtnText}>Got it!</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
   );
 }
 
@@ -175,121 +331,275 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0A1A0F',
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#888',
+    marginTop: 12,
+    fontSize: 14,
+  },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 50,
-    paddingBottom: 12,
-    backgroundColor: 'rgba(15, 20, 40, 0.95)',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  backBtn: {
+    padding: 4,
+  },
+  headerTitleContainer: {
+    alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '800',
     color: '#FFFFFF',
   },
-  timerContainer: {
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 2,
+  },
+  closeBtn: {
+    padding: 4,
+  },
+  content: {
+    flex: 1,
+  },
+  myStatsCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 229, 90, 0.1)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    justifyContent: 'space-between',
+    backgroundColor: '#1B2838',
+    marginHorizontal: 16,
+    marginTop: 16,
+    padding: 16,
     borderRadius: 12,
-    gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
-  timerText: {
-    color: '#00E55A',
-    fontSize: 12,
+  myStatsLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  countryFlag: {
+    fontSize: 24,
+  },
+  myStatsName: {
+    fontSize: 16,
     fontWeight: '600',
+    color: '#FFFFFF',
   },
-  infoBanner: {
+  myStatsProfit: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#00E55A',
+  },
+  myPositionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 12,
+    gap: 8,
+  },
+  positionLabel: {
+    fontSize: 14,
+    color: '#888',
+  },
+  positionValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  infoButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 215, 0, 0.1)',
-    paddingVertical: 10,
+    backgroundColor: '#1B2838',
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 8,
+    paddingVertical: 14,
+    borderRadius: 10,
     gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 215, 0, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,184,0,0.3)',
   },
-  infoText: {
-    color: '#FFD700',
+  infoButtonText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
+    color: '#FFB800',
   },
-  scrollView: {
-    flex: 1,
+  leaderboardList: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
-  scrollContent: {
-    padding: 12,
-    paddingBottom: 100,
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 60,
   },
-  userCard: {
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#888',
+    marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  traderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 8,
-    borderWidth: 1,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  traderRowTopThree: {
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    marginHorizontal: -8,
+    paddingHorizontal: 8,
+    borderRadius: 8,
   },
   rankContainer: {
     width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    alignItems: 'center',
+  },
+  rankBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
-  rankEmoji: {
-    fontSize: 20,
-  },
-  rankNumber: {
-    color: '#888',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  userInfo: {
-    flex: 1,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  flag: {
-    fontSize: 16,
-  },
-  userName: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  country: {
-    color: '#666',
-    fontSize: 11,
-    marginTop: 2,
-  },
-  profitContainer: {
-    alignItems: 'flex-end',
-  },
-  profitLabel: {
-    color: '#666',
-    fontSize: 10,
-    marginBottom: 2,
-  },
-  profitAmount: {
-    color: '#00E55A',
+  rankBadgeText: {
     fontSize: 14,
     fontWeight: '800',
   },
+  rankNumber: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#888',
+  },
+  userInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  flagAvatar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  flag: {
+    fontSize: 18,
+  },
+  avatarCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(0,229,90,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: -6,
+  },
+  userName: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginLeft: 10,
+  },
+  vipStar: {
+    marginLeft: 4,
+  },
+  profitAmount: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#00E55A',
+  },
   footer: {
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 24,
+    paddingBottom: 100,
   },
   footerText: {
+    fontSize: 12,
     color: '#666',
+  },
+  footerSubtext: {
     fontSize: 11,
+    color: '#555',
+    marginTop: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: '#111827',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 360,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+    gap: 12,
+  },
+  infoDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#00E55A',
+    marginTop: 6,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#AAA',
+    lineHeight: 22,
+  },
+  infoHighlight: {
+    color: '#00E55A',
+    fontWeight: '600',
+  },
+  modalCloseBtn: {
+    backgroundColor: '#00E55A',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  modalCloseBtnText: {
+    color: '#0A1A0F',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

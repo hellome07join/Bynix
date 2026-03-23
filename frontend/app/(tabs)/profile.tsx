@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../stores/authStore';
+import { API_URL } from '../../utils/api';
 
 const TABS = ['Overview', 'Security', 'KYC', 'Activity', 'Settings'];
 
@@ -48,7 +49,7 @@ const MOCK_USER_DATA = {
 
 export default function Profile() {
   const router = useRouter();
-  const { user, logout } = useAuthStore();
+  const { user, logout, token } = useAuthStore();
   const [activeTab, setActiveTab] = useState('Overview');
   const [userData, setUserData] = useState(MOCK_USER_DATA);
   const [showNicknameModal, setShowNicknameModal] = useState(false);
@@ -79,6 +80,40 @@ export default function Profile() {
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [showIdTypePicker, setShowIdTypePicker] = useState(false);
 
+  // Fetch profile stats from backend
+  const fetchProfileStats = useCallback(async () => {
+    if (!token) return;
+
+    try {
+      const response = await fetch(`${API_URL}/profile/stats`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const stats = await response.json();
+        setUserData(prev => ({
+          ...prev,
+          stats: {
+            totalTrades: stats.total_trades || 0,
+            winRate: stats.win_rate || 0,
+            volume: stats.volume || 0,
+            netPnL: stats.net_pnl || 0,
+          },
+          tierProgress: stats.volume || 0,
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching profile stats:', error);
+    }
+  }, [token]);
+
+  // Fetch stats on mount
+  useEffect(() => {
+    fetchProfileStats();
+  }, [fetchProfileStats]);
+
   const handleSignOut = () => {
     Alert.alert(
       'Sign Out',
@@ -101,10 +136,37 @@ export default function Profile() {
     Alert.alert('Verification Code', 'A verification code has been sent to your email.');
   };
 
-  const saveNickname = () => {
-    setUserData(prev => ({ ...prev, nickname }));
-    setShowNicknameModal(false);
-    Alert.alert('Success', 'Nickname updated successfully!');
+  const saveNickname = async () => {
+    if (!token) {
+      Alert.alert('Error', 'Please login first');
+      return;
+    }
+
+    if (nickname.length < 3 || nickname.length > 20) {
+      Alert.alert('Invalid Nickname', 'Nickname must be 3-20 characters');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/profile/nickname?nickname=${encodeURIComponent(nickname)}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        setUserData(prev => ({ ...prev, nickname }));
+        setShowNicknameModal(false);
+        Alert.alert('Success', 'Nickname updated successfully!');
+      } else {
+        const data = await response.json();
+        Alert.alert('Error', data.detail || 'Failed to update nickname');
+      }
+    } catch (error) {
+      console.error('Error updating nickname:', error);
+      Alert.alert('Error', 'Failed to update nickname');
+    }
   };
 
   const getTierColor = (tier: string) => {
