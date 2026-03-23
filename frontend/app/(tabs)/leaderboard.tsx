@@ -161,17 +161,11 @@ export default function Leaderboard() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
-        <View style={styles.headerTitleContainer}>
-          <Image 
-            source={require('../../assets/images/bynix-logo.png')}
-            style={styles.headerLogo}
-            resizeMode="contain"
-          />
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.headerTitle}>Leader Board</Text>
-            <Text style={styles.headerSubtitle}>of the Day</Text>
-          </View>
-        </View>
+        <Image 
+          source={require('../../assets/images/bynix-logo.png')}
+          style={styles.headerLogo}
+          resizeMode="contain"
+        />
         <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
           <Ionicons name="close" size={24} color="#666" />
         </TouchableOpacity>
@@ -387,8 +381,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   headerLogo: {
-    width: 40,
-    height: 40,
+    width: 60,
+    height: 60,
   },
   headerTextContainer: {
     alignItems: 'flex-start',
