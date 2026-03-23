@@ -881,12 +881,7 @@ async def get_leaderboard():
             }
         },
         {
-            "$match": {
-                "total_profit": {"$gt": 0}  # Only show profitable traders
-            }
-        },
-        {
-            "$sort": {"total_profit": -1}
+            "$sort": {"total_profit": -1}  # Sort by profit descending (highest profit first, then losses)
         },
         {
             "$limit": 100
@@ -912,6 +907,7 @@ async def get_leaderboard():
                 "country": user.get("country", "Unknown"),
                 "country_flag": user.get("country_flag", "🌍"),
                 "profit": round(result["total_profit"], 2),
+                "is_profit": result["total_profit"] >= 0,  # True for profit, False for loss
                 "total_trades": result["total_trades"],
                 "win_rate": round(win_rate, 1),
                 "volume": round(result["total_volume"], 2),

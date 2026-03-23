@@ -22,6 +22,7 @@ interface LeaderboardUser {
   country: string;
   country_flag: string;
   profit: number;
+  is_profit: boolean;
   total_trades: number;
   win_rate: number;
   volume: number;
@@ -134,8 +135,10 @@ export default function Leaderboard() {
     return { bg: 'transparent', text: '#888' };
   };
 
-  const formatProfit = (profit: number) => {
-    return `$${profit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatProfit = (profit: number, isProfit: boolean) => {
+    const absValue = Math.abs(profit);
+    const formatted = `$${absValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return isProfit ? `+${formatted}` : `-${formatted}`;
   };
 
   if (loading) {
@@ -183,7 +186,12 @@ export default function Leaderboard() {
               <Text style={styles.countryFlag}>🇧🇩</Text>
               <Text style={styles.myStatsName}>{user?.name || user?.full_name || 'Name'}</Text>
             </View>
-            <Text style={styles.myStatsProfit}>{formatProfit(myStats.profit)}</Text>
+            <Text style={[
+              styles.myStatsProfit,
+              { color: myStats.profit >= 0 ? '#00E55A' : '#FF3B3B' }
+            ]}>
+              {myStats.profit >= 0 ? '+' : '-'}${Math.abs(myStats.profit).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </Text>
           </View>
         )}
 
@@ -253,7 +261,12 @@ export default function Leaderboard() {
                   </View>
 
                   {/* Profit */}
-                  <Text style={styles.profitAmount}>{formatProfit(trader.profit)}</Text>
+                  <Text style={[
+                    styles.profitAmount,
+                    { color: trader.is_profit ? '#00E55A' : '#FF3B3B' }
+                  ]}>
+                    {formatProfit(trader.profit, trader.is_profit)}
+                  </Text>
                 </View>
               );
             })
@@ -288,14 +301,14 @@ export default function Leaderboard() {
             <View style={styles.infoItem}>
               <View style={styles.infoDot} />
               <Text style={styles.infoText}>
-                Rankings are based on <Text style={styles.infoHighlight}>total profit</Text> earned in the last 24 hours.
+                Rankings are based on <Text style={styles.infoHighlight}>total profit/loss</Text> earned in the last 24 hours.
               </Text>
             </View>
 
             <View style={styles.infoItem}>
-              <View style={styles.infoDot} />
+              <View style={[styles.infoDot, { backgroundColor: '#00E55A' }]} />
               <Text style={styles.infoText}>
-                Only traders with <Text style={styles.infoHighlight}>positive profit</Text> appear on the leaderboard.
+                <Text style={{ color: '#00E55A', fontWeight: '600' }}>Green (+)</Text> = Profit, <Text style={{ color: '#FF3B3B', fontWeight: '600' }}>Red (-)</Text> = Loss
               </Text>
             </View>
 
