@@ -723,7 +723,7 @@ export default function Trade() {
         </TouchableOpacity>
       </View>
 
-      {/* Animated Promo Banner - Below Header */}
+      {/* Animated Promo Banner - Compact Button */}
       {showPromoBanner && (
         <Animated.View 
           style={[
@@ -756,16 +756,11 @@ export default function Trade() {
               ]} 
             />
             <View style={styles.promoBannerContent}>
-              <View style={styles.promoBannerLeft}>
-                <Ionicons name="gift" size={20} color="#FFFFFF" />
-                <Text style={styles.promoBannerText}>
-                  Get a <Text style={styles.promoBannerHighlight}>200% bonus</Text> on your first deposit!
-                </Text>
-              </View>
-              <View style={styles.promoBannerRight}>
-                <Text style={styles.promoBannerPercent}>200%</Text>
-                <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
-              </View>
+              <Ionicons name="gift" size={14} color="#FFFFFF" />
+              <Text style={styles.promoBannerText}>
+                <Text style={styles.promoBannerHighlight}>200%</Text> Bonus
+              </Text>
+              <Ionicons name="chevron-forward" size={12} color="#FFFFFF" />
             </View>
             {/* Progress bar animation */}
             <Animated.View 
@@ -779,12 +774,6 @@ export default function Trade() {
                 }
               ]} 
             />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.promoBannerClose}
-            onPress={() => setShowPromoBanner(false)}
-          >
-            <Ionicons name="close" size={16} color="rgba(255,255,255,0.6)" />
           </TouchableOpacity>
         </Animated.View>
       )}
@@ -1551,19 +1540,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0A1A0F',
   },
-  // Promo Banner Styles
+  // Promo Banner Styles - Compact Button
   promoBanner: {
-    marginHorizontal: 8,
+    alignSelf: 'center',
+    width: '55%',
     marginTop: 4,
     marginBottom: 4,
-    borderRadius: 8,
+    borderRadius: 20,
     overflow: 'hidden',
     position: 'relative',
   },
   promoBannerTouchable: {
     backgroundColor: '#00A84D',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -1578,46 +1568,46 @@ const styles = StyleSheet.create({
   promoBannerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    gap: 6,
   },
   promoBannerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
-    gap: 8,
+    gap: 6,
   },
   promoBannerText: {
     color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 11,
+    fontWeight: '600',
   },
   promoBannerHighlight: {
     color: '#FFFFFF',
     fontWeight: '800',
-    fontSize: 14,
+    fontSize: 12,
   },
   promoBannerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 2,
   },
   promoBannerPercent: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '900',
   },
   promoBannerProgress: {
     position: 'absolute',
     bottom: 0,
     left: 0,
-    height: 3,
+    height: 2,
     backgroundColor: 'rgba(255, 255, 255, 0.4)',
   },
   promoBannerClose: {
     position: 'absolute',
-    top: 4,
-    right: 4,
-    padding: 4,
+    top: 2,
+    right: 2,
+    padding: 2,
     zIndex: 10,
   },
   header: {
