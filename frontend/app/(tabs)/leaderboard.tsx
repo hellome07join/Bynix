@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Modal,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -161,8 +162,15 @@ export default function Leaderboard() {
           <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Leader Board</Text>
-          <Text style={styles.headerSubtitle}>of the Day</Text>
+          <Image 
+            source={require('../../assets/images/bynix-logo.png')}
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.headerTitle}>Leader Board</Text>
+            <Text style={styles.headerSubtitle}>of the Day</Text>
+          </View>
         </View>
         <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
           <Ionicons name="close" size={24} color="#666" />
@@ -203,6 +211,12 @@ export default function Leaderboard() {
             <Text style={styles.positionValue}>{myStats.position}</Text>
           </View>
         )}
+
+        {/* Leader Board of the Day Title */}
+        <View style={styles.sectionTitleContainer}>
+          <Ionicons name="trophy" size={24} color="#FFB800" />
+          <Text style={styles.sectionTitle}>Leader Board of the Day</Text>
+        </View>
 
         {/* How Rating Works */}
         <TouchableOpacity 
@@ -368,7 +382,16 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   headerTitleContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
+  },
+  headerLogo: {
+    width: 40,
+    height: 40,
+  },
+  headerTextContainer: {
+    alignItems: 'flex-start',
   },
   headerTitle: {
     fontSize: 20,
@@ -385,6 +408,21 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 16,
+    marginTop: 20,
+    marginBottom: 12,
+    gap: 10,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFB800',
+    textAlign: 'center',
   },
   myStatsCard: {
     flexDirection: 'row',
