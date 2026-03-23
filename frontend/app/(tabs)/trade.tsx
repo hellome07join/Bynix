@@ -226,8 +226,8 @@ export default function Trade() {
   const [tutorialStep, setTutorialStep] = useState(0);
   const [showAccountChoice, setShowAccountChoice] = useState(false);
   
-  // Market data
-  const [selectedAsset, setSelectedAsset] = useState('EUR/USD OTC');
+  // Market data - Initialize with first asset from current account type
+  const [selectedAsset, setSelectedAsset] = useState(() => getDefaultAssetForAccount(accountType));
   const [selectedCategory, setSelectedCategory] = useState<MarketCategory>('forex');
   const [candles, setCandles] = useState<Candle[]>([]);
   const [currentPrice, setCurrentPrice] = useState(1.09);
