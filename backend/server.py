@@ -1817,6 +1817,8 @@ class NOWPaymentsService:
             "price_amount": price_amount,
             "price_currency": price_currency.lower(),
             "pay_currency": pay_currency.lower(),
+            "is_fee_paid_by_user": False,  # Merchant pays fees - user pays exact amount
+            "is_fixed_rate": True,  # Lock the exchange rate
         }
         
         if order_id:
