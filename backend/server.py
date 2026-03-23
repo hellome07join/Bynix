@@ -472,6 +472,11 @@ async def google_session(session_id: str = Header(None, alias="X-Session-ID")):
 async def get_me(authorization: Optional[str] = Header(None), request: Request = None):
     """Get current user info"""
     user = await get_current_user(authorization, request)
+    
+    # Get user document to fetch bonus_balance
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    bonus_balance = user_doc.get("bonus_balance", 0) if user_doc else 0
+    
     return {
         "user_id": user.user_id,
         "email": user.email,
@@ -479,6 +484,9 @@ async def get_me(authorization: Optional[str] = Header(None), request: Request =
         "picture": user.picture,
         "demo_balance": user.demo_balance,
         "real_balance": user.real_balance,
+        "bonus_balance": bonus_balance,
+        "total_balance": user.real_balance + bonus_balance,  # For display
+        "withdrawable_balance": user.real_balance,  # Only real balance can be withdrawn
         "is_admin": user.is_admin
     }
 
@@ -515,17 +523,43 @@ async def create_trade(trade: TradeCreate, authorization: Optional[str] = Header
     """Place a new trade"""
     user = await get_current_user(authorization, request)
     
-    # Validate balance
-    balance = user.demo_balance if trade.account_type == "demo" else user.real_balance
-    if balance < trade.amount:
-        raise HTTPException(status_code=400, detail="Insufficient balance")
+    # Get user document to check bonus_balance
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    bonus_balance = user_doc.get("bonus_balance", 0) if user_doc else 0
     
-    # Deduct amount
-    update_field = "demo_balance" if trade.account_type == "demo" else "real_balance"
-    await db.users.update_one(
-        {"user_id": user.user_id},
-        {"$inc": {update_field: -trade.amount}}
-    )
+    if trade.account_type == "demo":
+        # Demo account - simple balance check
+        if user.demo_balance < trade.amount:
+            raise HTTPException(status_code=400, detail="Insufficient balance")
+        
+        await db.users.update_one(
+            {"user_id": user.user_id},
+            {"$inc": {"demo_balance": -trade.amount}}
+        )
+        deducted_from_real = 0
+        deducted_from_bonus = 0
+    else:
+        # Real account - use real_balance first, then bonus_balance
+        total_available = user.real_balance + bonus_balance
+        if total_available < trade.amount:
+            raise HTTPException(status_code=400, detail="Insufficient balance")
+        
+        # Calculate how much to deduct from each balance
+        deducted_from_real = min(user.real_balance, trade.amount)
+        deducted_from_bonus = trade.amount - deducted_from_real
+        
+        # Update balances
+        update_fields = {}
+        if deducted_from_real > 0:
+            update_fields["real_balance"] = -deducted_from_real
+        if deducted_from_bonus > 0:
+            update_fields["bonus_balance"] = -deducted_from_bonus
+        
+        if update_fields:
+            await db.users.update_one(
+                {"user_id": user.user_id},
+                {"$inc": update_fields}
+            )
     
     # Create trade
     trade_id = f"trade_{uuid.uuid4().hex[:12]}"
@@ -542,6 +576,8 @@ async def create_trade(trade: TradeCreate, authorization: Optional[str] = Header
         "status": "pending",
         "profit_loss": 0.0,
         "account_type": trade.account_type,
+        "deducted_from_real": deducted_from_real if trade.account_type == "real" else 0,
+        "deducted_from_bonus": deducted_from_bonus if trade.account_type == "real" else 0,
         "created_at": datetime.now(timezone.utc),
         "settled_at": None
     }
@@ -684,17 +720,25 @@ async def settle_trade(trade_id: str, settle_data: TradeSettle, authorization: O
     )
     
     # Update user balance
-    update_field = "demo_balance" if trade["account_type"] == "demo" else "real_balance"
-    if won:
-        payout = trade["amount"] + profit_loss
+    if trade["account_type"] == "demo":
+        # Demo account - simple balance update
+        if won:
+            payout = trade["amount"] + profit_loss
+            await db.users.update_one(
+                {"user_id": user.user_id},
+                {"$inc": {"demo_balance": payout}}
+            )
     else:
-        payout = 0
-    
-    if payout > 0:
-        await db.users.update_one(
-            {"user_id": user.user_id},
-            {"$inc": {update_field: payout}}
-        )
+        # Real account - profits go to real_balance (withdrawable)
+        if won:
+            # Payout = original amount + profit
+            payout = trade["amount"] + profit_loss
+            # ALL winnings go to real_balance (withdrawable)
+            await db.users.update_one(
+                {"user_id": user.user_id},
+                {"$inc": {"real_balance": payout}}
+            )
+        # If lost, the amount was already deducted when trade was placed
     
     return {"message": "Trade settled", "status": status, "profit_loss": profit_loss}
 
@@ -1858,6 +1902,8 @@ nowpayments_service = NOWPaymentsService()
 # Deposit models
 class CreateDepositRequest(BaseModel):
     amount: float = Field(..., gt=0, description="Amount in USD to deposit")
+    network: str = Field(default="TRC20", description="Crypto network")
+    promo_code: Optional[str] = Field(default=None, description="Promo code for bonus")
 
 class DepositResponse(BaseModel):
     success: bool
@@ -1867,7 +1913,30 @@ class DepositResponse(BaseModel):
     pay_currency: Optional[str] = None
     network: Optional[str] = None
     expiration_estimate_date: Optional[str] = None
+    bonus_percentage: Optional[int] = None
+    bonus_amount: Optional[float] = None
+    total_credit: Optional[float] = None
+    is_first_deposit: Optional[bool] = None
     error: Optional[str] = None
+
+# Supported crypto networks
+CRYPTO_NETWORKS = {
+    "TRC20": {"currency": "usdttrc20", "name": "USDT (TRC20)", "fee": "~1 USDT"},
+    "ERC20": {"currency": "usdterc20", "name": "USDT (ERC20)", "fee": "~5-20 USDT"},
+    "BEP20": {"currency": "usdtbsc", "name": "USDT (BEP20/BSC)", "fee": "~0.5 USDT"},
+    "SOL": {"currency": "usdtsol", "name": "USDT (Solana)", "fee": "~0.01 USDT"},
+    "MATIC": {"currency": "usdtmatic", "name": "USDT (Polygon)", "fee": "~0.1 USDT"},
+}
+
+# Promo codes - requires minimum $100 deposit
+PROMO_CODES = {
+    "BYNIX": {"bonus": 25, "min_deposit": 100},  # 25% bonus for $100+ deposit
+    "WELCOME": {"bonus": 10, "min_deposit": 50},  # 10% bonus
+    "VIP50": {"bonus": 50, "min_deposit": 200},  # 50% bonus for $200+
+}
+
+# First time deposit bonus
+FIRST_DEPOSIT_BONUS_PERCENTAGE = 200  # 200% bonus on first deposit
 
 # ============= Deposit Endpoints =============
 
@@ -1885,13 +1954,25 @@ async def get_deposit_min_amount():
     min_amount = result.get("min_amount", 20)
     return {"min_amount": round(min_amount + 1, 2), "currency": "USD"}
 
+@api_router.get("/deposit/networks")
+async def get_available_networks():
+    """Get available crypto networks for deposit"""
+    networks = []
+    for key, value in CRYPTO_NETWORKS.items():
+        networks.append({
+            "id": key,
+            "name": value["name"],
+            "fee": value["fee"]
+        })
+    return {"networks": networks}
+
 @api_router.post("/deposit/create", response_model=DepositResponse)
 async def create_deposit(
     request: CreateDepositRequest,
     authorization: Optional[str] = Header(None),
     req: Request = None
 ):
-    """Create a deposit request - generates USDT address"""
+    """Create a deposit request - generates USDT address with bonus calculation"""
     # Get current user
     try:
         user = await get_current_user(authorization, req)
@@ -1902,6 +1983,41 @@ async def create_deposit(
     if request.amount < 10:
         raise HTTPException(status_code=400, detail="Minimum deposit amount is $10")
     
+    # Get network configuration
+    network_config = CRYPTO_NETWORKS.get(request.network, CRYPTO_NETWORKS["TRC20"])
+    
+    # Check if first deposit
+    existing_deposits = await db.deposits.count_documents({
+        "user_id": user.user_id,
+        "status": {"$in": ["completed", "confirmed"]}
+    })
+    is_first_deposit = existing_deposits == 0
+    
+    # Calculate bonus
+    bonus_percentage = 0
+    bonus_amount = 0
+    
+    # First deposit gets 200% bonus
+    if is_first_deposit:
+        bonus_percentage = FIRST_DEPOSIT_BONUS_PERCENTAGE
+        bonus_amount = request.amount * (bonus_percentage / 100)
+    
+    # Check promo code (only if amount >= min_deposit for that promo)
+    if request.promo_code:
+        promo_upper = request.promo_code.upper().strip()
+        if promo_upper in PROMO_CODES:
+            promo = PROMO_CODES[promo_upper]
+            if request.amount >= promo["min_deposit"]:
+                # Add promo bonus on top of first deposit bonus
+                promo_bonus = request.amount * (promo["bonus"] / 100)
+                bonus_amount += promo_bonus
+                if not is_first_deposit:
+                    bonus_percentage = promo["bonus"]
+                else:
+                    bonus_percentage += promo["bonus"]  # Stack with first deposit
+    
+    total_credit = request.amount + bonus_amount
+    
     # Create unique order ID
     order_id = f"DEP_{user.user_id}_{uuid.uuid4().hex[:8]}"
     
@@ -1909,13 +2025,13 @@ async def create_deposit(
     result = await nowpayments_service.create_payment(
         price_amount=request.amount,
         price_currency="usd",
-        pay_currency="usdttrc20",  # USDT on TRC20 network
+        pay_currency=network_config["currency"],
         order_id=order_id,
         order_description=f"Deposit for user {user.email}"
     )
     
     if result.get("success"):
-        # Store deposit record in database
+        # Store deposit record in database with bonus info
         deposit_record = {
             "transaction_id": str(uuid.uuid4()),
             "user_id": user.user_id,
@@ -1923,10 +2039,15 @@ async def create_deposit(
             "order_id": order_id,
             "type": "deposit",
             "amount": request.amount,
+            "bonus_percentage": bonus_percentage,
+            "bonus_amount": bonus_amount,
+            "total_credit": total_credit,
+            "is_first_deposit": is_first_deposit,
+            "promo_code": request.promo_code,
             "pay_amount": result.get("pay_amount"),
             "pay_currency": result.get("pay_currency", "USDT"),
             "pay_address": result.get("pay_address"),
-            "network": result.get("network", "TRC20"),
+            "network": request.network,
             "status": "pending",
             "created_at": datetime.now(timezone.utc),
             "expiration_date": result.get("expiration_estimate_date")
@@ -1939,8 +2060,12 @@ async def create_deposit(
             pay_address=result.get("pay_address"),
             pay_amount=result.get("pay_amount"),
             pay_currency="USDT",
-            network=result.get("network", "TRC20"),
-            expiration_estimate_date=result.get("expiration_estimate_date")
+            network=request.network,
+            expiration_estimate_date=result.get("expiration_estimate_date"),
+            bonus_percentage=bonus_percentage,
+            bonus_amount=bonus_amount,
+            total_credit=total_credit,
+            is_first_deposit=is_first_deposit
         )
     else:
         return DepositResponse(
@@ -1979,6 +2104,7 @@ async def check_deposit_status(
                 # Calculate the USD value of what was actually paid
                 # Since they paid in USDT (1:1 with USD approximately)
                 credit_amount = actually_paid if actually_paid > 0 else deposit.get("amount", 0)
+                bonus_amount = deposit.get("bonus_amount", 0)
                 
                 # Update deposit status
                 new_status = "completed" if payment_status == "finished" else "credited"
@@ -1994,13 +2120,27 @@ async def check_deposit_status(
                     }
                 )
                 
-                # Add to user's real balance
+                # Add to user's real balance (withdrawable) and bonus balance (non-withdrawable)
+                update_fields = {"$inc": {"real_balance": credit_amount}}
+                if bonus_amount > 0:
+                    update_fields["$inc"]["bonus_balance"] = bonus_amount
+                
                 await db.users.update_one(
                     {"user_id": user.user_id},
-                    {"$inc": {"real_balance": credit_amount}}
+                    update_fields
                 )
                 
-                print(f"Credited ${credit_amount} to user {user.user_id} for payment {payment_id}")
+                # Create notification about deposit
+                total_credited = credit_amount + bonus_amount
+                bonus_msg = f" + ${bonus_amount:.2f} bonus!" if bonus_amount > 0 else ""
+                await create_notification(
+                    user.user_id,
+                    "Deposit Successful! 💰",
+                    f"${credit_amount:.2f} has been credited to your account{bonus_msg}",
+                    "deposit"
+                )
+                
+                print(f"Credited ${credit_amount} + ${bonus_amount} bonus to user {user.user_id} for payment {payment_id}")
         
         return {
             "payment_id": payment_id,

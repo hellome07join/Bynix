@@ -11,6 +11,7 @@ import {
   Alert,
   RefreshControl,
   Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,6 +29,10 @@ interface DepositResponse {
   pay_currency?: string;
   network?: string;
   expiration_estimate_date?: string;
+  bonus_percentage?: number;
+  bonus_amount?: number;
+  total_credit?: number;
+  is_first_deposit?: boolean;
   error?: string;
 }
 
@@ -40,6 +45,13 @@ interface DepositRecord {
   network: string;
   status: string;
   created_at: string;
+  bonus_amount?: number;
+}
+
+interface CryptoNetwork {
+  id: string;
+  name: string;
+  fee: string;
 }
 
 export default function WalletScreen() {
@@ -49,7 +61,7 @@ export default function WalletScreen() {
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
-  const [depositAmount, setDepositAmount] = useState('25');
+  const [depositAmount, setDepositAmount] = useState('100');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawAddress, setWithdrawAddress] = useState('');
   const [minAmount, setMinAmount] = useState(20);
@@ -57,6 +69,18 @@ export default function WalletScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [depositHistory, setDepositHistory] = useState<DepositRecord[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
+  
+  // New states for network and promo
+  const [selectedNetwork, setSelectedNetwork] = useState('TRC20');
+  const [promoCode, setPromoCode] = useState('');
+  const [networks, setNetworks] = useState<CryptoNetwork[]>([
+    { id: 'TRC20', name: 'USDT (TRC20)', fee: '~1 USDT' },
+    { id: 'ERC20', name: 'USDT (ERC20)', fee: '~5-20 USDT' },
+    { id: 'BEP20', name: 'USDT (BEP20/BSC)', fee: '~0.5 USDT' },
+    { id: 'SOL', name: 'USDT (Solana)', fee: '~0.01 USDT' },
+    { id: 'MATIC', name: 'USDT (Polygon)', fee: '~0.1 USDT' },
+  ]);
+  const [showNetworkPicker, setShowNetworkPicker] = useState(false);
   
   // Current deposit info
   const [currentDeposit, setCurrentDeposit] = useState<DepositResponse | null>(null);
@@ -215,6 +239,12 @@ export default function WalletScreen() {
       return;
     }
 
+    // Check promo code requirement
+    if (promoCode.toUpperCase() === 'BYNIX' && amount < 100) {
+      Alert.alert('Promo Code Error', 'BYNIX promo code requires minimum $100 deposit');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -224,7 +254,11 @@ export default function WalletScreen() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({ 
+          amount,
+          network: selectedNetwork,
+          promo_code: promoCode || null
+        }),
       });
 
       const data: DepositResponse = await response.json();
@@ -234,6 +268,21 @@ export default function WalletScreen() {
         setShowDepositModal(false);
         setShowAddressModal(true);
         loadDepositHistory();
+        
+        // Show bonus info if applicable
+        if (data.bonus_amount && data.bonus_amount > 0) {
+          setTimeout(() => {
+            const bonusMsg = data.is_first_deposit 
+              ? `🎉 First Deposit Bonus: ${data.bonus_percentage}%!\n\nYou'll receive $${data.bonus_amount?.toFixed(2)} bonus!\nTotal credit: $${data.total_credit?.toFixed(2)}`
+              : `🎁 Bonus Applied: ${data.bonus_percentage}%!\n\nYou'll receive $${data.bonus_amount?.toFixed(2)} bonus!`;
+            
+            if (Platform.OS === 'web') {
+              window.alert(bonusMsg);
+            } else {
+              Alert.alert('Bonus Applied!', bonusMsg);
+            }
+          }, 500);
+        }
       } else {
         Alert.alert('Error', data.error || 'Failed to generate deposit address');
       }
@@ -344,7 +393,20 @@ export default function WalletScreen() {
           style={styles.balanceCard}
         >
           <Text style={styles.balanceLabel}>Total Balance</Text>
-          <Text style={styles.balanceAmount}>${realBalance.toFixed(2)}</Text>
+          <Text style={styles.balanceAmount}>${((user?.real_balance || 0) + (user?.bonus_balance || 0)).toFixed(2)}</Text>
+          
+          {/* Balance Breakdown */}
+          <View style={styles.balanceBreakdown}>
+            <View style={styles.balanceItem}>
+              <Text style={styles.balanceItemLabel}>Withdrawable</Text>
+              <Text style={styles.balanceItemValue}>${(user?.real_balance || 0).toFixed(2)}</Text>
+            </View>
+            <View style={styles.balanceDivider} />
+            <View style={styles.balanceItem}>
+              <Text style={styles.balanceItemLabel}>Bonus</Text>
+              <Text style={[styles.balanceItemValue, { color: '#FFB800' }]}>${(user?.bonus_balance || 0).toFixed(2)}</Text>
+            </View>
+          </View>
           
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
@@ -365,6 +427,19 @@ export default function WalletScreen() {
             </TouchableOpacity>
           </View>
         </LinearGradient>
+
+        {/* First Deposit Bonus Banner */}
+        {!depositHistory.some(d => d.status === 'completed') && (
+          <View style={styles.bonusBanner}>
+            <View style={styles.bonusBannerIcon}>
+              <Ionicons name="gift" size={24} color="#FFB800" />
+            </View>
+            <View style={styles.bonusBannerContent}>
+              <Text style={styles.bonusBannerTitle}>🎉 200% First Deposit Bonus!</Text>
+              <Text style={styles.bonusBannerText}>Deposit now and get 200% bonus on your first deposit!</Text>
+            </View>
+          </View>
+        )}
 
         {/* Transaction History */}
         <View style={styles.historySection}>
@@ -434,11 +509,11 @@ export default function WalletScreen() {
               />
             </View>
             
-            <Text style={styles.minAmountText}>Minimum deposit: ${minAmount} (USDT TRC20)</Text>
+            <Text style={styles.minAmountText}>Minimum deposit: ${minAmount}</Text>
 
             {/* Quick Amount Buttons */}
             <View style={styles.quickAmounts}>
-              {['25', '50', '100', '250', '500', '1000'].map((amt) => (
+              {['50', '100', '250', '500', '1000'].map((amt) => (
                 <TouchableOpacity 
                   key={amt}
                   style={[
@@ -457,6 +532,46 @@ export default function WalletScreen() {
               ))}
             </View>
 
+            {/* Network Selection */}
+            <Text style={styles.inputLabel}>Select Network</Text>
+            <TouchableOpacity 
+              style={styles.networkSelector}
+              onPress={() => setShowNetworkPicker(true)}
+            >
+              <Ionicons name="link" size={18} color="#00E55A" />
+              <Text style={styles.networkSelectorText}>
+                {networks.find(n => n.id === selectedNetwork)?.name || 'Select Network'}
+              </Text>
+              <Ionicons name="chevron-down" size={18} color="#888" />
+            </TouchableOpacity>
+            <Text style={styles.networkFeeText}>
+              Network Fee: {networks.find(n => n.id === selectedNetwork)?.fee || '~1 USDT'}
+            </Text>
+
+            {/* Promo Code */}
+            <Text style={styles.inputLabel}>Promo Code (Optional)</Text>
+            <TextInput
+              style={styles.promoInput}
+              value={promoCode}
+              onChangeText={setPromoCode}
+              placeholder="Enter promo code"
+              placeholderTextColor="#666666"
+              autoCapitalize="characters"
+            />
+            {promoCode.toUpperCase() === 'BYNIX' && (
+              <Text style={styles.promoHint}>✨ BYNIX: 25% bonus on $100+ deposit</Text>
+            )}
+
+            {/* Bonus Info */}
+            <View style={styles.bonusInfoBox}>
+              <Ionicons name="gift" size={20} color="#FFB800" />
+              <Text style={styles.bonusInfoText}>
+                {!depositHistory.some(d => d.status === 'completed') 
+                  ? '🎉 First deposit: Get 200% bonus!'
+                  : 'Use promo code BYNIX for 25% bonus ($100+ deposit)'}
+              </Text>
+            </View>
+
             <TouchableOpacity
               style={[styles.generateBtn, isLoading && styles.generateBtnDisabled]}
               onPress={handleGenerateAddress}
@@ -468,6 +583,48 @@ export default function WalletScreen() {
                 <Text style={styles.generateBtnText}>Generate Deposit Address</Text>
               )}
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Network Picker Modal */}
+      <Modal
+        visible={showNetworkPicker}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowNetworkPicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.pickerModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Network</Text>
+              <TouchableOpacity onPress={() => setShowNetworkPicker(false)}>
+                <Ionicons name="close" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.networkList}>
+              {networks.map((network) => (
+                <TouchableOpacity
+                  key={network.id}
+                  style={[
+                    styles.networkOption,
+                    selectedNetwork === network.id && styles.networkOptionActive
+                  ]}
+                  onPress={() => {
+                    setSelectedNetwork(network.id);
+                    setShowNetworkPicker(false);
+                  }}
+                >
+                  <View>
+                    <Text style={styles.networkOptionName}>{network.name}</Text>
+                    <Text style={styles.networkOptionFee}>Fee: {network.fee}</Text>
+                  </View>
+                  {selectedNetwork === network.id && (
+                    <Ionicons name="checkmark-circle" size={24} color="#00E55A" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -490,10 +647,35 @@ export default function WalletScreen() {
 
             {currentDeposit && (
               <>
+                {/* Bonus Info Banner */}
+                {currentDeposit.bonus_amount && currentDeposit.bonus_amount > 0 && (
+                  <View style={styles.bonusAppliedBanner}>
+                    <Ionicons name="gift" size={20} color="#FFB800" />
+                    <View style={styles.bonusAppliedContent}>
+                      <Text style={styles.bonusAppliedTitle}>
+                        {currentDeposit.is_first_deposit ? '🎉 200% First Deposit Bonus!' : '🎁 Bonus Applied!'}
+                      </Text>
+                      <Text style={styles.bonusAppliedText}>
+                        Deposit: ${parseFloat(depositAmount).toFixed(2)} + Bonus: ${currentDeposit.bonus_amount?.toFixed(2)} = Total: ${currentDeposit.total_credit?.toFixed(2)}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
                 {/* Network Info */}
                 <View style={styles.networkBadge}>
                   <Ionicons name="link" size={16} color="#00E55A" />
                   <Text style={styles.networkText}>{currentDeposit.network || 'TRC20'} Network</Text>
+                </View>
+
+                {/* QR Code */}
+                <View style={styles.qrCodeContainer}>
+                  <Image
+                    source={{ uri: `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(currentDeposit.pay_address || '')}` }}
+                    style={styles.qrCode}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.qrCodeHint}>Scan QR code to get address</Text>
                 </View>
 
                 {/* Amount to Send */}
