@@ -421,20 +421,53 @@ export default function Trade() {
     const trade = activeTrades.find(t => t.id === tradeId);
     if (!trade) return;
 
+    // Get the OFFICIAL exit price from SERVER (synced across all devices)
+    let exitPrice = currentPrice;
+    try {
+      const cleanSymbol = trade.asset.replace(' OTC', '').replace('/', '').toUpperCase();
+      // Use proper API URL based on platform
+      let apiUrl = '';
+      if (typeof window !== 'undefined') {
+        const currentUrl = window.location.origin;
+        if (currentUrl.includes('preview.emergentagent.com') || currentUrl.includes('ngrok')) {
+          apiUrl = `${currentUrl}/api`;
+        } else if (currentUrl.includes('localhost:3000')) {
+          // Development: use backend directly via preview URL
+          apiUrl = 'https://bynix-markets.preview.emergentagent.com/api';
+        } else {
+          apiUrl = `${currentUrl}/api`;
+        }
+      } else {
+        apiUrl = '/api';
+      }
+      console.log(`Fetching exit price from: ${apiUrl}/chart/tick/${cleanSymbol}`);
+      const response = await fetch(`${apiUrl}/chart/tick/${cleanSymbol}`, { method: 'POST' });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.new_tick && data.new_tick.close) {
+          exitPrice = data.new_tick.close;
+          console.log(`Settlement using server price: ${exitPrice}`);
+        }
+      } else {
+        console.log(`API returned status: ${response.status}`);
+      }
+    } catch (error) {
+      console.log('Using local price for settlement:', exitPrice, error);
+    }
+
     // PRICE-BASED TRADE LOGIC:
-    // UP (Call): Win if current price > entry price
-    // DOWN (Put): Win if current price < entry price
+    // UP (Call): Win if exit price > entry price
+    // DOWN (Put): Win if exit price < entry price
     
     const entryPrice = trade.entry_price;
-    const exitPrice = currentPrice;
     
     let won: boolean;
     
     if (trade.type === 'call') {
-      // UP trade: Win if price went UP (current > entry)
+      // UP trade: Win if price went UP (exit > entry)
       won = exitPrice > entryPrice;
     } else {
-      // DOWN trade: Win if price went DOWN (current < entry)
+      // DOWN trade: Win if price went DOWN (exit < entry)
       won = exitPrice < entryPrice;
     }
     
@@ -442,21 +475,33 @@ export default function Trade() {
     if (exitPrice === entryPrice) {
       won = false;
     }
+    
+    console.log(`Trade Settlement: Type=${trade.type}, Entry=${entryPrice}, Exit=${exitPrice}, Won=${won}`);
 
     const profitLoss = won ? trade.amount * (payoutPercentage / 100) : -trade.amount;
+    console.log(`Settlement result: ProfitLoss=${profitLoss}, Amount=${trade.amount}`);
 
     // Update balance based on result
     if (accountType === 'demo') {
       // Demo account balance update
+      console.log(`Demo balance before settlement: ${user?.demo_balance || 'none'}, local: ${localDemoBalance}`);
       if (won) {
         // Add back the amount plus profit
         const winnings = trade.amount + (trade.amount * payoutPercentage / 100);
+        console.log(`Trade WON! Adding winnings: ${winnings}`);
         if (user) {
           const newDemoBalance = (user.demo_balance || 0) + winnings;
+          console.log(`Updating user demo balance to: ${newDemoBalance}`);
           updateBalance(newDemoBalance, user.real_balance || 0);
         } else {
-          setLocalDemoBalance(prev => prev + winnings);
+          console.log(`Updating local demo balance, adding: ${winnings}`);
+          setLocalDemoBalance(prev => {
+            console.log(`Local balance: ${prev} + ${winnings} = ${prev + winnings}`);
+            return prev + winnings;
+          });
         }
+      } else {
+        console.log(`Trade LOST! Balance stays at current (amount already deducted)`);
       }
       // If lost, amount was already deducted when placing the trade
     } else if (accountType === 'real') {
