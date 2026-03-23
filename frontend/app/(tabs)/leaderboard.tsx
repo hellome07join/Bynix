@@ -182,7 +182,13 @@ export default function Leaderboard() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* My Stats Card */}
+        {/* Leader Board of the Day Title - RIGHT AFTER HEADER */}
+        <View style={styles.sectionTitleContainer}>
+          <Ionicons name="trophy" size={24} color="#FFB800" />
+          <Text style={styles.sectionTitle}>Leader Board of the Day</Text>
+        </View>
+
+        {/* My Stats Card - User ID/Name and Profit/Loss */}
         {token && myStats && (
           <View style={styles.myStatsCard}>
             <View style={styles.myStatsLeft}>
@@ -198,19 +204,13 @@ export default function Leaderboard() {
           </View>
         )}
 
-        {/* My Position */}
+        {/* My Position/Ranking */}
         {token && myStats && (
           <View style={styles.myPositionRow}>
-            <Text style={styles.positionLabel}>Your position:</Text>
-            <Text style={styles.positionValue}>{myStats.position}</Text>
+            <Text style={styles.positionLabel}>Your Ranking:</Text>
+            <Text style={styles.positionValue}>#{myStats.position}</Text>
           </View>
         )}
-
-        {/* Leader Board of the Day Title */}
-        <View style={styles.sectionTitleContainer}>
-          <Ionicons name="trophy" size={24} color="#FFB800" />
-          <Text style={styles.sectionTitle}>Leader Board of the Day</Text>
-        </View>
 
         {/* How Rating Works */}
         <TouchableOpacity 
@@ -221,7 +221,7 @@ export default function Leaderboard() {
           <Text style={styles.infoButtonText}>How does this rating work?</Text>
         </TouchableOpacity>
 
-        {/* Leaderboard List */}
+        {/* Leaderboard List - Top 20 */}
         <View style={styles.leaderboardList}>
           {leaderboard.length === 0 ? (
             <View style={styles.emptyState}>
@@ -230,7 +230,7 @@ export default function Leaderboard() {
               <Text style={styles.emptySubtext}>Start trading to appear on the leaderboard!</Text>
             </View>
           ) : (
-            leaderboard.map((trader) => {
+            leaderboard.slice(0, 20).map((trader) => {
               const rankStyle = getRankBadge(trader.rank);
               const isTopThree = trader.rank <= 3;
 
