@@ -759,7 +759,7 @@ export default function Profile() {
         </View>
         <View style={styles.profileInfo}>
           <View style={styles.nameRow}>
-            <Text style={styles.userName}>{user?.full_name || userData.fullName}</Text>
+            <Text style={styles.userName}>{userData.nickname || user?.full_name || userData.fullName}</Text>
             <View style={[styles.tierBadge, { backgroundColor: getTierColor(userData.tier) + '30' }]}>
               <Ionicons name="trophy" size={12} color={getTierColor(userData.tier)} />
               <Text style={[styles.tierText, { color: getTierColor(userData.tier) }]}>{userData.tier}</Text>
