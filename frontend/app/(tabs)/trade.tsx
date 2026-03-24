@@ -486,6 +486,23 @@ export default function Trade() {
   };
 
   const selectRealAccount = () => {
+    // Check if user is a demo-only user (created without registration)
+    if (user?.email?.startsWith('demo_') && user?.email?.endsWith('@bynix.com')) {
+      setShowAccountChoice(false);
+      Alert.alert(
+        'Registration Required',
+        'Please create an account to access real trading with real money.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Sign Up', 
+            onPress: () => router.push('/(auth)/signup')
+          },
+        ]
+      );
+      return;
+    }
+    
     setAccountType('real');
     setShowAccountChoice(false);
     // Navigate to wallet for deposit
@@ -1930,6 +1947,22 @@ export default function Trade() {
             <TouchableOpacity
               style={[styles.accountOption, accountType === 'real' && styles.accountOptionActive]}
               onPress={() => {
+                // Check if user is a demo-only user (created without registration)
+                if (user?.email?.startsWith('demo_') && user?.email?.endsWith('@bynix.com')) {
+                  setShowAccountPicker(false);
+                  Alert.alert(
+                    'Registration Required',
+                    'Please create an account to access real trading with real money.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { 
+                        text: 'Sign Up', 
+                        onPress: () => router.push('/(auth)/signup')
+                      },
+                    ]
+                  );
+                  return;
+                }
                 setAccountType('real');
                 setShowAccountPicker(false);
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
