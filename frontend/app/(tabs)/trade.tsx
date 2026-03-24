@@ -1148,6 +1148,14 @@ export default function Trade() {
       
       {/* Chart Area - Takes remaining space */}
       <View style={styles.chartContainer}>
+        {/* User Profile Picture as Background */}
+        {user?.picture && (
+          <Image 
+            source={{ uri: user.picture }}
+            style={styles.chartBackgroundImage}
+            blurRadius={3}
+          />
+        )}
         {/* TradingView Chart */}
         <View style={styles.chartWrapper}>
           <TradingViewChart
@@ -3007,6 +3015,18 @@ const styles = StyleSheet.create({
   chartContainer: {
     flex: 1,
     backgroundColor: '#0A0A0A',
+    position: 'relative',
+  },
+  chartBackgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    opacity: 0.15,
+    resizeMode: 'cover',
   },
   chartWrapper: {
     flex: 1,

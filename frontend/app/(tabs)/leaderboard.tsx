@@ -292,7 +292,14 @@ export default function Leaderboard() {
                     <View style={styles.flagAvatar}>
                       <Text style={styles.flag}>{trader.country_flag || '🌍'}</Text>
                       <View style={styles.avatarCircle}>
-                        <Ionicons name="person" size={14} color="#00E55A" />
+                        {trader.picture ? (
+                          <Image 
+                            source={{ uri: trader.picture }} 
+                            style={styles.avatarImage}
+                          />
+                        ) : (
+                          <Ionicons name="person" size={14} color="#00E55A" />
+                        )}
                       </View>
                     </View>
                     <Text style={styles.userName} numberOfLines={1}>{trader.name}</Text>
@@ -693,6 +700,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: -6,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
   },
   userName: {
     flex: 1,
