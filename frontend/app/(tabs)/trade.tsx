@@ -278,6 +278,7 @@ export default function Trade() {
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
   const [selectedTrendLineId, setSelectedTrendLineId] = useState<string | null>(null);
   const [draggingTrendLinePoint, setDraggingTrendLinePoint] = useState<'start' | 'end' | null>(null);
+  const [showIndicatorModal, setShowIndicatorModal] = useState(false);
   const [customMinutes, setCustomMinutes] = useState('1');
   const [customSeconds, setCustomSeconds] = useState('0');
   const [demoAddAmount, setDemoAddAmount] = useState('1000');
@@ -1525,13 +1526,23 @@ export default function Trade() {
           )}
         </TouchableOpacity>
 
-        {/* Market Selection Button */}
+        {/* Asset Selection Button */}
         <TouchableOpacity 
           style={styles.marketSelectBtn}
           onPress={() => setShowAssetPicker(true)}
         >
-          <Text style={styles.marketSelectIcon}>{currentAsset.icon}</Text>
+          <Ionicons name="swap-horizontal" size={16} color="#FFB800" />
+          <Text style={styles.assetBtnText}>Asset</Text>
           <Ionicons name="chevron-down" size={14} color="#FFB800" />
+        </TouchableOpacity>
+        
+        {/* Indicator Button */}
+        <TouchableOpacity 
+          style={styles.indicatorBtn}
+          onPress={() => setShowIndicatorModal(true)}
+        >
+          <Ionicons name="analytics" size={16} color="#FFB800" />
+          <Text style={styles.indicatorBtnText}>Indicator</Text>
         </TouchableOpacity>
       </View>
 
@@ -2432,6 +2443,93 @@ export default function Trade() {
                 </TouchableOpacity>
               </View>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Indicator Modal */}
+      <Modal
+        visible={showIndicatorModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowIndicatorModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Indicators</Text>
+              <TouchableOpacity onPress={() => setShowIndicatorModal(false)}>
+                <Ionicons name="close-circle" size={28} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Indicator List */}
+            <ScrollView style={{ maxHeight: 400 }}>
+              <View style={styles.toolsSection}>
+                <Text style={styles.toolsSectionTitle}>Trend Indicators</Text>
+                <View style={styles.indicatorList}>
+                  <TouchableOpacity style={styles.indicatorItem}>
+                    <View style={styles.indicatorIcon}>
+                      <Ionicons name="analytics" size={20} color="#00E55A" />
+                    </View>
+                    <View style={styles.indicatorInfo}>
+                      <Text style={styles.indicatorName}>Moving Average (MA)</Text>
+                      <Text style={styles.indicatorDesc}>Shows average price over time</Text>
+                    </View>
+                    <Text style={styles.comingSoonBadge}>Soon</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity style={styles.indicatorItem}>
+                    <View style={styles.indicatorIcon}>
+                      <Ionicons name="trending-up" size={20} color="#FFB800" />
+                    </View>
+                    <View style={styles.indicatorInfo}>
+                      <Text style={styles.indicatorName}>Bollinger Bands</Text>
+                      <Text style={styles.indicatorDesc}>Shows price volatility</Text>
+                    </View>
+                    <Text style={styles.comingSoonBadge}>Soon</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.toolsSection}>
+                <Text style={styles.toolsSectionTitle}>Oscillators</Text>
+                <View style={styles.indicatorList}>
+                  <TouchableOpacity style={styles.indicatorItem}>
+                    <View style={styles.indicatorIcon}>
+                      <Ionicons name="pulse" size={20} color="#FF6B6B" />
+                    </View>
+                    <View style={styles.indicatorInfo}>
+                      <Text style={styles.indicatorName}>RSI</Text>
+                      <Text style={styles.indicatorDesc}>Relative Strength Index</Text>
+                    </View>
+                    <Text style={styles.comingSoonBadge}>Soon</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity style={styles.indicatorItem}>
+                    <View style={styles.indicatorIcon}>
+                      <Ionicons name="bar-chart" size={20} color="#9B59B6" />
+                    </View>
+                    <View style={styles.indicatorInfo}>
+                      <Text style={styles.indicatorName}>MACD</Text>
+                      <Text style={styles.indicatorDesc}>Moving Average Convergence</Text>
+                    </View>
+                    <Text style={styles.comingSoonBadge}>Soon</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity style={styles.indicatorItem}>
+                    <View style={styles.indicatorIcon}>
+                      <Ionicons name="stats-chart" size={20} color="#3498DB" />
+                    </View>
+                    <View style={styles.indicatorInfo}>
+                      <Text style={styles.indicatorName}>Stochastic</Text>
+                      <Text style={styles.indicatorDesc}>Momentum indicator</Text>
+                    </View>
+                    <Text style={styles.comingSoonBadge}>Soon</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -3536,19 +3634,19 @@ const styles = StyleSheet.create({
   toolsBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 6,
     backgroundColor: 'rgba(10, 26, 15, 0.95)',
-    gap: 8,
+    gap: 6,
   },
   toolsBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 184, 0, 0.15)',
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 10,
-    gap: 6,
+    gap: 4,
     borderWidth: 1,
     borderColor: 'rgba(255, 184, 0, 0.3)',
   },
@@ -3577,12 +3675,77 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 184, 0, 0.15)',
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 10,
     gap: 4,
     borderWidth: 1,
     borderColor: 'rgba(255, 184, 0, 0.3)',
+  },
+  assetBtnText: {
+    color: '#FFB800',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  indicatorBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 184, 0, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 184, 0, 0.3)',
+  },
+  indicatorBtnText: {
+    color: '#FFB800',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  indicatorList: {
+    gap: 12,
+  },
+  indicatorItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  indicatorIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0, 229, 90, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  indicatorInfo: {
+    flex: 1,
+  },
+  indicatorName: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  indicatorDesc: {
+    color: '#888',
+    fontSize: 11,
+  },
+  comingSoonBadge: {
+    backgroundColor: 'rgba(255, 184, 0, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    color: '#FFB800',
+    fontSize: 10,
+    fontWeight: '600',
+    overflow: 'hidden',
   },
   marketSelectIcon: {
     fontSize: 16,
