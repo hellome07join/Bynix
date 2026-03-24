@@ -634,10 +634,19 @@ export default function TradingViewChart({
     });
     
     // Draw horizontal lines
+    console.log('Drawing horizontal lines:', horizontalLines.length, 'minPrice:', minPrice, 'maxPrice:', maxPrice);
     horizontalLines.forEach((line, index) => {
-      if (line.price < minPrice || line.price > maxPrice) return; // Skip if out of visible range
+      console.log('Line', index, 'price:', line.price, 'inRange:', line.price >= minPrice && line.price <= maxPrice);
+      
+      // Always draw line even if slightly out of range (with 20% buffer)
+      const priceBuffer = (maxPrice - minPrice) * 0.2;
+      if (line.price < minPrice - priceBuffer || line.price > maxPrice + priceBuffer) {
+        console.log('Line out of range, skipping');
+        return;
+      }
       
       const lineY = padding.top + ((maxPrice - line.price) / (maxPrice - minPrice)) * chartHeight;
+      console.log('Line Y position:', lineY);
       
       // Draw dashed line
       ctx.setLineDash([8, 4]);
@@ -649,17 +658,26 @@ export default function TradingViewChart({
       ctx.stroke();
       ctx.setLineDash([]); // Reset dash
       
-      // Price label on right
+      // Price label on right - use fillRect instead of roundRect for compatibility
       const labelWidth = 70;
+      const labelHeight = 20;
+      const labelX = width - padding.right + 5;
+      const labelY = lineY - 10;
+      
       ctx.fillStyle = line.color || '#FFB800';
       ctx.beginPath();
-      ctx.roundRect(width - padding.right + 5, lineY - 10, labelWidth, 20, 4);
+      // Simple rectangle fallback if roundRect not supported
+      if (ctx.roundRect) {
+        ctx.roundRect(labelX, labelY, labelWidth, labelHeight, 4);
+      } else {
+        ctx.rect(labelX, labelY, labelWidth, labelHeight);
+      }
       ctx.fill();
       
       ctx.fillStyle = '#0A0A0A';
       ctx.font = 'bold 10px Arial';
       ctx.textAlign = 'left';
-      ctx.fillText(line.price.toFixed(5), width - padding.right + 10, lineY + 4);
+      ctx.fillText(line.price.toFixed(5), labelX + 5, lineY + 4);
     });
     
   }, [aggregatedCandles, chartType, internalPrice, scrollOffset, scale, tradeMarkers, horizontalLines]);

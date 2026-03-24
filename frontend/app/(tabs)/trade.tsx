@@ -1200,19 +1200,22 @@ export default function Trade() {
         activeOpacity={1}
         onPress={(event) => {
           if (selectedDrawTool === 'horizontal') {
-            const { locationY, pageY } = event.nativeEvent;
-            const y = locationY || pageY;
+            const { locationY } = event.nativeEvent;
+            const chartHeight = chartDimensions.height || 300;
             
-            // Calculate approximate price based on Y position
-            // Assuming chart height and price range
-            const chartHeight = 300; // Approximate chart height
-            const priceRange = currentPrice * 0.01; // 1% range
-            const minPrice = currentPrice - priceRange;
-            const maxPrice = currentPrice + priceRange;
-            const price = maxPrice - (y / chartHeight) * (maxPrice - minPrice);
+            // Calculate price based on Y position relative to chart center
+            // Center of chart = currentPrice
+            // Top = currentPrice + range, Bottom = currentPrice - range
+            const priceRange = currentPrice * 0.005; // 0.5% range for better precision
+            const centerY = chartHeight / 2;
+            const priceOffset = ((centerY - locationY) / centerY) * priceRange;
+            const price = currentPrice + priceOffset;
             
-            setHorizontalLines(prev => [...prev, { price, y }]);
+            console.log('Adding horizontal line:', { locationY, chartHeight, currentPrice, price });
+            
+            setHorizontalLines(prev => [...prev, { price, y: locationY }]);
             setSelectedDrawTool(null);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           }
         }}
         onLayout={(event) => {
@@ -1300,6 +1303,57 @@ export default function Trade() {
             </TouchableOpacity>
           </View>
         )}
+        
+        {/* Native Horizontal Lines Overlay */}
+        {horizontalLines.map((line, index) => (
+          <View 
+            key={index}
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: line.y - 1,
+              height: 2,
+              backgroundColor: '#FFB800',
+              zIndex: 50,
+            }}
+          >
+            {/* Price Label */}
+            <View style={{
+              position: 'absolute',
+              right: 5,
+              top: -12,
+              backgroundColor: '#FFB800',
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+              borderRadius: 4,
+            }}>
+              <Text style={{ color: '#0A0A0A', fontSize: 10, fontWeight: '700' }}>
+                {line.price.toFixed(5)}
+              </Text>
+            </View>
+            {/* Delete Button */}
+            <TouchableOpacity 
+              style={{
+                position: 'absolute',
+                left: 5,
+                top: -10,
+                backgroundColor: '#FF3B3B',
+                width: 18,
+                height: 18,
+                borderRadius: 9,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+              onPress={() => {
+                setHorizontalLines(prev => prev.filter((_, i) => i !== index));
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+            >
+              <Ionicons name="close" size={12} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        ))}
         
         {/* User Chart Picture Overlay */}
         {user?.chart_picture && (
