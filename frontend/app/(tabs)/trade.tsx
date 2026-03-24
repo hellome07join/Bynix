@@ -263,6 +263,8 @@ export default function Trade() {
   const [customEndDate, setCustomEndDate] = useState('');
   const [selectedDrawTool, setSelectedDrawTool] = useState<string | null>(null);
   const [chartType, setChartType] = useState<'candle' | 'line' | 'bar'>('candle');
+  const [horizontalLines, setHorizontalLines] = useState<{price: number, y: number}[]>([]);
+  const [chartDimensions, setChartDimensions] = useState({width: 0, height: 0, minPrice: 0, maxPrice: 0});
   const [customMinutes, setCustomMinutes] = useState('1');
   const [customSeconds, setCustomSeconds] = useState('0');
   const [demoAddAmount, setDemoAddAmount] = useState('1000');
@@ -1190,7 +1192,31 @@ export default function Trade() {
       </View>
       
       {/* Chart Area - Takes remaining space */}
-      <View style={styles.chartContainer}>
+      <TouchableOpacity 
+        style={styles.chartContainer}
+        activeOpacity={1}
+        onPress={(event) => {
+          if (selectedDrawTool === 'horizontal') {
+            const { locationY, pageY } = event.nativeEvent;
+            const y = locationY || pageY;
+            
+            // Calculate approximate price based on Y position
+            // Assuming chart height and price range
+            const chartHeight = 300; // Approximate chart height
+            const priceRange = currentPrice * 0.01; // 1% range
+            const minPrice = currentPrice - priceRange;
+            const maxPrice = currentPrice + priceRange;
+            const price = maxPrice - (y / chartHeight) * (maxPrice - minPrice);
+            
+            setHorizontalLines(prev => [...prev, { price, y }]);
+            setSelectedDrawTool(null);
+          }
+        }}
+        onLayout={(event) => {
+          const { width, height } = event.nativeEvent.layout;
+          setChartDimensions(prev => ({ ...prev, width, height }));
+        }}
+      >
         {/* TradingView Chart */}
         <View style={styles.chartWrapper}>
           <TradingViewChart
@@ -1210,6 +1236,55 @@ export default function Trade() {
             authToken={token}
           />
         </View>
+        
+        {/* Horizontal Lines Overlay */}
+        {horizontalLines.map((line, index) => (
+          <View 
+            key={index}
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: line.y,
+              height: 2,
+              backgroundColor: '#FFB800',
+              zIndex: 100,
+            }}
+          >
+            <View style={{
+              position: 'absolute',
+              right: 10,
+              top: -10,
+              backgroundColor: '#FFB800',
+              paddingHorizontal: 6,
+              paddingVertical: 2,
+              borderRadius: 4,
+            }}>
+              <Text style={{ color: '#0A0A0A', fontSize: 10, fontWeight: '700' }}>
+                {line.price.toFixed(5)}
+              </Text>
+            </View>
+          </View>
+        ))}
+        
+        {/* Drawing Mode Indicator */}
+        {selectedDrawTool === 'horizontal' && (
+          <View style={{
+            position: 'absolute',
+            top: 10,
+            left: 10,
+            right: 10,
+            backgroundColor: 'rgba(255, 184, 0, 0.9)',
+            padding: 10,
+            borderRadius: 8,
+            zIndex: 200,
+          }}>
+            <Text style={{ color: '#0A0A0A', fontSize: 12, fontWeight: '600', textAlign: 'center' }}>
+              Tap on chart to draw horizontal line
+            </Text>
+          </View>
+        )}
+        
         {/* User Chart Picture Overlay */}
         {user?.chart_picture && (
           <Image 
@@ -1218,7 +1293,7 @@ export default function Trade() {
             blurRadius={2}
           />
         )}
-      </View>
+      </TouchableOpacity>
 
       {/* Tools Bar - Between chart and trading panel */}
       <View style={styles.toolsBar}>
@@ -2094,7 +2169,6 @@ export default function Trade() {
                   onPress={() => {
                     setSelectedDrawTool(selectedDrawTool === 'horizontal' ? null : 'horizontal');
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    Alert.alert('Horizontal Line', 'Tap on the chart to draw a horizontal line.');
                     setShowToolsModal(false);
                   }}
                 >
@@ -2147,6 +2221,7 @@ export default function Trade() {
                   style={styles.drawToolItem}
                   onPress={() => {
                     setSelectedDrawTool(null);
+                    setHorizontalLines([]);
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                     Alert.alert('Clear Drawings', 'All drawings have been cleared.');
                     setShowToolsModal(false);
