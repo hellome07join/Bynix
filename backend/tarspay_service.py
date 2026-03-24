@@ -7,6 +7,7 @@ import os
 import time
 import hashlib
 import httpx
+import asyncio
 from typing import Optional, Dict, Any
 from ecdsa import SigningKey, VerifyingKey, SECP256k1, BadSignatureError
 from ecdsa.util import sigencode_der, sigdecode_der
@@ -14,12 +15,58 @@ from ecdsa.util import sigencode_der, sigdecode_der
 # TarsPay Configuration
 TARSPAY_BASE_URL = "https://payment.tarspay.com"
 TARSPAY_MCH_NO = os.getenv("TARSPAY_MCH_NO", "01614709038")
-TARSPAY_PRIVATE_KEY = os.getenv("TARSPAY_PRIVATE_KEY", "6abcad26f09113de23c6f7b23522720b65b67911f200098162b004d622bb8fff")
-TARSPAY_PUBLIC_KEY = os.getenv("TARSPAY_PUBLIC_KEY", "03d2552d25d4ee51058009a40b4dab6514f5725615063245b6dd80a0489a5b8246")
+TARSPAY_PRIVATE_KEY = os.getenv("TARSPAY_PRIVATE_KEY", "3194f63d9c3776c27e5b0ad2caf9b54a5036873b6e659a9f12192f5fc7640fb0")
+TARSPAY_PUBLIC_KEY = os.getenv("TARSPAY_PUBLIC_KEY", "02864db35a35a8d4c7b5c026a6b573c0877476af4cdd1f0a0a412b77534d639922")
 TARSPAY_SYSTEM_PUBLIC_KEY = "03029c655932f22aee81034d109795fbd7e23ca173ca27e195091d434e593a2e0f"
 
-# Exchange rate
+# Default exchange rate (will be updated by auto-fetch)
 USD_TO_BDT = 120
+_cached_rate = {"rate": 120, "last_updated": 0}
+
+async def fetch_live_exchange_rate() -> float:
+    """Fetch live USD to BDT exchange rate from multiple sources"""
+    global _cached_rate
+    
+    # Cache for 30 minutes
+    current_time = time.time()
+    if current_time - _cached_rate["last_updated"] < 1800:
+        return _cached_rate["rate"]
+    
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            # Try ExchangeRate-API (free tier)
+            try:
+                response = await client.get("https://api.exchangerate-api.com/v4/latest/USD")
+                if response.status_code == 200:
+                    data = response.json()
+                    rate = data.get("rates", {}).get("BDT", 120)
+                    _cached_rate = {"rate": rate, "last_updated": current_time}
+                    print(f"TarsPay: Live exchange rate fetched: 1 USD = {rate} BDT")
+                    return rate
+            except Exception as e:
+                print(f"TarsPay: ExchangeRate-API error: {e}")
+            
+            # Fallback: Try Open Exchange Rates
+            try:
+                response = await client.get("https://open.er-api.com/v6/latest/USD")
+                if response.status_code == 200:
+                    data = response.json()
+                    rate = data.get("rates", {}).get("BDT", 120)
+                    _cached_rate = {"rate": rate, "last_updated": current_time}
+                    print(f"TarsPay: Fallback rate fetched: 1 USD = {rate} BDT")
+                    return rate
+            except Exception as e:
+                print(f"TarsPay: Fallback API error: {e}")
+                
+    except Exception as e:
+        print(f"TarsPay: Exchange rate fetch failed: {e}")
+    
+    # Return cached or default rate
+    return _cached_rate["rate"]
+
+def get_current_rate() -> float:
+    """Get current cached exchange rate"""
+    return _cached_rate["rate"]
 
 # Payment channels
 TARSPAY_CHANNELS = {
@@ -144,8 +191,11 @@ class TarsPayService:
         channel_config = TARSPAY_CHANNELS.get(channel, TARSPAY_CHANNELS["bkash"])
         way_code = channel_config["wayCode"]
         
+        # Fetch live exchange rate
+        exchange_rate = await fetch_live_exchange_rate()
+        
         # Convert USD to BDT
-        amount_bdt = int(amount_usd * USD_TO_BDT)
+        amount_bdt = int(amount_usd * exchange_rate)
         
         # Validate amount limits
         if amount_bdt < channel_config["min_bdt"]:

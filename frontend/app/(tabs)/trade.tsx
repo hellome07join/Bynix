@@ -165,6 +165,21 @@ export default function Trade() {
   const [selectedEwallet, setSelectedEwallet] = useState('bkash');
   const [ewalletPayUrl, setEwalletPayUrl] = useState<string | null>(null);
   const [ewalletOrderId, setEwalletOrderId] = useState<string | null>(null);
+  const [exchangeRate, setExchangeRate] = useState(120); // USD to BDT
+  
+  // Fetch exchange rate when deposit modal opens
+  useEffect(() => {
+    if (showDepositModal && depositMethod === 'ewallet') {
+      fetch(`${API_URL}/tarspay/channels`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.exchange_rate?.usd_to_bdt) {
+            setExchangeRate(data.exchange_rate.usd_to_bdt);
+          }
+        })
+        .catch(err => console.log('Exchange rate fetch error:', err));
+    }
+  }, [showDepositModal, depositMethod]);
   
   // UTC Time and Candle Countdown
   const [utcTime, setUtcTime] = useState('');
@@ -1761,7 +1776,7 @@ export default function Trade() {
                     />
                   </View>
                   <Text style={depositModalStyles.minimum}>
-                    ≈ ৳{Math.round(parseFloat(depositAmount || '0') * 120)} BDT | Min: $1 (৳120)
+                    ≈ ৳{Math.round(parseFloat(depositAmount || '0') * exchangeRate)} BDT | Rate: $1 = ৳{exchangeRate.toFixed(2)}
                   </Text>
 
                   {/* Quick Amounts */}

@@ -18,7 +18,7 @@ import socketio
 import asyncio
 import base64
 from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContent
-from tarspay_service import tarspay_service, USD_TO_BDT
+from tarspay_service import tarspay_service, fetch_live_exchange_rate, get_current_rate
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -2785,12 +2785,14 @@ class TarsPayDepositRequest(BaseModel):
 @api_router.get("/tarspay/channels")
 async def get_tarspay_channels():
     """Get available TarsPay payment channels (bKash, Nagad)"""
+    # Fetch live exchange rate
+    exchange_rate = await fetch_live_exchange_rate()
     channels = tarspay_service.get_channels()
     return {
         "success": True,
         "channels": channels,
         "exchange_rate": {
-            "usd_to_bdt": USD_TO_BDT,
+            "usd_to_bdt": exchange_rate,
             "currency": "BDT"
         }
     }
