@@ -382,10 +382,6 @@ export default function Welcome() {
               style={styles.logoImage}
               resizeMode="contain"
             />
-            <View style={styles.taglineContainer}>
-              <Text style={styles.tagline}>Trade Smarter</Text>
-              <Text style={styles.taglineHighlight}>Win Bigger</Text>
-            </View>
           </View>
           
           {/* Golden Start Trading Button - Right Side */}
@@ -620,23 +616,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   logoImage: {
-    width: 140,
-    height: 50,
-    marginBottom: 6,
-  },
-  taglineContainer: {
-    flexDirection: 'row',
-    marginTop: 4,
-    gap: 6,
-  },
-  tagline: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.7)',
-  },
-  taglineHighlight: {
-    fontSize: 14,
-    color: '#FFB800',
-    fontWeight: '600',
+    width: 180,
+    height: 65,
   },
   startTradingWrapper: {
     marginTop: 5,
