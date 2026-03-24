@@ -1149,13 +1149,15 @@ export default function Trade() {
       {/* Chart Area - Takes remaining space */}
       <View style={styles.chartContainer}>
         {/* User Profile Picture as Background */}
-        {user?.picture && (
+        {user?.picture ? (
           <Image 
             source={{ uri: user.picture }}
             style={styles.chartBackgroundImage}
             blurRadius={3}
+            onError={(e) => console.log('Image load error:', e.nativeEvent.error)}
+            onLoad={() => console.log('Profile image loaded successfully')}
           />
-        )}
+        ) : null}
         {/* TradingView Chart */}
         <View style={styles.chartWrapper}>
           <TradingViewChart
@@ -3016,6 +3018,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0A0A0A',
     position: 'relative',
+    overflow: 'hidden',
   },
   chartBackgroundImage: {
     position: 'absolute',
@@ -3025,11 +3028,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: '100%',
     height: '100%',
-    opacity: 0.15,
-    resizeMode: 'cover',
+    opacity: 0.2,
+    zIndex: 1,
   },
   chartWrapper: {
     flex: 1,
+    zIndex: 2,
+    backgroundColor: 'transparent',
   },
   chartLoading: {
     flex: 1,

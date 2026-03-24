@@ -451,8 +451,9 @@ export default function TradingViewChart({
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     
-    // Clear canvas - Pure black background
-    ctx.fillStyle = '#0A0A0A';
+    // Clear canvas - Semi-transparent to show background image
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = 'rgba(10, 10, 10, 0.85)';
     ctx.fillRect(0, 0, width, height);
     
     // Calculate visible candles
@@ -937,13 +938,13 @@ export default function TradingViewChart({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A0A',
+    backgroundColor: 'transparent',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0A0A0A',
+    backgroundColor: 'transparent',
   },
   loadingText: {
     color: '#00E55A',
