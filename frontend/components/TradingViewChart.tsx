@@ -163,7 +163,7 @@ export default function TradingViewChart({
   });
   const [error, setError] = useState<string | null>(null);
   const [scrollOffset, setScrollOffset] = useState(0);
-  const [scale, setScale] = useState(0.8);  // Slightly zoomed out for more candles
+  const [scale, setScale] = useState(0.5);  // Zoomed out for 2000 candles view
   const [targetScale, setTargetScale] = useState(1);
   const [targetScrollOffset, setTargetScrollOffset] = useState(0);
   const priceTickerRef = useRef<any>(null);
@@ -305,7 +305,8 @@ export default function TradingViewChart({
     
     let price = basePrice;
     
-    for (let i = 1800; i >= 0; i--) {
+    // Generate 120000 ticks for 2000 candles at 1m interval
+    for (let i = 120000; i >= 0; i--) {
       const volatility = price * 0.00005;
       const open = price;
       const change = (Math.random() - 0.5) * volatility * 2;
@@ -525,9 +526,9 @@ export default function TradingViewChart({
     ctx.fillStyle = 'rgba(10, 10, 10, 0.7)';
     ctx.fillRect(0, 0, width, height);
     
-    // Calculate visible candles - Optimized for 24hr professional view
-    const baseBarWidth = 5 * scale;  // Smaller candles for more data
-    const barSpacing = 1.5 * scale;   // Tighter spacing
+    // Calculate visible candles - Optimized for 2000 candles professional view
+    const baseBarWidth = 3 * scale;  // Very small candles for maximum data
+    const barSpacing = 1 * scale;    // Minimal spacing
     const totalBarWidth = baseBarWidth + barSpacing;
     const visibleCandles = Math.floor(chartWidth / totalBarWidth);
     
@@ -745,8 +746,8 @@ export default function TradingViewChart({
       
       // Calculate X positions from candle indices - accounting for scroll and scale
       // Candles are drawn from right to left, so we need to invert the calculation
-      const candleWidth = 5 * scale;  // Match main chart candle width
-      const candleGap = 1.5 * scale;  // Match main chart spacing
+      const candleWidth = 3 * scale;  // Match main chart candle width
+      const candleGap = 1 * scale;    // Match main chart spacing
       const totalCandleWidth = candleWidth + candleGap;
       
       // Calculate X positions based on candle indices
@@ -814,8 +815,8 @@ export default function TradingViewChart({
       const startY = padding.top + ((maxPrice - trendLinePreview.startPrice) / (maxPrice - minPrice)) * chartHeight;
       const endY = padding.top + ((maxPrice - trendLinePreview.endPrice) / (maxPrice - minPrice)) * chartHeight;
       
-      const candleWidth = 5 * scale;  // Match main chart candle width
-      const candleGap = 1.5 * scale;  // Match main chart spacing
+      const candleWidth = 3 * scale;  // Match main chart candle width
+      const candleGap = 1 * scale;    // Match main chart spacing
       const totalCandleWidth = candleWidth + candleGap;
       const chartRightEdge = width - padding.right;
       

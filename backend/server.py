@@ -2800,9 +2800,9 @@ def generate_server_chart_data(symbol: str) -> list:
     
     price = base_price
     
-    # Generate 30000 ticks (500 minutes of 1-second data = enough for 500 candles at 1m)
-    # This ensures we have 500 candles regardless of timeframe
-    for i in range(30000, 0, -1):
+    # Generate 120000 ticks (2000 minutes of 1-second data = 2000 candles at 1m)
+    # This ensures we have 2000 candles for professional 24hr+ view
+    for i in range(120000, 0, -1):
         tick_time = now - i
         volatility = price * 0.00008
         change = (random.random() - 0.5) * volatility * 2
