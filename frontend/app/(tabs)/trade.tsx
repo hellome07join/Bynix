@@ -2181,7 +2181,7 @@ export default function Trade() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Trade History</Text>
               <TouchableOpacity onPress={() => setShowTradeHistory(false)}>
-                <Ionicons name="close-circle" size={28} color="#666" />
+                <Ionicons name="close-circle" size={22} color="#666" />
               </TouchableOpacity>
             </View>
 
@@ -2191,7 +2191,7 @@ export default function Trade() {
                 style={[styles.historyTab, historyTab === 'real' && styles.historyTabActive]}
                 onPress={() => setHistoryTab('real')}
               >
-                <Ionicons name="wallet" size={16} color={historyTab === 'real' ? '#00E55A' : '#666'} />
+                <Ionicons name="wallet" size={12} color={historyTab === 'real' ? '#00E55A' : '#666'} />
                 <Text style={[styles.historyTabText, historyTab === 'real' && styles.historyTabTextActive]}>
                   Real Account
                 </Text>
@@ -2203,7 +2203,7 @@ export default function Trade() {
                 style={[styles.historyTab, historyTab === 'demo' && styles.historyTabActiveDemo]}
                 onPress={() => setHistoryTab('demo')}
               >
-                <Ionicons name="school" size={16} color={historyTab === 'demo' ? '#FF3B3B' : '#666'} />
+                <Ionicons name="school" size={12} color={historyTab === 'demo' ? '#FF3B3B' : '#666'} />
                 <Text style={[styles.historyTabText, historyTab === 'demo' && styles.historyTabTextActiveDemo]}>
                   Demo Account
                 </Text>
@@ -3407,29 +3407,29 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   historySection: {
-    marginBottom: 20,
+    marginBottom: 12,
   },
   historySectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
+    gap: 6,
+    marginBottom: 8,
   },
   runningDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: '#00E55A',
   },
   historySectionTitle: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '700',
   },
   tradeCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 10,
+    padding: 10,
     borderWidth: 1,
     borderColor: 'rgba(0, 229, 90, 0.3)',
   },
@@ -3437,28 +3437,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   tradeAsset: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   tradeAssetIcon: {
-    fontSize: 20,
+    fontSize: 16,
   },
   tradeAssetName: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '700',
   },
   directionBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    gap: 3,
   },
   directionUp: {
     backgroundColor: '#00E55A',
@@ -3468,34 +3468,34 @@ const styles = StyleSheet.create({
   },
   directionText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '700',
   },
   tradeCardBody: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 8,
   },
   tradeInfo: {
     width: '45%',
   },
   tradeInfoLabel: {
     color: '#666',
-    fontSize: 11,
-    marginBottom: 2,
+    fontSize: 9,
+    marginBottom: 1,
   },
   tradeInfoValue: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
   },
   historyCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 6,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.05)',
   },
@@ -3505,53 +3505,53 @@ const styles = StyleSheet.create({
   historyAsset: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   historyAssetIcon: {
-    fontSize: 18,
+    fontSize: 14,
   },
   historyAssetName: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '600',
   },
   historyTime: {
     color: '#666',
-    fontSize: 10,
+    fontSize: 9,
   },
   historyCardCenter: {
     alignItems: 'center',
-    marginHorizontal: 12,
+    marginHorizontal: 8,
   },
   historyDirection: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 2,
   },
   historyAmount: {
     color: '#888',
-    fontSize: 11,
+    fontSize: 9,
   },
   historyCardRight: {
     alignItems: 'flex-end',
   },
   historyProfit: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '800',
   },
   historyStatus: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '600',
   },
   historySummary: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 10,
+    padding: 10,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.05)',
   },
@@ -3560,29 +3560,29 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     color: '#666',
-    fontSize: 10,
-    marginBottom: 4,
+    fontSize: 9,
+    marginBottom: 2,
   },
   summaryValue: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '800',
   },
   // History Tab Styles
   historyTabContainer: {
     flexDirection: 'row',
-    marginBottom: 16,
-    gap: 10,
+    marginBottom: 10,
+    gap: 6,
   },
   historyTab: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    gap: 8,
+    gap: 4,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
@@ -3596,7 +3596,7 @@ const styles = StyleSheet.create({
   },
   historyTabText: {
     color: '#666',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
   },
   historyTabTextActive: {
@@ -3606,15 +3606,15 @@ const styles = StyleSheet.create({
     color: '#FF3B3B',
   },
   historyTabBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    minWidth: 24,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 8,
+    minWidth: 18,
     alignItems: 'center',
   },
   historyTabBadgeText: {
     color: '#FFFFFF',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
   },
   // Trade Detail Panel Styles
@@ -3689,17 +3689,17 @@ const styles = StyleSheet.create({
   },
   // Date Filter Styles
   dateFilterContainer: {
-    marginBottom: 16,
+    marginBottom: 10,
   },
   dateFilterBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 20,
-    marginRight: 10,
-    gap: 6,
+    borderRadius: 14,
+    marginRight: 6,
+    gap: 4,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
@@ -3709,7 +3709,7 @@ const styles = StyleSheet.create({
   },
   dateFilterText: {
     color: '#888',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
   },
   dateFilterTextActive: {
@@ -3717,37 +3717,37 @@ const styles = StyleSheet.create({
   },
   customDatePicker: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   customDateLabel: {
     color: '#888',
-    fontSize: 12,
-    marginBottom: 6,
+    fontSize: 10,
+    marginBottom: 4,
   },
   customDateInput: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 6,
+    padding: 10,
     color: '#FFFFFF',
-    fontSize: 14,
-    marginBottom: 12,
+    fontSize: 12,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   applyDateBtn: {
     backgroundColor: '#00E55A',
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 6,
+    padding: 10,
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 2,
   },
   applyDateBtnText: {
     color: '#0A0A0A',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '700',
   },
   loadMoreBtn: {
