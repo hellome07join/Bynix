@@ -815,6 +815,7 @@ export default function Trade() {
       console.log('Calling api.createTrade with:', {
         asset: selectedAsset,
         trade_type: type,
+        direction: type === 'call' ? 'up' : 'down',
         amount: tradeAmount,
         duration,
         entry_price: currentPrice,
@@ -823,6 +824,7 @@ export default function Trade() {
       const response = await api.createTrade({
         asset: selectedAsset,
         trade_type: type,
+        direction: type === 'call' ? 'up' : 'down',
         amount: tradeAmount,
         duration,
         entry_price: currentPrice,

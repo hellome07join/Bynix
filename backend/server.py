@@ -105,6 +105,7 @@ class Trade(BaseModel):
 class TradeCreate(BaseModel):
     asset: str
     trade_type: str
+    direction: str  # 'up' or 'down'
     amount: float
     duration: int
     entry_price: float
@@ -724,6 +725,7 @@ async def create_trade(trade: TradeCreate, authorization: Optional[str] = Header
         "user_id": user.user_id,
         "asset": trade.asset,
         "trade_type": trade.trade_type,
+        "direction": trade.direction,  # UP or DOWN direction
         "amount": trade.amount,
         "entry_price": trade.entry_price,
         "exit_price": None,
