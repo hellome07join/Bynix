@@ -251,6 +251,7 @@ export default function Welcome() {
       const demoEmail = `demo_${timestamp}@bynix.com`;
       const demoPassword = `demo_${timestamp}`;
       
+      // Signup now returns access_token and user directly (no OTP needed)
       const signupResponse = await fetch(`${API_URL}/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -264,31 +265,15 @@ export default function Welcome() {
       if (!signupResponse.ok) throw new Error('Failed to create demo account');
       
       const signupData = await signupResponse.json();
-      const otp = signupData.otp;
       
-      const verifyResponse = await fetch(`${API_URL}/auth/verify-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: demoEmail, otp: otp })
-      });
-      
-      if (!verifyResponse.ok) throw new Error('Failed to verify demo account');
-      
-      const data = await verifyResponse.json();
-      
-      const meResponse = await fetch(`${API_URL}/auth/me`, {
-        headers: { 'Authorization': `Bearer ${data.access_token}` }
-      });
-      
-      const userData = await meResponse.json();
-      
-      await login(data.access_token, {
-        user_id: userData.user_id,
-        email: userData.email,
-        name: userData.name || 'Demo User',
-        demo_balance: userData.demo_balance || 10000,
-        real_balance: userData.real_balance || 0,
-        bonus_balance: userData.bonus_balance || 0,
+      // Login directly with the returned token and user
+      await login(signupData.access_token, {
+        user_id: signupData.user.user_id,
+        email: signupData.user.email,
+        name: signupData.user.name || 'Demo User',
+        demo_balance: signupData.user.demo_balance || 10000,
+        real_balance: signupData.user.real_balance || 0,
+        bonus_balance: signupData.user.bonus_balance || 0,
         is_admin: false,
       });
       
