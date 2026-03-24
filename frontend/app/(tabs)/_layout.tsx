@@ -10,14 +10,18 @@ export default function TabsLayout() {
           backgroundColor: '#0A1A0F',
           borderTopColor: 'rgba(0, 229, 90, 0.2)',
           borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 8,
+          height: 50,
+          paddingBottom: 4,
+          paddingTop: 4,
         },
         tabBarActiveTintColor: '#00E55A',
         tabBarInactiveTintColor: '#4A6B4A',
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 9,
           fontWeight: '600',
+        },
+        tabBarIconStyle: {
+          marginBottom: -2,
         },
       }}
     >
@@ -25,8 +29,8 @@ export default function TabsLayout() {
         name="trade"
         options={{
           title: 'Trade',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "trending-up" : "trending-up-outline"} size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "trending-up" : "trending-up-outline"} size={18} color={color} />
           ),
         }}
       />
@@ -34,8 +38,8 @@ export default function TabsLayout() {
         name="leaderboard"
         options={{
           title: 'Leaderboard',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "trophy" : "trophy-outline"} size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "trophy" : "trophy-outline"} size={18} color={color} />
           ),
         }}
       />
@@ -43,8 +47,8 @@ export default function TabsLayout() {
         name="support"
         options={{
           title: 'Support',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "headset" : "headset-outline"} size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "headset" : "headset-outline"} size={18} color={color} />
           ),
         }}
       />
@@ -52,8 +56,8 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "person" : "person-outline"} size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "person" : "person-outline"} size={18} color={color} />
           ),
         }}
       />
