@@ -1172,7 +1172,7 @@ export default function Trade() {
           <Image 
             source={{ uri: user.chart_picture }}
             style={styles.chartBackgroundOverlay}
-            blurRadius={5}
+            blurRadius={2}
           />
         )}
       </View>
