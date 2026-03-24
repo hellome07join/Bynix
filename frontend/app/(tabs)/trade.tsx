@@ -12,7 +12,8 @@ import {
   ScrollView,
   Switch,
   Image,
-  Platform
+  Platform,
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -25,6 +26,7 @@ import TradingViewChart from '../../components/TradingViewChart';
 import AnimatedLoader from '../../components/AnimatedLoader';
 import { api, API_URL } from '../../utils/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import QRCode from 'react-native-qrcode-svg';
 
 declare const window: any;
 
@@ -272,6 +274,11 @@ export default function Trade() {
   const [promoCode, setPromoCode] = useState('');
   const [generatedAddress, setGeneratedAddress] = useState<string | null>(null);
   const [isGeneratingAddress, setIsGeneratingAddress] = useState(false);
+  const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [payAmount, setPayAmount] = useState<string | null>(null);
+  const [expirationTime, setExpirationTime] = useState<Date | null>(null);
+  const [countdownText, setCountdownText] = useState('20:00');
+  const [depositError, setDepositError] = useState<string | null>(null);
   
   // UTC Time and Candle Countdown
   const [utcTime, setUtcTime] = useState('');
@@ -315,6 +322,30 @@ export default function Trade() {
     
     return () => clearInterval(interval);
   }, [getCandleDuration]);
+  
+  // Payment expiration countdown
+  useEffect(() => {
+    if (!expirationTime || !generatedAddress) return;
+    
+    const updateCountdown = () => {
+      const now = new Date();
+      const diff = expirationTime.getTime() - now.getTime();
+      
+      if (diff <= 0) {
+        setCountdownText('EXPIRED');
+        return;
+      }
+      
+      const minutes = Math.floor(diff / 60000);
+      const seconds = Math.floor((diff % 60000) / 1000);
+      setCountdownText(`${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+    };
+    
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    
+    return () => clearInterval(interval);
+  }, [expirationTime, generatedAddress]);
   
   // Format countdown for display
   const formatCandleCountdown = () => {
@@ -1323,6 +1354,10 @@ export default function Trade() {
               <TouchableOpacity onPress={() => {
                 setShowDepositModal(false);
                 setGeneratedAddress(null);
+                setPaymentId(null);
+                setPayAmount(null);
+                setExpirationTime(null);
+                setDepositError(null);
                 setShowNetworkDropdown(false);
               }}>
                 <Ionicons name="close" size={24} color="#FFFFFF" />
@@ -1332,6 +1367,14 @@ export default function Trade() {
             <ScrollView showsVerticalScrollIndicator={false}>
               {!generatedAddress ? (
                 <>
+                  {/* Error Message */}
+                  {depositError && (
+                    <View style={depositModalStyles.errorBox}>
+                      <Ionicons name="alert-circle" size={20} color="#FF3B3B" />
+                      <Text style={depositModalStyles.errorText}>{depositError}</Text>
+                    </View>
+                  )}
+
                   {/* Amount Input */}
                   <Text style={depositModalStyles.label}>Enter Amount</Text>
                   <View style={depositModalStyles.amountBox}>
@@ -1438,23 +1481,67 @@ export default function Trade() {
                         Alert.alert('Invalid Amount', 'Minimum deposit is $21');
                         return;
                       }
+                      
+                      if (!token) {
+                        Alert.alert('Login Required', 'Please login to make a deposit');
+                        return;
+                      }
+                      
                       setIsGeneratingAddress(true);
-                      // Generate a mock crypto address
-                      const networkPrefix = selectedNetwork.includes('TRC20') ? 'T' : 
-                        selectedNetwork.includes('BTC') ? '1' : 
-                        selectedNetwork.includes('ETH') ? '0x' : 'L';
-                      const randomPart = Math.random().toString(36).substring(2, 15) + 
-                                        Math.random().toString(36).substring(2, 15);
-                      const address = networkPrefix + randomPart.substring(0, selectedNetwork.includes('ETH') ? 40 : 33);
-                      setTimeout(() => {
-                        setGeneratedAddress(address);
-                        setIsGeneratingAddress(false);
-                      }, 1500);
+                      setDepositError(null);
+                      
+                      try {
+                        // Map network to API format
+                        const networkMap: { [key: string]: string } = {
+                          'USDT (TRC20)': 'TRC20',
+                          'USDT (ERC20)': 'ERC20',
+                          'BTC (Bitcoin)': 'BTC',
+                          'ETH (Ethereum)': 'ETH',
+                          'LTC (Litecoin)': 'LTC'
+                        };
+                        
+                        const response = await fetch(`${API_URL}/deposit/create`, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                          },
+                          body: JSON.stringify({
+                            amount: parseFloat(depositAmount),
+                            network: networkMap[selectedNetwork] || 'TRC20',
+                            promo_code: promoCode || null
+                          })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                          setGeneratedAddress(data.pay_address);
+                          setPaymentId(data.payment_id?.toString());
+                          setPayAmount(data.pay_amount?.toString());
+                          
+                          // Set expiration time (20 minutes from now if not provided)
+                          if (data.expiration_estimate_date) {
+                            setExpirationTime(new Date(data.expiration_estimate_date));
+                          } else {
+                            const expiry = new Date();
+                            expiry.setMinutes(expiry.getMinutes() + 20);
+                            setExpirationTime(expiry);
+                          }
+                        } else {
+                          setDepositError(data.error || data.detail || 'Failed to create deposit');
+                        }
+                      } catch (error: any) {
+                        console.error('Deposit error:', error);
+                        setDepositError(error.message || 'Network error. Please try again.');
+                      }
+                      
+                      setIsGeneratingAddress(false);
                     }}
                     disabled={isGeneratingAddress}
                   >
                     {isGeneratingAddress ? (
-                      <Text style={depositModalStyles.generateBtnText}>Generating...</Text>
+                      <ActivityIndicator size="small" color="#0A0A0A" />
                     ) : (
                       <Text style={depositModalStyles.generateBtnText}>Generate Deposit Address</Text>
                     )}
@@ -1462,14 +1549,41 @@ export default function Trade() {
                 </>
               ) : (
                 <>
-                  {/* Generated Address View */}
+                  {/* Generated Address View with QR Code */}
                   <View style={depositModalStyles.addressSection}>
-                    <View style={depositModalStyles.successIcon}>
-                      <Ionicons name="checkmark-circle" size={60} color="#00E55A" />
+                    {/* QR Code */}
+                    <View style={depositModalStyles.qrContainer}>
+                      <QRCode
+                        value={generatedAddress || 'bitcoin:address'}
+                        size={180}
+                        backgroundColor="#FFFFFF"
+                        color="#000000"
+                      />
                     </View>
-                    <Text style={depositModalStyles.addressTitle}>Deposit Address Generated</Text>
-                    <Text style={depositModalStyles.addressNetwork}>{selectedNetwork}</Text>
                     
+                    {/* Payment Info Cards */}
+                    <View style={depositModalStyles.paymentInfoCard}>
+                      <View style={depositModalStyles.paymentInfoRow}>
+                        <Text style={depositModalStyles.paymentInfoLabel}>Payment ID</Text>
+                        <Text style={depositModalStyles.paymentInfoValue}>{paymentId || 'N/A'}</Text>
+                      </View>
+                    </View>
+                    
+                    <View style={depositModalStyles.paymentInfoCard}>
+                      <View style={depositModalStyles.paymentInfoRow}>
+                        <Text style={depositModalStyles.paymentInfoLabel}>Expires In</Text>
+                        <Text style={[
+                          depositModalStyles.paymentInfoValue, 
+                          depositModalStyles.expiryText,
+                          countdownText === 'EXPIRED' && { color: '#FF3B3B' }
+                        ]}>
+                          {countdownText}
+                        </Text>
+                      </View>
+                    </View>
+                    
+                    {/* Address */}
+                    <Text style={depositModalStyles.addressLabel}>Deposit Address ({selectedNetwork})</Text>
                     <View style={depositModalStyles.addressBox}>
                       <Text style={depositModalStyles.addressText} selectable>{generatedAddress}</Text>
                     </View>
@@ -1477,7 +1591,6 @@ export default function Trade() {
                     <TouchableOpacity 
                       style={depositModalStyles.copyBtn}
                       onPress={() => {
-                        // Copy to clipboard (mock)
                         Alert.alert('Copied!', 'Address copied to clipboard');
                       }}
                     >
@@ -1485,15 +1598,19 @@ export default function Trade() {
                       <Text style={depositModalStyles.copyBtnText}>Copy Address</Text>
                     </TouchableOpacity>
 
-                    <View style={depositModalStyles.depositInfo}>
-                      <Text style={depositModalStyles.depositInfoTitle}>Amount to Send:</Text>
-                      <Text style={depositModalStyles.depositInfoAmount}>${depositAmount}</Text>
+                    {/* Amount to Send */}
+                    <View style={depositModalStyles.amountToSendCard}>
+                      <Text style={depositModalStyles.amountToSendLabel}>Amount to Send</Text>
+                      <Text style={depositModalStyles.amountToSendValue}>
+                        {payAmount || depositAmount} {selectedNetwork.split(' ')[0]}
+                      </Text>
+                      <Text style={depositModalStyles.amountToSendUsd}>≈ ${depositAmount} USD</Text>
                     </View>
 
                     <View style={depositModalStyles.warningBox}>
                       <Ionicons name="warning" size={20} color="#FFB800" />
                       <Text style={depositModalStyles.warningText}>
-                        Only send {selectedNetwork.split(' ')[0]} to this address. Sending any other asset may result in permanent loss.
+                        Only send {selectedNetwork.split(' ')[0]} to this address. Sending any other asset may result in permanent loss. Payment expires in 20 minutes.
                       </Text>
                     </View>
 
@@ -1502,6 +1619,9 @@ export default function Trade() {
                       onPress={() => {
                         setShowDepositModal(false);
                         setGeneratedAddress(null);
+                        setPaymentId(null);
+                        setPayAmount(null);
+                        setExpirationTime(null);
                       }}
                     >
                       <Text style={depositModalStyles.doneBtnText}>Done</Text>
@@ -4608,5 +4728,89 @@ const depositModalStyles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  // Error Box
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 59, 59, 0.15)',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+    gap: 10,
+  },
+  errorText: {
+    color: '#FF3B3B',
+    fontSize: 13,
+    flex: 1,
+  },
+  // QR Code Section
+  qrContainer: {
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 20,
+    alignSelf: 'center',
+  },
+  // Payment Info Cards
+  paymentInfoCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  paymentInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  paymentInfoLabel: {
+    color: '#888',
+    fontSize: 13,
+  },
+  paymentInfoValue: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  expiryText: {
+    color: '#FFB800',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  addressLabel: {
+    color: '#888',
+    fontSize: 13,
+    marginBottom: 8,
+    marginTop: 8,
+  },
+  // Amount to Send Card
+  amountToSendCard: {
+    backgroundColor: 'rgba(0, 229, 90, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    width: '100%',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 90, 0.3)',
+  },
+  amountToSendLabel: {
+    color: '#888',
+    fontSize: 12,
+    marginBottom: 6,
+  },
+  amountToSendValue: {
+    color: '#00E55A',
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  amountToSendUsd: {
+    color: '#666',
+    fontSize: 13,
   },
 });
