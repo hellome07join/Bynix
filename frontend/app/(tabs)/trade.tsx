@@ -1148,16 +1148,6 @@ export default function Trade() {
       
       {/* Chart Area - Takes remaining space */}
       <View style={styles.chartContainer}>
-        {/* User Chart Picture as Background */}
-        {user?.chart_picture ? (
-          <Image 
-            source={{ uri: user.chart_picture }}
-            style={styles.chartBackgroundImage}
-            blurRadius={3}
-            onError={(e) => console.log('Image load error:', e.nativeEvent.error)}
-            onLoad={() => console.log('Chart background image loaded successfully')}
-          />
-        ) : null}
         {/* TradingView Chart */}
         <View style={styles.chartWrapper}>
           <TradingViewChart
@@ -1177,6 +1167,14 @@ export default function Trade() {
             authToken={token}
           />
         </View>
+        {/* User Chart Picture Overlay */}
+        {user?.chart_picture && (
+          <Image 
+            source={{ uri: user.chart_picture }}
+            style={styles.chartBackgroundOverlay}
+            blurRadius={5}
+          />
+        )}
       </View>
 
       {/* Tools Bar - Between chart and trading panel */}
@@ -3030,6 +3028,18 @@ const styles = StyleSheet.create({
     height: '100%',
     opacity: 0.2,
     zIndex: 1,
+  },
+  chartBackgroundOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    opacity: 0.25,
+    zIndex: 10,
+    pointerEvents: 'none',
   },
   chartWrapper: {
     flex: 1,

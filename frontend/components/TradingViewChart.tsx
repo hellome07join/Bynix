@@ -453,7 +453,8 @@ export default function TradingViewChart({
     
     // Clear canvas - Semi-transparent to show background image
     ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = 'rgba(10, 10, 10, 0.85)';
+    // Transparent background to show user's chart picture behind
+    ctx.fillStyle = 'rgba(10, 10, 10, 0.7)';
     ctx.fillRect(0, 0, width, height);
     
     // Calculate visible candles
