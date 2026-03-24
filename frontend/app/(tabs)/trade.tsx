@@ -2675,7 +2675,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 12,
     paddingBottom: 10,
-    backgroundColor: 'rgba(10, 26, 15, 0.95)',
+    backgroundColor: 'rgba(10, 26, 15, 0.98)',
+    // Black shadow below header
+    boxShadow: '0 4px 20px 0 rgba(0, 0, 0, 0.8)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+    elevation: 10,
   },
   headerLogoContainer: {
     position: 'absolute',
