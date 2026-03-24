@@ -28,7 +28,7 @@ interface AuthState {
   logout: () => Promise<void>;
   loadAuth: () => Promise<void>;
   refreshUser: () => Promise<void>;
-  updateBalance: (demoBalance: number, realBalance: number) => Promise<void>;
+  updateBalance: (demoBalance: number, realBalance: number, bonusBalance?: number, totalBalance?: number) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -108,14 +108,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  updateBalance: async (demoBalance, realBalance, totalBalance?: number) => {
+  updateBalance: async (demoBalance, realBalance, bonusBalance?, totalBalance?) => {
     const { user } = get();
     if (user) {
+      const newBonusBalance = bonusBalance !== undefined ? bonusBalance : user.bonus_balance;
+      const calculatedTotalBalance = totalBalance !== undefined ? totalBalance : (realBalance + newBonusBalance);
       const updatedUser = { 
         ...user, 
         demo_balance: demoBalance, 
         real_balance: realBalance,
-        total_balance: totalBalance !== undefined ? totalBalance : (user.total_balance || realBalance),
+        bonus_balance: newBonusBalance,
+        total_balance: calculatedTotalBalance,
       };
       set({ user: updatedUser });
       // Persist to AsyncStorage

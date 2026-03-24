@@ -827,14 +827,29 @@ export default function Trade() {
     // For real account with token, use API
     console.log('>>> REAL MODE - API call');
     
-    // Deduct amount from real balance IMMEDIATELY when trade is placed
+    // Calculate deduction from real_balance first, then bonus_balance
     const previousRealBalance = user?.real_balance || 0;
-    const previousTotalBalance = user?.total_balance || 0;
+    const previousBonusBalance = user?.bonus_balance || 0;
+    const previousTotalBalance = user?.total_balance || (previousRealBalance + previousBonusBalance);
+    
+    // Deduct from real_balance first, then bonus_balance
+    let deductFromReal = Math.min(previousRealBalance, tradeAmount);
+    let deductFromBonus = tradeAmount - deductFromReal;
+    
+    const newRealBalance = previousRealBalance - deductFromReal;
+    const newBonusBalance = previousBonusBalance - deductFromBonus;
+    const newTotalBalance = newRealBalance + newBonusBalance;
+    
+    // Deduct amount IMMEDIATELY when trade is placed
     if (user) {
-      const newRealBalance = previousRealBalance - tradeAmount;
-      const newTotalBalance = previousTotalBalance - tradeAmount;
-      updateBalance(user.demo_balance || 10000, newRealBalance, newTotalBalance);
-      console.log('>>> Balance deducted immediately:', { newRealBalance, newTotalBalance });
+      updateBalance(user.demo_balance || 10000, newRealBalance, newBonusBalance, newTotalBalance);
+      console.log('>>> Balance deducted immediately:', { 
+        deductFromReal, 
+        deductFromBonus, 
+        newRealBalance, 
+        newBonusBalance, 
+        newTotalBalance 
+      });
     }
     
     try {
@@ -876,7 +891,7 @@ export default function Trade() {
     } catch (error: any) {
       // Revert balance if API call failed
       if (user) {
-        updateBalance(user.demo_balance || 10000, previousRealBalance, previousTotalBalance);
+        updateBalance(user.demo_balance || 10000, previousRealBalance, previousBonusBalance, previousTotalBalance);
         console.log('>>> Balance reverted due to API error');
       }
       Alert.alert('Trade Failed', error.message);
