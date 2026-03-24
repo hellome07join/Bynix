@@ -58,7 +58,10 @@ interface TradingViewChartProps {
   onChartMove?: (y: number, chartHeight: number, x?: number) => void;
   onLineSelect?: (lineId: string | null) => void;
   onLineMove?: (lineId: string, newPrice: number) => void;
+  onTrendLineSelect?: (lineId: string | null, point?: 'start' | 'end' | null) => void;
+  onTrendLineMove?: (lineId: string, point: 'start' | 'end', newPrice: number, newCandleIndex: number) => void;
   selectedLineId?: string | null;
+  selectedTrendLineId?: string | null;
   authToken?: string | null;
 }
 
@@ -102,7 +105,10 @@ export default function TradingViewChart({
   onChartMove,
   onLineSelect,
   onLineMove,
+  onTrendLineSelect,
+  onTrendLineMove,
   selectedLineId,
+  selectedTrendLineId,
   authToken
 }: TradingViewChartProps) {
   // Track price range for horizontal lines
@@ -751,26 +757,47 @@ export default function TradingViewChart({
         return; // Skip drawing if completely outside
       }
       
+      const isSelected = line.id === selectedTrendLineId;
+      
       // Draw the trend line
-      ctx.strokeStyle = line.color || '#00E55A';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = isSelected ? '#FFB800' : (line.color || '#00E55A');
+      ctx.lineWidth = isSelected ? 3 : 2;
       ctx.setLineDash([]);
       ctx.beginPath();
       ctx.moveTo(startX, startY);
       ctx.lineTo(endX, endY);
       ctx.stroke();
       
-      // Draw circles at endpoints (only if visible)
-      ctx.fillStyle = line.color || '#00E55A';
+      // Draw circles at endpoints (larger when selected for easier dragging)
+      const pointRadius = isSelected ? 8 : 4;
+      ctx.fillStyle = isSelected ? '#FFB800' : (line.color || '#00E55A');
+      
       if (startX >= padding.left && startX <= width - padding.right) {
         ctx.beginPath();
-        ctx.arc(startX, startY, 4, 0, Math.PI * 2);
+        ctx.arc(startX, startY, pointRadius, 0, Math.PI * 2);
         ctx.fill();
+        
+        // Add inner circle for selected state
+        if (isSelected) {
+          ctx.fillStyle = '#0A0A0A';
+          ctx.beginPath();
+          ctx.arc(startX, startY, 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
       if (endX >= padding.left && endX <= width - padding.right) {
+        ctx.fillStyle = isSelected ? '#FFB800' : (line.color || '#00E55A');
         ctx.beginPath();
-        ctx.arc(endX, endY, 4, 0, Math.PI * 2);
+        ctx.arc(endX, endY, pointRadius, 0, Math.PI * 2);
         ctx.fill();
+        
+        // Add inner circle for selected state
+        if (isSelected) {
+          ctx.fillStyle = '#0A0A0A';
+          ctx.beginPath();
+          ctx.arc(endX, endY, 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
     });
     
@@ -811,7 +838,7 @@ export default function TradingViewChart({
       ctx.stroke();
     }
     
-  }, [aggregatedCandles, chartType, internalPrice, scrollOffset, scale, tradeMarkers, horizontalLines, trendLines, trendLinePreview]);
+  }, [aggregatedCandles, chartType, internalPrice, scrollOffset, scale, tradeMarkers, horizontalLines, trendLines, trendLinePreview, selectedTrendLineId]);
 
   // Redraw chart when data changes
   useEffect(() => {
@@ -1083,10 +1110,12 @@ export default function TradingViewChart({
             if (isRealClick) {
               const rect = e.currentTarget.getBoundingClientRect();
               const y = e.clientY - rect.top;
+              const x = e.clientX - rect.left;
               const height = rect.height;
+              const width = rect.width;
               
               // Check if clicked near a horizontal line (within 15px tolerance)
-              const padding = { top: 20, bottom: 45 };
+              const padding = { top: 20, bottom: 45, right: 80 };
               const chartHeight = height - padding.top - padding.bottom;
               
               // Get current min/max price from the canvas data attribute or calculate
@@ -1113,17 +1142,89 @@ export default function TradingViewChart({
                 }
               }
               
-              if (clickedLineId) {
-                // Line was clicked - select/deselect it
+              // Check trend lines for click proximity (endpoints or line itself)
+              let clickedTrendLineId: string | null = null;
+              let clickedPoint: 'start' | 'end' | null = null;
+              const candleWidth = 8 * scale;
+              const candleGap = 4 * scale;
+              const totalCandleWidth = candleWidth + candleGap;
+              const chartRightEdge = width - padding.right;
+              
+              console.log('Checking trend lines:', trendLines.length, 'click at:', { x, y });
+              
+              for (const line of trendLines) {
+                const startY = padding.top + ((maxPrice - line.startPrice) / (maxPrice - minPrice)) * chartHeight;
+                const endY = padding.top + ((maxPrice - line.endPrice) / (maxPrice - minPrice)) * chartHeight;
+                const startX = chartRightEdge - (line.startCandleIndex * totalCandleWidth) + (scrollOffset * scale);
+                const endX = chartRightEdge - (line.endCandleIndex * totalCandleWidth) + (scrollOffset * scale);
+                
+                console.log('Line positions:', { startX, startY, endX, endY, lineId: line.id });
+                
+                // Check if clicked on start endpoint
+                const distToStart = Math.sqrt(Math.pow(x - startX, 2) + Math.pow(y - startY, 2));
+                console.log('Distance to start:', distToStart);
+                if (distToStart <= 20) {
+                  clickedTrendLineId = line.id;
+                  clickedPoint = 'start';
+                  break;
+                }
+                
+                // Check if clicked on end endpoint
+                const distToEnd = Math.sqrt(Math.pow(x - endX, 2) + Math.pow(y - endY, 2));
+                console.log('Distance to end:', distToEnd);
+                if (distToEnd <= 20) {
+                  clickedTrendLineId = line.id;
+                  clickedPoint = 'end';
+                  break;
+                }
+                
+                // Check if clicked on the line itself (using point-to-line distance)
+                const lineLength = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+                if (lineLength > 0) {
+                  const t = Math.max(0, Math.min(1, ((x - startX) * (endX - startX) + (y - startY) * (endY - startY)) / (lineLength * lineLength)));
+                  const nearestX = startX + t * (endX - startX);
+                  const nearestY = startY + t * (endY - startY);
+                  const distToLine = Math.sqrt(Math.pow(x - nearestX, 2) + Math.pow(y - nearestY, 2));
+                  console.log('Distance to line:', distToLine, 'nearest point:', { nearestX, nearestY });
+                  
+                  // Use larger tolerance (25px) for easier selection
+                  if (distToLine <= 25) {
+                    clickedTrendLineId = line.id;
+                    clickedPoint = null; // Line body clicked, not endpoint
+                    break;
+                  }
+                }
+              }
+              
+              if (clickedTrendLineId) {
+                // Trend line was clicked
+                console.log('Trend line clicked:', clickedTrendLineId, 'point:', clickedPoint);
+                if (onTrendLineSelect) {
+                  if (selectedTrendLineId === clickedTrendLineId && !clickedPoint) {
+                    // Clicking on already selected line body deselects it
+                    onTrendLineSelect(null, null);
+                  } else {
+                    onTrendLineSelect(clickedTrendLineId, clickedPoint);
+                  }
+                }
+              } else if (clickedLineId) {
+                // Horizontal line was clicked - select/deselect it
                 console.log('Line clicked:', clickedLineId);
                 if (onLineSelect) {
                   onLineSelect(selectedLineId === clickedLineId ? null : clickedLineId);
                 }
+                // Deselect trend line
+                if (onTrendLineSelect) {
+                  onTrendLineSelect(null, null);
+                }
               } else if (onChartClick) {
                 // No line clicked - trigger chart click for drawing
-                const x = e.clientX - rect.left;
                 console.log('Chart div clicked:', { x, y, height, clientY: e.clientY, rectTop: rect.top });
                 onChartClick(y, height, x);
+                // Deselect all lines
+                if (onTrendLineSelect) {
+                  onTrendLineSelect(null, null);
+                }
               }
             }
             

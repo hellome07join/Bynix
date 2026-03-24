@@ -276,6 +276,8 @@ export default function Trade() {
   const chartContainerRef = useRef<View>(null);
   const [chartContainerLayout, setChartContainerLayout] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
+  const [selectedTrendLineId, setSelectedTrendLineId] = useState<string | null>(null);
+  const [draggingTrendLinePoint, setDraggingTrendLinePoint] = useState<'start' | 'end' | null>(null);
   const [customMinutes, setCustomMinutes] = useState('1');
   const [customSeconds, setCustomSeconds] = useState('0');
   const [demoAddAmount, setDemoAddAmount] = useState('1000');
@@ -1354,7 +1356,31 @@ export default function Trade() {
                 )
               );
             }}
+            onTrendLineSelect={(lineId: string | null, point?: 'start' | 'end' | null) => {
+              setSelectedTrendLineId(lineId);
+              setDraggingTrendLinePoint(point || null);
+              // Deselect horizontal line when selecting trend line
+              if (lineId) {
+                setSelectedLineId(null);
+              }
+              if (lineId) {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }
+            }}
+            onTrendLineMove={(lineId: string, point: 'start' | 'end', newPrice: number, newCandleIndex: number) => {
+              setTrendLines(prev => 
+                prev.map(line => {
+                  if (line.id !== lineId) return line;
+                  if (point === 'start') {
+                    return { ...line, startPrice: newPrice, startCandleIndex: newCandleIndex };
+                  } else {
+                    return { ...line, endPrice: newPrice, endCandleIndex: newCandleIndex };
+                  }
+                })
+              );
+            }}
             selectedLineId={selectedLineId}
+            selectedTrendLineId={selectedTrendLineId}
             authToken={token}
           />
         </View>
@@ -1417,6 +1443,35 @@ export default function Trade() {
             onPress={() => {
               setHorizontalLines(prev => prev.filter(line => line.id !== selectedLineId));
               setSelectedLineId(null);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            }}
+          >
+            <Ionicons name="trash" size={16} color="#fff" />
+            <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>Delete</Text>
+          </TouchableOpacity>
+        )}
+        
+        {/* Delete Button for Selected Trend Line */}
+        {selectedTrendLineId && (
+          <TouchableOpacity
+            style={{
+              position: 'absolute',
+              right: 8,
+              top: '50%',
+              transform: [{ translateY: -20 }],
+              backgroundColor: 'rgba(255, 59, 59, 0.95)',
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              borderRadius: 8,
+              zIndex: 250,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+            }}
+            onPress={() => {
+              setTrendLines(prev => prev.filter(line => line.id !== selectedTrendLineId));
+              setSelectedTrendLineId(null);
+              setDraggingTrendLinePoint(null);
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
             }}
           >
