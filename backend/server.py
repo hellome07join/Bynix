@@ -18,6 +18,7 @@ import socketio
 import asyncio
 import base64
 from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContent
+from tarspay_service import tarspay_service, USD_TO_BDT
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -2773,6 +2774,217 @@ async def get_deposit_history(
             dep["completed_at"] = dep["completed_at"].isoformat()
     
     return {"deposits": deposits}
+
+# ============= TarsPay Payment Gateway (bKash, Nagad) =============
+
+class TarsPayDepositRequest(BaseModel):
+    amount: float = Field(..., description="Amount in USD")
+    channel: str = Field(default="bkash", description="Payment channel: bkash, nagad, bkash_official")
+    phone: Optional[str] = Field(None, description="Customer phone/wallet number")
+
+@api_router.get("/tarspay/channels")
+async def get_tarspay_channels():
+    """Get available TarsPay payment channels (bKash, Nagad)"""
+    channels = tarspay_service.get_channels()
+    return {
+        "success": True,
+        "channels": channels,
+        "exchange_rate": {
+            "usd_to_bdt": USD_TO_BDT,
+            "currency": "BDT"
+        }
+    }
+
+@api_router.post("/tarspay/deposit/create")
+async def create_tarspay_deposit(
+    request: TarsPayDepositRequest,
+    authorization: Optional[str] = Header(None),
+    req: Request = None
+):
+    """Create a deposit order using TarsPay (bKash/Nagad)"""
+    try:
+        user = await get_current_user(authorization, req)
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    # Generate unique order ID
+    order_id = f"BYNIX{user.user_id[:8]}{int(datetime.now().timestamp())}"
+    
+    # Get base URL for callbacks
+    host = req.headers.get("host", "localhost")
+    scheme = "https" if "preview.emergentagent.com" in host else req.url.scheme
+    base_url = f"{scheme}://{host}"
+    
+    notify_url = f"{base_url}/api/tarspay/callback"
+    return_url = f"{base_url}/(tabs)/trade"
+    
+    # Create TarsPay order
+    result = await tarspay_service.create_deposit_order(
+        order_id=order_id,
+        amount_usd=request.amount,
+        channel=request.channel,
+        customer_phone=request.phone,
+        notify_url=notify_url,
+        return_url=return_url
+    )
+    
+    if result.get("success"):
+        # Save deposit record
+        deposit_record = {
+            "user_id": user.user_id,
+            "order_id": order_id,
+            "payment_id": result.get("payment_id"),
+            "amount_usd": request.amount,
+            "amount_bdt": result.get("amount_bdt"),
+            "channel": request.channel,
+            "channel_name": result.get("channel_name"),
+            "pay_url": result.get("pay_url"),
+            "status": "pending",
+            "payment_type": "tarspay",
+            "created_at": datetime.now(timezone.utc),
+        }
+        await db.deposits.insert_one(deposit_record)
+        
+        return {
+            "success": True,
+            "order_id": order_id,
+            "payment_id": result.get("payment_id"),
+            "amount_usd": request.amount,
+            "amount_bdt": result.get("amount_bdt"),
+            "pay_url": result.get("pay_url"),
+            "channel": request.channel,
+            "channel_name": result.get("channel_name")
+        }
+    else:
+        return {
+            "success": False,
+            "error": result.get("error", "Failed to create payment")
+        }
+
+@api_router.get("/tarspay/deposit/status/{order_id}")
+async def get_tarspay_deposit_status(
+    order_id: str,
+    authorization: Optional[str] = Header(None),
+    req: Request = None
+):
+    """Check TarsPay deposit order status"""
+    try:
+        user = await get_current_user(authorization, req)
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    # Get status from TarsPay
+    result = await tarspay_service.get_order_status(order_id)
+    
+    if result.get("success"):
+        # If payment is successful, credit user's balance
+        if result.get("paid") and result.get("status") == "success":
+            deposit = await db.deposits.find_one({
+                "order_id": order_id,
+                "user_id": user.user_id
+            })
+            
+            if deposit and deposit.get("status") != "completed":
+                amount_usd = deposit.get("amount_usd", 0)
+                
+                # Update deposit status
+                await db.deposits.update_one(
+                    {"order_id": order_id},
+                    {
+                        "$set": {
+                            "status": "completed",
+                            "completed_at": datetime.now(timezone.utc)
+                        }
+                    }
+                )
+                
+                # Credit user's balance
+                await db.users.update_one(
+                    {"user_id": user.user_id},
+                    {"$inc": {"real_balance": amount_usd}}
+                )
+                
+                # Create notification
+                await create_notification(
+                    user.user_id,
+                    "Deposit Successful! 💰",
+                    f"${amount_usd:.2f} has been credited to your account via {deposit.get('channel_name', 'bKash/Nagad')}",
+                    "deposit"
+                )
+                
+                print(f"TarsPay: Credited ${amount_usd} to user {user.user_id}")
+        
+        return {
+            "success": True,
+            "order_id": order_id,
+            "status": result.get("status"),
+            "paid": result.get("paid", False)
+        }
+    else:
+        return {
+            "success": False,
+            "error": result.get("error", "Failed to get status")
+        }
+
+@api_router.post("/tarspay/callback")
+async def tarspay_callback(request: Request):
+    """Handle TarsPay payment callback notifications"""
+    try:
+        body = await request.json()
+        signature = request.headers.get("X-RESP-SIGNATURE", "")
+        
+        print(f"TarsPay Callback: {body}")
+        
+        # Verify signature (optional but recommended)
+        # content = json.dumps(body, separators=(',', ':'))
+        # if not tarspay_service.verify_callback_signature(content, signature):
+        #     return Response(content="DENY", status_code=200)
+        
+        order_id = body.get("mchOrderNo")
+        order_state = body.get("orderState")  # 2 = success
+        
+        if order_id and order_state == 2:
+            # Find deposit record
+            deposit = await db.deposits.find_one({"order_id": order_id})
+            
+            if deposit and deposit.get("status") != "completed":
+                user_id = deposit.get("user_id")
+                amount_usd = deposit.get("amount_usd", 0)
+                
+                # Update deposit status
+                await db.deposits.update_one(
+                    {"order_id": order_id},
+                    {
+                        "$set": {
+                            "status": "completed",
+                            "completed_at": datetime.now(timezone.utc),
+                            "callback_data": body
+                        }
+                    }
+                )
+                
+                # Credit user's balance
+                await db.users.update_one(
+                    {"user_id": user_id},
+                    {"$inc": {"real_balance": amount_usd}}
+                )
+                
+                # Create notification
+                await create_notification(
+                    user_id,
+                    "Deposit Successful! 💰",
+                    f"${amount_usd:.2f} has been credited to your account",
+                    "deposit"
+                )
+                
+                print(f"TarsPay Callback: Credited ${amount_usd} to user {user_id}")
+        
+        # Return OK to acknowledge receipt
+        return Response(content="OK", status_code=200)
+        
+    except Exception as e:
+        print(f"TarsPay Callback Error: {e}")
+        return Response(content="OK", status_code=200)
 
 # ============= Chart Data API (Synced across all devices) =============
 
