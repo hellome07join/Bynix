@@ -59,12 +59,6 @@ export default function TabsLayout() {
       />
       {/* Hidden tabs */}
       <Tabs.Screen
-        name="home"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
         name="notifications"
         options={{
           href: null,
