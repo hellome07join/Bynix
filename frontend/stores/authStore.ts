@@ -7,9 +7,12 @@ interface User {
   email: string;
   name: string;
   picture?: string;
+  chart_picture?: string;
   demo_balance: number;
   real_balance: number;
   bonus_balance: number;
+  total_balance?: number;
+  withdrawable_balance?: number;
   is_admin: boolean;
 }
 

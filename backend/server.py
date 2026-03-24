@@ -56,6 +56,7 @@ class User(BaseModel):
     email: EmailStr
     name: str
     picture: Optional[str] = None
+    chart_picture: Optional[str] = None  # Separate picture for chart background
     demo_balance: float = 10000.0
     real_balance: float = 0.0
     # Separate balance tracking for withdrawal rules
@@ -526,6 +527,7 @@ async def get_me(authorization: Optional[str] = Header(None), request: Request =
         "email": user.email,
         "name": user.name,
         "picture": user.picture,
+        "chart_picture": user_doc.get("chart_picture") if user_doc else None,
         "demo_balance": user.demo_balance,
         "real_balance": user.real_balance,
         "deposit_balance": deposit_balance,
@@ -1636,6 +1638,37 @@ async def upload_profile_photo(photo_data: dict, authorization: Optional[str] = 
     )
     
     return {"success": True, "picture": photo_url}
+
+@api_router.post("/profile/chart-picture")
+async def upload_chart_picture(photo_data: dict, authorization: Optional[str] = Header(None), request: Request = None):
+    """Upload chart background picture"""
+    user = await get_current_user(authorization, request)
+    
+    photo_base64 = photo_data.get("photo_base64")
+    if not photo_base64:
+        raise HTTPException(status_code=400, detail="No photo provided")
+    
+    # Store the photo as base64
+    photo_url = f"data:image/jpeg;base64,{photo_base64}"
+    
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {"chart_picture": photo_url}}
+    )
+    
+    return {"success": True, "chart_picture": photo_url}
+
+@api_router.delete("/profile/chart-picture")
+async def delete_chart_picture(authorization: Optional[str] = Header(None), request: Request = None):
+    """Delete chart background picture"""
+    user = await get_current_user(authorization, request)
+    
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {"chart_picture": None}}
+    )
+    
+    return {"success": True}
 
 
 # ============= KYC Document Verification Routes =============

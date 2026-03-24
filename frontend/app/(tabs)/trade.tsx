@@ -1148,14 +1148,14 @@ export default function Trade() {
       
       {/* Chart Area - Takes remaining space */}
       <View style={styles.chartContainer}>
-        {/* User Profile Picture as Background */}
-        {user?.picture ? (
+        {/* User Chart Picture as Background */}
+        {user?.chart_picture ? (
           <Image 
-            source={{ uri: user.picture }}
+            source={{ uri: user.chart_picture }}
             style={styles.chartBackgroundImage}
             blurRadius={3}
             onError={(e) => console.log('Image load error:', e.nativeEvent.error)}
-            onLoad={() => console.log('Profile image loaded successfully')}
+            onLoad={() => console.log('Chart background image loaded successfully')}
           />
         ) : null}
         {/* TradingView Chart */}

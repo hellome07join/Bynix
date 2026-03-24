@@ -1785,6 +1785,105 @@ export default function Profile() {
 
     return (
       <>
+        {/* Chart Background Section */}
+        <View style={styles.settingsSection}>
+          <Text style={styles.settingsSectionTitle}>Chart Background</Text>
+          <Text style={styles.settingsSectionSubtitle}>Customize your trading chart appearance</Text>
+
+          {/* Current Chart Picture */}
+          <View style={styles.chartPictureContainer}>
+            {user?.chart_picture ? (
+              <Image 
+                source={{ uri: user.chart_picture }} 
+                style={styles.chartPicturePreview}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={styles.chartPicturePlaceholder}>
+                <Ionicons name="image-outline" size={40} color="#444" />
+                <Text style={styles.chartPicturePlaceholderText}>No chart background set</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Upload/Change Button */}
+          <TouchableOpacity 
+            style={styles.chartPictureUploadBtn}
+            onPress={async () => {
+              try {
+                const ImagePicker = await import('expo-image-picker');
+                const result = await ImagePicker.launchImageLibraryAsync({
+                  mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                  allowsEditing: true,
+                  aspect: [16, 9],
+                  quality: 0.8,
+                  base64: true,
+                });
+
+                if (!result.canceled && result.assets[0].base64) {
+                  const response = await fetch(`${API_URL}/profile/chart-picture`, {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      photo_base64: result.assets[0].base64,
+                    }),
+                  });
+
+                  if (response.ok) {
+                    const data = await response.json();
+                    if (user) {
+                      setUser({ ...user, chart_picture: data.chart_picture });
+                    }
+                    Alert.alert('Success', 'Chart background updated!');
+                  } else {
+                    Alert.alert('Error', 'Failed to upload image');
+                  }
+                }
+              } catch (error) {
+                console.error('Error uploading chart picture:', error);
+                Alert.alert('Error', 'Failed to upload image');
+              }
+            }}
+          >
+            <Ionicons name="cloud-upload" size={20} color="#0A0A0A" />
+            <Text style={styles.chartPictureUploadBtnText}>
+              {user?.chart_picture ? 'Change Background' : 'Upload Background'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Remove Button */}
+          {user?.chart_picture && (
+            <TouchableOpacity 
+              style={styles.chartPictureRemoveBtn}
+              onPress={async () => {
+                try {
+                  const response = await fetch(`${API_URL}/profile/chart-picture`, {
+                    method: 'DELETE',
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                    },
+                  });
+
+                  if (response.ok) {
+                    if (user) {
+                      setUser({ ...user, chart_picture: undefined });
+                    }
+                    Alert.alert('Success', 'Chart background removed');
+                  }
+                } catch (error) {
+                  console.error('Error removing chart picture:', error);
+                }
+              }}
+            >
+              <Ionicons name="trash-outline" size={18} color="#FF3B3B" />
+              <Text style={styles.chartPictureRemoveBtnText}>Remove Background</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
         {/* Notifications Section */}
         <View style={styles.settingsSection}>
           <Text style={styles.settingsSectionTitle}>Notifications</Text>
@@ -4513,5 +4612,61 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  // Chart Picture Styles
+  chartPictureContainer: {
+    marginVertical: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  chartPicturePreview: {
+    width: '100%',
+    height: 150,
+    backgroundColor: '#0A0A0A',
+  },
+  chartPicturePlaceholder: {
+    width: '100%',
+    height: 150,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 10,
+  },
+  chartPicturePlaceholderText: {
+    color: '#666',
+    fontSize: 13,
+  },
+  chartPictureUploadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#00E55A',
+    borderRadius: 10,
+    paddingVertical: 14,
+    gap: 8,
+    marginBottom: 10,
+  },
+  chartPictureUploadBtnText: {
+    color: '#0A0A0A',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  chartPictureRemoveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 59, 59, 0.15)',
+    borderRadius: 10,
+    paddingVertical: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 59, 59, 0.3)',
+  },
+  chartPictureRemoveBtnText: {
+    color: '#FF3B3B',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
