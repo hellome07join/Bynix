@@ -1896,7 +1896,7 @@ export default function Trade() {
                     <View style={depositModalStyles.qrContainer}>
                       <QRCode
                         value={generatedAddress || 'bitcoin:address'}
-                        size={180}
+                        size={120}
                         backgroundColor="#FFFFFF"
                         color="#000000"
                       />
@@ -5260,9 +5260,9 @@ const depositModalStyles = StyleSheet.create({
   // QR Code Section
   qrContainer: {
     backgroundColor: '#FFFFFF',
-    padding: 10,
-    borderRadius: 12,
-    marginBottom: 12,
+    padding: 8,
+    borderRadius: 10,
+    marginBottom: 8,
     alignSelf: 'center',
   },
   // Payment Info Cards
