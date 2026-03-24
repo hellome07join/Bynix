@@ -163,7 +163,7 @@ export default function TradingViewChart({
   });
   const [error, setError] = useState<string | null>(null);
   const [scrollOffset, setScrollOffset] = useState(0);
-  const [scale, setScale] = useState(1);
+  const [scale, setScale] = useState(0.8);  // Slightly zoomed out for more candles
   const [targetScale, setTargetScale] = useState(1);
   const [targetScrollOffset, setTargetScrollOffset] = useState(0);
   const priceTickerRef = useRef<any>(null);
@@ -525,9 +525,9 @@ export default function TradingViewChart({
     ctx.fillStyle = 'rgba(10, 10, 10, 0.7)';
     ctx.fillRect(0, 0, width, height);
     
-    // Calculate visible candles
-    const baseBarWidth = 10 * scale;
-    const barSpacing = 2 * scale;
+    // Calculate visible candles - Optimized for 24hr professional view
+    const baseBarWidth = 5 * scale;  // Smaller candles for more data
+    const barSpacing = 1.5 * scale;   // Tighter spacing
     const totalBarWidth = baseBarWidth + barSpacing;
     const visibleCandles = Math.floor(chartWidth / totalBarWidth);
     
@@ -745,8 +745,8 @@ export default function TradingViewChart({
       
       // Calculate X positions from candle indices - accounting for scroll and scale
       // Candles are drawn from right to left, so we need to invert the calculation
-      const candleWidth = 8 * scale;
-      const candleGap = 4 * scale;
+      const candleWidth = 5 * scale;  // Match main chart candle width
+      const candleGap = 1.5 * scale;  // Match main chart spacing
       const totalCandleWidth = candleWidth + candleGap;
       
       // Calculate X positions based on candle indices
@@ -814,8 +814,8 @@ export default function TradingViewChart({
       const startY = padding.top + ((maxPrice - trendLinePreview.startPrice) / (maxPrice - minPrice)) * chartHeight;
       const endY = padding.top + ((maxPrice - trendLinePreview.endPrice) / (maxPrice - minPrice)) * chartHeight;
       
-      const candleWidth = 8 * scale;
-      const candleGap = 4 * scale;
+      const candleWidth = 5 * scale;  // Match main chart candle width
+      const candleGap = 1.5 * scale;  // Match main chart spacing
       const totalCandleWidth = candleWidth + candleGap;
       const chartRightEdge = width - padding.right;
       
