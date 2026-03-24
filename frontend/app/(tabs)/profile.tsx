@@ -1510,24 +1510,6 @@ export default function Profile() {
             </View>
           </View>
 
-          {/* Quick Actions */}
-          <View style={styles.financeQuickActions}>
-            <TouchableOpacity 
-              style={styles.depositBonusBtn}
-              onPress={() => setShowDepositModal(true)}
-            >
-              <Ionicons name="gift" size={20} color="#0A0A0A" />
-              <Text style={styles.depositBonusBtnText}>200% Deposit</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.financeQuickBtn, { backgroundColor: '#FF3B3B' }]}
-              onPress={() => setShowWithdrawModal(true)}
-            >
-              <Ionicons name="remove-circle" size={22} color="#FFFFFF" />
-              <Text style={[styles.financeQuickBtnText, { color: '#FFFFFF' }]}>Withdraw</Text>
-            </TouchableOpacity>
-          </View>
-
           {/* All Transactions Section */}
           <View style={styles.financeHistoryHeader}>
             <View style={styles.financeHistoryTitleRow}>
