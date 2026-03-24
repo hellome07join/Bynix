@@ -2,6 +2,9 @@ import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { View, StyleSheet, Text, Platform, ActivityIndicator } from 'react-native';
 import Constants from 'expo-constants';
 
+// Constants for chart interactions
+const SCROLL_SENSITIVITY = 0.5;
+
 interface TradeMarker {
   id: string;
   entryPrice: number;
@@ -21,8 +24,8 @@ interface TrendLine {
   id: string;
   startPrice: number;
   endPrice: number;
-  startX: number;
-  endX: number;
+  startCandleIndex: number;  // Index relative to data, moves with scroll
+  endCandleIndex: number;
   color?: string;
 }
 
@@ -716,17 +719,33 @@ export default function TradingViewChart({
     });
     
     // Draw trend lines
-    console.log('Drawing trend lines:', trendLines.length);
+    console.log('Drawing trend lines:', trendLines.length, 'scrollOffset:', scrollOffset, 'scale:', scale);
     trendLines.forEach((line, index) => {
       // Calculate Y positions from prices
       const startY = padding.top + ((maxPrice - line.startPrice) / (maxPrice - minPrice)) * chartHeight;
       const endY = padding.top + ((maxPrice - line.endPrice) / (maxPrice - minPrice)) * chartHeight;
       
-      // X positions are stored directly as pixel values relative to chart
-      const startX = line.startX;
-      const endX = line.endX;
+      // Calculate X positions from candle indices - accounting for scroll and scale
+      // Candles are drawn from right to left, so we need to invert the calculation
+      const candleWidth = 8 * scale;
+      const candleGap = 4 * scale;
+      const totalCandleWidth = candleWidth + candleGap;
       
-      console.log('Trend line', index, 'start:', { x: startX, y: startY }, 'end:', { x: endX, y: endY });
+      // Calculate X positions based on candle indices
+      // Index 0 is the most recent candle (rightmost)
+      const chartRightEdge = width - padding.right;
+      const startX = chartRightEdge - (line.startCandleIndex * totalCandleWidth) + (scrollOffset * scale);
+      const endX = chartRightEdge - (line.endCandleIndex * totalCandleWidth) + (scrollOffset * scale);
+      
+      console.log('Trend line', index, 'candleIndices:', { start: line.startCandleIndex, end: line.endCandleIndex }, 'positions:', { startX, endX, startY, endY });
+      
+      // Only draw if at least part of the line is visible
+      const minX = Math.min(startX, endX);
+      const maxX = Math.max(startX, endX);
+      if (maxX < padding.left || minX > width - padding.right) {
+        console.log('Trend line', index, 'is outside visible area');
+        return; // Skip drawing if completely outside
+      }
       
       // Draw the trend line
       ctx.strokeStyle = line.color || '#00E55A';
@@ -737,14 +756,18 @@ export default function TradingViewChart({
       ctx.lineTo(endX, endY);
       ctx.stroke();
       
-      // Draw circles at endpoints
+      // Draw circles at endpoints (only if visible)
       ctx.fillStyle = line.color || '#00E55A';
-      ctx.beginPath();
-      ctx.arc(startX, startY, 4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(endX, endY, 4, 0, Math.PI * 2);
-      ctx.fill();
+      if (startX >= padding.left && startX <= width - padding.right) {
+        ctx.beginPath();
+        ctx.arc(startX, startY, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      if (endX >= padding.left && endX <= width - padding.right) {
+        ctx.beginPath();
+        ctx.arc(endX, endY, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
     });
     
   }, [aggregatedCandles, chartType, internalPrice, scrollOffset, scale, tradeMarkers, horizontalLines, trendLines]);

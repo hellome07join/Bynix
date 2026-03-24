@@ -268,8 +268,8 @@ export default function Trade() {
   const [selectedDrawTool, setSelectedDrawTool] = useState<string | null>(null);
   const [chartType, setChartType] = useState<'candle' | 'line' | 'bar'>('candle');
   const [horizontalLines, setHorizontalLines] = useState<{id: string, price: number, selected?: boolean}[]>([]);
-  const [trendLines, setTrendLines] = useState<{id: string, startPrice: number, endPrice: number, startTime: number, endTime: number}[]>([]);
-  const [trendLineStartPoint, setTrendLineStartPoint] = useState<{price: number, time: number} | null>(null);
+  const [trendLines, setTrendLines] = useState<{id: string, startPrice: number, endPrice: number, startCandleIndex: number, endCandleIndex: number}[]>([]);
+  const [trendLineStartPoint, setTrendLineStartPoint] = useState<{price: number, candleIndex: number} | null>(null);
   const [chartDimensions, setChartDimensions] = useState({width: 0, height: 0});
   const [priceRange, setPriceRange] = useState({ min: 0, max: 0 });
   const chartContainerRef = useRef<View>(null);
@@ -1270,20 +1270,34 @@ export default function Trade() {
               } 
               // Handle trend line drawing - needs two clicks
               else if (selectedDrawTool === 'trendline' && priceRange.max > priceRange.min && x !== undefined) {
+                // Calculate candle index from x position
+                // Candles are drawn from right to left
+                // candleWidth = 8 * scale, candleGap = 4 * scale
+                const scale = 1; // Default scale (we should ideally pass this from TradingViewChart)
+                const candleWidth = 8 * scale;
+                const candleGap = 4 * scale;
+                const totalCandleWidth = candleWidth + candleGap;
+                const chartWidth = chartDimensions.width || 390;
+                const paddingRight = 80;
+                const chartRightEdge = chartWidth - paddingRight;
+                
+                // Calculate which candle index the click corresponds to
+                const candleIndex = Math.round((chartRightEdge - x) / totalCandleWidth);
+                
                 if (!trendLineStartPoint) {
                   // First click - set start point
-                  console.log('Trend line start point:', { x, price });
-                  setTrendLineStartPoint({ price, time: x });
+                  console.log('Trend line start point:', { x, candleIndex, price });
+                  setTrendLineStartPoint({ price, candleIndex });
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 } else {
                   // Second click - create the trend line
-                  console.log('Trend line end point:', { x, price });
+                  console.log('Trend line end point:', { x, candleIndex, price });
                   const newTrendLine = {
                     id: `trend_${Date.now()}`,
                     startPrice: trendLineStartPoint.price,
                     endPrice: price,
-                    startX: trendLineStartPoint.time,
-                    endX: x
+                    startCandleIndex: trendLineStartPoint.candleIndex,
+                    endCandleIndex: candleIndex
                   };
                   setTrendLines(prev => [...prev, newTrendLine]);
                   setTrendLineStartPoint(null);
