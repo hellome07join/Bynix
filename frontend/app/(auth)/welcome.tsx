@@ -10,6 +10,7 @@ import {
   Animated,
   Easing,
   ScrollView,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -373,10 +374,14 @@ export default function Welcome() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header with Start Trading Button */}
+        {/* Header with Logo and Start Trading Button */}
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <Text style={styles.logo}>BYNIX</Text>
+            <Image 
+              source={require('../../assets/images/bynix-logo.png')} 
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
             <View style={styles.taglineContainer}>
               <Text style={styles.tagline}>Trade Smarter</Text>
               <Text style={styles.taglineHighlight}>Win Bigger</Text>
@@ -614,11 +619,10 @@ const styles = StyleSheet.create({
   logoContainer: {
     flex: 1,
   },
-  logo: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#00E55A',
-    letterSpacing: 4,
+  logoImage: {
+    width: 140,
+    height: 50,
+    marginBottom: 6,
   },
   taglineContainer: {
     flexDirection: 'row',
