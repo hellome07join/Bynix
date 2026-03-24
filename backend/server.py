@@ -58,6 +58,11 @@ class User(BaseModel):
     picture: Optional[str] = None
     demo_balance: float = 10000.0
     real_balance: float = 0.0
+    # Separate balance tracking for withdrawal rules
+    deposit_balance: float = 0.0  # Amount deposited
+    bonus_balance: float = 0.0    # Bonus received (not withdrawable)
+    profit_balance: float = 0.0   # Profit from trades (withdrawable)
+    has_withdrawn: bool = False   # If user has ever withdrawn, bonus is forfeited
     is_admin: bool = False
     created_at: datetime
 
@@ -497,9 +502,24 @@ async def get_me(authorization: Optional[str] = Header(None), request: Request =
     """Get current user info"""
     user = await get_current_user(authorization, request)
     
-    # Get user document to fetch bonus_balance
+    # Get user document to fetch all balance fields
     user_doc = await db.users.find_one({"user_id": user.user_id})
-    bonus_balance = user_doc.get("bonus_balance", 0) if user_doc else 0
+    if user_doc:
+        deposit_balance = user_doc.get("deposit_balance", 0)
+        bonus_balance = user_doc.get("bonus_balance", 0)
+        profit_balance = user_doc.get("profit_balance", 0)
+        has_withdrawn = user_doc.get("has_withdrawn", False)
+    else:
+        deposit_balance = 0
+        bonus_balance = 0
+        profit_balance = 0
+        has_withdrawn = False
+    
+    # Total balance in account (includes bonus)
+    total_balance = deposit_balance + bonus_balance + profit_balance
+    
+    # Available for withdrawal (deposit + profit only, no bonus)
+    withdrawable_balance = deposit_balance + profit_balance
     
     return {
         "user_id": user.user_id,
@@ -508,9 +528,12 @@ async def get_me(authorization: Optional[str] = Header(None), request: Request =
         "picture": user.picture,
         "demo_balance": user.demo_balance,
         "real_balance": user.real_balance,
+        "deposit_balance": deposit_balance,
         "bonus_balance": bonus_balance,
-        "total_balance": user.real_balance + bonus_balance,  # For display
-        "withdrawable_balance": user.real_balance,  # Only real balance can be withdrawn
+        "profit_balance": profit_balance,
+        "total_balance": total_balance,
+        "withdrawable_balance": withdrawable_balance,
+        "has_withdrawn": has_withdrawn,
         "is_admin": user.is_admin
     }
 

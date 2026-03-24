@@ -2091,10 +2091,10 @@ export default function Profile() {
           <View style={styles.withdrawModalContent}>
             {/* Header */}
             <View style={styles.withdrawModalHeader}>
-              <Text style={styles.withdrawModalTitle}>Withdraw Funds</Text>
+              <Text style={styles.withdrawModalTitle}>Withdraw</Text>
               <TouchableOpacity onPress={() => {
                 setShowWithdrawModal(false);
-                setWithdrawAmount('100');
+                setWithdrawAmount('10');
                 setWithdrawAddress('');
               }}>
                 <Ionicons name="close" size={24} color="#FFFFFF" />
@@ -2102,80 +2102,97 @@ export default function Profile() {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Available Balance */}
-              <View style={styles.withdrawBalanceCard}>
-                <Text style={styles.withdrawBalanceLabel}>Available Balance</Text>
-                <Text style={styles.withdrawBalanceValue}>${user?.real_balance?.toFixed(2) || '0.00'}</Text>
+              {/* Account Section */}
+              <Text style={styles.withdrawSectionTitle}>Account:</Text>
+              
+              {/* In the account */}
+              <View style={styles.withdrawAccountRow}>
+                <Text style={styles.withdrawAccountLabel}>In the account:</Text>
+                <Text style={styles.withdrawAccountValue}>
+                  {(user?.total_balance || user?.real_balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $
+                </Text>
               </View>
-
-              {/* Withdrawal Amount */}
-              <Text style={styles.withdrawLabel}>Withdrawal Amount</Text>
-              <View style={styles.withdrawAmountBox}>
-                <Text style={styles.withdrawAmountPrefix}>$</Text>
-                <TextInput
-                  style={styles.withdrawAmountInput}
-                  value={withdrawAmount}
-                  onChangeText={setWithdrawAmount}
-                  keyboardType="numeric"
-                  placeholder="0"
-                  placeholderTextColor="#444"
-                />
-              </View>
-
-              {/* Quick Amounts */}
-              <View style={styles.withdrawQuickAmounts}>
-                {['25', '50', '100', '250'].map((amt) => (
-                  <TouchableOpacity
-                    key={amt}
-                    style={[styles.withdrawQuickBtn, withdrawAmount === amt && styles.withdrawQuickBtnActive]}
-                    onPress={() => setWithdrawAmount(amt)}
-                  >
-                    <Text style={[styles.withdrawQuickBtnText, withdrawAmount === amt && styles.withdrawQuickBtnTextActive]}>
-                      ${amt}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-                <TouchableOpacity
-                  style={[styles.withdrawQuickBtn, { backgroundColor: 'rgba(255, 59, 59, 0.2)', borderColor: '#FF3B3B' }]}
-                  onPress={() => setWithdrawAmount(user?.real_balance?.toString() || '0')}
-                >
-                  <Text style={[styles.withdrawQuickBtnText, { color: '#FF3B3B' }]}>Max</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Wallet Address */}
-              <Text style={styles.withdrawLabel}>Wallet Address (USDT TRC20)</Text>
-              <TextInput
-                style={styles.withdrawAddressInput}
-                placeholder="Enter your USDT TRC20 address"
-                placeholderTextColor="#666"
-                value={withdrawAddress}
-                onChangeText={setWithdrawAddress}
-              />
-
-              {/* Fee Info */}
-              <View style={styles.withdrawFeeRow}>
-                <Text style={styles.withdrawFeeLabel}>Network Fee:</Text>
-                <Text style={styles.withdrawFeeValue}>FREE</Text>
-              </View>
-              <View style={styles.withdrawFeeRow}>
-                <Text style={styles.withdrawFeeLabel}>You will receive:</Text>
-                <Text style={styles.withdrawReceiveValue}>${withdrawAmount || '0'} USDT</Text>
-              </View>
-
-              {/* Info Box */}
-              <View style={styles.withdrawInfoBox}>
-                <Ionicons name="information-circle" size={20} color="#888" />
-                <Text style={styles.withdrawInfoBoxText}>
-                  Minimum withdrawal: $10. Withdrawals are processed within 24 hours.
+              
+              {/* Divider */}
+              <View style={styles.withdrawDivider} />
+              
+              {/* Available for withdrawal */}
+              <View style={styles.withdrawAccountRow}>
+                <Text style={styles.withdrawAccountLabel}>Available for withdrawal:</Text>
+                <Text style={styles.withdrawAccountValueBold}>
+                  {(user?.withdrawable_balance || user?.real_balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $
                 </Text>
               </View>
 
-              {/* Request Withdrawal Button */}
+              {/* Bonus Warning */}
+              {(user?.bonus_balance || 0) > 0 && (
+                <View style={styles.withdrawBonusWarning}>
+                  <Ionicons name="warning" size={16} color="#FFB800" />
+                  <Text style={styles.withdrawBonusWarningText}>
+                    Bonus balance (${user?.bonus_balance?.toFixed(2)}) is not withdrawable. Withdrawing will forfeit your bonus.
+                  </Text>
+                </View>
+              )}
+
+              {/* Withdrawal Section */}
+              <Text style={[styles.withdrawSectionTitle, { marginTop: 24 }]}>Withdrawal:</Text>
+              
+              {/* Amount Input */}
+              <View style={styles.withdrawInputGroup}>
+                <Text style={styles.withdrawInputLabel}>Amount</Text>
+                <View style={styles.withdrawAmountRow}>
+                  <TextInput
+                    style={styles.withdrawAmountInputNew}
+                    value={withdrawAmount}
+                    onChangeText={setWithdrawAmount}
+                    keyboardType="numeric"
+                    placeholder="10"
+                    placeholderTextColor="#666"
+                  />
+                  <Text style={styles.withdrawAmountCurrency}>USD</Text>
+                </View>
+              </View>
+
+              {/* Payment Method */}
+              <View style={styles.withdrawInputGroup}>
+                <Text style={styles.withdrawInputLabel}>Payment method</Text>
+                <TouchableOpacity style={styles.withdrawPaymentSelect}>
+                  <View style={styles.withdrawPaymentLeft}>
+                    <Text style={styles.withdrawUsdtIcon}>₮</Text>
+                    <Text style={styles.withdrawPaymentText}>USDT</Text>
+                  </View>
+                  <Ionicons name="chevron-down" size={20} color="#888" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Purse (Wallet Address) */}
+              <View style={styles.withdrawInputGroup}>
+                <Text style={styles.withdrawInputLabel}>Purse</Text>
+                <TextInput
+                  style={styles.withdrawPurseInput}
+                  placeholder="Enter your wallet address"
+                  placeholderTextColor="#666"
+                  value={withdrawAddress}
+                  onChangeText={setWithdrawAddress}
+                />
+              </View>
+
+              {/* Network */}
+              <View style={styles.withdrawInputGroup}>
+                <Text style={styles.withdrawInputLabel}>Network</Text>
+                <TouchableOpacity style={styles.withdrawNetworkSelect}>
+                  <Text style={styles.withdrawNetworkText}>TRC20</Text>
+                  <Ionicons name="chevron-down" size={20} color="#888" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Confirm Button */}
               <TouchableOpacity 
-                style={styles.withdrawRequestBtn}
+                style={styles.withdrawConfirmBtn}
                 onPress={() => {
                   const amount = parseFloat(withdrawAmount);
+                  const withdrawable = user?.withdrawable_balance || user?.real_balance || 0;
+                  
                   if (amount < 10) {
                     Alert.alert('Invalid Amount', 'Minimum withdrawal is $10');
                     return;
@@ -2184,8 +2201,8 @@ export default function Profile() {
                     Alert.alert('Invalid Address', 'Please enter a valid wallet address');
                     return;
                   }
-                  if (amount > (user?.real_balance || 0)) {
-                    Alert.alert('Insufficient Balance', 'You do not have enough balance');
+                  if (amount > withdrawable) {
+                    Alert.alert('Insufficient Balance', `You can only withdraw up to $${withdrawable.toFixed(2)}`);
                     return;
                   }
                   
@@ -2195,12 +2212,12 @@ export default function Profile() {
                   setTimeout(() => {
                     setIsProcessingWithdraw(false);
                     setShowWithdrawModal(false);
-                    setWithdrawAmount('100');
+                    setWithdrawAmount('10');
                     setWithdrawAddress('');
                     
                     Alert.alert(
                       'Withdrawal Request Submitted',
-                      'Your withdrawal request is being processed. Processing time: 24-72 hours. You can track the status in your transaction history.',
+                      'Your withdrawal request is being processed.\n\nProcessing time: 24-72 hours.\n\nYou can track the status in your transaction history.',
                       [{ text: 'OK' }]
                     );
                   }, 1500);
@@ -2211,8 +2228,8 @@ export default function Profile() {
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <>
-                    <Ionicons name="arrow-up-circle" size={20} color="#FFFFFF" />
-                    <Text style={styles.withdrawRequestBtnText}>Request Withdrawal</Text>
+                    <Text style={styles.withdrawConfirmBtnText}>Confirm</Text>
+                    <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
                   </>
                 )}
               </TouchableOpacity>
@@ -4357,6 +4374,142 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   withdrawRequestBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  // New Withdraw Modal Styles (Reference Design)
+  withdrawSectionTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  withdrawAccountRow: {
+    paddingVertical: 12,
+  },
+  withdrawAccountLabel: {
+    color: '#888',
+    fontSize: 14,
+    marginBottom: 6,
+  },
+  withdrawAccountValue: {
+    color: '#FFFFFF',
+    fontSize: 26,
+    fontWeight: '700',
+  },
+  withdrawAccountValueBold: {
+    color: '#FFFFFF',
+    fontSize: 26,
+    fontWeight: '700',
+  },
+  withdrawDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginVertical: 8,
+  },
+  withdrawBonusWarning: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(255, 184, 0, 0.1)',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    gap: 10,
+  },
+  withdrawBonusWarningText: {
+    color: '#FFB800',
+    fontSize: 12,
+    flex: 1,
+    lineHeight: 18,
+  },
+  withdrawInputGroup: {
+    marginTop: 16,
+  },
+  withdrawInputLabel: {
+    color: '#888',
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  withdrawAmountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    overflow: 'hidden',
+  },
+  withdrawAmountInputNew: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
+    padding: 16,
+  },
+  withdrawAmountCurrency: {
+    color: '#888',
+    fontSize: 14,
+    paddingRight: 16,
+  },
+  withdrawPaymentSelect: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  withdrawPaymentLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  withdrawUsdtIcon: {
+    fontSize: 20,
+    color: '#26A17B',
+  },
+  withdrawPaymentText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  withdrawPurseInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+    padding: 16,
+    color: '#FFFFFF',
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  withdrawNetworkSelect: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  withdrawNetworkText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+  },
+  withdrawConfirmBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#00A3FF',
+    borderRadius: 10,
+    paddingVertical: 18,
+    marginTop: 24,
+    gap: 10,
+  },
+  withdrawConfirmBtnText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
