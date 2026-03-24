@@ -439,7 +439,7 @@ export default function Profile() {
       const confirmed = window.confirm('Are you sure you want to sign out?');
       if (confirmed) {
         logout();
-        router.replace('/');
+        router.replace('/(auth)/welcome');
       }
     } else {
       Alert.alert(
@@ -452,7 +452,7 @@ export default function Profile() {
             style: 'destructive',
             onPress: () => {
               logout();
-              router.replace('/');
+              router.replace('/(auth)/welcome');
             }
           },
         ]
