@@ -1024,7 +1024,7 @@ export default function Trade() {
           onPress={() => setShowTradeHistory(true)}
         >
           <Ionicons name="time" size={16} color="#FFB800" />
-          <Text style={styles.tradeHistoryBtnText}>Trade History</Text>
+          <Text style={styles.tradeHistoryBtnText}>Trade</Text>
           {activeTrades.length > 0 && (
             <View style={styles.runningBadge}>
               <Text style={styles.runningBadgeText}>{activeTrades.length}</Text>
