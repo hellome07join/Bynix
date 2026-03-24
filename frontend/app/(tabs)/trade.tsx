@@ -221,7 +221,8 @@ export default function Trade() {
   
   // Get actual balance (use local if no user)
   const demoBalance = user?.demo_balance ?? localDemoBalance;
-  const realBalance = user?.real_balance ?? 0;
+  // For real account, use total_balance which includes deposit + bonus + profit
+  const realBalance = user?.total_balance ?? user?.real_balance ?? 0;
   const currentBalance = accountType === 'demo' ? demoBalance : realBalance;
   
   // Onboarding Tutorial State
@@ -746,8 +747,18 @@ export default function Trade() {
       return;
     }
 
+    // Debug log for balance check
+    console.log('=== BALANCE CHECK ===');
+    console.log('accountType:', accountType);
+    console.log('user?.total_balance:', user?.total_balance);
+    console.log('user?.real_balance:', user?.real_balance);
+    console.log('currentBalance:', currentBalance);
+    console.log('tradeAmount:', tradeAmount);
+    console.log('tradeAmount > currentBalance:', tradeAmount > currentBalance);
+
     // Check balance - Show insufficient balance popup with deposit option
     if (tradeAmount > currentBalance) {
+      console.log('>>> INSUFFICIENT BALANCE - Showing popup');
       Alert.alert(
         '💰 Insufficient Balance',
         `You have $${currentBalance.toFixed(2)} but trying to trade $${tradeAmount.toFixed(2)}.\n\nPlease deposit funds to continue trading.`,
