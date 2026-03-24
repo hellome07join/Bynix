@@ -49,11 +49,11 @@ export default function IndicatorModal({
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Indicators</Text>
             <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close-circle" size={28} color="#666" />
+              <Ionicons name="close-circle" size={22} color="#666" />
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={{ maxHeight: 400 }}>
+          <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
             {/* Trend Indicators */}
             <View style={styles.toolsSection}>
               <Text style={styles.toolsSectionTitle}>Trend Indicators</Text>
@@ -64,7 +64,7 @@ export default function IndicatorModal({
                   onPress={() => toggleIndicator('ma')}
                 >
                   <View style={[styles.indicatorIcon, { backgroundColor: 'rgba(0, 229, 90, 0.1)' }]}>
-                    <Ionicons name="analytics" size={20} color="#00E55A" />
+                    <Ionicons name="analytics" size={16} color="#00E55A" />
                   </View>
                   <View style={styles.indicatorInfo}>
                     <Text style={styles.indicatorName}>Moving Average (MA)</Text>
@@ -75,6 +75,7 @@ export default function IndicatorModal({
                     onValueChange={(value) => setActiveIndicators(prev => ({ ...prev, ma: value }))}
                     trackColor={{ false: '#333', true: 'rgba(0, 229, 90, 0.5)' }}
                     thumbColor={activeIndicators.ma ? '#00E55A' : '#666'}
+                    style={styles.switch}
                   />
                 </TouchableOpacity>
                 
@@ -84,7 +85,7 @@ export default function IndicatorModal({
                   onPress={() => toggleIndicator('bollingerBands')}
                 >
                   <View style={[styles.indicatorIcon, { backgroundColor: 'rgba(255, 184, 0, 0.1)' }]}>
-                    <Ionicons name="trending-up" size={20} color="#FFB800" />
+                    <Ionicons name="trending-up" size={16} color="#FFB800" />
                   </View>
                   <View style={styles.indicatorInfo}>
                     <Text style={styles.indicatorName}>Bollinger Bands</Text>
@@ -95,6 +96,7 @@ export default function IndicatorModal({
                     onValueChange={(value) => setActiveIndicators(prev => ({ ...prev, bollingerBands: value }))}
                     trackColor={{ false: '#333', true: 'rgba(255, 184, 0, 0.5)' }}
                     thumbColor={activeIndicators.bollingerBands ? '#FFB800' : '#666'}
+                    style={styles.switch}
                   />
                 </TouchableOpacity>
               </View>
@@ -110,7 +112,7 @@ export default function IndicatorModal({
                   onPress={() => toggleIndicator('rsi')}
                 >
                   <View style={[styles.indicatorIcon, { backgroundColor: 'rgba(255, 107, 107, 0.1)' }]}>
-                    <Ionicons name="pulse" size={20} color="#FF6B6B" />
+                    <Ionicons name="pulse" size={16} color="#FF6B6B" />
                   </View>
                   <View style={styles.indicatorInfo}>
                     <Text style={styles.indicatorName}>RSI (14)</Text>
@@ -121,6 +123,7 @@ export default function IndicatorModal({
                     onValueChange={(value) => setActiveIndicators(prev => ({ ...prev, rsi: value }))}
                     trackColor={{ false: '#333', true: 'rgba(255, 107, 107, 0.5)' }}
                     thumbColor={activeIndicators.rsi ? '#FF6B6B' : '#666'}
+                    style={styles.switch}
                   />
                 </TouchableOpacity>
                 
@@ -130,7 +133,7 @@ export default function IndicatorModal({
                   onPress={() => toggleIndicator('macd')}
                 >
                   <View style={[styles.indicatorIcon, { backgroundColor: 'rgba(155, 89, 182, 0.1)' }]}>
-                    <Ionicons name="bar-chart" size={20} color="#9B59B6" />
+                    <Ionicons name="bar-chart" size={16} color="#9B59B6" />
                   </View>
                   <View style={styles.indicatorInfo}>
                     <Text style={styles.indicatorName}>MACD</Text>
@@ -141,6 +144,7 @@ export default function IndicatorModal({
                     onValueChange={(value) => setActiveIndicators(prev => ({ ...prev, macd: value }))}
                     trackColor={{ false: '#333', true: 'rgba(155, 89, 182, 0.5)' }}
                     thumbColor={activeIndicators.macd ? '#9B59B6' : '#666'}
+                    style={styles.switch}
                   />
                 </TouchableOpacity>
                 
@@ -150,7 +154,7 @@ export default function IndicatorModal({
                   onPress={() => toggleIndicator('stochastic')}
                 >
                   <View style={[styles.indicatorIcon, { backgroundColor: 'rgba(52, 152, 219, 0.1)' }]}>
-                    <Ionicons name="stats-chart" size={20} color="#3498DB" />
+                    <Ionicons name="stats-chart" size={16} color="#3498DB" />
                   </View>
                   <View style={styles.indicatorInfo}>
                     <Text style={styles.indicatorName}>Stochastic (14, 3, 3)</Text>
@@ -161,6 +165,7 @@ export default function IndicatorModal({
                     onValueChange={(value) => setActiveIndicators(prev => ({ ...prev, stochastic: value }))}
                     trackColor={{ false: '#333', true: 'rgba(52, 152, 219, 0.5)' }}
                     thumbColor={activeIndicators.stochastic ? '#3498DB' : '#666'}
+                    style={styles.switch}
                   />
                 </TouchableOpacity>
               </View>
@@ -180,40 +185,40 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#1A1A2E',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    maxHeight: '80%',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    padding: 14,
+    maxHeight: '70%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   toolsSection: {
-    marginBottom: 20,
+    marginBottom: 14,
   },
   toolsSectionTitle: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '600',
     color: '#888',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   indicatorList: {
-    gap: 10,
+    gap: 6,
   },
   indicatorItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#252540',
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 10,
+    padding: 10,
     borderWidth: 1,
     borderColor: 'transparent',
   },
@@ -222,24 +227,27 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 229, 90, 0.05)',
   },
   indicatorIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   indicatorInfo: {
     flex: 1,
   },
   indicatorName: {
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: '600',
     color: '#FFFFFF',
-    marginBottom: 2,
+    marginBottom: 1,
   },
   indicatorDesc: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#888',
+  },
+  switch: {
+    transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }],
   },
 });
