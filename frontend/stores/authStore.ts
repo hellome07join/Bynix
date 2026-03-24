@@ -92,9 +92,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           email: userData.email,
           name: userData.name,
           picture: userData.picture,
+          chart_picture: userData.chart_picture,
           demo_balance: userData.demo_balance || 10000,
           real_balance: userData.real_balance || 0,
           bonus_balance: userData.bonus_balance || 0,
+          total_balance: userData.total_balance || 0,
+          withdrawable_balance: userData.withdrawable_balance || 0,
           is_admin: userData.is_admin || false,
         };
         set({ user: updatedUser });

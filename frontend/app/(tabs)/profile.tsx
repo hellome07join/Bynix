@@ -1816,11 +1816,13 @@ export default function Profile() {
                   mediaTypes: ImagePicker.MediaTypeOptions.Images,
                   allowsEditing: true,
                   aspect: [16, 9],
-                  quality: 0.8,
+                  quality: 0.7,
                   base64: true,
                 });
 
                 if (!result.canceled && result.assets[0].base64) {
+                  console.log('Image selected, uploading...');
+                  
                   const response = await fetch(`${API_URL}/profile/chart-picture`, {
                     method: 'POST',
                     headers: {
@@ -1832,13 +1834,20 @@ export default function Profile() {
                     }),
                   });
 
+                  console.log('Upload response status:', response.status);
+                  
                   if (response.ok) {
                     const data = await response.json();
-                    if (user) {
-                      setUser({ ...user, chart_picture: data.chart_picture });
-                    }
+                    console.log('Upload success:', data);
+                    
+                    // Refresh user data from server
+                    const { refreshUser } = useAuthStore.getState();
+                    await refreshUser();
+                    
                     Alert.alert('Success', 'Chart background updated!');
                   } else {
+                    const errorData = await response.text();
+                    console.error('Upload failed:', errorData);
                     Alert.alert('Error', 'Failed to upload image');
                   }
                 }
@@ -1868,9 +1877,10 @@ export default function Profile() {
                   });
 
                   if (response.ok) {
-                    if (user) {
-                      setUser({ ...user, chart_picture: undefined });
-                    }
+                    // Refresh user data from server
+                    const { refreshUser } = useAuthStore.getState();
+                    await refreshUser();
+                    
                     Alert.alert('Success', 'Chart background removed');
                   }
                 } catch (error) {
