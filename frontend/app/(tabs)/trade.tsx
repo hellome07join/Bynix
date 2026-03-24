@@ -1478,7 +1478,7 @@ export default function Trade() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Market</Text>
               <TouchableOpacity onPress={() => setShowAssetPicker(false)}>
-                <Ionicons name="close-circle" size={28} color="#666" />
+                <Ionicons name="close-circle" size={22} color="#666" />
               </TouchableOpacity>
             </View>
             
@@ -1526,7 +1526,7 @@ export default function Trade() {
                     <Text style={styles.assetOptionPayout}>Payout: {asset.payout}%</Text>
                   </View>
                   {selectedAsset === asset.value && (
-                    <Ionicons name="checkmark-circle" size={24} color="#00E55A" />
+                    <Ionicons name="checkmark-circle" size={18} color="#00E55A" />
                   )}
                 </TouchableOpacity>
               ))}
@@ -4241,46 +4241,46 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#0F1428',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    maxHeight: height * 0.6,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
+    maxHeight: height * 0.7,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 12,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   categoryTabs: {
     flexDirection: 'row',
-    marginBottom: 16,
-    borderRadius: 12,
+    marginBottom: 10,
+    borderRadius: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    padding: 4,
+    padding: 3,
   },
   categoryTab: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 10,
-    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 6,
+    gap: 3,
   },
   categoryTabActive: {
     backgroundColor: '#00E55A',
   },
   categoryTabIcon: {
-    fontSize: 16,
+    fontSize: 12,
   },
   categoryTabText: {
-    fontSize: 13,
+    fontSize: 10,
     fontWeight: '700',
     color: '#888',
   },
@@ -4288,15 +4288,15 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   assetList: {
-    maxHeight: 400,
+    maxHeight: 350,
   },
   assetOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    marginBottom: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    marginBottom: 6,
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderWidth: 1,
     borderColor: 'transparent',
@@ -4306,23 +4306,23 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0, 229, 90, 0.3)',
   },
   assetOptionIcon: {
-    fontSize: 24,
-    marginRight: 12,
-    width: 32,
+    fontSize: 18,
+    marginRight: 10,
+    width: 28,
     textAlign: 'center',
   },
   assetOptionInfo: {
     flex: 1,
   },
   assetOptionText: {
-    fontSize: 16,
+    fontSize: 13,
     color: '#FFFFFF',
     fontWeight: '600',
   },
   assetOptionPayout: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#00E55A',
-    marginTop: 2,
+    marginTop: 1,
   },
   resultPopup: {
     position: 'absolute',
