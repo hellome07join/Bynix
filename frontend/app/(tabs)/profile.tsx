@@ -1448,22 +1448,6 @@ export default function Profile() {
 
     return (
       <>
-        {/* Balance Cards */}
-        <View style={styles.financeBalanceCards}>
-          <View style={[styles.financeBalanceCard, { backgroundColor: '#0D2818' }]}>
-            <Text style={styles.financeBalanceLabel}>Real Balance</Text>
-            <Text style={[styles.financeBalanceValue, { color: '#00E55A' }]}>
-              ${user?.real_balance?.toFixed(2) || '0.00'}
-            </Text>
-          </View>
-          <View style={[styles.financeBalanceCard, { backgroundColor: '#2D1515' }]}>
-            <Text style={styles.financeBalanceLabel}>Demo Balance</Text>
-            <Text style={[styles.financeBalanceValue, { color: '#FF3B3B' }]}>
-              ${user?.demo_balance?.toFixed(2) || '10,000.00'}
-            </Text>
-          </View>
-        </View>
-
         {/* Sub Tabs - Only Overview */}
         <View style={styles.financeSubTabs}>
           <TouchableOpacity
