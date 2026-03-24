@@ -182,6 +182,12 @@ export default function TradingViewChart({
   const initialScaleRef = useRef(1);
   const lastPinchCenterRef = useRef({ x: 0, y: 0 });
   
+  // Smooth price animation refs
+  const displayPriceRef = useRef(internalPrice);
+  const targetPriceRef = useRef(internalPrice);
+  const priceAnimationRef = useRef<number | null>(null);
+  const [displayPrice, setDisplayPrice] = useState(internalPrice);
+  
   // Line dragging refs
   const isDraggingLineRef = useRef(false);
   const dragStartYRef = useRef(0);
@@ -220,6 +226,44 @@ export default function TradingViewChart({
       cancelAnimationFrame(animFrame);
     };
   }, [targetScale]);
+
+  // Smooth price animation - interpolate to target price
+  useEffect(() => {
+    targetPriceRef.current = internalPrice;
+    
+    if (priceAnimationRef.current) {
+      cancelAnimationFrame(priceAnimationRef.current);
+    }
+    
+    const animatePrice = () => {
+      const current = displayPriceRef.current;
+      const target = targetPriceRef.current;
+      const diff = target - current;
+      
+      // Smooth interpolation with easing (0.15 = faster, 0.05 = slower)
+      const easingFactor = 0.12;
+      
+      if (Math.abs(diff) < 0.000001) {
+        displayPriceRef.current = target;
+        setDisplayPrice(target);
+        return;
+      }
+      
+      const newPrice = current + diff * easingFactor;
+      displayPriceRef.current = newPrice;
+      setDisplayPrice(newPrice);
+      
+      priceAnimationRef.current = requestAnimationFrame(animatePrice);
+    };
+    
+    priceAnimationRef.current = requestAnimationFrame(animatePrice);
+    
+    return () => {
+      if (priceAnimationRef.current) {
+        cancelAnimationFrame(priceAnimationRef.current);
+      }
+    };
+  }, [internalPrice]);
   
   // Convert symbol for API
   const apiSymbol = symbol.replace(' OTC', '').replace('/', '');
@@ -469,8 +513,8 @@ export default function TradingViewChart({
     // Sync with server immediately on mount
     syncWithServer();
     
-    // Sync every 1 second for fast data refresh across all devices
-    syncWithServerRef.current = setInterval(syncWithServer, 1000);
+    // Sync every 500ms for smoother chart animation
+    syncWithServerRef.current = setInterval(syncWithServer, 500);
     
     return () => {
       if (syncWithServerRef.current) {
@@ -479,12 +523,12 @@ export default function TradingViewChart({
     };
   }, [symbol, authToken]);
 
-  // Call onPriceUpdate when price changes
+  // Call onPriceUpdate when display price changes (smooth animated price)
   useEffect(() => {
     if (onPriceUpdate) {
-      onPriceUpdate(internalPrice);
+      onPriceUpdate(displayPrice);
     }
-  }, [internalPrice, onPriceUpdate]);
+  }, [displayPrice, onPriceUpdate]);
 
   // Draw chart on canvas with high-DPI (4K) quality
   const drawChart = useCallback(() => {
