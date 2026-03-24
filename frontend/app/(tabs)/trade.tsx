@@ -245,6 +245,12 @@ export default function Trade() {
   const [showToolsModal, setShowToolsModal] = useState(false);
   const [showTradeHistory, setShowTradeHistory] = useState(false);
   const [tradeHistory, setTradeHistory] = useState<any[]>([]);
+  const [realTradeHistory, setRealTradeHistory] = useState<any[]>([]);
+  const [demoTradeHistory, setDemoTradeHistory] = useState<any[]>([]);
+  const [historyTab, setHistoryTab] = useState<'real' | 'demo'>('real');
+  const [selectedTradeDetail, setSelectedTradeDetail] = useState<any>(null);
+  const [showTradeDetail, setShowTradeDetail] = useState(false);
+  const tradeDetailAnim = useRef(new Animated.Value(0)).current;
   const [selectedDrawTool, setSelectedDrawTool] = useState<string | null>(null);
   const [chartType, setChartType] = useState<'candle' | 'line' | 'bar'>('candle');
   const [customMinutes, setCustomMinutes] = useState('1');
@@ -360,20 +366,70 @@ export default function Trade() {
   const wsRef = useRef<any>(null);
   const cooldownRef = useRef(false);
 
-  // Fetch trade history from backend
+  // Fetch trade history from backend - both real and demo
   const fetchTradeHistory = async () => {
     if (!token) return;
     try {
-      const response = await fetch(`${API_URL}/trades/history?account_type=${accountType}`, {
+      // Fetch real account trades
+      const realResponse = await fetch(`${API_URL}/trades/history?account_type=real`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
-      if (response.ok) {
-        const data = await response.json();
-        setTradeHistory(data.trades || []);
+      if (realResponse.ok) {
+        const realData = await realResponse.json();
+        setRealTradeHistory(realData.trades || []);
       }
+      
+      // Fetch demo account trades
+      const demoResponse = await fetch(`${API_URL}/trades/history?account_type=demo`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (demoResponse.ok) {
+        const demoData = await demoResponse.json();
+        setDemoTradeHistory(demoData.trades || []);
+      }
+      
+      // Also set current account type history
+      const currentData = historyTab === 'real' ? realTradeHistory : demoTradeHistory;
+      setTradeHistory(currentData);
     } catch (error) {
       console.error('Error fetching trade history:', error);
     }
+  };
+  
+  // Show trade detail with animation
+  const showTradeDetailModal = (trade: any) => {
+    setSelectedTradeDetail(trade);
+    setShowTradeDetail(true);
+    Animated.spring(tradeDetailAnim, {
+      toValue: 1,
+      friction: 8,
+      tension: 40,
+      useNativeDriver: true,
+    }).start();
+  };
+  
+  // Hide trade detail with animation
+  const hideTradeDetailModal = () => {
+    Animated.timing(tradeDetailAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowTradeDetail(false);
+      setSelectedTradeDetail(null);
+    });
+  };
+  
+  // Format date for display
+  const formatTradeDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
   
   // Fetch trade history on mount, when trade settles, or when account type changes
@@ -1521,11 +1577,39 @@ export default function Trade() {
         onRequestClose={() => setShowTradeHistory(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxHeight: '80%' }]}>
+          <View style={[styles.modalContent, { maxHeight: '85%' }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Trade History</Text>
               <TouchableOpacity onPress={() => setShowTradeHistory(false)}>
                 <Ionicons name="close-circle" size={28} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Tab Switcher - Real / Demo */}
+            <View style={styles.historyTabContainer}>
+              <TouchableOpacity
+                style={[styles.historyTab, historyTab === 'real' && styles.historyTabActive]}
+                onPress={() => setHistoryTab('real')}
+              >
+                <Ionicons name="wallet" size={16} color={historyTab === 'real' ? '#00E55A' : '#666'} />
+                <Text style={[styles.historyTabText, historyTab === 'real' && styles.historyTabTextActive]}>
+                  Real Account
+                </Text>
+                <View style={[styles.historyTabBadge, { backgroundColor: historyTab === 'real' ? '#00E55A' : '#333' }]}>
+                  <Text style={styles.historyTabBadgeText}>{realTradeHistory.length}</Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.historyTab, historyTab === 'demo' && styles.historyTabActiveDemo]}
+                onPress={() => setHistoryTab('demo')}
+              >
+                <Ionicons name="school" size={16} color={historyTab === 'demo' ? '#FF3B3B' : '#666'} />
+                <Text style={[styles.historyTabText, historyTab === 'demo' && styles.historyTabTextActiveDemo]}>
+                  Demo Account
+                </Text>
+                <View style={[styles.historyTabBadge, { backgroundColor: historyTab === 'demo' ? '#FF3B3B' : '#333' }]}>
+                  <Text style={styles.historyTabBadgeText}>{demoTradeHistory.length}</Text>
+                </View>
               </TouchableOpacity>
             </View>
 
@@ -1539,8 +1623,6 @@ export default function Trade() {
                   </View>
                   {activeTrades.map((trade) => {
                     const tradeAsset = ALL_ASSETS.find(a => a.value === trade.asset) || currentAsset;
-                    // Don't show real-time P/L - final result will be determined by backend
-                    // This prevents confusion when chart shows profit but backend decides loss
                     
                     return (
                       <View key={trade.id} style={[styles.tradeCard, styles.tradeCardPending, { marginBottom: 10 }]}>
@@ -1562,26 +1644,12 @@ export default function Trade() {
                         </View>
                         <View style={styles.tradeCardBody}>
                           <View style={styles.tradeInfo}>
-                            <Text style={styles.tradeInfoLabel}>Entry Price</Text>
-                            <Text style={styles.tradeInfoValue}>${trade.entry_price.toFixed(5)}</Text>
-                          </View>
-                          <View style={styles.tradeInfo}>
                             <Text style={styles.tradeInfoLabel}>Amount</Text>
                             <Text style={styles.tradeInfoValue}>${trade.amount}</Text>
                           </View>
                           <View style={styles.tradeInfo}>
-                            <Text style={styles.tradeInfoLabel}>Potential Profit</Text>
-                            <Text style={[styles.tradeInfoValue, { color: '#FFB800' }]}>
-                              +${(trade.amount * (tradeAsset.payout / 100)).toFixed(2)}
-                            </Text>
-                          </View>
-                          <View style={styles.tradeInfo}>
                             <Text style={styles.tradeInfoLabel}>Time Left</Text>
                             <Text style={[styles.tradeInfoValue, { color: '#FFB800' }]}>{trade.countdown}s</Text>
-                          </View>
-                          <View style={styles.tradeInfo}>
-                            <Text style={styles.tradeInfoLabel}>Status</Text>
-                            <Text style={[styles.tradeInfoValue, { color: '#FFB800' }]}>⏳ Running...</Text>
                           </View>
                         </View>
                       </View>
@@ -1590,18 +1658,25 @@ export default function Trade() {
                 </View>
               )}
 
-              {/* Previous Trades Section */}
+              {/* Previous Trades Section - Based on selected tab */}
               <View style={styles.historySection}>
-                <Text style={styles.historySectionTitle}>Previous Trades</Text>
+                <Text style={styles.historySectionTitle}>
+                  {historyTab === 'real' ? 'Real Account Trades' : 'Demo Account Trades'}
+                </Text>
                 
-                {tradeHistory.length === 0 ? (
+                {(historyTab === 'real' ? realTradeHistory : demoTradeHistory).length === 0 ? (
                   <View style={styles.emptyHistory}>
                     <Ionicons name="document-text-outline" size={48} color="#444" />
                     <Text style={styles.emptyHistoryText}>No trades yet</Text>
                   </View>
                 ) : (
-                  tradeHistory.map((trade, index) => (
-                    <View key={trade.trade_id || index} style={styles.historyCard}>
+                  (historyTab === 'real' ? realTradeHistory : demoTradeHistory).map((trade, index) => (
+                    <TouchableOpacity 
+                      key={trade.trade_id || index} 
+                      style={styles.historyCard}
+                      onPress={() => showTradeDetailModal(trade)}
+                      activeOpacity={0.7}
+                    >
                       <View style={styles.historyCardLeft}>
                         <View style={styles.historyAsset}>
                           <Text style={styles.historyAssetIcon}>
@@ -1611,14 +1686,16 @@ export default function Trade() {
                           </Text>
                           <View>
                             <Text style={styles.historyAssetName}>{trade.asset || 'Unknown'}</Text>
-                            <Text style={styles.historyTime}>{trade.time_ago || 'just now'}</Text>
+                            <Text style={styles.historyTime}>
+                              {trade.created_at ? formatTradeDate(trade.created_at) : trade.time_ago || 'just now'}
+                            </Text>
                           </View>
                         </View>
                       </View>
                       <View style={styles.historyCardCenter}>
-                        <View style={[styles.historyDirection, trade.type === 'call' ? styles.directionUp : styles.directionDown]}>
+                        <View style={[styles.historyDirection, trade.trade_type === 'call' ? styles.directionUp : styles.directionDown]}>
                           <Ionicons 
-                            name={trade.type === 'call' ? 'arrow-up' : 'arrow-down'} 
+                            name={trade.trade_type === 'call' ? 'arrow-up' : 'arrow-down'} 
                             size={10} 
                             color="#FFFFFF" 
                           />
@@ -1638,8 +1715,9 @@ export default function Trade() {
                         ]}>
                           {trade.status === 'won' ? 'Profit' : 'Loss'}
                         </Text>
+                        <Ionicons name="chevron-forward" size={14} color="#666" />
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   ))
                 )}
               </View>
@@ -1647,34 +1725,130 @@ export default function Trade() {
               {/* Summary Section */}
               <View style={styles.historySummary}>
                 <View style={styles.summaryItem}>
-                  <Text style={styles.summaryLabel}>Total Trades</Text>
-                  <Text style={styles.summaryValue}>{tradeHistory.length}</Text>
+                  <Text style={styles.summaryLabel}>Total</Text>
+                  <Text style={styles.summaryValue}>
+                    {(historyTab === 'real' ? realTradeHistory : demoTradeHistory).length}
+                  </Text>
                 </View>
                 <View style={styles.summaryItem}>
                   <Text style={styles.summaryLabel}>Won</Text>
                   <Text style={[styles.summaryValue, { color: '#00E55A' }]}>
-                    {tradeHistory.filter(t => t.status === 'won').length}
+                    {(historyTab === 'real' ? realTradeHistory : demoTradeHistory).filter(t => t.status === 'won').length}
                   </Text>
                 </View>
                 <View style={styles.summaryItem}>
                   <Text style={styles.summaryLabel}>Lost</Text>
                   <Text style={[styles.summaryValue, { color: '#FF3B3B' }]}>
-                    {tradeHistory.filter(t => t.status === 'lost').length}
+                    {(historyTab === 'real' ? realTradeHistory : demoTradeHistory).filter(t => t.status === 'lost').length}
                   </Text>
                 </View>
                 <View style={styles.summaryItem}>
-                  <Text style={styles.summaryLabel}>Net P&L</Text>
+                  <Text style={styles.summaryLabel}>P&L</Text>
                   <Text style={[styles.summaryValue, { 
-                    color: tradeHistory.reduce((sum, t) => sum + (t.profit_loss || 0), 0) >= 0 ? '#00E55A' : '#FF3B3B' 
+                    color: (historyTab === 'real' ? realTradeHistory : demoTradeHistory).reduce((sum, t) => sum + (t.profit_loss || 0), 0) >= 0 ? '#00E55A' : '#FF3B3B' 
                   }]}>
-                    {tradeHistory.reduce((sum, t) => sum + (t.profit_loss || 0), 0) >= 0 ? '+' : ''}
-                    ${tradeHistory.reduce((sum, t) => sum + (t.profit_loss || 0), 0).toFixed(2)}
+                    ${(historyTab === 'real' ? realTradeHistory : demoTradeHistory).reduce((sum, t) => sum + (t.profit_loss || 0), 0).toFixed(2)}
                   </Text>
                 </View>
               </View>
             </ScrollView>
           </View>
         </View>
+        
+        {/* Trade Detail Slide Panel */}
+        {showTradeDetail && selectedTradeDetail && (
+          <Animated.View 
+            style={[
+              styles.tradeDetailPanel,
+              {
+                transform: [{
+                  translateY: tradeDetailAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [400, 0],
+                  })
+                }],
+                opacity: tradeDetailAnim,
+              }
+            ]}
+          >
+            <View style={styles.tradeDetailHeader}>
+              <Text style={styles.tradeDetailTitle}>Trade Details</Text>
+              <TouchableOpacity onPress={hideTradeDetailModal}>
+                <Ionicons name="close-circle" size={28} color="#666" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.tradeDetailContent}>
+              {/* Asset Info */}
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Asset</Text>
+                <Text style={styles.detailValue}>{selectedTradeDetail.asset}</Text>
+              </View>
+              
+              {/* Direction */}
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Direction</Text>
+                <View style={[styles.directionBadge, selectedTradeDetail.trade_type === 'call' ? styles.directionUp : styles.directionDown]}>
+                  <Ionicons 
+                    name={selectedTradeDetail.trade_type === 'call' ? 'arrow-up' : 'arrow-down'} 
+                    size={12} 
+                    color="#FFFFFF" 
+                  />
+                  <Text style={styles.directionText}>
+                    {selectedTradeDetail.trade_type === 'call' ? 'UP' : 'DOWN'}
+                  </Text>
+                </View>
+              </View>
+              
+              {/* Entry Point */}
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Entry Price</Text>
+                <Text style={styles.detailValue}>${selectedTradeDetail.entry_price?.toFixed(5) || '0.00000'}</Text>
+              </View>
+              
+              {/* Exit Point */}
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Exit Price</Text>
+                <Text style={styles.detailValue}>${selectedTradeDetail.exit_price?.toFixed(5) || '0.00000'}</Text>
+              </View>
+              
+              {/* Amount */}
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Amount</Text>
+                <Text style={styles.detailValue}>${selectedTradeDetail.amount?.toFixed(2) || '0.00'}</Text>
+              </View>
+              
+              {/* Result */}
+              <View style={[styles.detailRow, styles.detailResultRow]}>
+                <Text style={styles.detailLabel}>Result</Text>
+                <View style={[
+                  styles.detailResultBadge,
+                  { backgroundColor: selectedTradeDetail.status === 'won' ? 'rgba(0, 229, 90, 0.2)' : 'rgba(255, 59, 59, 0.2)' }
+                ]}>
+                  <Ionicons 
+                    name={selectedTradeDetail.status === 'won' ? 'checkmark-circle' : 'close-circle'} 
+                    size={20} 
+                    color={selectedTradeDetail.status === 'won' ? '#00E55A' : '#FF3B3B'} 
+                  />
+                  <Text style={[
+                    styles.detailResultText,
+                    { color: selectedTradeDetail.status === 'won' ? '#00E55A' : '#FF3B3B' }
+                  ]}>
+                    {selectedTradeDetail.profit_loss > 0 ? '+' : ''}${(selectedTradeDetail.profit_loss || 0).toFixed(2)}
+                  </Text>
+                </View>
+              </View>
+              
+              {/* Date */}
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Date</Text>
+                <Text style={styles.detailValue}>
+                  {selectedTradeDetail.created_at ? formatTradeDate(selectedTradeDetail.created_at) : 'N/A'}
+                </Text>
+              </View>
+            </View>
+          </Animated.View>
+        )}
       </Modal>
 
       {/* Trade Result Popup - Small Badge Style */}
@@ -2599,6 +2773,125 @@ const styles = StyleSheet.create({
   summaryValue: {
     color: '#FFFFFF',
     fontSize: 14,
+    fontWeight: '800',
+  },
+  // History Tab Styles
+  historyTabContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    gap: 10,
+  },
+  historyTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  historyTabActive: {
+    backgroundColor: 'rgba(0, 229, 90, 0.15)',
+    borderColor: '#00E55A',
+  },
+  historyTabActiveDemo: {
+    backgroundColor: 'rgba(255, 59, 59, 0.15)',
+    borderColor: '#FF3B3B',
+  },
+  historyTabText: {
+    color: '#666',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  historyTabTextActive: {
+    color: '#00E55A',
+  },
+  historyTabTextActiveDemo: {
+    color: '#FF3B3B',
+  },
+  historyTabBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    minWidth: 24,
+    alignItems: 'center',
+  },
+  historyTabBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  // Trade Detail Panel Styles
+  tradeDetailPanel: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#1A1A1A',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: '60%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 20,
+  },
+  tradeDetailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  tradeDetailTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  tradeDetailContent: {
+    gap: 16,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  detailLabel: {
+    color: '#888',
+    fontSize: 14,
+  },
+  detailValue: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  detailResultRow: {
+    paddingVertical: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    marginTop: 8,
+  },
+  detailResultBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  detailResultText: {
+    fontSize: 18,
     fontWeight: '800',
   },
   toolsSection: {
