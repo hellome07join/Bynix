@@ -13,7 +13,10 @@ import {
   Switch,
   Image,
   Platform,
-  ActivityIndicator
+  ActivityIndicator,
+  PanResponder,
+  GestureResponderEvent,
+  PanResponderGestureState
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -29,6 +32,111 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import QRCode from 'react-native-qrcode-svg';
 
 declare const window: any;
+
+// Draggable Horizontal Line Component
+interface DraggableLineProps {
+  line: { price: number; y: number };
+  index: number;
+  chartHeight: number;
+  currentPrice: number;
+  onUpdate: (index: number, newY: number, newPrice: number) => void;
+  onDelete: (index: number) => void;
+}
+
+const DraggableHorizontalLine: React.FC<DraggableLineProps> = ({ 
+  line, index, chartHeight, currentPrice, onUpdate, onDelete 
+}) => {
+  const panY = useRef(new Animated.Value(line.y)).current;
+  
+  useEffect(() => {
+    panY.setValue(line.y);
+  }, [line.y]);
+  
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        panY.setOffset(line.y);
+        panY.setValue(0);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      },
+      onPanResponderMove: Animated.event(
+        [null, { dy: panY }],
+        { useNativeDriver: false }
+      ),
+      onPanResponderRelease: (e, gestureState) => {
+        panY.flattenOffset();
+        const newY = Math.max(0, Math.min(chartHeight || 300, line.y + gestureState.dy));
+        const newPrice = currentPrice + (((chartHeight || 300) / 2 - newY) / 100) * 0.001;
+        onUpdate(index, newY, newPrice);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      },
+    })
+  ).current;
+  
+  return (
+    <Animated.View 
+      {...panResponder.panHandlers}
+      style={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        top: panY,
+        height: 28,
+        justifyContent: 'center',
+        zIndex: 100 + index,
+      }}
+    >
+      {/* Line itself */}
+      <View style={{
+        height: 2,
+        backgroundColor: '#FFB800',
+        shadowColor: '#FFB800',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 4,
+      }} />
+      
+      {/* Price label - draggable handle */}
+      <View style={{
+        position: 'absolute',
+        right: 10,
+        top: -10,
+        backgroundColor: '#FFB800',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+      }}>
+        <Ionicons name="move" size={10} color="#0A0A0A" />
+        <Text style={{ color: '#0A0A0A', fontSize: 10, fontWeight: '700' }}>
+          {line.price.toFixed(5)}
+        </Text>
+      </View>
+      
+      {/* Delete button */}
+      <TouchableOpacity 
+        style={{
+          position: 'absolute',
+          left: 10,
+          top: -10,
+          backgroundColor: '#FF3B3B',
+          width: 22,
+          height: 22,
+          borderRadius: 11,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+        onPress={() => onDelete(index)}
+      >
+        <Ionicons name="close" size={14} color="#FFFFFF" />
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
 
 // Sound effects
 const lossSound = require('../../assets/sounds/loss.mp3');
@@ -1237,34 +1345,24 @@ export default function Trade() {
           />
         </View>
         
-        {/* Horizontal Lines Overlay */}
+        {/* Horizontal Lines Overlay - Draggable */}
         {horizontalLines.map((line, index) => (
-          <View 
+          <DraggableHorizontalLine
             key={index}
-            style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              top: line.y,
-              height: 2,
-              backgroundColor: '#FFB800',
-              zIndex: 100,
+            line={line}
+            index={index}
+            chartHeight={chartDimensions.height || 300}
+            currentPrice={currentPrice}
+            onUpdate={(idx, newY, newPrice) => {
+              setHorizontalLines(prev => prev.map((l, i) => 
+                i === idx ? { ...l, y: newY, price: newPrice } : l
+              ));
             }}
-          >
-            <View style={{
-              position: 'absolute',
-              right: 10,
-              top: -10,
-              backgroundColor: '#FFB800',
-              paddingHorizontal: 6,
-              paddingVertical: 2,
-              borderRadius: 4,
-            }}>
-              <Text style={{ color: '#0A0A0A', fontSize: 10, fontWeight: '700' }}>
-                {line.price.toFixed(5)}
-              </Text>
-            </View>
-          </View>
+            onDelete={(idx) => {
+              setHorizontalLines(prev => prev.filter((_, i) => i !== idx));
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            }}
+          />
         ))}
         
         {/* Drawing Mode Indicator */}
