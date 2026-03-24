@@ -1109,13 +1109,15 @@ export default function Trade() {
           </TouchableOpacity>
         </View>
 
-        {/* Logo - Absolute Center */}
+        {/* Logo - Absolute Center with Intense Green Glow */}
         <View style={styles.headerLogoContainer}>
-          <Image 
-            source={require('../../assets/images/bynix-logo.png')} 
-            style={styles.headerLogo}
-            resizeMode="contain"
-          />
+          <View style={styles.logoGlowWrapper}>
+            <Image 
+              source={require('../../assets/images/bynix-logo.png')} 
+              style={styles.headerLogo}
+              resizeMode="contain"
+            />
+          </View>
         </View>
 
         {/* Right Side - Balance */}
@@ -2682,6 +2684,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: -1,
+  },
+  logoGlowWrapper: {
+    borderRadius: 50,
+    padding: 5,
+    // Very intense dark green glow - multiple layers
+    boxShadow: '0 0 60px 25px rgba(0, 229, 90, 0.8), 0 0 100px 45px rgba(0, 229, 90, 0.5), 0 0 150px 70px rgba(0, 229, 90, 0.3), 0 0 200px 100px rgba(0, 100, 40, 0.2)',
+    // Native shadow fallback
+    shadowColor: '#00E55A',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 60,
+    elevation: 50,
   },
   headerLogo: {
     width: 80,
