@@ -948,6 +948,7 @@ export default function Trade() {
         duration,
         entry_price: currentPrice,
         account_type: accountType,
+        payout_percentage: payoutPercentage,
       });
       const response = await api.createTrade({
         asset: selectedAsset,
@@ -957,6 +958,7 @@ export default function Trade() {
         duration,
         entry_price: currentPrice,
         account_type: accountType,
+        payout_percentage: payoutPercentage,
       }, token);
 
       // Add new trade to the array

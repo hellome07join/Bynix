@@ -110,6 +110,7 @@ class TradeCreate(BaseModel):
     duration: int
     entry_price: float
     account_type: str = "demo"
+    payout_percentage: float = 80.0  # Frontend sends asset's payout
 
 class Asset(BaseModel):
     asset_id: str
@@ -730,7 +731,7 @@ async def create_trade(trade: TradeCreate, authorization: Optional[str] = Header
         "entry_price": trade.entry_price,
         "exit_price": None,
         "duration": trade.duration,
-        "payout_percentage": 80.0,
+        "payout_percentage": trade.payout_percentage,  # Use frontend's asset payout
         "status": "pending",
         "profit_loss": 0.0,
         "account_type": trade.account_type,
