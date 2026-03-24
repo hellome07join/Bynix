@@ -512,6 +512,14 @@ export default function Trade() {
     }
   }, [token, accountType, selectedDateRange]);
 
+  // Fetch fresh trade history when modal opens
+  useEffect(() => {
+    if (showTradeHistory && token) {
+      console.log('Trade history modal opened - fetching fresh data');
+      fetchTradeHistory();
+    }
+  }, [showTradeHistory]);
+
   // Reset selected asset when account type changes to ensure it's valid for the new account
   // NOTE: Using a ref to track previous accountType to prevent infinite loops
   const prevAccountTypeRef = useRef(accountType);
@@ -706,6 +714,9 @@ export default function Trade() {
       const { refreshUser } = useAuthStore.getState();
       await refreshUser();
     }
+    
+    // Refresh trade history after batch settlement
+    fetchTradeHistory();
     
     // Show last result popup (or could show summary)
     if (lastResult) {
