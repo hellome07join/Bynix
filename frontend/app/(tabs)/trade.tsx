@@ -279,6 +279,22 @@ export default function Trade() {
   const [selectedTrendLineId, setSelectedTrendLineId] = useState<string | null>(null);
   const [draggingTrendLinePoint, setDraggingTrendLinePoint] = useState<'start' | 'end' | null>(null);
   const [showIndicatorModal, setShowIndicatorModal] = useState(false);
+  
+  // Indicators State
+  const [activeIndicators, setActiveIndicators] = useState<{
+    ma: boolean;
+    bollingerBands: boolean;
+    rsi: boolean;
+    macd: boolean;
+    stochastic: boolean;
+  }>({
+    ma: false,
+    bollingerBands: false,
+    rsi: false,
+    macd: false,
+    stochastic: false,
+  });
+  
   const [customMinutes, setCustomMinutes] = useState('1');
   const [customSeconds, setCustomSeconds] = useState('0');
   const [demoAddAmount, setDemoAddAmount] = useState('1000');
@@ -2467,26 +2483,48 @@ export default function Trade() {
               <View style={styles.toolsSection}>
                 <Text style={styles.toolsSectionTitle}>Trend Indicators</Text>
                 <View style={styles.indicatorList}>
-                  <TouchableOpacity style={styles.indicatorItem}>
-                    <View style={styles.indicatorIcon}>
+                  <TouchableOpacity 
+                    style={[styles.indicatorItem, activeIndicators.ma && styles.indicatorItemActive]}
+                    onPress={() => {
+                      setActiveIndicators(prev => ({ ...prev, ma: !prev.ma }));
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                  >
+                    <View style={[styles.indicatorIcon, { backgroundColor: 'rgba(0, 229, 90, 0.1)' }]}>
                       <Ionicons name="analytics" size={20} color="#00E55A" />
                     </View>
                     <View style={styles.indicatorInfo}>
                       <Text style={styles.indicatorName}>Moving Average (MA)</Text>
-                      <Text style={styles.indicatorDesc}>Shows average price over time</Text>
+                      <Text style={styles.indicatorDesc}>20-period simple moving average</Text>
                     </View>
-                    <Text style={styles.comingSoonBadge}>Soon</Text>
+                    <Switch
+                      value={activeIndicators.ma}
+                      onValueChange={(value) => setActiveIndicators(prev => ({ ...prev, ma: value }))}
+                      trackColor={{ false: '#333', true: 'rgba(0, 229, 90, 0.5)' }}
+                      thumbColor={activeIndicators.ma ? '#00E55A' : '#666'}
+                    />
                   </TouchableOpacity>
                   
-                  <TouchableOpacity style={styles.indicatorItem}>
-                    <View style={styles.indicatorIcon}>
+                  <TouchableOpacity 
+                    style={[styles.indicatorItem, activeIndicators.bollingerBands && styles.indicatorItemActive]}
+                    onPress={() => {
+                      setActiveIndicators(prev => ({ ...prev, bollingerBands: !prev.bollingerBands }));
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                  >
+                    <View style={[styles.indicatorIcon, { backgroundColor: 'rgba(255, 184, 0, 0.1)' }]}>
                       <Ionicons name="trending-up" size={20} color="#FFB800" />
                     </View>
                     <View style={styles.indicatorInfo}>
                       <Text style={styles.indicatorName}>Bollinger Bands</Text>
-                      <Text style={styles.indicatorDesc}>Shows price volatility</Text>
+                      <Text style={styles.indicatorDesc}>20-period with 2 std deviation</Text>
                     </View>
-                    <Text style={styles.comingSoonBadge}>Soon</Text>
+                    <Switch
+                      value={activeIndicators.bollingerBands}
+                      onValueChange={(value) => setActiveIndicators(prev => ({ ...prev, bollingerBands: value }))}
+                      trackColor={{ false: '#333', true: 'rgba(255, 184, 0, 0.5)' }}
+                      thumbColor={activeIndicators.bollingerBands ? '#FFB800' : '#666'}
+                    />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -2494,37 +2532,70 @@ export default function Trade() {
               <View style={styles.toolsSection}>
                 <Text style={styles.toolsSectionTitle}>Oscillators</Text>
                 <View style={styles.indicatorList}>
-                  <TouchableOpacity style={styles.indicatorItem}>
-                    <View style={styles.indicatorIcon}>
+                  <TouchableOpacity 
+                    style={[styles.indicatorItem, activeIndicators.rsi && styles.indicatorItemActive]}
+                    onPress={() => {
+                      setActiveIndicators(prev => ({ ...prev, rsi: !prev.rsi }));
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                  >
+                    <View style={[styles.indicatorIcon, { backgroundColor: 'rgba(255, 107, 107, 0.1)' }]}>
                       <Ionicons name="pulse" size={20} color="#FF6B6B" />
                     </View>
                     <View style={styles.indicatorInfo}>
-                      <Text style={styles.indicatorName}>RSI</Text>
+                      <Text style={styles.indicatorName}>RSI (14)</Text>
                       <Text style={styles.indicatorDesc}>Relative Strength Index</Text>
                     </View>
-                    <Text style={styles.comingSoonBadge}>Soon</Text>
+                    <Switch
+                      value={activeIndicators.rsi}
+                      onValueChange={(value) => setActiveIndicators(prev => ({ ...prev, rsi: value }))}
+                      trackColor={{ false: '#333', true: 'rgba(255, 107, 107, 0.5)' }}
+                      thumbColor={activeIndicators.rsi ? '#FF6B6B' : '#666'}
+                    />
                   </TouchableOpacity>
                   
-                  <TouchableOpacity style={styles.indicatorItem}>
-                    <View style={styles.indicatorIcon}>
+                  <TouchableOpacity 
+                    style={[styles.indicatorItem, activeIndicators.macd && styles.indicatorItemActive]}
+                    onPress={() => {
+                      setActiveIndicators(prev => ({ ...prev, macd: !prev.macd }));
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                  >
+                    <View style={[styles.indicatorIcon, { backgroundColor: 'rgba(155, 89, 182, 0.1)' }]}>
                       <Ionicons name="bar-chart" size={20} color="#9B59B6" />
                     </View>
                     <View style={styles.indicatorInfo}>
                       <Text style={styles.indicatorName}>MACD</Text>
-                      <Text style={styles.indicatorDesc}>Moving Average Convergence</Text>
+                      <Text style={styles.indicatorDesc}>12, 26, 9 periods</Text>
                     </View>
-                    <Text style={styles.comingSoonBadge}>Soon</Text>
+                    <Switch
+                      value={activeIndicators.macd}
+                      onValueChange={(value) => setActiveIndicators(prev => ({ ...prev, macd: value }))}
+                      trackColor={{ false: '#333', true: 'rgba(155, 89, 182, 0.5)' }}
+                      thumbColor={activeIndicators.macd ? '#9B59B6' : '#666'}
+                    />
                   </TouchableOpacity>
                   
-                  <TouchableOpacity style={styles.indicatorItem}>
-                    <View style={styles.indicatorIcon}>
+                  <TouchableOpacity 
+                    style={[styles.indicatorItem, activeIndicators.stochastic && styles.indicatorItemActive]}
+                    onPress={() => {
+                      setActiveIndicators(prev => ({ ...prev, stochastic: !prev.stochastic }));
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                  >
+                    <View style={[styles.indicatorIcon, { backgroundColor: 'rgba(52, 152, 219, 0.1)' }]}>
                       <Ionicons name="stats-chart" size={20} color="#3498DB" />
                     </View>
                     <View style={styles.indicatorInfo}>
-                      <Text style={styles.indicatorName}>Stochastic</Text>
-                      <Text style={styles.indicatorDesc}>Momentum indicator</Text>
+                      <Text style={styles.indicatorName}>Stochastic (14, 3, 3)</Text>
+                      <Text style={styles.indicatorDesc}>Momentum oscillator</Text>
                     </View>
-                    <Text style={styles.comingSoonBadge}>Soon</Text>
+                    <Switch
+                      value={activeIndicators.stochastic}
+                      onValueChange={(value) => setActiveIndicators(prev => ({ ...prev, stochastic: value }))}
+                      trackColor={{ false: '#333', true: 'rgba(52, 152, 219, 0.5)' }}
+                      thumbColor={activeIndicators.stochastic ? '#3498DB' : '#666'}
+                    />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -3712,6 +3783,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  indicatorItemActive: {
+    backgroundColor: 'rgba(0, 229, 90, 0.1)',
+    borderColor: 'rgba(0, 229, 90, 0.3)',
   },
   indicatorIcon: {
     width: 40,

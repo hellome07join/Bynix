@@ -62,6 +62,13 @@ interface TradingViewChartProps {
   onTrendLineMove?: (lineId: string, point: 'start' | 'end', newPrice: number, newCandleIndex: number) => void;
   selectedLineId?: string | null;
   selectedTrendLineId?: string | null;
+  activeIndicators?: {
+    ma: boolean;
+    bollingerBands: boolean;
+    rsi: boolean;
+    macd: boolean;
+    stochastic: boolean;
+  };
   authToken?: string | null;
 }
 
@@ -109,6 +116,7 @@ export default function TradingViewChart({
   onTrendLineMove,
   selectedLineId,
   selectedTrendLineId,
+  activeIndicators = { ma: false, bollingerBands: false, rsi: false, macd: false, stochastic: false },
   authToken
 }: TradingViewChartProps) {
   // Track price range for horizontal lines
