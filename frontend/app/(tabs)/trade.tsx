@@ -954,14 +954,14 @@ export default function Trade() {
           onPress={() => setShowAccountPicker(true)}
         >
           <Ionicons 
-            name={accountType === 'demo' ? 'school' : 'radio'} 
+            name={accountType === 'demo' ? 'school' : 'wallet'} 
             size={14} 
-            color={accountType === 'demo' ? '#FF3B3B' : '#FFB800'} 
+            color="#FFFFFF" 
           />
           <Text style={[styles.balanceText, accountType === 'demo' ? styles.demoBalanceText : styles.realBalanceText]}>
             ${currentBalance.toFixed(2)}
           </Text>
-          <Ionicons name="chevron-down" size={12} color={accountType === 'demo' ? '#FF3B3B' : '#FFB800'} />
+          <Ionicons name="chevron-down" size={12} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
@@ -2189,9 +2189,12 @@ const styles = StyleSheet.create({
     borderColor: '#00E55A',
   },
   balanceText: {
-    color: '#00E55A',
+    color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
+    textShadowColor: '#000000',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   notifButton: {
     position: 'relative',
