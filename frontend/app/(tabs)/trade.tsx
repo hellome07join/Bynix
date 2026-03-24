@@ -2517,7 +2517,7 @@ export default function Trade() {
           <View style={[styles.resultBadge, tradeResult.won ? styles.resultBadgeWin : styles.resultBadgeLoss]}>
             <Ionicons 
               name={tradeResult.won ? 'checkmark-circle' : 'close-circle'} 
-              size={18} 
+              size={28} 
               color={tradeResult.won ? '#00E55A' : '#FF3B3B'} 
             />
             <Text style={[styles.resultBadgeText, tradeResult.won ? styles.resultTextWin : styles.resultTextLoss]}>
@@ -4233,23 +4233,23 @@ const styles = StyleSheet.create({
   resultBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-    gap: 8,
-    borderWidth: 1,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 16,
+    gap: 12,
+    borderWidth: 2,
   },
   resultBadgeWin: {
-    backgroundColor: 'rgba(0, 229, 90, 0.15)',
-    borderColor: 'rgba(0, 229, 90, 0.4)',
+    backgroundColor: '#0A1A0F',
+    borderColor: '#00E55A',
   },
   resultBadgeLoss: {
-    backgroundColor: 'rgba(255, 59, 59, 0.15)',
-    borderColor: 'rgba(255, 59, 59, 0.4)',
+    backgroundColor: '#1A0A0A',
+    borderColor: '#FF3B3B',
   },
   resultBadgeText: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '800',
   },
   resultTextWin: {
     color: '#00E55A',
