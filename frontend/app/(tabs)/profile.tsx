@@ -21,7 +21,7 @@ import AnimatedLoader from '../../components/AnimatedLoader';
 
 declare const window: any;
 
-const TABS = ['Overview', 'Security', 'KYC', 'Activity', 'Settings'];
+const TABS = ['Overview', 'Finance', 'Security', 'KYC', 'Activity', 'Settings'];
 
 // Countries with flags
 const COUNTRIES_WITH_FLAGS = [
@@ -100,6 +100,15 @@ export default function Profile() {
   
   // Activity State
   const [activitySubTab, setActivitySubTab] = useState('Login History');
+  
+  // Finance State
+  const [financeSubTab, setFinanceSubTab] = useState('Deposit');
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [depositAmount, setDepositAmount] = useState('');
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawAddress, setWithdrawAddress] = useState('');
+  const [selectedCrypto, setSelectedCrypto] = useState('USDT');
   
   // Settings State
   const [notificationSettings, setNotificationSettings] = useState({
@@ -1388,6 +1397,281 @@ export default function Profile() {
     );
   };
 
+  // Fetch transactions
+  const fetchTransactions = async () => {
+    if (!token) return;
+    setLoadingTransactions(true);
+    try {
+      const response = await fetch(`${API_URL}/wallet/transactions`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setTransactions(data.transactions || []);
+      }
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+    }
+    setLoadingTransactions(false);
+  };
+
+  const renderFinanceTab = () => {
+    const CRYPTO_OPTIONS = [
+      { id: 'USDT', name: 'Tether (USDT)', icon: '💵', network: 'TRC20' },
+      { id: 'BTC', name: 'Bitcoin', icon: '₿', network: 'Bitcoin' },
+      { id: 'ETH', name: 'Ethereum', icon: 'Ξ', network: 'ERC20' },
+      { id: 'LTC', name: 'Litecoin', icon: 'Ł', network: 'Litecoin' },
+    ];
+
+    return (
+      <>
+        {/* Balance Cards */}
+        <View style={styles.financeBalanceCards}>
+          <View style={[styles.financeBalanceCard, { backgroundColor: '#0D2818' }]}>
+            <Text style={styles.financeBalanceLabel}>Real Balance</Text>
+            <Text style={[styles.financeBalanceValue, { color: '#00E55A' }]}>
+              ${user?.real_balance?.toFixed(2) || '0.00'}
+            </Text>
+          </View>
+          <View style={[styles.financeBalanceCard, { backgroundColor: '#2D1515' }]}>
+            <Text style={styles.financeBalanceLabel}>Demo Balance</Text>
+            <Text style={[styles.financeBalanceValue, { color: '#FF3B3B' }]}>
+              ${user?.demo_balance?.toFixed(2) || '10,000.00'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Sub Tabs */}
+        <View style={styles.financeSubTabs}>
+          {['Deposit', 'Withdraw', 'History'].map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.financeSubTab, financeSubTab === tab && styles.financeSubTabActive]}
+              onPress={() => {
+                setFinanceSubTab(tab);
+                if (tab === 'History') fetchTransactions();
+              }}
+            >
+              <Ionicons 
+                name={tab === 'Deposit' ? 'arrow-down-circle' : tab === 'Withdraw' ? 'arrow-up-circle' : 'list'}
+                size={18}
+                color={financeSubTab === tab ? '#00E55A' : '#666'}
+              />
+              <Text style={[styles.financeSubTabText, financeSubTab === tab && styles.financeSubTabTextActive]}>
+                {tab}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Deposit Section */}
+        {financeSubTab === 'Deposit' && (
+          <View style={styles.financeSection}>
+            <View style={styles.financeSectionHeader}>
+              <Ionicons name="arrow-down-circle" size={24} color="#00E55A" />
+              <Text style={styles.financeSectionTitle}>Deposit Funds</Text>
+            </View>
+
+            {/* Crypto Selection */}
+            <Text style={styles.financeInputLabel}>Select Cryptocurrency</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.cryptoOptions}>
+              {CRYPTO_OPTIONS.map((crypto) => (
+                <TouchableOpacity
+                  key={crypto.id}
+                  style={[styles.cryptoOption, selectedCrypto === crypto.id && styles.cryptoOptionActive]}
+                  onPress={() => setSelectedCrypto(crypto.id)}
+                >
+                  <Text style={styles.cryptoIcon}>{crypto.icon}</Text>
+                  <Text style={[styles.cryptoName, selectedCrypto === crypto.id && { color: '#00E55A' }]}>
+                    {crypto.id}
+                  </Text>
+                  <Text style={styles.cryptoNetwork}>{crypto.network}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* Amount Input */}
+            <Text style={styles.financeInputLabel}>Amount (USD)</Text>
+            <TextInput
+              style={styles.financeInput}
+              placeholder="Minimum $25"
+              placeholderTextColor="#666"
+              value={depositAmount}
+              onChangeText={setDepositAmount}
+              keyboardType="numeric"
+            />
+
+            {/* Quick Amounts */}
+            <View style={styles.quickAmounts}>
+              {['25', '50', '100', '250', '500', '1000'].map((amt) => (
+                <TouchableOpacity
+                  key={amt}
+                  style={[styles.quickAmount, depositAmount === amt && styles.quickAmountActive]}
+                  onPress={() => setDepositAmount(amt)}
+                >
+                  <Text style={[styles.quickAmountText, depositAmount === amt && { color: '#0A0A0A' }]}>
+                    ${amt}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Bonus Info */}
+            <View style={styles.bonusInfo}>
+              <Ionicons name="gift" size={20} color="#FFD700" />
+              <Text style={styles.bonusText}>Get 200% bonus on your first deposit!</Text>
+            </View>
+
+            <TouchableOpacity 
+              style={styles.financeBtn}
+              onPress={() => router.push('/(tabs)/wallet')}
+            >
+              <Ionicons name="wallet" size={20} color="#0A0A0A" />
+              <Text style={styles.financeBtnText}>Proceed to Deposit</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Withdraw Section */}
+        {financeSubTab === 'Withdraw' && (
+          <View style={styles.financeSection}>
+            <View style={styles.financeSectionHeader}>
+              <Ionicons name="arrow-up-circle" size={24} color="#FF3B3B" />
+              <Text style={styles.financeSectionTitle}>Withdraw Funds</Text>
+            </View>
+
+            {/* Available Balance */}
+            <View style={styles.availableBalance}>
+              <Text style={styles.availableBalanceLabel}>Available for Withdrawal</Text>
+              <Text style={styles.availableBalanceValue}>${user?.real_balance?.toFixed(2) || '0.00'}</Text>
+            </View>
+
+            {/* Crypto Selection */}
+            <Text style={styles.financeInputLabel}>Select Cryptocurrency</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.cryptoOptions}>
+              {CRYPTO_OPTIONS.map((crypto) => (
+                <TouchableOpacity
+                  key={crypto.id}
+                  style={[styles.cryptoOption, selectedCrypto === crypto.id && styles.cryptoOptionActive]}
+                  onPress={() => setSelectedCrypto(crypto.id)}
+                >
+                  <Text style={styles.cryptoIcon}>{crypto.icon}</Text>
+                  <Text style={[styles.cryptoName, selectedCrypto === crypto.id && { color: '#00E55A' }]}>
+                    {crypto.id}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* Amount Input */}
+            <Text style={styles.financeInputLabel}>Amount (USD)</Text>
+            <TextInput
+              style={styles.financeInput}
+              placeholder="Enter amount"
+              placeholderTextColor="#666"
+              value={withdrawAmount}
+              onChangeText={setWithdrawAmount}
+              keyboardType="numeric"
+            />
+
+            {/* Wallet Address */}
+            <Text style={styles.financeInputLabel}>Wallet Address</Text>
+            <TextInput
+              style={styles.financeInput}
+              placeholder="Enter your wallet address"
+              placeholderTextColor="#666"
+              value={withdrawAddress}
+              onChangeText={setWithdrawAddress}
+            />
+
+            <TouchableOpacity 
+              style={[styles.financeBtn, { backgroundColor: '#FF3B3B' }]}
+              onPress={() => router.push('/(tabs)/wallet')}
+            >
+              <Ionicons name="arrow-up" size={20} color="#FFFFFF" />
+              <Text style={[styles.financeBtnText, { color: '#FFFFFF' }]}>Request Withdrawal</Text>
+            </TouchableOpacity>
+
+            {/* Withdrawal Info */}
+            <View style={styles.withdrawInfo}>
+              <Ionicons name="information-circle" size={16} color="#888" />
+              <Text style={styles.withdrawInfoText}>
+                Minimum withdrawal: $10 • Processing time: 24-48 hours
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* History Section */}
+        {financeSubTab === 'History' && (
+          <View style={styles.financeSection}>
+            <View style={styles.financeSectionHeader}>
+              <Ionicons name="list" size={24} color="#00E55A" />
+              <Text style={styles.financeSectionTitle}>Transaction History</Text>
+            </View>
+
+            {loadingTransactions ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#00E55A" />
+              </View>
+            ) : transactions.length === 0 ? (
+              <View style={styles.emptyTransactions}>
+                <Ionicons name="document-text-outline" size={48} color="#444" />
+                <Text style={styles.emptyTransactionsText}>No transactions yet</Text>
+              </View>
+            ) : (
+              transactions.map((tx, index) => (
+                <View key={tx._id || index} style={styles.transactionItem}>
+                  <View style={styles.transactionLeft}>
+                    <View style={[
+                      styles.transactionIcon,
+                      { backgroundColor: tx.type === 'deposit' ? 'rgba(0, 229, 90, 0.15)' : 'rgba(255, 59, 59, 0.15)' }
+                    ]}>
+                      <Ionicons 
+                        name={tx.type === 'deposit' ? 'arrow-down' : 'arrow-up'} 
+                        size={18} 
+                        color={tx.type === 'deposit' ? '#00E55A' : '#FF3B3B'} 
+                      />
+                    </View>
+                    <View>
+                      <Text style={styles.transactionType}>
+                        {tx.type === 'deposit' ? 'Deposit' : 'Withdrawal'}
+                      </Text>
+                      <Text style={styles.transactionDate}>
+                        {tx.created_at ? new Date(tx.created_at).toLocaleDateString() : 'N/A'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.transactionRight}>
+                    <Text style={[
+                      styles.transactionAmount,
+                      { color: tx.type === 'deposit' ? '#00E55A' : '#FF3B3B' }
+                    ]}>
+                      {tx.type === 'deposit' ? '+' : '-'}${tx.amount?.toFixed(2) || '0.00'}
+                    </Text>
+                    <View style={[
+                      styles.transactionStatus,
+                      { backgroundColor: tx.status === 'completed' ? 'rgba(0, 229, 90, 0.15)' : 
+                        tx.status === 'pending' ? 'rgba(255, 184, 0, 0.15)' : 'rgba(255, 59, 59, 0.15)' }
+                    ]}>
+                      <Text style={[
+                        styles.transactionStatusText,
+                        { color: tx.status === 'completed' ? '#00E55A' : 
+                          tx.status === 'pending' ? '#FFB800' : '#FF3B3B' }
+                      ]}>
+                        {tx.status || 'Pending'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        )}
+      </>
+    );
+  };
+
   const renderActivityTab = () => {
     const LOGIN_HISTORY = [
       { id: 1, device: 'Safari / macOS', ip: '202.166.206.20', location: 'Nepal', date: '22/03/2026 14:42' },
@@ -1660,6 +1944,7 @@ export default function Profile() {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'Overview': return renderOverviewTab();
+      case 'Finance': return renderFinanceTab();
       case 'Security': return renderSecurityTab();
       case 'KYC': return renderKYCTab();
       case 'Activity': return renderActivityTab();
@@ -1697,6 +1982,7 @@ export default function Profile() {
               <Ionicons 
                 name={
                   tab === 'Overview' ? 'person' :
+                  tab === 'Finance' ? 'wallet' :
                   tab === 'Security' ? 'shield' :
                   tab === 'KYC' ? 'card' :
                   tab === 'Activity' ? 'time' : 'settings'
