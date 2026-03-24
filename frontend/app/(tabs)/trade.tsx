@@ -157,6 +157,8 @@ export default function Trade() {
   const [expirationTime, setExpirationTime] = useState<Date | null>(null);
   const [countdownText, setCountdownText] = useState('20:00');
   const [depositError, setDepositError] = useState<string | null>(null);
+  const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'success' | 'failed' | null>(null);
   
   // UTC Time and Candle Countdown
   const [utcTime, setUtcTime] = useState('');
@@ -264,6 +266,64 @@ export default function Trade() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } else {
       Alert.alert('Invalid Time', 'Trade time must be between 5 seconds and 24 hours.');
+    }
+  };
+  
+  // Verify Payment Function
+  const verifyPayment = async () => {
+    if (!paymentId) return;
+    
+    setIsVerifyingPayment(true);
+    setPaymentStatus(null);
+    
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const response = await fetch(`${API_URL}/deposit/check/${paymentId}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      
+      const data = await response.json();
+      
+      if (data.credited) {
+        // Payment successful - update balance and redirect
+        setPaymentStatus('success');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        
+        // Refresh user balance
+        const meResponse = await fetch(`${API_URL}/auth/me`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (meResponse.ok) {
+          const userData = await meResponse.json();
+          setRealBalance(userData.real_balance || 0);
+        }
+        
+        // Wait a bit to show success, then close and redirect
+        setTimeout(() => {
+          setShowDepositModal(false);
+          setGeneratedAddress(null);
+          setPaymentId(null);
+          setPayAmount(null);
+          setExpirationTime(null);
+          setPaymentStatus(null);
+          setAccountType('real'); // Switch to real account
+          Alert.alert(
+            '✅ Deposit Successful!', 
+            `$${depositAmount} has been added to your real account.`,
+            [{ text: 'Start Trading', style: 'default' }]
+          );
+        }, 2000);
+      } else {
+        // Payment not yet confirmed
+        setPaymentStatus('failed');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+    } catch (error) {
+      console.error('Payment verification error:', error);
+      setPaymentStatus('failed');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setIsVerifyingPayment(false);
     }
   };
   
@@ -1890,6 +1950,53 @@ export default function Trade() {
                       </Text>
                     </View>
 
+                    {/* Payment Status Messages */}
+                    {paymentStatus === 'success' && (
+                      <View style={depositModalStyles.successBox}>
+                        <Ionicons name="checkmark-circle" size={24} color="#00E55A" />
+                        <Text style={depositModalStyles.successText}>
+                          Payment confirmed! ${depositAmount} has been added to your account.
+                        </Text>
+                      </View>
+                    )}
+
+                    {paymentStatus === 'failed' && (
+                      <View style={depositModalStyles.failedBox}>
+                        <Ionicons name="close-circle" size={24} color="#FF3B3B" />
+                        <Text style={depositModalStyles.failedText}>
+                          Payment not found. Please wait for blockchain confirmation or check your transaction.
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Payment Confirmed Button */}
+                    <TouchableOpacity 
+                      style={[
+                        depositModalStyles.confirmPaymentBtn,
+                        isVerifyingPayment && depositModalStyles.confirmPaymentBtnDisabled,
+                        paymentStatus === 'success' && depositModalStyles.confirmPaymentBtnSuccess,
+                      ]}
+                      onPress={verifyPayment}
+                      disabled={isVerifyingPayment || paymentStatus === 'success'}
+                    >
+                      {isVerifyingPayment ? (
+                        <>
+                          <ActivityIndicator size="small" color="#0A0A0A" />
+                          <Text style={depositModalStyles.confirmPaymentBtnText}>Verifying Payment...</Text>
+                        </>
+                      ) : paymentStatus === 'success' ? (
+                        <>
+                          <Ionicons name="checkmark-circle" size={18} color="#0A0A0A" />
+                          <Text style={depositModalStyles.confirmPaymentBtnText}>Payment Confirmed!</Text>
+                        </>
+                      ) : (
+                        <>
+                          <Ionicons name="wallet" size={18} color="#0A0A0A" />
+                          <Text style={depositModalStyles.confirmPaymentBtnText}>I've Made Payment</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+
                     <TouchableOpacity 
                       style={depositModalStyles.doneBtn}
                       onPress={() => {
@@ -1898,9 +2005,10 @@ export default function Trade() {
                         setPaymentId(null);
                         setPayAmount(null);
                         setExpirationTime(null);
+                        setPaymentStatus(null);
                       }}
                     >
-                      <Text style={depositModalStyles.doneBtnText}>Done</Text>
+                      <Text style={depositModalStyles.doneBtnText}>Close</Text>
                     </TouchableOpacity>
                   </View>
                 </>
@@ -5073,6 +5181,61 @@ const depositModalStyles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600',
+  },
+  // Success/Failed Status Boxes
+  successBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 229, 90, 0.15)',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 10,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 90, 0.3)',
+  },
+  successText: {
+    color: '#00E55A',
+    fontSize: 11,
+    flex: 1,
+  },
+  failedBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 59, 59, 0.15)',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 10,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 59, 59, 0.3)',
+  },
+  failedText: {
+    color: '#FF3B3B',
+    fontSize: 11,
+    flex: 1,
+  },
+  // Confirm Payment Button
+  confirmPaymentBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#00E55A',
+    borderRadius: 10,
+    paddingVertical: 12,
+    gap: 6,
+    marginBottom: 8,
+  },
+  confirmPaymentBtnDisabled: {
+    opacity: 0.7,
+  },
+  confirmPaymentBtnSuccess: {
+    backgroundColor: '#00E55A',
+  },
+  confirmPaymentBtnText: {
+    color: '#0A0A0A',
+    fontSize: 13,
+    fontWeight: '700',
   },
   // Error Box
   errorBox: {
