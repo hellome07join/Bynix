@@ -50,7 +50,7 @@ export default function ToolsModal({
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Chart Tools</Text>
             <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close-circle" size={28} color="#666" />
+              <Ionicons name="close-circle" size={22} color="#666" />
             </TouchableOpacity>
           </View>
 
@@ -65,7 +65,7 @@ export default function ToolsModal({
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 }}
               >
-                <Ionicons name="bar-chart" size={24} color={chartType === 'candle' ? '#00E55A' : '#888'} />
+                <Ionicons name="bar-chart" size={18} color={chartType === 'candle' ? '#00E55A' : '#888'} />
                 <Text style={[styles.chartTypeText, chartType === 'candle' && styles.chartTypeTextActive]}>Candle</Text>
               </TouchableOpacity>
               
@@ -76,7 +76,7 @@ export default function ToolsModal({
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 }}
               >
-                <Ionicons name="analytics" size={24} color={chartType === 'line' ? '#00E55A' : '#888'} />
+                <Ionicons name="analytics" size={18} color={chartType === 'line' ? '#00E55A' : '#888'} />
                 <Text style={[styles.chartTypeText, chartType === 'line' && styles.chartTypeTextActive]}>Line</Text>
               </TouchableOpacity>
               
@@ -87,7 +87,7 @@ export default function ToolsModal({
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 }}
               >
-                <Ionicons name="stats-chart" size={24} color={chartType === 'bar' ? '#00E55A' : '#888'} />
+                <Ionicons name="stats-chart" size={18} color={chartType === 'bar' ? '#00E55A' : '#888'} />
                 <Text style={[styles.chartTypeText, chartType === 'bar' && styles.chartTypeTextActive]}>Bar</Text>
               </TouchableOpacity>
             </View>
@@ -128,7 +128,7 @@ export default function ToolsModal({
                 }}
               >
                 <View style={styles.drawToolIcon}>
-                  <Ionicons name="remove" size={24} color={selectedDrawTool === 'horizontal' ? '#FFB800' : '#FFFFFF'} />
+                  <Ionicons name="remove" size={18} color={selectedDrawTool === 'horizontal' ? '#FFB800' : '#FFFFFF'} />
                 </View>
                 <Text style={[styles.drawToolText, selectedDrawTool === 'horizontal' && styles.drawToolTextActive]}>
                   Horizontal Line
@@ -146,34 +146,16 @@ export default function ToolsModal({
                 }}
               >
                 <View style={styles.drawToolIcon}>
-                  <Ionicons name="trending-up" size={24} color={selectedDrawTool === 'trendline' ? '#FFB800' : '#FFFFFF'} />
+                  <Ionicons name="trending-up" size={18} color={selectedDrawTool === 'trendline' ? '#FFB800' : '#FFFFFF'} />
                 </View>
                 <Text style={[styles.drawToolText, selectedDrawTool === 'trendline' && styles.drawToolTextActive]}>
                   Trend Line
                 </Text>
               </TouchableOpacity>
 
-              {/* Vertical Line */}
-              <TouchableOpacity
-                style={[styles.drawToolItem, selectedDrawTool === 'vertical' && styles.drawToolItemActive]}
-                onPress={() => {
-                  setSelectedDrawTool(selectedDrawTool === 'vertical' ? null : 'vertical');
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  Alert.alert('Vertical Line', 'Tap on the chart to draw a vertical line.');
-                  onClose();
-                }}
-              >
-                <View style={styles.drawToolIcon}>
-                  <View style={styles.verticalLineIcon} />
-                </View>
-                <Text style={[styles.drawToolText, selectedDrawTool === 'vertical' && styles.drawToolTextActive]}>
-                  Vertical Line
-                </Text>
-              </TouchableOpacity>
-
               {/* Clear All */}
               <TouchableOpacity
-                style={styles.drawToolItem}
+                style={[styles.drawToolItem, styles.clearAllItem]}
                 onPress={() => {
                   setSelectedDrawTool(null);
                   setHorizontalLines([]);
@@ -184,7 +166,7 @@ export default function ToolsModal({
                 }}
               >
                 <View style={[styles.drawToolIcon, { backgroundColor: 'rgba(255, 59, 59, 0.15)' }]}>
-                  <Ionicons name="trash" size={24} color="#FF3B3B" />
+                  <Ionicons name="trash" size={18} color="#FF3B3B" />
                 </View>
                 <Text style={[styles.drawToolText, { color: '#FF3B3B' }]}>
                   Clear All
@@ -206,42 +188,42 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#1A1A2E',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    maxHeight: '80%',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    padding: 14,
+    maxHeight: '70%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   toolsSection: {
-    marginBottom: 20,
+    marginBottom: 14,
   },
   toolsSectionTitle: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '600',
     color: '#888',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   chartTypeGrid: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
   },
   chartTypeItem: {
     flex: 1,
     backgroundColor: '#252540',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 10,
+    padding: 12,
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     borderWidth: 1,
     borderColor: 'transparent',
   },
@@ -250,7 +232,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 229, 90, 0.1)',
   },
   chartTypeText: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#888',
     fontWeight: '600',
   },
@@ -260,13 +242,13 @@ const styles = StyleSheet.create({
   candleTimeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 6,
   },
   candleTimeItem: {
     backgroundColor: '#252540',
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
     borderWidth: 1,
     borderColor: 'transparent',
   },
@@ -275,7 +257,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 229, 90, 0.1)',
   },
   candleTimeText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#888',
     fontWeight: '600',
   },
@@ -285,42 +267,40 @@ const styles = StyleSheet.create({
   drawToolsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 8,
   },
   drawToolItem: {
-    width: '47%',
+    width: '31%',
     backgroundColor: '#252540',
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 10,
+    padding: 10,
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     borderWidth: 1,
     borderColor: 'transparent',
+  },
+  clearAllItem: {
+    width: '31%',
   },
   drawToolItemActive: {
     borderColor: '#FFB800',
     backgroundColor: 'rgba(255, 184, 0, 0.1)',
   },
   drawToolIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   drawToolText: {
-    fontSize: 12,
+    fontSize: 9,
     color: '#FFFFFF',
     fontWeight: '600',
+    textAlign: 'center',
   },
   drawToolTextActive: {
     color: '#FFB800',
-  },
-  verticalLineIcon: {
-    width: 2,
-    height: 20,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 1,
   },
 });
