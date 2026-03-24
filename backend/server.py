@@ -19,7 +19,7 @@ import asyncio
 import base64
 from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContent
 from tarspay_service import tarspay_service, fetch_live_exchange_rate, get_current_rate
-from email_service import send_verification_otp, verify_otp, resend_otp
+from email_service import send_verification_otp, verify_otp as verify_email_otp, resend_otp
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -342,10 +342,10 @@ async def signup(user: UserCreate):
         raise HTTPException(status_code=500, detail=f"Failed to send verification email: {message}")
 
 @api_router.post("/auth/verify-email")
-async def verify_email_otp(request: VerifyEmailOTPRequest):
+async def verify_email_otp_endpoint(request: VerifyEmailOTPRequest):
     """Verify email with OTP code"""
     # Check OTP
-    success, message = verify_otp(request.email, request.otp)
+    success, message = verify_email_otp(request.email, request.otp)
     
     if not success:
         raise HTTPException(status_code=400, detail=message)
@@ -1703,37 +1703,6 @@ async def request_account_deletion(authorization: Optional[str] = Header(None), 
         "success": True,
         "message": "Account deletion request submitted. Your account will be deleted in 30 days. You can cancel this request by contacting support."
     }
-
-@api_router.post("/auth/verify-email")
-async def verify_email_code(code: str, authorization: Optional[str] = Header(None), request: Request = None):
-    """Verify email with code"""
-    user = await get_current_user(authorization, request)
-    
-    # Find the verification code
-    verification = await db.verification_codes.find_one({
-        "user_id": user.user_id,
-        "type": "email",
-        "code": code,
-        "used": False,
-        "expires_at": {"$gt": datetime.now(timezone.utc)}
-    })
-    
-    if not verification:
-        raise HTTPException(status_code=400, detail="Invalid or expired verification code")
-    
-    # Mark as verified
-    await db.users.update_one(
-        {"user_id": user.user_id},
-        {"$set": {"is_email_verified": True}}
-    )
-    
-    # Mark code as used
-    await db.verification_codes.update_one(
-        {"_id": verification["_id"]},
-        {"$set": {"used": True}}
-    )
-    
-    return {"success": True, "message": "Email verified successfully"}
 
 @api_router.post("/profile/photo")
 async def upload_profile_photo(photo_data: dict, authorization: Optional[str] = Header(None), request: Request = None):
