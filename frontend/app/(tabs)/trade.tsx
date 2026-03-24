@@ -746,15 +746,43 @@ export default function Trade() {
       return;
     }
 
-    // Check balance
+    // Check balance - Show insufficient balance popup with deposit option
     if (tradeAmount > currentBalance) {
-      Alert.alert('Error', `Insufficient balance. You have $${currentBalance.toFixed(2)} but trying to trade $${tradeAmount}`);
+      Alert.alert(
+        '💰 Insufficient Balance',
+        `You have $${currentBalance.toFixed(2)} but trying to trade $${tradeAmount.toFixed(2)}.\n\nPlease deposit funds to continue trading.`,
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Deposit Now',
+            onPress: () => setShowDepositModal(true),
+            style: 'default',
+          },
+        ]
+      );
       return;
     }
 
     // Additional check for real account with 0 balance
     if (accountType === 'real' && currentBalance <= 0) {
-      Alert.alert('No Balance', 'Please deposit funds to your real account first');
+      Alert.alert(
+        '💰 No Balance',
+        'Your account balance is $0.00.\n\nPlease deposit funds to start trading.',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Deposit Now',
+            onPress: () => setShowDepositModal(true),
+            style: 'default',
+          },
+        ]
+      );
       return;
     }
 
