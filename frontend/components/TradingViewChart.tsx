@@ -496,6 +496,11 @@ export default function TradingViewChart({
     minPrice -= pricePadding;
     maxPrice += pricePadding;
     
+    // Notify parent about price range change
+    if (onPriceRangeChange) {
+      onPriceRangeChange({ min: minPrice, max: maxPrice });
+    }
+    
     // Draw grid lines
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
     ctx.lineWidth = 1;
