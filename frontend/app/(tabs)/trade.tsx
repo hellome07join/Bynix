@@ -267,11 +267,12 @@ export default function Trade() {
   const [customEndDate, setCustomEndDate] = useState('');
   const [selectedDrawTool, setSelectedDrawTool] = useState<string | null>(null);
   const [chartType, setChartType] = useState<'candle' | 'line' | 'bar'>('candle');
-  const [horizontalLines, setHorizontalLines] = useState<{price: number}[]>([]);
+  const [horizontalLines, setHorizontalLines] = useState<{id: string, price: number, selected?: boolean}[]>([]);
   const [chartDimensions, setChartDimensions] = useState({width: 0, height: 0});
   const [priceRange, setPriceRange] = useState({ min: 0, max: 0 });
   const chartContainerRef = useRef<View>(null);
   const [chartContainerLayout, setChartContainerLayout] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
   const [customMinutes, setCustomMinutes] = useState('1');
   const [customSeconds, setCustomSeconds] = useState('0');
   const [demoAddAmount, setDemoAddAmount] = useState('1000');
@@ -1253,14 +1254,36 @@ export default function Trade() {
                 
                 // Only add line if price is valid
                 if (!isNaN(price) && price > 0) {
-                  setHorizontalLines(prev => [...prev, { price }]);
+                  const newLine = {
+                    id: `line_${Date.now()}`,
+                    price,
+                    selected: false
+                  };
+                  setHorizontalLines(prev => [...prev, newLine]);
                   setSelectedDrawTool(null);
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 } else {
                   console.log('Invalid price calculated, not adding line');
                 }
+              } else {
+                // Deselect line when clicking elsewhere
+                setSelectedLineId(null);
               }
             }}
+            onLineSelect={(lineId: string | null) => {
+              setSelectedLineId(lineId);
+              if (lineId) {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }
+            }}
+            onLineMove={(lineId: string, newPrice: number) => {
+              setHorizontalLines(prev => 
+                prev.map(line => 
+                  line.id === lineId ? { ...line, price: newPrice } : line
+                )
+              );
+            }}
+            selectedLineId={selectedLineId}
             authToken={token}
           />
         </View>
@@ -1283,46 +1306,32 @@ export default function Trade() {
           </View>
         )}
         
-        {/* Horizontal Lines Count & Clear Button */}
-        {horizontalLines.length > 0 && (
-          <View style={{
-            position: 'absolute',
-            top: 10,
-            right: 10,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 8,
-            zIndex: 150,
-          }}>
-            <View style={{
-              backgroundColor: 'rgba(255, 184, 0, 0.2)',
-              paddingHorizontal: 10,
-              paddingVertical: 5,
-              borderRadius: 6,
-              borderWidth: 1,
-              borderColor: '#FFB800',
-            }}>
-              <Text style={{ color: '#FFB800', fontSize: 11, fontWeight: '600' }}>
-                {horizontalLines.length} Line{horizontalLines.length > 1 ? 's' : ''}
-              </Text>
-            </View>
-            <TouchableOpacity 
-              style={{
-                backgroundColor: 'rgba(255, 59, 59, 0.2)',
-                paddingHorizontal: 10,
-                paddingVertical: 5,
-                borderRadius: 6,
-                borderWidth: 1,
-                borderColor: '#FF3B3B',
-              }}
-              onPress={() => {
-                setHorizontalLines([]);
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-              }}
-            >
-              <Text style={{ color: '#FF3B3B', fontSize: 11, fontWeight: '600' }}>Clear All</Text>
-            </TouchableOpacity>
-          </View>
+        {/* Delete Button for Selected Line */}
+        {selectedLineId && (
+          <TouchableOpacity
+            style={{
+              position: 'absolute',
+              right: 8,
+              top: '50%',
+              transform: [{ translateY: -20 }],
+              backgroundColor: 'rgba(255, 59, 59, 0.95)',
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              borderRadius: 8,
+              zIndex: 250,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+            }}
+            onPress={() => {
+              setHorizontalLines(prev => prev.filter(line => line.id !== selectedLineId));
+              setSelectedLineId(null);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            }}
+          >
+            <Ionicons name="trash" size={16} color="#fff" />
+            <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>Delete</Text>
+          </TouchableOpacity>
         )}
         
         {/* User Chart Picture Overlay */}

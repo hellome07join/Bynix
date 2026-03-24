@@ -11,8 +11,10 @@ interface TradeMarker {
 }
 
 interface HorizontalLine {
+  id?: string;
   price: number;
   color?: string;
+  selected?: boolean;
 }
 
 interface PriceRange {
@@ -39,6 +41,9 @@ interface TradingViewChartProps {
   onPriceUpdate?: (price: number) => void;
   onPriceRangeChange?: (range: PriceRange) => void;
   onChartClick?: (y: number, chartHeight: number) => void;
+  onLineSelect?: (lineId: string | null) => void;
+  onLineMove?: (lineId: string, newPrice: number) => void;
+  selectedLineId?: string | null;
   authToken?: string | null;
 }
 
@@ -77,6 +82,9 @@ export default function TradingViewChart({
   onPriceUpdate,
   onPriceRangeChange,
   onChartClick,
+  onLineSelect,
+  onLineMove,
+  selectedLineId,
   authToken
 }: TradingViewChartProps) {
   // Track price range for horizontal lines
@@ -141,6 +149,12 @@ export default function TradingViewChart({
   const initialPinchDistanceRef = useRef(0);
   const initialScaleRef = useRef(1);
   const lastPinchCenterRef = useRef({ x: 0, y: 0 });
+  
+  // Line dragging refs
+  const isDraggingLineRef = useRef(false);
+  const dragStartYRef = useRef(0);
+  const lastMouseXRef = useRef(0);
+  const lastMouseYRef = useRef(0);
   
   // Zoom constraints
   const MIN_SCALE = 0.3;
@@ -946,13 +960,130 @@ export default function TradingViewChart({
           }}
           onClick={(e: any) => {
             // Only trigger chart click if not dragging
-            if (onChartClick && !isDraggingRef.current) {
+            if (!isDraggingRef.current) {
               const rect = e.currentTarget.getBoundingClientRect();
               const y = e.clientY - rect.top;
               const height = rect.height;
-              console.log('Chart div clicked:', { y, height, clientY: e.clientY, rectTop: rect.top });
-              onChartClick(y, height);
+              
+              // Check if clicked near a horizontal line (within 15px tolerance)
+              const padding = { top: 20, bottom: 45 };
+              const chartHeight = height - padding.top - padding.bottom;
+              
+              // Get current min/max price from the canvas data attribute or calculate
+              const canvas = canvasRef.current;
+              let minPrice = 0, maxPrice = 0;
+              
+              // Calculate from visible candles
+              if (aggregatedCandles.length > 0) {
+                const visibleCandles = aggregatedCandles.slice(0, Math.floor(50 / scale));
+                minPrice = Math.min(...visibleCandles.map(c => c.low)) * 0.9999;
+                maxPrice = Math.max(...visibleCandles.map(c => c.high)) * 1.0001;
+              }
+              
+              // Check each horizontal line for click proximity
+              let clickedLineId: string | null = null;
+              const tolerance = 15; // pixels
+              
+              for (const line of horizontalLines) {
+                if (!line.id) continue;
+                const lineY = padding.top + ((maxPrice - line.price) / (maxPrice - minPrice)) * chartHeight;
+                if (Math.abs(y - lineY) <= tolerance) {
+                  clickedLineId = line.id;
+                  break;
+                }
+              }
+              
+              if (clickedLineId) {
+                // Line was clicked - select/deselect it
+                console.log('Line clicked:', clickedLineId);
+                if (onLineSelect) {
+                  onLineSelect(selectedLineId === clickedLineId ? null : clickedLineId);
+                }
+              } else if (onChartClick) {
+                // No line clicked - trigger chart click for drawing
+                console.log('Chart div clicked:', { y, height, clientY: e.clientY, rectTop: rect.top });
+                onChartClick(y, height);
+              }
             }
+          }}
+          onMouseDown={(e: any) => {
+            // Check if clicking on a selected line for dragging
+            if (selectedLineId && horizontalLines.length > 0) {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const y = e.clientY - rect.top;
+              const padding = { top: 20, bottom: 45 };
+              const chartHeight = rect.height - padding.top - padding.bottom;
+              
+              // Get price range
+              let minPrice = 0, maxPrice = 0;
+              if (aggregatedCandles.length > 0) {
+                const visibleCandles = aggregatedCandles.slice(0, Math.floor(50 / scale));
+                minPrice = Math.min(...visibleCandles.map(c => c.low)) * 0.9999;
+                maxPrice = Math.max(...visibleCandles.map(c => c.high)) * 1.0001;
+              }
+              
+              // Find the selected line
+              const selectedLine = horizontalLines.find(l => l.id === selectedLineId);
+              if (selectedLine) {
+                const lineY = padding.top + ((maxPrice - selectedLine.price) / (maxPrice - minPrice)) * chartHeight;
+                // If clicking near the selected line, start dragging
+                if (Math.abs(y - lineY) <= 20) {
+                  e.preventDefault();
+                  isDraggingLineRef.current = true;
+                  dragStartYRef.current = y;
+                  return;
+                }
+              }
+            }
+            
+            // Original mouse down logic for panning
+            isDraggingRef.current = true;
+            lastMouseXRef.current = e.clientX;
+            lastMouseYRef.current = e.clientY;
+            e.preventDefault();
+          }}
+          onMouseMove={(e: any) => {
+            // Handle line dragging
+            if (isDraggingLineRef.current && selectedLineId && onLineMove) {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const y = e.clientY - rect.top;
+              const padding = { top: 20, bottom: 45 };
+              const chartHeight = rect.height - padding.top - padding.bottom;
+              
+              // Get price range
+              let minPrice = 0, maxPrice = 0;
+              if (aggregatedCandles.length > 0) {
+                const visibleCandles = aggregatedCandles.slice(0, Math.floor(50 / scale));
+                minPrice = Math.min(...visibleCandles.map(c => c.low)) * 0.9999;
+                maxPrice = Math.max(...visibleCandles.map(c => c.high)) * 1.0001;
+              }
+              
+              // Calculate new price from Y position
+              const adjustedY = y - padding.top;
+              const priceRatio = Math.max(0, Math.min(1, adjustedY / chartHeight));
+              const newPrice = maxPrice - (priceRatio * (maxPrice - minPrice));
+              
+              if (!isNaN(newPrice) && newPrice > 0) {
+                onLineMove(selectedLineId, newPrice);
+              }
+              return;
+            }
+            
+            // Original mouse move logic for panning
+            if (isDraggingRef.current && !isPinchingRef.current) {
+              const deltaX = e.clientX - lastMouseXRef.current;
+              setScrollOffset(prev => prev - deltaX * SCROLL_SENSITIVITY / scale);
+              lastMouseXRef.current = e.clientX;
+              lastMouseYRef.current = e.clientY;
+            }
+          }}
+          onMouseUp={() => {
+            isDraggingRef.current = false;
+            isDraggingLineRef.current = false;
+          }}
+          onMouseLeave={() => {
+            isDraggingRef.current = false;
+            isDraggingLineRef.current = false;
           }}
         >
           {isLoading ? (
