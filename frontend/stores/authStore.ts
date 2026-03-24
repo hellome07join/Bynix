@@ -108,10 +108,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  updateBalance: async (demoBalance, realBalance) => {
+  updateBalance: async (demoBalance, realBalance, totalBalance?: number) => {
     const { user } = get();
     if (user) {
-      const updatedUser = { ...user, demo_balance: demoBalance, real_balance: realBalance };
+      const updatedUser = { 
+        ...user, 
+        demo_balance: demoBalance, 
+        real_balance: realBalance,
+        total_balance: totalBalance !== undefined ? totalBalance : (user.total_balance || realBalance),
+      };
       set({ user: updatedUser });
       // Persist to AsyncStorage
       await AsyncStorage.setItem('user', JSON.stringify(updatedUser));

@@ -826,6 +826,17 @@ export default function Trade() {
 
     // For real account with token, use API
     console.log('>>> REAL MODE - API call');
+    
+    // Deduct amount from real balance IMMEDIATELY when trade is placed
+    const previousRealBalance = user?.real_balance || 0;
+    const previousTotalBalance = user?.total_balance || 0;
+    if (user) {
+      const newRealBalance = previousRealBalance - tradeAmount;
+      const newTotalBalance = previousTotalBalance - tradeAmount;
+      updateBalance(user.demo_balance || 10000, newRealBalance, newTotalBalance);
+      console.log('>>> Balance deducted immediately:', { newRealBalance, newTotalBalance });
+    }
+    
     try {
       console.log('Calling api.createTrade with:', {
         asset: selectedAsset,
@@ -843,12 +854,6 @@ export default function Trade() {
         entry_price: currentPrice,
         account_type: accountType,
       }, token);
-
-      // Deduct amount from real balance
-      if (user) {
-        const newRealBalance = (user.real_balance || 0) - tradeAmount;
-        updateBalance(user.demo_balance || 10000, newRealBalance);
-      }
 
       // Add new trade to the array
       const newTrade: ActiveTrade = {
@@ -869,6 +874,11 @@ export default function Trade() {
       // Success haptic
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error: any) {
+      // Revert balance if API call failed
+      if (user) {
+        updateBalance(user.demo_balance || 10000, previousRealBalance, previousTotalBalance);
+        console.log('>>> Balance reverted due to API error');
+      }
       Alert.alert('Trade Failed', error.message);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
