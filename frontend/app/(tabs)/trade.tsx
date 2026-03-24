@@ -492,16 +492,21 @@ export default function Trade() {
   }, [token, accountType, selectedDateRange]);
 
   // Reset selected asset when account type changes to ensure it's valid for the new account
+  // NOTE: Using a ref to track previous accountType to prevent infinite loops
+  const prevAccountTypeRef = useRef(accountType);
   useEffect(() => {
-    const validAssets = getAssetsForAccount(accountType);
-    const isCurrentAssetValid = validAssets.some(a => a.value === selectedAsset);
-    console.log(`Account type changed to: ${accountType}, current asset: ${selectedAsset}, valid: ${isCurrentAssetValid}`);
-    if (!isCurrentAssetValid) {
-      // Reset to default asset for the new account type
-      const newAsset = getDefaultAssetForAccount(accountType);
-      console.log(`Resetting asset to: ${newAsset}`);
-      setSelectedAsset(newAsset);
-      setSelectedCategory('forex'); // Reset to default category
+    // Only run when accountType actually changes
+    if (prevAccountTypeRef.current !== accountType) {
+      prevAccountTypeRef.current = accountType;
+      const validAssets = getAssetsForAccount(accountType);
+      const isCurrentAssetValid = validAssets.some(a => a.value === selectedAsset);
+      console.log(`Account type changed to: ${accountType}, current asset: ${selectedAsset}, valid: ${isCurrentAssetValid}`);
+      if (!isCurrentAssetValid) {
+        const newAsset = getDefaultAssetForAccount(accountType);
+        console.log(`Resetting asset to: ${newAsset}`);
+        setSelectedAsset(newAsset);
+        setSelectedCategory('forex'); // Reset to default category
+      }
     }
   }, [accountType, selectedAsset]);
 
