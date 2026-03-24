@@ -309,13 +309,29 @@ async def signup(user: UserCreate):
     
     await db.users.insert_one(new_user)
     
-    # In production, send OTP via email
-    # For now, return it in response (ONLY FOR DEVELOPMENT)
+    # Auto-verify and login the user immediately
+    await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {"is_verified": True}}
+    )
+    
+    # Generate access token for immediate login
+    access_token = create_access_token({"sub": user_id})
+    
     return {
-        "message": "User created successfully. Please verify your email.",
+        "message": "Account created successfully!",
         "user_id": user_id,
         "account_id": str(account_id),
-        "otp": otp  # Remove this in production
+        "access_token": access_token,
+        "user": {
+            "user_id": user_id,
+            "email": user.email,
+            "name": user.name,
+            "demo_balance": 10000.0,
+            "real_balance": 0.0,
+            "bonus_balance": 0.0,
+            "is_admin": False
+        }
     }
 
 @api_router.post("/auth/verify-otp")

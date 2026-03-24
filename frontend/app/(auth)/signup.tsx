@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '../../utils/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuthStore } from '../../stores/authStore';
 
 const { width, height } = Dimensions.get('window');
 
@@ -190,6 +191,7 @@ const DataStream = ({ delay, left }: { delay: number; left: number }) => {
 
 export default function Signup() {
   const router = useRouter();
+  const login = useAuthStore(state => state.login);
   
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -357,19 +359,9 @@ export default function Signup() {
         country_flag: selectedCountry.flag,
       });
       
-      await AsyncStorage.setItem('signup_email', email);
-      await AsyncStorage.setItem('dev_otp', response.otp);
-      
-      if (Platform.OS === 'web') {
-        window.alert(`Verification code sent to your email. (DEV: ${response.otp})`);
-        router.push('/(auth)/verify-otp');
-      } else {
-        Alert.alert(
-          'Success', 
-          `Verification code sent to your email. (DEV: ${response.otp})`,
-          [{ text: 'OK', onPress: () => router.push('/(auth)/verify-otp') }]
-        );
-      }
+      // Auto-login user and redirect to trade page
+      await login(response.access_token, response.user);
+      router.replace('/(tabs)/trade');
     } catch (error: any) {
       if (Platform.OS === 'web') {
         window.alert(error.message || 'Could not create account');
