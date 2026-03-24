@@ -2219,7 +2219,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   realBalance: {
-    backgroundColor: '#00C853',
+    backgroundColor: '#006400',
     borderColor: '#00E55A',
   },
   realBalanceText: {
