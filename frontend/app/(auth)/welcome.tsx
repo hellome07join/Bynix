@@ -388,8 +388,7 @@ export default function Welcome() {
           <Animated.View style={[styles.startTradingWrapper, { transform: [{ scale: buttonScale }] }]}>
             <TouchableOpacity
               style={styles.startTradingBtn}
-              onPress={handleStartDemo}
-              disabled={isLoading}
+              onPress={() => router.push('/(auth)/signup')}
             >
               <LinearGradient
                 colors={['#FFD700', '#FFB800', '#FF9500']}
@@ -397,14 +396,8 @@ export default function Welcome() {
                 end={{ x: 1, y: 1 }}
                 style={styles.startTradingGradient}
               >
-                {isLoading ? (
-                  <ActivityIndicator color="#0A0E27" size="small" />
-                ) : (
-                  <>
-                    <Ionicons name="rocket" size={16} color="#0A0E27" />
-                    <Text style={styles.startTradingText}>Start Trading</Text>
-                  </>
-                )}
+                <Ionicons name="rocket" size={16} color="#0A0E27" />
+                <Text style={styles.startTradingText}>Start Trading</Text>
               </LinearGradient>
             </TouchableOpacity>
           </Animated.View>
