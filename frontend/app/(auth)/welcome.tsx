@@ -410,10 +410,13 @@ export default function Welcome() {
           </Animated.View>
         </View>
 
-        {/* Hero Section */}
-        <View style={styles.heroSection}>
-          <Text style={styles.heroTitle}>Binary Options</Text>
-          <Text style={styles.heroSubtitle}>Trading Platform</Text>
+        {/* Big Logo Section */}
+        <View style={styles.bigLogoSection}>
+          <Image 
+            source={require('../../assets/images/bynix-logo.png')} 
+            style={styles.bigLogoImage}
+            resizeMode="contain"
+          />
           <Text style={styles.heroDescription}>
             Trade forex, crypto, stocks & commodities with up to 95% profit per trade
           </Text>
@@ -616,8 +619,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   logoImage: {
-    width: 180,
-    height: 65,
+    width: 120,
+    height: 45,
+  },
+  bigLogoSection: {
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingVertical: 10,
+  },
+  bigLogoImage: {
+    width: width - 40,
+    height: 120,
+    marginBottom: 16,
+  },
+  heroDescription: {
+    fontSize: 15,
+    color: 'rgba(255, 255, 255, 0.7)',
+    lineHeight: 22,
+    textAlign: 'center',
+    paddingHorizontal: 10,
   },
   startTradingWrapper: {
     marginTop: 5,
@@ -642,26 +662,6 @@ const styles = StyleSheet.create({
     color: '#0A0E27',
     fontSize: 12,
     fontWeight: 'bold',
-  },
-  heroSection: {
-    marginBottom: 24,
-  },
-  heroTitle: {
-    fontSize: 38,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  heroSubtitle: {
-    fontSize: 38,
-    fontWeight: 'bold',
-    color: '#00E55A',
-    marginBottom: 12,
-  },
-  heroDescription: {
-    fontSize: 15,
-    color: 'rgba(255, 255, 255, 0.7)',
-    lineHeight: 22,
   },
   statsRow: {
     flexDirection: 'row',
