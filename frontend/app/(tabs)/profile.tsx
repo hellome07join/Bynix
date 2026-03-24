@@ -112,14 +112,16 @@ export default function Profile() {
   });
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [depositAmount, setDepositAmount] = useState('21');
-  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawAmount, setWithdrawAmount] = useState('100');
   const [withdrawAddress, setWithdrawAddress] = useState('');
   const [selectedCrypto, setSelectedCrypto] = useState('USDT');
   const [selectedNetwork, setSelectedNetwork] = useState('USDT (TRC20)');
   const [showDepositModal, setShowDepositModal] = useState(false);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showNetworkDropdown, setShowNetworkDropdown] = useState(false);
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
+  const [isProcessingWithdraw, setIsProcessingWithdraw] = useState(false);
   
   // Settings State
   const [notificationSettings, setNotificationSettings] = useState({
@@ -1462,90 +1464,92 @@ export default function Profile() {
           </View>
         </View>
 
-        {/* Sub Tabs */}
+        {/* Sub Tabs - Only Overview */}
         <View style={styles.financeSubTabs}>
-          {['Overview', 'Deposit', 'Withdraw'].map((tab) => (
-            <TouchableOpacity
-              key={tab}
-              style={[styles.financeSubTab, financeSubTab === tab && styles.financeSubTabActive]}
-              onPress={() => {
-                setFinanceSubTab(tab);
-              }}
-            >
-              <Ionicons 
-                name={tab === 'Overview' ? 'stats-chart' : tab === 'Deposit' ? 'arrow-down-circle' : 'arrow-up-circle'}
-                size={18}
-                color={financeSubTab === tab ? '#00E55A' : '#666'}
-              />
-              <Text style={[styles.financeSubTabText, financeSubTab === tab && styles.financeSubTabTextActive]}>
-                {tab}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          <TouchableOpacity
+            style={[styles.financeSubTab, styles.financeSubTabActive, { flex: 1 }]}
+            onPress={() => setFinanceSubTab('Overview')}
+          >
+            <Ionicons name="stats-chart" size={18} color="#00E55A" />
+            <Text style={[styles.financeSubTabText, styles.financeSubTabTextActive]}>Overview</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.financeSubTab, { flex: 1 }]}
+            onPress={() => setShowDepositModal(true)}
+          >
+            <Ionicons name="arrow-down-circle" size={18} color="#666" />
+            <Text style={styles.financeSubTabText}>Deposit</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.financeSubTab, { flex: 1 }]}
+            onPress={() => setShowWithdrawModal(true)}
+          >
+            <Ionicons name="arrow-up-circle" size={18} color="#666" />
+            <Text style={styles.financeSubTabText}>Withdraw</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Overview Section - Shows Summary and All Transactions */}
-        {financeSubTab === 'Overview' && (
-          <View style={styles.financeSection}>
-            {/* Summary Stats Cards */}
-            <View style={styles.financeSummaryRow}>
-              {/* Total Deposits Card */}
-              <View style={[styles.financeSummaryCard, { borderLeftColor: '#00E55A' }]}>
-                <View style={styles.financeSummaryIconBox}>
-                  <Ionicons name="arrow-down-circle" size={28} color="#00E55A" />
-                </View>
-                <View style={styles.financeSummaryInfo}>
-                  <Text style={styles.financeSummaryLabel}>Total Deposits</Text>
-                  <Text style={[styles.financeSummaryAmount, { color: '#00E55A' }]}>
-                    ${transactionSummary.total_deposit_amount.toFixed(2)}
-                  </Text>
-                  <Text style={styles.financeSummaryCount}>
-                    {transactionSummary.total_deposits} {transactionSummary.total_deposits === 1 ? 'Transaction' : 'Transactions'}
-                  </Text>
-                </View>
+        <View style={styles.financeSection}>
+          {/* Summary Stats Cards */}
+          <View style={styles.financeSummaryRow}>
+            {/* Total Deposits Card */}
+            <View style={[styles.financeSummaryCard, { borderLeftColor: '#00E55A' }]}>
+              <View style={styles.financeSummaryIconBox}>
+                <Ionicons name="arrow-down-circle" size={28} color="#00E55A" />
               </View>
-
-              {/* Total Withdrawals Card */}
-              <View style={[styles.financeSummaryCard, { borderLeftColor: '#FF3B3B' }]}>
-                <View style={styles.financeSummaryIconBox}>
-                  <Ionicons name="arrow-up-circle" size={28} color="#FF3B3B" />
-                </View>
-                <View style={styles.financeSummaryInfo}>
-                  <Text style={styles.financeSummaryLabel}>Total Withdrawals</Text>
-                  <Text style={[styles.financeSummaryAmount, { color: '#FF3B3B' }]}>
-                    ${transactionSummary.total_withdrawal_amount.toFixed(2)}
-                  </Text>
-                  <Text style={styles.financeSummaryCount}>
-                    {transactionSummary.total_withdrawals} {transactionSummary.total_withdrawals === 1 ? 'Transaction' : 'Transactions'}
-                  </Text>
-                </View>
+              <View style={styles.financeSummaryInfo}>
+                <Text style={styles.financeSummaryLabel}>Total Deposits</Text>
+                <Text style={[styles.financeSummaryAmount, { color: '#00E55A' }]}>
+                  ${transactionSummary.total_deposit_amount.toFixed(2)}
+                </Text>
+                <Text style={styles.financeSummaryCount}>
+                  {transactionSummary.total_deposits} {transactionSummary.total_deposits === 1 ? 'Transaction' : 'Transactions'}
+                </Text>
               </View>
             </View>
 
-            {/* Quick Actions */}
-            <View style={styles.financeQuickActions}>
-              <TouchableOpacity 
-                style={styles.depositBonusBtn}
-                onPress={() => setShowDepositModal(true)}
-              >
-                <Ionicons name="gift" size={20} color="#0A0A0A" />
-                <Text style={styles.depositBonusBtnText}>200% Deposit</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.financeQuickBtn, { backgroundColor: '#FF3B3B' }]}
-                onPress={() => setFinanceSubTab('Withdraw')}
-              >
-                <Ionicons name="remove-circle" size={22} color="#FFFFFF" />
-                <Text style={[styles.financeQuickBtnText, { color: '#FFFFFF' }]}>Withdraw</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* All Transactions Section */}
-            <View style={styles.financeHistoryHeader}>
-              <View style={styles.financeHistoryTitleRow}>
-                <Ionicons name="time" size={20} color="#00E55A" />
-                <Text style={styles.financeHistoryTitle}>Transactions</Text>
+            {/* Total Withdrawals Card */}
+            <View style={[styles.financeSummaryCard, { borderLeftColor: '#FF3B3B' }]}>
+              <View style={styles.financeSummaryIconBox}>
+                <Ionicons name="arrow-up-circle" size={28} color="#FF3B3B" />
               </View>
+              <View style={styles.financeSummaryInfo}>
+                <Text style={styles.financeSummaryLabel}>Total Withdrawals</Text>
+                <Text style={[styles.financeSummaryAmount, { color: '#FF3B3B' }]}>
+                  ${transactionSummary.total_withdrawal_amount.toFixed(2)}
+                </Text>
+                <Text style={styles.financeSummaryCount}>
+                  {transactionSummary.total_withdrawals} {transactionSummary.total_withdrawals === 1 ? 'Transaction' : 'Transactions'}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Quick Actions */}
+          <View style={styles.financeQuickActions}>
+            <TouchableOpacity 
+              style={styles.depositBonusBtn}
+              onPress={() => setShowDepositModal(true)}
+            >
+              <Ionicons name="gift" size={20} color="#0A0A0A" />
+              <Text style={styles.depositBonusBtnText}>200% Deposit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.financeQuickBtn, { backgroundColor: '#FF3B3B' }]}
+              onPress={() => setShowWithdrawModal(true)}
+            >
+              <Ionicons name="remove-circle" size={22} color="#FFFFFF" />
+              <Text style={[styles.financeQuickBtnText, { color: '#FFFFFF' }]}>Withdraw</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* All Transactions Section */}
+          <View style={styles.financeHistoryHeader}>
+            <View style={styles.financeHistoryTitleRow}>
+              <Ionicons name="time" size={20} color="#00E55A" />
+              <Text style={styles.financeHistoryTitle}>Transactions</Text>
+            </View>
             </View>
 
             {/* Table Header */}
@@ -1612,145 +1616,6 @@ export default function Profile() {
               ))
             )}
           </View>
-        )}
-
-        {/* Deposit Section */}
-        {financeSubTab === 'Deposit' && (
-          <View style={styles.financeSection}>
-            <View style={styles.financeSectionHeader}>
-              <Ionicons name="arrow-down-circle" size={24} color="#00E55A" />
-              <Text style={styles.financeSectionTitle}>Deposit Funds</Text>
-            </View>
-
-            {/* Crypto Selection */}
-            <Text style={styles.financeInputLabel}>Select Cryptocurrency</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.cryptoOptions}>
-              {CRYPTO_OPTIONS.map((crypto) => (
-                <TouchableOpacity
-                  key={crypto.id}
-                  style={[styles.cryptoOption, selectedCrypto === crypto.id && styles.cryptoOptionActive]}
-                  onPress={() => setSelectedCrypto(crypto.id)}
-                >
-                  <Text style={styles.cryptoIcon}>{crypto.icon}</Text>
-                  <Text style={[styles.cryptoName, selectedCrypto === crypto.id && { color: '#00E55A' }]}>
-                    {crypto.id}
-                  </Text>
-                  <Text style={styles.cryptoNetwork}>{crypto.network}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {/* Amount Input */}
-            <Text style={styles.financeInputLabel}>Amount (USD)</Text>
-            <TextInput
-              style={styles.financeInput}
-              placeholder="Minimum $25"
-              placeholderTextColor="#666"
-              value={depositAmount}
-              onChangeText={setDepositAmount}
-              keyboardType="numeric"
-            />
-
-            {/* Quick Amounts */}
-            <View style={styles.quickAmounts}>
-              {['25', '50', '100', '250', '500', '1000'].map((amt) => (
-                <TouchableOpacity
-                  key={amt}
-                  style={[styles.quickAmount, depositAmount === amt && styles.quickAmountActive]}
-                  onPress={() => setDepositAmount(amt)}
-                >
-                  <Text style={[styles.quickAmountText, depositAmount === amt && { color: '#0A0A0A' }]}>
-                    ${amt}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Bonus Info */}
-            <View style={styles.bonusInfo}>
-              <Ionicons name="gift" size={20} color="#FFD700" />
-              <Text style={styles.bonusText}>Get 200% bonus on your first deposit!</Text>
-            </View>
-
-            <TouchableOpacity 
-              style={styles.financeBtn}
-              onPress={() => router.push('/(tabs)/wallet')}
-            >
-              <Ionicons name="wallet" size={20} color="#0A0A0A" />
-              <Text style={styles.financeBtnText}>Proceed to Deposit</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Withdraw Section */}
-        {financeSubTab === 'Withdraw' && (
-          <View style={styles.financeSection}>
-            <View style={styles.financeSectionHeader}>
-              <Ionicons name="arrow-up-circle" size={24} color="#FF3B3B" />
-              <Text style={styles.financeSectionTitle}>Withdraw Funds</Text>
-            </View>
-
-            {/* Available Balance */}
-            <View style={styles.availableBalance}>
-              <Text style={styles.availableBalanceLabel}>Available for Withdrawal</Text>
-              <Text style={styles.availableBalanceValue}>${user?.real_balance?.toFixed(2) || '0.00'}</Text>
-            </View>
-
-            {/* Crypto Selection */}
-            <Text style={styles.financeInputLabel}>Select Cryptocurrency</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.cryptoOptions}>
-              {CRYPTO_OPTIONS.map((crypto) => (
-                <TouchableOpacity
-                  key={crypto.id}
-                  style={[styles.cryptoOption, selectedCrypto === crypto.id && styles.cryptoOptionActive]}
-                  onPress={() => setSelectedCrypto(crypto.id)}
-                >
-                  <Text style={styles.cryptoIcon}>{crypto.icon}</Text>
-                  <Text style={[styles.cryptoName, selectedCrypto === crypto.id && { color: '#00E55A' }]}>
-                    {crypto.id}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {/* Amount Input */}
-            <Text style={styles.financeInputLabel}>Amount (USD)</Text>
-            <TextInput
-              style={styles.financeInput}
-              placeholder="Enter amount"
-              placeholderTextColor="#666"
-              value={withdrawAmount}
-              onChangeText={setWithdrawAmount}
-              keyboardType="numeric"
-            />
-
-            {/* Wallet Address */}
-            <Text style={styles.financeInputLabel}>Wallet Address</Text>
-            <TextInput
-              style={styles.financeInput}
-              placeholder="Enter your wallet address"
-              placeholderTextColor="#666"
-              value={withdrawAddress}
-              onChangeText={setWithdrawAddress}
-            />
-
-            <TouchableOpacity 
-              style={[styles.financeBtn, { backgroundColor: '#FF3B3B' }]}
-              onPress={() => router.push('/(tabs)/wallet')}
-            >
-              <Ionicons name="arrow-up" size={20} color="#FFFFFF" />
-              <Text style={[styles.financeBtnText, { color: '#FFFFFF' }]}>Request Withdrawal</Text>
-            </TouchableOpacity>
-
-            {/* Withdrawal Info */}
-            <View style={styles.withdrawInfo}>
-              <Ionicons name="information-circle" size={16} color="#888" />
-              <Text style={styles.withdrawInfoText}>
-                Minimum withdrawal: $10 • Processing time: 24-48 hours
-              </Text>
-            </View>
-          </View>
-        )}
       </>
     );
   };
@@ -2214,6 +2079,142 @@ export default function Profile() {
                 }}
               >
                 <Text style={styles.depositGenerateBtnText}>Generate Deposit Address</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Withdraw Funds Modal */}
+      <Modal visible={showWithdrawModal} transparent animationType="slide">
+        <View style={styles.withdrawModalOverlay}>
+          <View style={styles.withdrawModalContent}>
+            {/* Header */}
+            <View style={styles.withdrawModalHeader}>
+              <Text style={styles.withdrawModalTitle}>Withdraw Funds</Text>
+              <TouchableOpacity onPress={() => {
+                setShowWithdrawModal(false);
+                setWithdrawAmount('100');
+                setWithdrawAddress('');
+              }}>
+                <Ionicons name="close" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Available Balance */}
+              <View style={styles.withdrawBalanceCard}>
+                <Text style={styles.withdrawBalanceLabel}>Available Balance</Text>
+                <Text style={styles.withdrawBalanceValue}>${user?.real_balance?.toFixed(2) || '0.00'}</Text>
+              </View>
+
+              {/* Withdrawal Amount */}
+              <Text style={styles.withdrawLabel}>Withdrawal Amount</Text>
+              <View style={styles.withdrawAmountBox}>
+                <Text style={styles.withdrawAmountPrefix}>$</Text>
+                <TextInput
+                  style={styles.withdrawAmountInput}
+                  value={withdrawAmount}
+                  onChangeText={setWithdrawAmount}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor="#444"
+                />
+              </View>
+
+              {/* Quick Amounts */}
+              <View style={styles.withdrawQuickAmounts}>
+                {['25', '50', '100', '250'].map((amt) => (
+                  <TouchableOpacity
+                    key={amt}
+                    style={[styles.withdrawQuickBtn, withdrawAmount === amt && styles.withdrawQuickBtnActive]}
+                    onPress={() => setWithdrawAmount(amt)}
+                  >
+                    <Text style={[styles.withdrawQuickBtnText, withdrawAmount === amt && styles.withdrawQuickBtnTextActive]}>
+                      ${amt}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+                <TouchableOpacity
+                  style={[styles.withdrawQuickBtn, { backgroundColor: 'rgba(255, 59, 59, 0.2)', borderColor: '#FF3B3B' }]}
+                  onPress={() => setWithdrawAmount(user?.real_balance?.toString() || '0')}
+                >
+                  <Text style={[styles.withdrawQuickBtnText, { color: '#FF3B3B' }]}>Max</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Wallet Address */}
+              <Text style={styles.withdrawLabel}>Wallet Address (USDT TRC20)</Text>
+              <TextInput
+                style={styles.withdrawAddressInput}
+                placeholder="Enter your USDT TRC20 address"
+                placeholderTextColor="#666"
+                value={withdrawAddress}
+                onChangeText={setWithdrawAddress}
+              />
+
+              {/* Fee Info */}
+              <View style={styles.withdrawFeeRow}>
+                <Text style={styles.withdrawFeeLabel}>Network Fee:</Text>
+                <Text style={styles.withdrawFeeValue}>FREE</Text>
+              </View>
+              <View style={styles.withdrawFeeRow}>
+                <Text style={styles.withdrawFeeLabel}>You will receive:</Text>
+                <Text style={styles.withdrawReceiveValue}>${withdrawAmount || '0'} USDT</Text>
+              </View>
+
+              {/* Info Box */}
+              <View style={styles.withdrawInfoBox}>
+                <Ionicons name="information-circle" size={20} color="#888" />
+                <Text style={styles.withdrawInfoBoxText}>
+                  Minimum withdrawal: $10. Withdrawals are processed within 24 hours.
+                </Text>
+              </View>
+
+              {/* Request Withdrawal Button */}
+              <TouchableOpacity 
+                style={styles.withdrawRequestBtn}
+                onPress={() => {
+                  const amount = parseFloat(withdrawAmount);
+                  if (amount < 10) {
+                    Alert.alert('Invalid Amount', 'Minimum withdrawal is $10');
+                    return;
+                  }
+                  if (!withdrawAddress || withdrawAddress.length < 20) {
+                    Alert.alert('Invalid Address', 'Please enter a valid wallet address');
+                    return;
+                  }
+                  if (amount > (user?.real_balance || 0)) {
+                    Alert.alert('Insufficient Balance', 'You do not have enough balance');
+                    return;
+                  }
+                  
+                  setIsProcessingWithdraw(true);
+                  
+                  // Show processing popup
+                  setTimeout(() => {
+                    setIsProcessingWithdraw(false);
+                    setShowWithdrawModal(false);
+                    setWithdrawAmount('100');
+                    setWithdrawAddress('');
+                    
+                    Alert.alert(
+                      'Withdrawal Request Submitted',
+                      'Your withdrawal request is being processed. Processing time: 24-72 hours. You can track the status in your transaction history.',
+                      [{ text: 'OK' }]
+                    );
+                  }, 1500);
+                }}
+                disabled={isProcessingWithdraw}
+              >
+                {isProcessingWithdraw ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="arrow-up-circle" size={20} color="#FFFFFF" />
+                    <Text style={styles.withdrawRequestBtnText}>Request Withdrawal</Text>
+                  </>
+                )}
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -4198,5 +4199,166 @@ const styles = StyleSheet.create({
   cancelBtnText: {
     color: '#888',
     fontSize: 14,
+  },
+  // Withdraw Modal Styles
+  withdrawModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'flex-end',
+  },
+  withdrawModalContent: {
+    backgroundColor: '#0F1428',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 40,
+    maxHeight: '90%',
+  },
+  withdrawModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  withdrawModalTitle: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  withdrawBalanceCard: {
+    backgroundColor: 'rgba(0, 229, 90, 0.1)',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 90, 0.3)',
+  },
+  withdrawBalanceLabel: {
+    color: '#888',
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  withdrawBalanceValue: {
+    color: '#00E55A',
+    fontSize: 32,
+    fontWeight: '800',
+  },
+  withdrawLabel: {
+    color: '#888',
+    fontSize: 14,
+    marginBottom: 10,
+    marginTop: 16,
+  },
+  withdrawAmountBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 59, 59, 0.1)',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 59, 59, 0.3)',
+  },
+  withdrawAmountPrefix: {
+    color: '#FF3B3B',
+    fontSize: 28,
+    fontWeight: '700',
+    marginRight: 8,
+  },
+  withdrawAmountInput: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 28,
+    fontWeight: '700',
+    padding: 0,
+  },
+  withdrawQuickAmounts: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 16,
+  },
+  withdrawQuickBtn: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'transparent',
+  },
+  withdrawQuickBtnActive: {
+    backgroundColor: 'rgba(255, 59, 59, 0.2)',
+    borderColor: '#FF3B3B',
+  },
+  withdrawQuickBtnText: {
+    color: '#888',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  withdrawQuickBtnTextActive: {
+    color: '#FF3B3B',
+  },
+  withdrawAddressInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    color: '#FFFFFF',
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  withdrawFeeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 16,
+    paddingHorizontal: 4,
+  },
+  withdrawFeeLabel: {
+    color: '#888',
+    fontSize: 14,
+  },
+  withdrawFeeValue: {
+    color: '#00E55A',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  withdrawReceiveValue: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  withdrawInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 10,
+    padding: 14,
+    marginTop: 20,
+    gap: 10,
+  },
+  withdrawInfoBoxText: {
+    color: '#888',
+    fontSize: 13,
+    flex: 1,
+    lineHeight: 18,
+  },
+  withdrawRequestBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FF3B3B',
+    borderRadius: 12,
+    paddingVertical: 18,
+    marginTop: 24,
+    gap: 10,
+  },
+  withdrawRequestBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
