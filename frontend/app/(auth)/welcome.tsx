@@ -619,8 +619,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   logoImage: {
-    width: 120,
-    height: 45,
+    width: 85,
+    height: 32,
   },
   bigLogoSection: {
     alignItems: 'center',
@@ -629,7 +629,7 @@ const styles = StyleSheet.create({
   },
   bigLogoImage: {
     width: width - 40,
-    height: 120,
+    height: 170,
     marginBottom: 16,
   },
   heroDescription: {
