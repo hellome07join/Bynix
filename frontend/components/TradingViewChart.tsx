@@ -10,6 +10,16 @@ interface TradeMarker {
   remainingTime?: number;
 }
 
+interface HorizontalLine {
+  price: number;
+  color?: string;
+}
+
+interface PriceRange {
+  min: number;
+  max: number;
+}
+
 interface CandleData {
   time: number;
   open: number;
@@ -25,8 +35,10 @@ interface TradingViewChartProps {
   currentPrice?: number;
   chartType?: 'candle' | 'line' | 'bar';
   tradeMarkers?: TradeMarker[];
+  horizontalLines?: HorizontalLine[];
   onPriceUpdate?: (price: number) => void;
-  authToken?: string | null;  // Add auth token for biased price updates
+  onPriceRangeChange?: (range: PriceRange) => void;
+  authToken?: string | null;
 }
 
 // Get API URL from environment
@@ -60,9 +72,14 @@ export default function TradingViewChart({
   currentPrice,
   chartType = 'candle',
   tradeMarkers = [],
+  horizontalLines = [],
   onPriceUpdate,
+  onPriceRangeChange,
   authToken
 }: TradingViewChartProps) {
+  // Track price range for horizontal lines
+  const [priceRange, setPriceRange] = useState<PriceRange>({ min: 0, max: 0 });
+  
   // Generate initial placeholder data synchronously for instant display
   const getInitialPlaceholderData = useCallback((sym: string): CandleData[] => {
     const basePrices: { [key: string]: number } = {
@@ -616,7 +633,36 @@ export default function TradingViewChart({
       ctx.stroke();
     });
     
-  }, [aggregatedCandles, chartType, internalPrice, scrollOffset, scale, tradeMarkers]);
+    // Draw horizontal lines
+    horizontalLines.forEach((line, index) => {
+      if (line.price < minPrice || line.price > maxPrice) return; // Skip if out of visible range
+      
+      const lineY = padding.top + ((maxPrice - line.price) / (maxPrice - minPrice)) * chartHeight;
+      
+      // Draw dashed line
+      ctx.setLineDash([8, 4]);
+      ctx.strokeStyle = line.color || '#FFB800';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(padding.left, lineY);
+      ctx.lineTo(width - padding.right, lineY);
+      ctx.stroke();
+      ctx.setLineDash([]); // Reset dash
+      
+      // Price label on right
+      const labelWidth = 70;
+      ctx.fillStyle = line.color || '#FFB800';
+      ctx.beginPath();
+      ctx.roundRect(width - padding.right + 5, lineY - 10, labelWidth, 20, 4);
+      ctx.fill();
+      
+      ctx.fillStyle = '#0A0A0A';
+      ctx.font = 'bold 10px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText(line.price.toFixed(5), width - padding.right + 10, lineY + 4);
+    });
+    
+  }, [aggregatedCandles, chartType, internalPrice, scrollOffset, scale, tradeMarkers, horizontalLines]);
 
   // Redraw chart when data changes
   useEffect(() => {

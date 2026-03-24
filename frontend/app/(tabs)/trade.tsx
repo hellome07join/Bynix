@@ -33,111 +33,6 @@ import QRCode from 'react-native-qrcode-svg';
 
 declare const window: any;
 
-// Draggable Horizontal Line Component
-interface DraggableLineProps {
-  line: { price: number; y: number };
-  index: number;
-  chartHeight: number;
-  currentPrice: number;
-  onUpdate: (index: number, newY: number, newPrice: number) => void;
-  onDelete: (index: number) => void;
-}
-
-const DraggableHorizontalLine: React.FC<DraggableLineProps> = ({ 
-  line, index, chartHeight, currentPrice, onUpdate, onDelete 
-}) => {
-  const panY = useRef(new Animated.Value(line.y)).current;
-  
-  useEffect(() => {
-    panY.setValue(line.y);
-  }, [line.y]);
-  
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        panY.setOffset(line.y);
-        panY.setValue(0);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      },
-      onPanResponderMove: Animated.event(
-        [null, { dy: panY }],
-        { useNativeDriver: false }
-      ),
-      onPanResponderRelease: (e, gestureState) => {
-        panY.flattenOffset();
-        const newY = Math.max(0, Math.min(chartHeight || 300, line.y + gestureState.dy));
-        const newPrice = currentPrice + (((chartHeight || 300) / 2 - newY) / 100) * 0.001;
-        onUpdate(index, newY, newPrice);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      },
-    })
-  ).current;
-  
-  return (
-    <Animated.View 
-      {...panResponder.panHandlers}
-      style={{
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        top: panY,
-        height: 28,
-        justifyContent: 'center',
-        zIndex: 100 + index,
-      }}
-    >
-      {/* Line itself */}
-      <View style={{
-        height: 2,
-        backgroundColor: '#FFB800',
-        shadowColor: '#FFB800',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.8,
-        shadowRadius: 4,
-      }} />
-      
-      {/* Price label - draggable handle */}
-      <View style={{
-        position: 'absolute',
-        right: 10,
-        top: -10,
-        backgroundColor: '#FFB800',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 6,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-      }}>
-        <Ionicons name="move" size={10} color="#0A0A0A" />
-        <Text style={{ color: '#0A0A0A', fontSize: 10, fontWeight: '700' }}>
-          {line.price.toFixed(5)}
-        </Text>
-      </View>
-      
-      {/* Delete button */}
-      <TouchableOpacity 
-        style={{
-          position: 'absolute',
-          left: 10,
-          top: -10,
-          backgroundColor: '#FF3B3B',
-          width: 22,
-          height: 22,
-          borderRadius: 11,
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-        onPress={() => onDelete(index)}
-      >
-        <Ionicons name="close" size={14} color="#FFFFFF" />
-      </TouchableOpacity>
-    </Animated.View>
-  );
-};
-
 // Sound effects
 const lossSound = require('../../assets/sounds/loss.mp3');
 const winSound = require('../../assets/sounds/win.wav');
@@ -1340,30 +1235,11 @@ export default function Trade() {
               amount: trade.amount,
               remainingTime: trade.countdown
             }))}
+            horizontalLines={horizontalLines}
             onPriceUpdate={(price) => setCurrentPrice(price)}
             authToken={token}
           />
         </View>
-        
-        {/* Horizontal Lines Overlay - Draggable */}
-        {horizontalLines.map((line, index) => (
-          <DraggableHorizontalLine
-            key={index}
-            line={line}
-            index={index}
-            chartHeight={chartDimensions.height || 300}
-            currentPrice={currentPrice}
-            onUpdate={(idx, newY, newPrice) => {
-              setHorizontalLines(prev => prev.map((l, i) => 
-                i === idx ? { ...l, y: newY, price: newPrice } : l
-              ));
-            }}
-            onDelete={(idx) => {
-              setHorizontalLines(prev => prev.filter((_, i) => i !== idx));
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-            }}
-          />
-        ))}
         
         {/* Drawing Mode Indicator */}
         {selectedDrawTool === 'horizontal' && (
@@ -1380,6 +1256,48 @@ export default function Trade() {
             <Text style={{ color: '#0A0A0A', fontSize: 12, fontWeight: '600', textAlign: 'center' }}>
               Tap on chart to draw horizontal line
             </Text>
+          </View>
+        )}
+        
+        {/* Horizontal Lines Count & Clear Button */}
+        {horizontalLines.length > 0 && (
+          <View style={{
+            position: 'absolute',
+            top: 10,
+            right: 10,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            zIndex: 150,
+          }}>
+            <View style={{
+              backgroundColor: 'rgba(255, 184, 0, 0.2)',
+              paddingHorizontal: 10,
+              paddingVertical: 5,
+              borderRadius: 6,
+              borderWidth: 1,
+              borderColor: '#FFB800',
+            }}>
+              <Text style={{ color: '#FFB800', fontSize: 11, fontWeight: '600' }}>
+                {horizontalLines.length} Line{horizontalLines.length > 1 ? 's' : ''}
+              </Text>
+            </View>
+            <TouchableOpacity 
+              style={{
+                backgroundColor: 'rgba(255, 59, 59, 0.2)',
+                paddingHorizontal: 10,
+                paddingVertical: 5,
+                borderRadius: 6,
+                borderWidth: 1,
+                borderColor: '#FF3B3B',
+              }}
+              onPress={() => {
+                setHorizontalLines([]);
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+              }}
+            >
+              <Text style={{ color: '#FF3B3B', fontSize: 11, fontWeight: '600' }}>Clear All</Text>
+            </TouchableOpacity>
           </View>
         )}
         
