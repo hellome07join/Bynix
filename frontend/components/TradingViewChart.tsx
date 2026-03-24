@@ -51,9 +51,11 @@ interface TradingViewChartProps {
   tradeMarkers?: TradeMarker[];
   horizontalLines?: HorizontalLine[];
   trendLines?: TrendLine[];
+  trendLinePreview?: { startCandleIndex: number; startPrice: number; endCandleIndex: number; endPrice: number } | null;
   onPriceUpdate?: (price: number) => void;
   onPriceRangeChange?: (range: PriceRange) => void;
   onChartClick?: (y: number, chartHeight: number, x?: number) => void;
+  onChartMove?: (y: number, chartHeight: number, x?: number) => void;
   onLineSelect?: (lineId: string | null) => void;
   onLineMove?: (lineId: string, newPrice: number) => void;
   selectedLineId?: string | null;
@@ -93,9 +95,11 @@ export default function TradingViewChart({
   tradeMarkers = [],
   horizontalLines = [],
   trendLines = [],
+  trendLinePreview = null,
   onPriceUpdate,
   onPriceRangeChange,
   onChartClick,
+  onChartMove,
   onLineSelect,
   onLineMove,
   selectedLineId,
@@ -770,7 +774,44 @@ export default function TradingViewChart({
       }
     });
     
-  }, [aggregatedCandles, chartType, internalPrice, scrollOffset, scale, tradeMarkers, horizontalLines, trendLines]);
+    // Draw trend line preview (rubber band effect while drawing)
+    if (trendLinePreview) {
+      const startY = padding.top + ((maxPrice - trendLinePreview.startPrice) / (maxPrice - minPrice)) * chartHeight;
+      const endY = padding.top + ((maxPrice - trendLinePreview.endPrice) / (maxPrice - minPrice)) * chartHeight;
+      
+      const candleWidth = 8 * scale;
+      const candleGap = 4 * scale;
+      const totalCandleWidth = candleWidth + candleGap;
+      const chartRightEdge = width - padding.right;
+      
+      const startX = chartRightEdge - (trendLinePreview.startCandleIndex * totalCandleWidth) + (scrollOffset * scale);
+      const endX = chartRightEdge - (trendLinePreview.endCandleIndex * totalCandleWidth) + (scrollOffset * scale);
+      
+      // Draw preview line with dashed style
+      ctx.strokeStyle = '#00E55A';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(endX, endY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      // Draw start point (filled)
+      ctx.fillStyle = '#00E55A';
+      ctx.beginPath();
+      ctx.arc(startX, startY, 5, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Draw end point (hollow/ring)
+      ctx.strokeStyle = '#00E55A';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(endX, endY, 5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    
+  }, [aggregatedCandles, chartType, internalPrice, scrollOffset, scale, tradeMarkers, horizontalLines, trendLines, trendLinePreview]);
 
   // Redraw chart when data changes
   useEffect(() => {
@@ -1167,6 +1208,15 @@ export default function TradingViewChart({
               setScrollOffset(prev => prev - deltaX * SCROLL_SENSITIVITY / scale);
               lastMouseXRef.current = e.clientX;
               lastMouseYRef.current = e.clientY;
+            }
+            
+            // Call onChartMove for trend line preview
+            if (onChartMove && !isDraggingRef.current) {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const y = e.clientY - rect.top;
+              const x = e.clientX - rect.left;
+              const height = rect.height;
+              onChartMove(y, height, x);
             }
           }}
           onMouseUp={() => {

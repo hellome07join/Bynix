@@ -270,6 +270,7 @@ export default function Trade() {
   const [horizontalLines, setHorizontalLines] = useState<{id: string, price: number, selected?: boolean}[]>([]);
   const [trendLines, setTrendLines] = useState<{id: string, startPrice: number, endPrice: number, startCandleIndex: number, endCandleIndex: number}[]>([]);
   const [trendLineStartPoint, setTrendLineStartPoint] = useState<{price: number, candleIndex: number} | null>(null);
+  const [trendLinePreview, setTrendLinePreview] = useState<{startCandleIndex: number, startPrice: number, endCandleIndex: number, endPrice: number} | null>(null);
   const [chartDimensions, setChartDimensions] = useState({width: 0, height: 0});
   const [priceRange, setPriceRange] = useState({ min: 0, max: 0 });
   const chartContainerRef = useRef<View>(null);
@@ -1228,8 +1229,37 @@ export default function Trade() {
             }))}
             horizontalLines={horizontalLines}
             trendLines={trendLines}
+            trendLinePreview={trendLinePreview}
             onPriceUpdate={(price) => setCurrentPrice(price)}
             onPriceRangeChange={(range) => setPriceRange(range)}
+            onChartMove={(y: number, chartHeight: number, x?: number) => {
+              // Only update preview when we have a start point and are in trendline mode
+              if (selectedDrawTool === 'trendline' && trendLineStartPoint && x !== undefined) {
+                const chartPaddingTop = 20;
+                const chartPaddingBottom = 45;
+                const effectiveChartHeight = chartHeight - chartPaddingTop - chartPaddingBottom;
+                const adjustedY = y - chartPaddingTop;
+                const priceRatio = Math.max(0, Math.min(1, adjustedY / effectiveChartHeight));
+                const price = priceRange.max - (priceRatio * (priceRange.max - priceRange.min));
+                
+                const scale = 1;
+                const candleWidth = 8 * scale;
+                const candleGap = 4 * scale;
+                const totalCandleWidth = candleWidth + candleGap;
+                const chartWidth = chartDimensions.width || 390;
+                const paddingRight = 80;
+                const chartRightEdge = chartWidth - paddingRight;
+                const candleIndex = Math.round((chartRightEdge - x) / totalCandleWidth);
+                
+                // Update preview
+                setTrendLinePreview({
+                  startCandleIndex: trendLineStartPoint.candleIndex,
+                  startPrice: trendLineStartPoint.price,
+                  endCandleIndex: candleIndex,
+                  endPrice: price
+                });
+              }
+            }}
             onChartClick={(y: number, chartHeight: number, x?: number) => {
               // Chart has padding - top: 20, bottom: 45 (for price axis)
               const chartPaddingTop = 20;
@@ -1268,29 +1298,30 @@ export default function Trade() {
                   console.log('Invalid price calculated, not adding line');
                 }
               } 
-              // Handle trend line drawing - needs two clicks
+              // Handle trend line drawing - first click sets start, second click finalizes
               else if (selectedDrawTool === 'trendline' && priceRange.max > priceRange.min && x !== undefined) {
-                // Calculate candle index from x position
-                // Candles are drawn from right to left
-                // candleWidth = 8 * scale, candleGap = 4 * scale
-                const scale = 1; // Default scale (we should ideally pass this from TradingViewChart)
+                const scale = 1;
                 const candleWidth = 8 * scale;
                 const candleGap = 4 * scale;
                 const totalCandleWidth = candleWidth + candleGap;
                 const chartWidth = chartDimensions.width || 390;
                 const paddingRight = 80;
                 const chartRightEdge = chartWidth - paddingRight;
-                
-                // Calculate which candle index the click corresponds to
                 const candleIndex = Math.round((chartRightEdge - x) / totalCandleWidth);
                 
                 if (!trendLineStartPoint) {
-                  // First click - set start point
+                  // First click - set start point and start preview
                   console.log('Trend line start point:', { x, candleIndex, price });
                   setTrendLineStartPoint({ price, candleIndex });
+                  setTrendLinePreview({
+                    startCandleIndex: candleIndex,
+                    startPrice: price,
+                    endCandleIndex: candleIndex,
+                    endPrice: price
+                  });
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 } else {
-                  // Second click - create the trend line
+                  // Second click - finalize the trend line
                   console.log('Trend line end point:', { x, candleIndex, price });
                   const newTrendLine = {
                     id: `trend_${Date.now()}`,
@@ -1301,6 +1332,7 @@ export default function Trade() {
                   };
                   setTrendLines(prev => [...prev, newTrendLine]);
                   setTrendLineStartPoint(null);
+                  setTrendLinePreview(null);
                   setSelectedDrawTool(null);
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 }
@@ -1359,8 +1391,8 @@ export default function Trade() {
           }}>
             <Text style={{ color: '#0A0A0A', fontSize: 12, fontWeight: '600', textAlign: 'center' }}>
               {trendLineStartPoint 
-                ? 'Tap second point to complete trend line' 
-                : 'Tap first point to start trend line'}
+                ? 'Move to adjust, tap to complete' 
+                : 'Tap to set start point'}
             </Text>
           </View>
         )}
