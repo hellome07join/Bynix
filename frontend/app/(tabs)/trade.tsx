@@ -1398,6 +1398,7 @@ export default function Trade() {
             }}
             selectedLineId={selectedLineId}
             selectedTrendLineId={selectedTrendLineId}
+            activeIndicators={activeIndicators}
             authToken={token}
           />
         </View>

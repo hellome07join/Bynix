@@ -846,7 +846,624 @@ export default function TradingViewChart({
       ctx.stroke();
     }
     
-  }, [aggregatedCandles, chartType, internalPrice, scrollOffset, scale, tradeMarkers, horizontalLines, trendLines, trendLinePreview, selectedTrendLineId]);
+    // ============== INDICATOR DRAWING ==============
+    
+    // Helper function to calculate Simple Moving Average
+    const calculateSMA = (data: CandleData[], period: number): (number | null)[] => {
+      const result: (number | null)[] = [];
+      for (let i = 0; i < data.length; i++) {
+        if (i < period - 1) {
+          result.push(null);
+        } else {
+          let sum = 0;
+          for (let j = 0; j < period; j++) {
+            sum += data[i - j].close;
+          }
+          result.push(sum / period);
+        }
+      }
+      return result;
+    };
+    
+    // Helper function to calculate Standard Deviation
+    const calculateStdDev = (data: CandleData[], period: number, sma: (number | null)[]): (number | null)[] => {
+      const result: (number | null)[] = [];
+      for (let i = 0; i < data.length; i++) {
+        if (i < period - 1 || sma[i] === null) {
+          result.push(null);
+        } else {
+          let sumSquares = 0;
+          for (let j = 0; j < period; j++) {
+            const diff = data[i - j].close - (sma[i] as number);
+            sumSquares += diff * diff;
+          }
+          result.push(Math.sqrt(sumSquares / period));
+        }
+      }
+      return result;
+    };
+    
+    // Helper function to calculate RSI
+    const calculateRSI = (data: CandleData[], period: number = 14): (number | null)[] => {
+      const result: (number | null)[] = [];
+      const gains: number[] = [];
+      const losses: number[] = [];
+      
+      for (let i = 0; i < data.length; i++) {
+        if (i === 0) {
+          result.push(null);
+          continue;
+        }
+        
+        const change = data[i].close - data[i - 1].close;
+        const gain = change > 0 ? change : 0;
+        const loss = change < 0 ? Math.abs(change) : 0;
+        
+        gains.push(gain);
+        losses.push(loss);
+        
+        if (i < period) {
+          result.push(null);
+        } else {
+          let avgGain = 0;
+          let avgLoss = 0;
+          
+          if (i === period) {
+            // First RSI calculation - simple average
+            for (let j = 0; j < period; j++) {
+              avgGain += gains[j];
+              avgLoss += losses[j];
+            }
+            avgGain /= period;
+            avgLoss /= period;
+          } else {
+            // Subsequent - smoothed average
+            const prevAvgGain = gains.slice(0, i - 1).reduce((a, b) => a + b, 0) / (i - 1);
+            const prevAvgLoss = losses.slice(0, i - 1).reduce((a, b) => a + b, 0) / (i - 1);
+            avgGain = (prevAvgGain * (period - 1) + gain) / period;
+            avgLoss = (prevAvgLoss * (period - 1) + loss) / period;
+          }
+          
+          if (avgLoss === 0) {
+            result.push(100);
+          } else {
+            const rs = avgGain / avgLoss;
+            result.push(100 - (100 / (1 + rs)));
+          }
+        }
+      }
+      return result;
+    };
+    
+    // Helper function to calculate EMA
+    const calculateEMA = (data: CandleData[], period: number): (number | null)[] => {
+      const result: (number | null)[] = [];
+      const multiplier = 2 / (period + 1);
+      
+      for (let i = 0; i < data.length; i++) {
+        if (i < period - 1) {
+          result.push(null);
+        } else if (i === period - 1) {
+          // First EMA is SMA
+          let sum = 0;
+          for (let j = 0; j < period; j++) {
+            sum += data[i - j].close;
+          }
+          result.push(sum / period);
+        } else {
+          const prevEMA = result[i - 1] as number;
+          result.push((data[i].close - prevEMA) * multiplier + prevEMA);
+        }
+      }
+      return result;
+    };
+    
+    // Helper function to calculate MACD
+    const calculateMACD = (data: CandleData[]): { macd: (number | null)[], signal: (number | null)[], histogram: (number | null)[] } => {
+      const ema12 = calculateEMA(data, 12);
+      const ema26 = calculateEMA(data, 26);
+      const macdLine: (number | null)[] = [];
+      
+      for (let i = 0; i < data.length; i++) {
+        if (ema12[i] === null || ema26[i] === null) {
+          macdLine.push(null);
+        } else {
+          macdLine.push((ema12[i] as number) - (ema26[i] as number));
+        }
+      }
+      
+      // Signal line (9-period EMA of MACD)
+      const signalLine: (number | null)[] = [];
+      const signalPeriod = 9;
+      const signalMultiplier = 2 / (signalPeriod + 1);
+      
+      let firstValidIndex = -1;
+      for (let i = 0; i < macdLine.length; i++) {
+        if (macdLine[i] !== null) {
+          if (firstValidIndex === -1) firstValidIndex = i;
+          
+          const validCount = i - firstValidIndex;
+          if (validCount < signalPeriod - 1) {
+            signalLine.push(null);
+          } else if (validCount === signalPeriod - 1) {
+            let sum = 0;
+            for (let j = 0; j < signalPeriod; j++) {
+              sum += macdLine[i - j] as number;
+            }
+            signalLine.push(sum / signalPeriod);
+          } else {
+            const prevSignal = signalLine[i - 1] as number;
+            signalLine.push(((macdLine[i] as number) - prevSignal) * signalMultiplier + prevSignal);
+          }
+        } else {
+          signalLine.push(null);
+        }
+      }
+      
+      // Histogram
+      const histogram: (number | null)[] = [];
+      for (let i = 0; i < data.length; i++) {
+        if (macdLine[i] === null || signalLine[i] === null) {
+          histogram.push(null);
+        } else {
+          histogram.push((macdLine[i] as number) - (signalLine[i] as number));
+        }
+      }
+      
+      return { macd: macdLine, signal: signalLine, histogram };
+    };
+    
+    // Helper function to calculate Stochastic
+    const calculateStochastic = (data: CandleData[], kPeriod: number = 14, dPeriod: number = 3): { k: (number | null)[], d: (number | null)[] } => {
+      const kLine: (number | null)[] = [];
+      
+      for (let i = 0; i < data.length; i++) {
+        if (i < kPeriod - 1) {
+          kLine.push(null);
+        } else {
+          let highestHigh = -Infinity;
+          let lowestLow = Infinity;
+          for (let j = 0; j < kPeriod; j++) {
+            highestHigh = Math.max(highestHigh, data[i - j].high);
+            lowestLow = Math.min(lowestLow, data[i - j].low);
+          }
+          
+          if (highestHigh === lowestLow) {
+            kLine.push(50);
+          } else {
+            kLine.push(((data[i].close - lowestLow) / (highestHigh - lowestLow)) * 100);
+          }
+        }
+      }
+      
+      // %D is SMA of %K
+      const dLine: (number | null)[] = [];
+      for (let i = 0; i < kLine.length; i++) {
+        if (kLine[i] === null || i < kPeriod - 1 + dPeriod - 1) {
+          dLine.push(null);
+        } else {
+          let sum = 0;
+          let count = 0;
+          for (let j = 0; j < dPeriod; j++) {
+            if (kLine[i - j] !== null) {
+              sum += kLine[i - j] as number;
+              count++;
+            }
+          }
+          dLine.push(count > 0 ? sum / count : null);
+        }
+      }
+      
+      return { k: kLine, d: dLine };
+    };
+    
+    // Get slice indices for visible data
+    const visibleStartIdx = startIndex;
+    const visibleEndIdx = endIndex;
+    
+    // Draw Moving Average (MA) indicator
+    if (activeIndicators.ma) {
+      const maPeriod = 20;
+      const maValues = calculateSMA(aggregatedCandles, maPeriod);
+      
+      ctx.strokeStyle = '#00E55A';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      
+      let started = false;
+      for (let i = visibleStartIdx; i < visibleEndIdx; i++) {
+        const displayIndex = i - visibleStartIdx;
+        const x = padding.left + displayIndex * totalBarWidth + baseBarWidth / 2 + 15;
+        const maValue = maValues[i];
+        
+        if (maValue !== null) {
+          const y = padding.top + ((maxPrice - maValue) / (maxPrice - minPrice)) * chartHeight;
+          if (!started) {
+            ctx.moveTo(x, y);
+            started = true;
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+      }
+      ctx.stroke();
+      
+      // MA Label
+      ctx.fillStyle = '#00E55A';
+      ctx.font = 'bold 10px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText(`MA(${maPeriod})`, padding.left + 5, padding.top + 15);
+    }
+    
+    // Draw Bollinger Bands indicator
+    if (activeIndicators.bollingerBands) {
+      const bbPeriod = 20;
+      const bbMultiplier = 2;
+      const sma = calculateSMA(aggregatedCandles, bbPeriod);
+      const stdDev = calculateStdDev(aggregatedCandles, bbPeriod, sma);
+      
+      // Upper band
+      ctx.strokeStyle = '#FFB800';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      let startedUpper = false;
+      for (let i = visibleStartIdx; i < visibleEndIdx; i++) {
+        const displayIndex = i - visibleStartIdx;
+        const x = padding.left + displayIndex * totalBarWidth + baseBarWidth / 2 + 15;
+        if (sma[i] !== null && stdDev[i] !== null) {
+          const upperValue = (sma[i] as number) + bbMultiplier * (stdDev[i] as number);
+          const y = padding.top + ((maxPrice - upperValue) / (maxPrice - minPrice)) * chartHeight;
+          if (!startedUpper) {
+            ctx.moveTo(x, y);
+            startedUpper = true;
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+      }
+      ctx.stroke();
+      
+      // Middle band (SMA)
+      ctx.strokeStyle = '#FFB800';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      let startedMiddle = false;
+      for (let i = visibleStartIdx; i < visibleEndIdx; i++) {
+        const displayIndex = i - visibleStartIdx;
+        const x = padding.left + displayIndex * totalBarWidth + baseBarWidth / 2 + 15;
+        if (sma[i] !== null) {
+          const y = padding.top + ((maxPrice - (sma[i] as number)) / (maxPrice - minPrice)) * chartHeight;
+          if (!startedMiddle) {
+            ctx.moveTo(x, y);
+            startedMiddle = true;
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      // Lower band
+      ctx.strokeStyle = '#FFB800';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      let startedLower = false;
+      for (let i = visibleStartIdx; i < visibleEndIdx; i++) {
+        const displayIndex = i - visibleStartIdx;
+        const x = padding.left + displayIndex * totalBarWidth + baseBarWidth / 2 + 15;
+        if (sma[i] !== null && stdDev[i] !== null) {
+          const lowerValue = (sma[i] as number) - bbMultiplier * (stdDev[i] as number);
+          const y = padding.top + ((maxPrice - lowerValue) / (maxPrice - minPrice)) * chartHeight;
+          if (!startedLower) {
+            ctx.moveTo(x, y);
+            startedLower = true;
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+      }
+      ctx.stroke();
+      
+      // BB Label
+      ctx.fillStyle = '#FFB800';
+      ctx.font = 'bold 10px Arial';
+      ctx.textAlign = 'left';
+      const labelY = activeIndicators.ma ? padding.top + 30 : padding.top + 15;
+      ctx.fillText(`BB(${bbPeriod}, ${bbMultiplier})`, padding.left + 5, labelY);
+    }
+    
+    // Draw RSI indicator (in a sub-panel at the bottom)
+    if (activeIndicators.rsi) {
+      const rsiPeriod = 14;
+      const rsiValues = calculateRSI(aggregatedCandles, rsiPeriod);
+      
+      // RSI panel dimensions
+      const rsiPanelHeight = 60;
+      const rsiPanelTop = height - padding.bottom - rsiPanelHeight - 5;
+      const rsiPanelBottom = height - padding.bottom - 5;
+      
+      // Draw RSI panel background
+      ctx.fillStyle = 'rgba(10, 26, 15, 0.9)';
+      ctx.fillRect(padding.left, rsiPanelTop, chartWidth, rsiPanelHeight);
+      
+      // Draw RSI overbought/oversold lines
+      ctx.strokeStyle = 'rgba(255, 107, 107, 0.5)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      
+      // Overbought (70)
+      const overboughtY = rsiPanelTop + (1 - 70 / 100) * rsiPanelHeight;
+      ctx.beginPath();
+      ctx.moveTo(padding.left, overboughtY);
+      ctx.lineTo(width - padding.right, overboughtY);
+      ctx.stroke();
+      
+      // Oversold (30)
+      const oversoldY = rsiPanelTop + (1 - 30 / 100) * rsiPanelHeight;
+      ctx.beginPath();
+      ctx.moveTo(padding.left, oversoldY);
+      ctx.lineTo(width - padding.right, oversoldY);
+      ctx.stroke();
+      
+      // Middle line (50)
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      const middleY = rsiPanelTop + rsiPanelHeight / 2;
+      ctx.beginPath();
+      ctx.moveTo(padding.left, middleY);
+      ctx.lineTo(width - padding.right, middleY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      // Draw RSI line
+      ctx.strokeStyle = '#FF6B6B';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      let startedRSI = false;
+      for (let i = visibleStartIdx; i < visibleEndIdx; i++) {
+        const displayIndex = i - visibleStartIdx;
+        const x = padding.left + displayIndex * totalBarWidth + baseBarWidth / 2 + 15;
+        const rsiValue = rsiValues[i];
+        
+        if (rsiValue !== null) {
+          const y = rsiPanelTop + (1 - rsiValue / 100) * rsiPanelHeight;
+          if (!startedRSI) {
+            ctx.moveTo(x, y);
+            startedRSI = true;
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+      }
+      ctx.stroke();
+      
+      // RSI Label
+      ctx.fillStyle = '#FF6B6B';
+      ctx.font = 'bold 9px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText(`RSI(${rsiPeriod})`, padding.left + 3, rsiPanelTop + 12);
+      
+      // RSI scale labels
+      ctx.fillStyle = '#888';
+      ctx.font = '8px Arial';
+      ctx.textAlign = 'right';
+      ctx.fillText('70', width - padding.right + 15, overboughtY + 3);
+      ctx.fillText('30', width - padding.right + 15, oversoldY + 3);
+    }
+    
+    // Draw MACD indicator (in a sub-panel)
+    if (activeIndicators.macd) {
+      const macdData = calculateMACD(aggregatedCandles);
+      
+      // MACD panel dimensions
+      const macdPanelHeight = 60;
+      const macdPanelTop = activeIndicators.rsi 
+        ? height - padding.bottom - 60 - 5 - macdPanelHeight - 5
+        : height - padding.bottom - macdPanelHeight - 5;
+      
+      // Draw MACD panel background
+      ctx.fillStyle = 'rgba(10, 26, 15, 0.9)';
+      ctx.fillRect(padding.left, macdPanelTop, chartWidth, macdPanelHeight);
+      
+      // Find MACD range for scaling
+      let macdMin = Infinity, macdMax = -Infinity;
+      for (let i = visibleStartIdx; i < visibleEndIdx; i++) {
+        if (macdData.macd[i] !== null) {
+          macdMin = Math.min(macdMin, macdData.macd[i] as number);
+          macdMax = Math.max(macdMax, macdData.macd[i] as number);
+        }
+        if (macdData.signal[i] !== null) {
+          macdMin = Math.min(macdMin, macdData.signal[i] as number);
+          macdMax = Math.max(macdMax, macdData.signal[i] as number);
+        }
+        if (macdData.histogram[i] !== null) {
+          macdMin = Math.min(macdMin, macdData.histogram[i] as number);
+          macdMax = Math.max(macdMax, macdData.histogram[i] as number);
+        }
+      }
+      
+      const macdRange = macdMax - macdMin || 1;
+      const macdPadding = macdRange * 0.1;
+      macdMin -= macdPadding;
+      macdMax += macdPadding;
+      
+      // Draw zero line
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      const zeroY = macdPanelTop + ((macdMax - 0) / (macdMax - macdMin)) * macdPanelHeight;
+      ctx.beginPath();
+      ctx.moveTo(padding.left, zeroY);
+      ctx.lineTo(width - padding.right, zeroY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      // Draw histogram bars
+      for (let i = visibleStartIdx; i < visibleEndIdx; i++) {
+        const displayIndex = i - visibleStartIdx;
+        const x = padding.left + displayIndex * totalBarWidth + 15;
+        const histValue = macdData.histogram[i];
+        
+        if (histValue !== null) {
+          const barHeight = Math.abs((histValue / (macdMax - macdMin)) * macdPanelHeight);
+          const barY = histValue >= 0 ? zeroY - barHeight : zeroY;
+          ctx.fillStyle = histValue >= 0 ? 'rgba(0, 229, 90, 0.6)' : 'rgba(255, 59, 59, 0.6)';
+          ctx.fillRect(x, barY, baseBarWidth * 0.6, barHeight);
+        }
+      }
+      
+      // Draw MACD line
+      ctx.strokeStyle = '#9B59B6';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      let startedMACD = false;
+      for (let i = visibleStartIdx; i < visibleEndIdx; i++) {
+        const displayIndex = i - visibleStartIdx;
+        const x = padding.left + displayIndex * totalBarWidth + baseBarWidth / 2 + 15;
+        const macdValue = macdData.macd[i];
+        
+        if (macdValue !== null) {
+          const y = macdPanelTop + ((macdMax - macdValue) / (macdMax - macdMin)) * macdPanelHeight;
+          if (!startedMACD) {
+            ctx.moveTo(x, y);
+            startedMACD = true;
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+      }
+      ctx.stroke();
+      
+      // Draw Signal line
+      ctx.strokeStyle = '#E67E22';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      let startedSignal = false;
+      for (let i = visibleStartIdx; i < visibleEndIdx; i++) {
+        const displayIndex = i - visibleStartIdx;
+        const x = padding.left + displayIndex * totalBarWidth + baseBarWidth / 2 + 15;
+        const signalValue = macdData.signal[i];
+        
+        if (signalValue !== null) {
+          const y = macdPanelTop + ((macdMax - signalValue) / (macdMax - macdMin)) * macdPanelHeight;
+          if (!startedSignal) {
+            ctx.moveTo(x, y);
+            startedSignal = true;
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+      }
+      ctx.stroke();
+      
+      // MACD Label
+      ctx.fillStyle = '#9B59B6';
+      ctx.font = 'bold 9px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText('MACD(12,26,9)', padding.left + 3, macdPanelTop + 12);
+    }
+    
+    // Draw Stochastic indicator (in a sub-panel)
+    if (activeIndicators.stochastic) {
+      const stochData = calculateStochastic(aggregatedCandles);
+      
+      // Stochastic panel dimensions
+      const stochPanelHeight = 60;
+      let stochPanelTop = height - padding.bottom - stochPanelHeight - 5;
+      
+      if (activeIndicators.rsi) stochPanelTop -= 65;
+      if (activeIndicators.macd) stochPanelTop -= 65;
+      
+      // Draw Stochastic panel background
+      ctx.fillStyle = 'rgba(10, 26, 15, 0.9)';
+      ctx.fillRect(padding.left, stochPanelTop, chartWidth, stochPanelHeight);
+      
+      // Draw overbought/oversold lines
+      ctx.strokeStyle = 'rgba(52, 152, 219, 0.5)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      
+      // Overbought (80)
+      const overboughtY = stochPanelTop + (1 - 80 / 100) * stochPanelHeight;
+      ctx.beginPath();
+      ctx.moveTo(padding.left, overboughtY);
+      ctx.lineTo(width - padding.right, overboughtY);
+      ctx.stroke();
+      
+      // Oversold (20)
+      const oversoldY = stochPanelTop + (1 - 20 / 100) * stochPanelHeight;
+      ctx.beginPath();
+      ctx.moveTo(padding.left, oversoldY);
+      ctx.lineTo(width - padding.right, oversoldY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      // Draw %K line
+      ctx.strokeStyle = '#3498DB';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      let startedK = false;
+      for (let i = visibleStartIdx; i < visibleEndIdx; i++) {
+        const displayIndex = i - visibleStartIdx;
+        const x = padding.left + displayIndex * totalBarWidth + baseBarWidth / 2 + 15;
+        const kValue = stochData.k[i];
+        
+        if (kValue !== null) {
+          const y = stochPanelTop + (1 - kValue / 100) * stochPanelHeight;
+          if (!startedK) {
+            ctx.moveTo(x, y);
+            startedK = true;
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+      }
+      ctx.stroke();
+      
+      // Draw %D line
+      ctx.strokeStyle = '#E74C3C';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      let startedD = false;
+      for (let i = visibleStartIdx; i < visibleEndIdx; i++) {
+        const displayIndex = i - visibleStartIdx;
+        const x = padding.left + displayIndex * totalBarWidth + baseBarWidth / 2 + 15;
+        const dValue = stochData.d[i];
+        
+        if (dValue !== null) {
+          const y = stochPanelTop + (1 - dValue / 100) * stochPanelHeight;
+          if (!startedD) {
+            ctx.moveTo(x, y);
+            startedD = true;
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      // Stochastic Label
+      ctx.fillStyle = '#3498DB';
+      ctx.font = 'bold 9px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText('Stoch(14,3)', padding.left + 3, stochPanelTop + 12);
+      
+      // Scale labels
+      ctx.fillStyle = '#888';
+      ctx.font = '8px Arial';
+      ctx.textAlign = 'right';
+      ctx.fillText('80', width - padding.right + 15, overboughtY + 3);
+      ctx.fillText('20', width - padding.right + 15, oversoldY + 3);
+    }
+    
+    // ============== END INDICATOR DRAWING ==============
+    
+  }, [aggregatedCandles, chartType, internalPrice, scrollOffset, scale, tradeMarkers, horizontalLines, trendLines, trendLinePreview, selectedTrendLineId, activeIndicators]);
 
   // Redraw chart when data changes
   useEffect(() => {
