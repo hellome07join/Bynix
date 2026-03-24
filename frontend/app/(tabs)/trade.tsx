@@ -1770,50 +1770,86 @@ export default function Trade() {
 
             {/* Manual Time Input */}
             <View style={styles.timeInputSection}>
-              <Text style={styles.timeInputLabel}>Custom Time</Text>
+              <Text style={styles.timeInputLabel}>Custom Time (minutes : seconds)</Text>
               <View style={styles.timeInputRow}>
-                {/* Minutes Box */}
-                <View style={styles.timeInputBox}>
-                  <TextInput
-                    style={{
+                {/* Minutes Input with Text Overlay */}
+                <View style={{
+                  alignItems: 'center',
+                  marginRight: 8,
+                }}>
+                  <View style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                    borderRadius: 12,
+                    paddingHorizontal: 20,
+                    paddingVertical: 12,
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.15)',
+                    minWidth: 80,
+                    alignItems: 'center',
+                  }}>
+                    <Text style={{
                       color: '#FFFFFF',
-                      fontSize: 24,
-                      fontWeight: '800',
-                      width: 50,
+                      fontSize: 28,
+                      fontWeight: '700',
                       textAlign: 'center',
-                      backgroundColor: 'transparent',
-                    }}
-                    value={customMinutes}
-                    onChangeText={setCustomMinutes}
-                    keyboardType="numeric"
-                    placeholder="1"
-                    placeholderTextColor="#666"
-                    maxLength={3}
-                  />
-                  <Text style={styles.timeUnitLabel}>min</Text>
+                    }}>{customMinutes || '0'}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', marginTop: 8, gap: 12 }}>
+                    <TouchableOpacity 
+                      onPress={() => setCustomMinutes(String(Math.max(0, parseInt(customMinutes || '0') - 1)))}
+                      style={{ backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10 }}
+                    >
+                      <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '600' }}>−</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      onPress={() => setCustomMinutes(String(parseInt(customMinutes || '0') + 1))}
+                      style={{ backgroundColor: 'rgba(0,229,90,0.3)', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10 }}
+                    >
+                      <Text style={{ color: '#00E55A', fontSize: 18, fontWeight: '600' }}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={{color: '#666', fontSize: 11, marginTop: 4}}>min</Text>
                 </View>
                 
-                <Text style={styles.timeSeparator}>:</Text>
+                <Text style={{color: '#555', fontSize: 32, fontWeight: '700', marginHorizontal: 8}}>:</Text>
                 
-                {/* Seconds Box */}
-                <View style={styles.timeInputBox}>
-                  <TextInput
-                    style={{
+                {/* Seconds Input with Text Overlay */}
+                <View style={{
+                  alignItems: 'center',
+                  marginLeft: 8,
+                }}>
+                  <View style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                    borderRadius: 12,
+                    paddingHorizontal: 20,
+                    paddingVertical: 12,
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.15)',
+                    minWidth: 80,
+                    alignItems: 'center',
+                  }}>
+                    <Text style={{
                       color: '#FFFFFF',
-                      fontSize: 24,
-                      fontWeight: '800',
-                      width: 50,
+                      fontSize: 28,
+                      fontWeight: '700',
                       textAlign: 'center',
-                      backgroundColor: 'transparent',
-                    }}
-                    value={customSeconds}
-                    onChangeText={setCustomSeconds}
-                    keyboardType="numeric"
-                    placeholder="0"
-                    placeholderTextColor="#666"
-                    maxLength={2}
-                  />
-                  <Text style={styles.timeUnitLabel}>sec</Text>
+                    }}>{customSeconds || '0'}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', marginTop: 8, gap: 12 }}>
+                    <TouchableOpacity 
+                      onPress={() => setCustomSeconds(String(Math.max(0, Math.min(59, parseInt(customSeconds || '0') - 5))))}
+                      style={{ backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10 }}
+                    >
+                      <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '600' }}>−5</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      onPress={() => setCustomSeconds(String(Math.min(59, parseInt(customSeconds || '0') + 5)))}
+                      style={{ backgroundColor: 'rgba(0,229,90,0.3)', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10 }}
+                    >
+                      <Text style={{ color: '#00E55A', fontSize: 16, fontWeight: '600' }}>+5</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={{color: '#666', fontSize: 11, marginTop: 4}}>sec</Text>
                 </View>
               </View>
               <TouchableOpacity style={styles.setCustomTimeBtn} onPress={setCustomTime}>
@@ -3729,27 +3765,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
+    paddingHorizontal: 10,
   },
   timeInputBox: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
-    width: 110,
-    flexDirection: 'row',
+    minWidth: 100,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   timeInputField: {
     color: '#FFFFFF',
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '800',
-    flex: 1,
-    textAlign: 'left',
+    textAlign: 'center',
     padding: 0,
     margin: 0,
-    height: 36,
+    height: 40,
+    minHeight: 40,
+    minWidth: 60,
+    backgroundColor: 'transparent',
   },
   timeUnitLabel: {
     color: '#888',
