@@ -1772,22 +1772,40 @@ export default function Trade() {
             <View style={styles.timeInputSection}>
               <Text style={styles.timeInputLabel}>Custom Time</Text>
               <View style={styles.timeInputRow}>
+                {/* Minutes Box */}
                 <View style={styles.timeInputBox}>
                   <TextInput
-                    style={styles.timeInput}
+                    style={{
+                      color: '#FFFFFF',
+                      fontSize: 24,
+                      fontWeight: '800',
+                      width: 50,
+                      textAlign: 'center',
+                      backgroundColor: 'transparent',
+                    }}
                     value={customMinutes}
                     onChangeText={setCustomMinutes}
                     keyboardType="numeric"
-                    placeholder="0"
+                    placeholder="1"
                     placeholderTextColor="#666"
                     maxLength={3}
                   />
-                  <Text style={styles.timeUnit}>min</Text>
+                  <Text style={styles.timeUnitLabel}>min</Text>
                 </View>
+                
                 <Text style={styles.timeSeparator}>:</Text>
+                
+                {/* Seconds Box */}
                 <View style={styles.timeInputBox}>
                   <TextInput
-                    style={styles.timeInput}
+                    style={{
+                      color: '#FFFFFF',
+                      fontSize: 24,
+                      fontWeight: '800',
+                      width: 50,
+                      textAlign: 'center',
+                      backgroundColor: 'transparent',
+                    }}
                     value={customSeconds}
                     onChangeText={setCustomSeconds}
                     keyboardType="numeric"
@@ -1795,7 +1813,7 @@ export default function Trade() {
                     placeholderTextColor="#666"
                     maxLength={2}
                   />
-                  <Text style={styles.timeUnit}>sec</Text>
+                  <Text style={styles.timeUnitLabel}>sec</Text>
                 </View>
               </View>
               <TouchableOpacity style={styles.setCustomTimeBtn} onPress={setCustomTime}>
@@ -3710,36 +3728,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
     marginBottom: 16,
   },
   timeInputBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
+    width: 110,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  timeInput: {
+  timeInputField: {
     color: '#FFFFFF',
     fontSize: 24,
     fontWeight: '800',
-    minWidth: 50,
-    textAlign: 'center',
+    flex: 1,
+    textAlign: 'left',
+    padding: 0,
+    margin: 0,
+    height: 36,
   },
-  timeUnit: {
-    color: '#666',
-    fontSize: 14,
+  timeUnitLabel: {
+    color: '#888',
+    fontSize: 13,
     fontWeight: '600',
   },
   timeSeparator: {
     color: '#666',
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '700',
+    marginHorizontal: 12,
   },
   setCustomTimeBtn: {
     backgroundColor: '#00E55A',
