@@ -18,6 +18,8 @@ import { useAuthStore } from '../../stores/authStore';
 import { API_URL } from '../../utils/api';
 import * as ImagePicker from 'expo-image-picker';
 import AnimatedLoader from '../../components/AnimatedLoader';
+import QRCode from 'react-native-qrcode-svg';
+import * as Clipboard from 'expo-clipboard';
 
 declare const window: any;
 
@@ -123,6 +125,15 @@ export default function Profile() {
   const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
   const [isProcessingWithdraw, setIsProcessingWithdraw] = useState(false);
   
+  // Deposit Payment States
+  const [generatedAddress, setGeneratedAddress] = useState<string | null>(null);
+  const [isGeneratingAddress, setIsGeneratingAddress] = useState(false);
+  const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [payAmount, setPayAmount] = useState<string | null>(null);
+  const [expirationTime, setExpirationTime] = useState<Date | null>(null);
+  const [countdownText, setCountdownText] = useState('20:00');
+  const [depositError, setDepositError] = useState<string | null>(null);
+  
   // Settings State
   const [notificationSettings, setNotificationSettings] = useState({
     email: true,
@@ -203,6 +214,28 @@ export default function Profile() {
     fetchKycStatus();
     fetchNotificationSettings();
   }, [fetchProfileStats]);
+
+  // Countdown timer for deposit expiration
+  useEffect(() => {
+    if (!expirationTime) return;
+    
+    const interval = setInterval(() => {
+      const now = new Date();
+      const diff = expirationTime.getTime() - now.getTime();
+      
+      if (diff <= 0) {
+        setCountdownText('EXPIRED');
+        clearInterval(interval);
+        return;
+      }
+      
+      const minutes = Math.floor(diff / 60000);
+      const seconds = Math.floor((diff % 60000) / 1000);
+      setCountdownText(`${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [expirationTime]);
 
   // Fetch notification settings
   const fetchNotificationSettings = useCallback(async () => {
@@ -2035,126 +2068,253 @@ export default function Profile() {
             {/* Header */}
             <View style={styles.depositModalHeader}>
               <Text style={styles.depositModalTitle}>Deposit Funds</Text>
-              <TouchableOpacity onPress={() => setShowDepositModal(false)}>
+              <TouchableOpacity onPress={() => {
+                setShowDepositModal(false);
+                setGeneratedAddress(null);
+                setPaymentId(null);
+                setDepositError(null);
+              }}>
                 <Ionicons name="close" size={24} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Amount Input */}
-              <Text style={styles.depositLabel}>Enter Amount</Text>
-              <View style={styles.depositAmountBox}>
-                <Text style={styles.depositAmountPrefix}>$</Text>
-                <TextInput
-                  style={styles.depositAmountInput}
-                  value={depositAmount}
-                  onChangeText={setDepositAmount}
-                  keyboardType="numeric"
-                  placeholder="0"
-                  placeholderTextColor="#444"
-                />
-              </View>
-              <Text style={styles.depositMinimum}>Minimum deposit: $21</Text>
+              {!generatedAddress ? (
+                <>
+                  {/* Amount Input */}
+                  <Text style={styles.depositLabel}>Enter Amount</Text>
+                  <View style={styles.depositAmountBox}>
+                    <Text style={styles.depositAmountPrefix}>$</Text>
+                    <TextInput
+                      style={styles.depositAmountInput}
+                      value={depositAmount}
+                      onChangeText={setDepositAmount}
+                      keyboardType="numeric"
+                      placeholder="0"
+                      placeholderTextColor="#444"
+                    />
+                  </View>
+                  <Text style={styles.depositMinimum}>Minimum deposit: $21</Text>
 
-              {/* Quick Amounts */}
-              <View style={styles.depositQuickAmounts}>
-                {['50', '100', '250', '500', '1000'].map((amt) => (
-                  <TouchableOpacity
-                    key={amt}
-                    style={[styles.depositQuickBtn, depositAmount === amt && styles.depositQuickBtnActive]}
-                    onPress={() => setDepositAmount(amt)}
+                  {/* Quick Amounts */}
+                  <View style={styles.depositQuickAmounts}>
+                    {['50', '100', '250', '500', '1000'].map((amt) => (
+                      <TouchableOpacity
+                        key={amt}
+                        style={[styles.depositQuickBtn, depositAmount === amt && styles.depositQuickBtnActive]}
+                        onPress={() => setDepositAmount(amt)}
+                      >
+                        <Text style={[styles.depositQuickBtnText, depositAmount === amt && styles.depositQuickBtnTextActive]}>
+                          ${amt}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  {/* Network Selection */}
+                  <Text style={styles.depositLabel}>Select Network</Text>
+                  <TouchableOpacity 
+                    style={styles.depositNetworkSelect}
+                    onPress={() => setShowNetworkDropdown(!showNetworkDropdown)}
                   >
-                    <Text style={[styles.depositQuickBtnText, depositAmount === amt && styles.depositQuickBtnTextActive]}>
-                      ${amt}
-                    </Text>
+                    <View style={styles.depositNetworkLeft}>
+                      <Ionicons name="link" size={18} color="#00E55A" />
+                      <Text style={styles.depositNetworkText}>{selectedNetwork}</Text>
+                    </View>
+                    <Ionicons name="chevron-down" size={20} color="#888" />
                   </TouchableOpacity>
-                ))}
-              </View>
 
-              {/* Network Selection */}
-              <Text style={styles.depositLabel}>Select Network</Text>
-              <TouchableOpacity 
-                style={styles.depositNetworkSelect}
-                onPress={() => setShowNetworkDropdown(!showNetworkDropdown)}
-              >
-                <View style={styles.depositNetworkLeft}>
-                  <Ionicons name="link" size={18} color="#00E55A" />
-                  <Text style={styles.depositNetworkText}>{selectedNetwork}</Text>
-                </View>
-                <Ionicons name="chevron-down" size={20} color="#888" />
-              </TouchableOpacity>
+                  {showNetworkDropdown && (
+                    <View style={styles.depositNetworkDropdown}>
+                      {['USDT (TRC20)', 'USDT (ERC20)', 'BTC (Bitcoin)', 'ETH (Ethereum)', 'LTC (Litecoin)'].map((network) => (
+                        <TouchableOpacity
+                          key={network}
+                          style={[styles.depositNetworkOption, selectedNetwork === network && styles.depositNetworkOptionActive]}
+                          onPress={() => {
+                            setSelectedNetwork(network);
+                            setShowNetworkDropdown(false);
+                          }}
+                        >
+                          <Text style={[styles.depositNetworkOptionText, selectedNetwork === network && { color: '#00E55A' }]}>
+                            {network}
+                          </Text>
+                          {selectedNetwork === network && <Ionicons name="checkmark" size={18} color="#00E55A" />}
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
 
-              {showNetworkDropdown && (
-                <View style={styles.depositNetworkDropdown}>
-                  {['USDT (TRC20)', 'USDT (ERC20)', 'BTC (Bitcoin)', 'ETH (Ethereum)', 'LTC (Litecoin)'].map((network) => (
-                    <TouchableOpacity
-                      key={network}
-                      style={[styles.depositNetworkOption, selectedNetwork === network && styles.depositNetworkOptionActive]}
+                  {/* No Fees Info */}
+                  <Text style={styles.depositNoFees}>No fees - Pay exact amount only</Text>
+
+                  {/* Promo Code */}
+                  <Text style={styles.depositLabel}>Promo Code (Optional)</Text>
+                  <View style={styles.depositPromoRow}>
+                    <TextInput
+                      style={styles.depositPromoInput}
+                      placeholder="Enter code"
+                      placeholderTextColor="#444"
+                      value={promoCode}
+                      onChangeText={setPromoCode}
+                    />
+                    <TouchableOpacity 
+                      style={styles.depositPromoQuickBtn}
                       onPress={() => {
-                        setSelectedNetwork(network);
-                        setShowNetworkDropdown(false);
+                        setPromoCode('BYNIX');
+                        setAppliedPromo('BYNIX');
                       }}
                     >
-                      <Text style={[styles.depositNetworkOptionText, selectedNetwork === network && { color: '#00E55A' }]}>
-                        {network}
-                      </Text>
-                      {selectedNetwork === network && <Ionicons name="checkmark" size={18} color="#00E55A" />}
+                      <Text style={styles.depositPromoQuickText}>BYNIX</Text>
                     </TouchableOpacity>
-                  ))}
-                </View>
+                  </View>
+
+                  {/* Error Message */}
+                  {depositError && (
+                    <View style={{ backgroundColor: 'rgba(255,59,59,0.15)', padding: 12, borderRadius: 8, marginTop: 12 }}>
+                      <Text style={{ color: '#FF3B3B', fontSize: 13 }}>{depositError}</Text>
+                    </View>
+                  )}
+
+                  {/* Generate Address Button */}
+                  <TouchableOpacity 
+                    style={[styles.depositGenerateBtn, isGeneratingAddress && { opacity: 0.7 }]}
+                    onPress={async () => {
+                      const amount = parseFloat(depositAmount);
+                      if (isNaN(amount) || amount < 21) {
+                        setDepositError('Minimum deposit amount is $21');
+                        return;
+                      }
+                      
+                      if (!token) {
+                        Alert.alert('Login Required', 'Please login to make a deposit');
+                        return;
+                      }
+                      
+                      setIsGeneratingAddress(true);
+                      setDepositError(null);
+                      
+                      try {
+                        const networkMap: { [key: string]: string } = {
+                          'USDT (TRC20)': 'TRC20',
+                          'USDT (ERC20)': 'ERC20',
+                          'BTC (Bitcoin)': 'BTC',
+                          'ETH (Ethereum)': 'ETH',
+                          'LTC (Litecoin)': 'LTC'
+                        };
+                        
+                        const response = await fetch(`${API_URL}/deposit/create`, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                          },
+                          body: JSON.stringify({
+                            amount: amount,
+                            network: networkMap[selectedNetwork] || 'TRC20',
+                            promo_code: promoCode || null
+                          })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                          setGeneratedAddress(data.pay_address);
+                          setPaymentId(data.payment_id?.toString());
+                          setPayAmount(data.pay_amount?.toString());
+                          
+                          if (data.expiration_estimate_date) {
+                            setExpirationTime(new Date(data.expiration_estimate_date));
+                          } else {
+                            const expiry = new Date();
+                            expiry.setMinutes(expiry.getMinutes() + 20);
+                            setExpirationTime(expiry);
+                          }
+                        } else {
+                          setDepositError(data.error || data.detail || 'Failed to create deposit');
+                        }
+                      } catch (error: any) {
+                        console.error('Deposit error:', error);
+                        setDepositError(error.message || 'Network error. Please try again.');
+                      }
+                      
+                      setIsGeneratingAddress(false);
+                    }}
+                    disabled={isGeneratingAddress}
+                  >
+                    {isGeneratingAddress ? (
+                      <ActivityIndicator size="small" color="#0A0A0A" />
+                    ) : (
+                      <Text style={styles.depositGenerateBtnText}>Generate Deposit Address</Text>
+                    )}
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  {/* Generated Address View with QR Code */}
+                  <View style={{ alignItems: 'center', marginTop: 16 }}>
+                    {/* QR Code */}
+                    <View style={{ backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, marginBottom: 20 }}>
+                      <QRCode
+                        value={generatedAddress || 'bitcoin:address'}
+                        size={180}
+                        backgroundColor="#FFFFFF"
+                        color="#000000"
+                      />
+                    </View>
+                    
+                    {/* Payment Info */}
+                    <View style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 16, marginBottom: 12 }}>
+                      <Text style={{ color: '#888', fontSize: 12, marginBottom: 4 }}>Payment ID</Text>
+                      <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600' }}>{paymentId || 'N/A'}</Text>
+                    </View>
+                    
+                    <View style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 16, marginBottom: 12 }}>
+                      <Text style={{ color: '#888', fontSize: 12, marginBottom: 4 }}>Expires In</Text>
+                      <Text style={{ color: countdownText === 'EXPIRED' ? '#FF3B3B' : '#00E55A', fontSize: 16, fontWeight: '700' }}>{countdownText}</Text>
+                    </View>
+                    
+                    <View style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 16, marginBottom: 12 }}>
+                      <Text style={{ color: '#888', fontSize: 12, marginBottom: 4 }}>Send exactly</Text>
+                      <Text style={{ color: '#00E55A', fontSize: 18, fontWeight: '700' }}>{payAmount} USDT</Text>
+                    </View>
+                    
+                    {/* Address Box */}
+                    <View style={{ width: '100%', backgroundColor: 'rgba(0,229,90,0.1)', borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(0,229,90,0.3)' }}>
+                      <Text style={{ color: '#888', fontSize: 12, marginBottom: 8 }}>Deposit Address ({selectedNetwork})</Text>
+                      <Text style={{ color: '#FFFFFF', fontSize: 13, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }} selectable>{generatedAddress}</Text>
+                    </View>
+                    
+                    {/* Copy Button */}
+                    <TouchableOpacity 
+                      style={{ backgroundColor: '#00E55A', paddingVertical: 14, paddingHorizontal: 32, borderRadius: 12, width: '100%', alignItems: 'center' }}
+                      onPress={async () => {
+                        if (generatedAddress) {
+                          await Clipboard.setStringAsync(generatedAddress);
+                          Alert.alert('Copied!', 'Address copied to clipboard');
+                        }
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Ionicons name="copy" size={18} color="#0A0A0A" />
+                        <Text style={{ color: '#0A0A0A', fontSize: 16, fontWeight: '700' }}>Copy Address</Text>
+                      </View>
+                    </TouchableOpacity>
+                    
+                    {/* New Deposit Button */}
+                    <TouchableOpacity 
+                      style={{ marginTop: 12, paddingVertical: 12 }}
+                      onPress={() => {
+                        setGeneratedAddress(null);
+                        setPaymentId(null);
+                        setPayAmount(null);
+                        setExpirationTime(null);
+                      }}
+                    >
+                      <Text style={{ color: '#888', fontSize: 14 }}>Create New Deposit</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
               )}
-
-              {/* No Fees Info */}
-              <Text style={styles.depositNoFees}>No fees - Pay exact amount only</Text>
-
-              {/* Promo Code */}
-              <Text style={styles.depositLabel}>Promo Code (Optional)</Text>
-              <View style={styles.depositPromoRow}>
-                <TextInput
-                  style={styles.depositPromoInput}
-                  placeholder="Enter code"
-                  placeholderTextColor="#444"
-                  value={promoCode}
-                  onChangeText={setPromoCode}
-                />
-                <TouchableOpacity 
-                  style={styles.depositPromoQuickBtn}
-                  onPress={() => {
-                    setPromoCode('BYNIX');
-                    setAppliedPromo('BYNIX');
-                  }}
-                >
-                  <Text style={styles.depositPromoQuickText}>BYNIX</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.depositPromoQuickBtn}
-                  onPress={() => {
-                    setPromoCode('VIP50');
-                    setAppliedPromo('VIP50');
-                  }}
-                >
-                  <Text style={styles.depositPromoQuickText}>VIP50</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Promo Info Box */}
-              <View style={styles.depositPromoInfo}>
-                <Ionicons name="gift" size={20} color="#FFD700" />
-                <Text style={styles.depositPromoInfoText}>
-                  BYNIX: 200% bonus ($100+) - New users only!
-                </Text>
-              </View>
-
-              {/* Generate Address Button */}
-              <TouchableOpacity 
-                style={styles.depositGenerateBtn}
-                onPress={() => {
-                  setShowDepositModal(false);
-                  router.push('/(tabs)/wallet');
-                }}
-              >
-                <Text style={styles.depositGenerateBtnText}>Generate Deposit Address</Text>
-              </TouchableOpacity>
             </ScrollView>
           </View>
         </View>
