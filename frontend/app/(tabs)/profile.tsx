@@ -1574,7 +1574,7 @@ export default function Profile() {
                 <View key={tx.transaction_id || index} style={styles.txRow}>
                   {/* Left Side - ID, Date, Status */}
                   <View style={styles.txLeftCol}>
-                    <Text style={styles.txId}>{tx.transaction_id || `TXN${index + 1}`}</Text>
+                    <Text style={styles.txId}>{tx.transaction_id || tx.payment_id || `TXN${index + 1}`}</Text>
                     <Text style={styles.txDateTime}>
                       {tx.created_at ? new Date(tx.created_at).toLocaleDateString('en-GB', {
                         day: '2-digit',
@@ -1586,14 +1586,32 @@ export default function Profile() {
                         second: '2-digit'
                       }) : 'N/A'}
                     </Text>
-                    <Text style={[
-                      styles.txStatus,
-                      { color: tx.status === 'completed' ? '#00E55A' : 
-                        tx.status === 'pending' ? '#FFB800' : '#FF3B3B' }
+                    <View style={[
+                      styles.txStatusBadge,
+                      { backgroundColor: 
+                        (tx.status === 'completed' || tx.status === 'confirmed' || tx.status === 'finished') ? 'rgba(0,229,90,0.15)' : 
+                        (tx.status === 'pending' || tx.status === 'waiting') ? 'rgba(255,184,0,0.15)' : 'rgba(255,59,59,0.15)' 
+                      }
                     ]}>
-                      {tx.status === 'completed' ? 'Successed' : 
-                       tx.status === 'pending' ? 'Pending' : 'Failed'}
-                    </Text>
+                      <View style={[
+                        styles.txStatusDot,
+                        { backgroundColor: 
+                          (tx.status === 'completed' || tx.status === 'confirmed' || tx.status === 'finished') ? '#00E55A' : 
+                          (tx.status === 'pending' || tx.status === 'waiting') ? '#FFB800' : '#FF3B3B' 
+                        }
+                      ]} />
+                      <Text style={[
+                        styles.txStatusText,
+                        { color: 
+                          (tx.status === 'completed' || tx.status === 'confirmed' || tx.status === 'finished') ? '#00E55A' : 
+                          (tx.status === 'pending' || tx.status === 'waiting') ? '#FFB800' : '#FF3B3B' 
+                        }
+                      ]}>
+                        {(tx.status === 'completed' || tx.status === 'confirmed' || tx.status === 'finished') ? 'Success' : 
+                         (tx.status === 'pending' || tx.status === 'waiting') ? 'Pending' : 
+                         tx.status === 'expired' ? 'Expired' : 'Failed'}
+                      </Text>
+                    </View>
                   </View>
                   
                   {/* Right Side - Amount, Method, Type */}
@@ -1605,15 +1623,18 @@ export default function Profile() {
                       {tx.type === 'deposit' ? '+' : '-'}${tx.amount?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
                     </Text>
                     <Text style={styles.txMethod}>
-                      {tx.currency || 'USDT'} {tx.network ? `(${tx.network})` : '(TRC-20)'}
+                      {tx.currency || 'USDT'} {tx.network ? `(${tx.network})` : '(TRC20)'}
                     </Text>
-                    <Text style={styles.txType}>
-                      {tx.type === 'deposit' ? 'Deposit' : 'Payout'}
+                    <Text style={[
+                      styles.txType,
+                      { color: tx.type === 'deposit' ? '#00E55A' : '#FF3B3B' }
+                    ]}>
+                      {tx.type === 'deposit' ? 'Deposit' : 'Withdraw'}
                     </Text>
                   </View>
                 </View>
               ))
-            )}
+            )}}
           </View>
       </>
     );
@@ -4218,6 +4239,24 @@ const styles = StyleSheet.create({
   },
   txStatus: {
     fontSize: 13,
+    fontWeight: '600',
+  },
+  txStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    gap: 5,
+    alignSelf: 'flex-start',
+  },
+  txStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  txStatusText: {
+    fontSize: 11,
     fontWeight: '600',
   },
   txAmount: {

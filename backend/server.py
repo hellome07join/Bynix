@@ -920,10 +920,39 @@ async def get_transactions(authorization: Optional[str] = Header(None), request:
     """Get user's transaction history with summary stats"""
     user = await get_current_user(authorization, request)
     
+    # Fetch from transactions collection
     transactions = await db.transactions.find(
         {"user_id": user.user_id},
         {"_id": 0}
     ).sort("created_at", -1).to_list(100)
+    
+    # Also fetch from deposits collection (NOWPayments deposits)
+    deposits = await db.deposits.find(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    
+    # Merge deposits into transactions format
+    for dep in deposits:
+        tx = {
+            "transaction_id": dep.get("payment_id") or dep.get("transaction_id"),
+            "user_id": dep.get("user_id"),
+            "type": "deposit",
+            "amount": dep.get("amount", 0),
+            "status": dep.get("status", "pending"),
+            "currency": dep.get("pay_currency", "USDT"),
+            "network": dep.get("network", "TRC20"),
+            "crypto_address": dep.get("pay_address"),
+            "created_at": dep.get("created_at"),
+            "bonus_amount": dep.get("bonus_amount", 0),
+            "total_credit": dep.get("total_credit", dep.get("amount", 0))
+        }
+        # Only add if not already in transactions
+        if not any(t.get("transaction_id") == tx["transaction_id"] for t in transactions):
+            transactions.append(tx)
+    
+    # Sort all by created_at descending
+    transactions.sort(key=lambda x: x.get("created_at") or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
     
     # Calculate summary statistics
     total_deposits = 0
@@ -934,7 +963,7 @@ async def get_transactions(authorization: Optional[str] = Header(None), request:
     for tx in transactions:
         if tx.get("type") == "deposit":
             total_deposits += 1
-            if tx.get("status") == "completed":
+            if tx.get("status") in ["completed", "confirmed", "finished"]:
                 total_deposit_amount += tx.get("amount", 0)
         elif tx.get("type") == "withdrawal":
             total_withdrawals += 1
