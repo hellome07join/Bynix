@@ -17,6 +17,15 @@ interface HorizontalLine {
   selected?: boolean;
 }
 
+interface TrendLine {
+  id: string;
+  startPrice: number;
+  endPrice: number;
+  startX: number;
+  endX: number;
+  color?: string;
+}
+
 interface PriceRange {
   min: number;
   max: number;
@@ -38,9 +47,10 @@ interface TradingViewChartProps {
   chartType?: 'candle' | 'line' | 'bar';
   tradeMarkers?: TradeMarker[];
   horizontalLines?: HorizontalLine[];
+  trendLines?: TrendLine[];
   onPriceUpdate?: (price: number) => void;
   onPriceRangeChange?: (range: PriceRange) => void;
-  onChartClick?: (y: number, chartHeight: number) => void;
+  onChartClick?: (y: number, chartHeight: number, x?: number) => void;
   onLineSelect?: (lineId: string | null) => void;
   onLineMove?: (lineId: string, newPrice: number) => void;
   selectedLineId?: string | null;
@@ -79,6 +89,7 @@ export default function TradingViewChart({
   chartType = 'candle',
   tradeMarkers = [],
   horizontalLines = [],
+  trendLines = [],
   onPriceUpdate,
   onPriceRangeChange,
   onChartClick,
@@ -155,6 +166,9 @@ export default function TradingViewChart({
   const dragStartYRef = useRef(0);
   const lastMouseXRef = useRef(0);
   const lastMouseYRef = useRef(0);
+  const mouseDownTimeRef = useRef(0);
+  const mouseDownPosRef = useRef({ x: 0, y: 0 });
+  const actuallyDraggedRef = useRef(false);
   
   // Zoom constraints
   const MIN_SCALE = 0.3;
@@ -701,7 +715,39 @@ export default function TradingViewChart({
       ctx.fillText(line.price.toFixed(5), labelX + 5, lineY + 4);
     });
     
-  }, [aggregatedCandles, chartType, internalPrice, scrollOffset, scale, tradeMarkers, horizontalLines]);
+    // Draw trend lines
+    console.log('Drawing trend lines:', trendLines.length);
+    trendLines.forEach((line, index) => {
+      // Calculate Y positions from prices
+      const startY = padding.top + ((maxPrice - line.startPrice) / (maxPrice - minPrice)) * chartHeight;
+      const endY = padding.top + ((maxPrice - line.endPrice) / (maxPrice - minPrice)) * chartHeight;
+      
+      // X positions are stored directly as pixel values relative to chart
+      const startX = line.startX;
+      const endX = line.endX;
+      
+      console.log('Trend line', index, 'start:', { x: startX, y: startY }, 'end:', { x: endX, y: endY });
+      
+      // Draw the trend line
+      ctx.strokeStyle = line.color || '#00E55A';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(endX, endY);
+      ctx.stroke();
+      
+      // Draw circles at endpoints
+      ctx.fillStyle = line.color || '#00E55A';
+      ctx.beginPath();
+      ctx.arc(startX, startY, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(endX, endY, 4, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    
+  }, [aggregatedCandles, chartType, internalPrice, scrollOffset, scale, tradeMarkers, horizontalLines, trendLines]);
 
   // Redraw chart when data changes
   useEffect(() => {
@@ -959,8 +1005,18 @@ export default function TradingViewChart({
             }
           }}
           onClick={(e: any) => {
-            // Only trigger chart click if not dragging
-            if (!isDraggingRef.current) {
+            // Only trigger chart click if it was actually a click (not drag)
+            // Check if mouse moved less than 5 pixels during the click
+            const timeDiff = Date.now() - mouseDownTimeRef.current;
+            const distMoved = Math.sqrt(
+              Math.pow(e.clientX - mouseDownPosRef.current.x, 2) + 
+              Math.pow(e.clientY - mouseDownPosRef.current.y, 2)
+            );
+            
+            const isRealClick = !actuallyDraggedRef.current && distMoved < 5 && timeDiff < 500;
+            console.log('Click check:', { isRealClick, distMoved, timeDiff, actuallyDragged: actuallyDraggedRef.current });
+            
+            if (isRealClick) {
               const rect = e.currentTarget.getBoundingClientRect();
               const y = e.clientY - rect.top;
               const height = rect.height;
@@ -1001,12 +1057,21 @@ export default function TradingViewChart({
                 }
               } else if (onChartClick) {
                 // No line clicked - trigger chart click for drawing
-                console.log('Chart div clicked:', { y, height, clientY: e.clientY, rectTop: rect.top });
-                onChartClick(y, height);
+                const x = e.clientX - rect.left;
+                console.log('Chart div clicked:', { x, y, height, clientY: e.clientY, rectTop: rect.top });
+                onChartClick(y, height, x);
               }
             }
+            
+            // Reset drag state
+            actuallyDraggedRef.current = false;
           }}
           onMouseDown={(e: any) => {
+            // Track mouse down time and position for click detection
+            mouseDownTimeRef.current = Date.now();
+            mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
+            actuallyDraggedRef.current = false;
+            
             // Check if clicking on a selected line for dragging
             if (selectedLineId && horizontalLines.length > 0) {
               const rect = e.currentTarget.getBoundingClientRect();
@@ -1072,6 +1137,10 @@ export default function TradingViewChart({
             // Original mouse move logic for panning
             if (isDraggingRef.current && !isPinchingRef.current) {
               const deltaX = e.clientX - lastMouseXRef.current;
+              // Mark as actually dragged if moved more than 3 pixels
+              if (Math.abs(deltaX) > 3) {
+                actuallyDraggedRef.current = true;
+              }
               setScrollOffset(prev => prev - deltaX * SCROLL_SENSITIVITY / scale);
               lastMouseXRef.current = e.clientX;
               lastMouseYRef.current = e.clientY;

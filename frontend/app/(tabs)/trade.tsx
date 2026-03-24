@@ -268,6 +268,8 @@ export default function Trade() {
   const [selectedDrawTool, setSelectedDrawTool] = useState<string | null>(null);
   const [chartType, setChartType] = useState<'candle' | 'line' | 'bar'>('candle');
   const [horizontalLines, setHorizontalLines] = useState<{id: string, price: number, selected?: boolean}[]>([]);
+  const [trendLines, setTrendLines] = useState<{id: string, startPrice: number, endPrice: number, startTime: number, endTime: number}[]>([]);
+  const [trendLineStartPoint, setTrendLineStartPoint] = useState<{price: number, time: number} | null>(null);
   const [chartDimensions, setChartDimensions] = useState({width: 0, height: 0});
   const [priceRange, setPriceRange] = useState({ min: 0, max: 0 });
   const chartContainerRef = useRef<View>(null);
@@ -1225,24 +1227,24 @@ export default function Trade() {
               remainingTime: trade.countdown
             }))}
             horizontalLines={horizontalLines}
+            trendLines={trendLines}
             onPriceUpdate={(price) => setCurrentPrice(price)}
             onPriceRangeChange={(range) => setPriceRange(range)}
-            onChartClick={(y: number, chartHeight: number) => {
-              // Handle chart click for drawing tools
+            onChartClick={(y: number, chartHeight: number, x?: number) => {
+              // Chart has padding - top: 20, bottom: 45 (for price axis)
+              const chartPaddingTop = 20;
+              const chartPaddingBottom = 45;
+              const effectiveChartHeight = chartHeight - chartPaddingTop - chartPaddingBottom;
+              
+              // Adjust Y position for padding
+              const adjustedY = y - chartPaddingTop;
+              
+              // Calculate price from Y position
+              const priceRatio = Math.max(0, Math.min(1, adjustedY / effectiveChartHeight));
+              const price = priceRange.max - (priceRatio * (priceRange.max - priceRange.min));
+              
+              // Handle horizontal line drawing
               if (selectedDrawTool === 'horizontal' && priceRange.max > priceRange.min) {
-                // Chart has padding - top: 20, bottom: 45 (for price axis)
-                const chartPaddingTop = 20;
-                const chartPaddingBottom = 45;
-                const effectiveChartHeight = chartHeight - chartPaddingTop - chartPaddingBottom;
-                
-                // Adjust Y position for padding
-                const adjustedY = y - chartPaddingTop;
-                
-                // Calculate price from Y position
-                // Top of chart = maxPrice, Bottom = minPrice
-                const priceRatio = Math.max(0, Math.min(1, adjustedY / effectiveChartHeight));
-                const price = priceRange.max - (priceRatio * (priceRange.max - priceRange.min));
-                
                 console.log('Adding horizontal line from chart click:', { 
                   y, 
                   chartHeight, 
@@ -1264,6 +1266,29 @@ export default function Trade() {
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 } else {
                   console.log('Invalid price calculated, not adding line');
+                }
+              } 
+              // Handle trend line drawing - needs two clicks
+              else if (selectedDrawTool === 'trendline' && priceRange.max > priceRange.min && x !== undefined) {
+                if (!trendLineStartPoint) {
+                  // First click - set start point
+                  console.log('Trend line start point:', { x, price });
+                  setTrendLineStartPoint({ price, time: x });
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                } else {
+                  // Second click - create the trend line
+                  console.log('Trend line end point:', { x, price });
+                  const newTrendLine = {
+                    id: `trend_${Date.now()}`,
+                    startPrice: trendLineStartPoint.price,
+                    endPrice: price,
+                    startX: trendLineStartPoint.time,
+                    endX: x
+                  };
+                  setTrendLines(prev => [...prev, newTrendLine]);
+                  setTrendLineStartPoint(null);
+                  setSelectedDrawTool(null);
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 }
               } else {
                 // Deselect line when clicking elsewhere
@@ -1288,7 +1313,7 @@ export default function Trade() {
           />
         </View>
         
-        {/* Drawing Mode Indicator */}
+        {/* Drawing Mode Indicator - Horizontal Line */}
         {selectedDrawTool === 'horizontal' && (
           <View style={{
             position: 'absolute',
@@ -1302,6 +1327,26 @@ export default function Trade() {
           }}>
             <Text style={{ color: '#0A0A0A', fontSize: 12, fontWeight: '600', textAlign: 'center' }}>
               Tap on chart to draw horizontal line
+            </Text>
+          </View>
+        )}
+        
+        {/* Drawing Mode Indicator - Trend Line */}
+        {selectedDrawTool === 'trendline' && (
+          <View style={{
+            position: 'absolute',
+            top: 10,
+            left: 10,
+            right: 10,
+            backgroundColor: 'rgba(0, 229, 90, 0.9)',
+            padding: 10,
+            borderRadius: 8,
+            zIndex: 200,
+          }}>
+            <Text style={{ color: '#0A0A0A', fontSize: 12, fontWeight: '600', textAlign: 'center' }}>
+              {trendLineStartPoint 
+                ? 'Tap second point to complete trend line' 
+                : 'Tap first point to start trend line'}
             </Text>
           </View>
         )}
@@ -2233,9 +2278,10 @@ export default function Trade() {
                 <TouchableOpacity
                   style={[styles.drawToolItem, selectedDrawTool === 'trendline' && styles.drawToolItemActive]}
                   onPress={() => {
-                    setSelectedDrawTool(selectedDrawTool === 'trendline' ? null : 'trendline');
+                    console.log('Setting selectedDrawTool to trendline');
+                    setSelectedDrawTool('trendline');
+                    setTrendLineStartPoint(null); // Reset start point
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    Alert.alert('Trend Line', 'Tap two points on the chart to draw a trend line.');
                     setShowToolsModal(false);
                   }}
                 >
