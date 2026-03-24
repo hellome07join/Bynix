@@ -1539,11 +1539,14 @@ export default function Profile() {
             <View style={styles.financeHistoryHeader}>
               <View style={styles.financeHistoryTitleRow}>
                 <Ionicons name="time" size={20} color="#00E55A" />
-                <Text style={styles.financeHistoryTitle}>All Transactions</Text>
+                <Text style={styles.financeHistoryTitle}>Transactions</Text>
               </View>
-              <Text style={styles.financeHistorySubtitle}>
-                {transactions.length} total records
-              </Text>
+            </View>
+
+            {/* Table Header */}
+            <View style={styles.txTableHeader}>
+              <Text style={styles.txTableHeaderText}>Transaction ID</Text>
+              <Text style={styles.txTableHeaderText}>Amount</Text>
             </View>
 
             {loadingTransactions ? (
@@ -1560,53 +1563,45 @@ export default function Profile() {
               </View>
             ) : (
               transactions.map((tx, index) => (
-                <View key={tx.transaction_id || index} style={styles.transactionItem}>
-                  <View style={styles.transactionLeft}>
-                    <View style={[
-                      styles.transactionIcon,
-                      { backgroundColor: tx.type === 'deposit' ? 'rgba(0, 229, 90, 0.15)' : 'rgba(255, 59, 59, 0.15)' }
-                    ]}>
-                      <Ionicons 
-                        name={tx.type === 'deposit' ? 'arrow-down' : 'arrow-up'} 
-                        size={18} 
-                        color={tx.type === 'deposit' ? '#00E55A' : '#FF3B3B'} 
-                      />
-                    </View>
-                    <View>
-                      <Text style={styles.transactionType}>
-                        {tx.type === 'deposit' ? 'Deposit' : 'Withdrawal'}
-                      </Text>
-                      <Text style={styles.transactionDate}>
-                        {tx.created_at ? new Date(tx.created_at).toLocaleDateString('en-US', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        }) : 'N/A'}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.transactionRight}>
+                <View key={tx.transaction_id || index} style={styles.txRow}>
+                  {/* Left Side - ID, Date, Status */}
+                  <View style={styles.txLeftCol}>
+                    <Text style={styles.txId}>{tx.transaction_id || `TXN${index + 1}`}</Text>
+                    <Text style={styles.txDateTime}>
+                      {tx.created_at ? new Date(tx.created_at).toLocaleDateString('en-GB', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric'
+                      }) + ', ' + new Date(tx.created_at).toLocaleTimeString('en-GB', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                      }) : 'N/A'}
+                    </Text>
                     <Text style={[
-                      styles.transactionAmount,
+                      styles.txStatus,
+                      { color: tx.status === 'completed' ? '#00E55A' : 
+                        tx.status === 'pending' ? '#FFB800' : '#FF3B3B' }
+                    ]}>
+                      {tx.status === 'completed' ? 'Successed' : 
+                       tx.status === 'pending' ? 'Pending' : 'Failed'}
+                    </Text>
+                  </View>
+                  
+                  {/* Right Side - Amount, Method, Type */}
+                  <View style={styles.txRightCol}>
+                    <Text style={[
+                      styles.txAmount,
                       { color: tx.type === 'deposit' ? '#00E55A' : '#FF3B3B' }
                     ]}>
-                      {tx.type === 'deposit' ? '+' : '-'}${tx.amount?.toFixed(2) || '0.00'}
+                      {tx.type === 'deposit' ? '+' : '-'}${tx.amount?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
                     </Text>
-                    <View style={[
-                      styles.transactionStatus,
-                      { backgroundColor: tx.status === 'completed' ? 'rgba(0, 229, 90, 0.15)' : 
-                        tx.status === 'pending' ? 'rgba(255, 184, 0, 0.15)' : 'rgba(255, 59, 59, 0.15)' }
-                    ]}>
-                      <Text style={[
-                        styles.transactionStatusText,
-                        { color: tx.status === 'completed' ? '#00E55A' : 
-                          tx.status === 'pending' ? '#FFB800' : '#FF3B3B' }
-                      ]}>
-                        {tx.status ? tx.status.charAt(0).toUpperCase() + tx.status.slice(1) : 'Pending'}
-                      </Text>
-                    </View>
+                    <Text style={styles.txMethod}>
+                      {tx.currency || 'USDT'} {tx.network ? `(${tx.network})` : '(TRC-20)'}
+                    </Text>
+                    <Text style={styles.txType}>
+                      {tx.type === 'deposit' ? 'Deposit' : 'Payout'}
+                    </Text>
                   </View>
                 </View>
               ))
@@ -3790,6 +3785,64 @@ const styles = StyleSheet.create({
   transactionStatusText: {
     fontSize: 10,
     fontWeight: '700',
+  },
+  // New Transaction Table Styles
+  txTableHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    marginBottom: 8,
+  },
+  txTableHeaderText: {
+    color: '#888',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  txRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  txLeftCol: {
+    flex: 1,
+  },
+  txRightCol: {
+    alignItems: 'flex-end',
+  },
+  txId: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  txDateTime: {
+    color: '#888',
+    fontSize: 13,
+    marginBottom: 4,
+  },
+  txStatus: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  txAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  txMethod: {
+    color: '#888',
+    fontSize: 13,
+    marginBottom: 2,
+  },
+  txType: {
+    color: '#888',
+    fontSize: 13,
   },
   cancelBtn: {
     paddingVertical: 12,

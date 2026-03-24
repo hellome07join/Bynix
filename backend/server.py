@@ -116,6 +116,8 @@ class Transaction(BaseModel):
     type: str  # deposit, withdrawal
     amount: float
     status: str = "pending"  # pending, completed, rejected
+    currency: str = "USDT"  # USDT, BTC, ETH, LTC
+    network: str = "TRC-20"  # TRC-20, Bitcoin, ERC20, Litecoin
     crypto_address: Optional[str] = None
     txn_hash: Optional[str] = None
     account_type: str = "real"
