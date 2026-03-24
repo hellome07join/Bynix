@@ -38,6 +38,7 @@ interface TradingViewChartProps {
   horizontalLines?: HorizontalLine[];
   onPriceUpdate?: (price: number) => void;
   onPriceRangeChange?: (range: PriceRange) => void;
+  onChartClick?: (y: number, chartHeight: number) => void;
   authToken?: string | null;
 }
 
@@ -75,6 +76,7 @@ export default function TradingViewChart({
   horizontalLines = [],
   onPriceUpdate,
   onPriceRangeChange,
+  onChartClick,
   authToken
 }: TradingViewChartProps) {
   // Track price range for horizontal lines
@@ -940,6 +942,16 @@ export default function TradingViewChart({
             if (e.touches.length === 0) {
               isDraggingRef.current = false;
               isPinchingRef.current = false;
+            }
+          }}
+          onClick={(e: any) => {
+            // Only trigger chart click if not dragging
+            if (onChartClick && !isDraggingRef.current) {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const y = e.clientY - rect.top;
+              const height = rect.height;
+              console.log('Chart div clicked:', { y, height, clientY: e.clientY, rectTop: rect.top });
+              onChartClick(y, height);
             }
           }}
         >

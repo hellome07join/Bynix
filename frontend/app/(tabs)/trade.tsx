@@ -4,6 +4,7 @@ import {
   Text, 
   StyleSheet, 
   TouchableOpacity,
+  Pressable,
   TextInput,
   Alert,
   Dimensions,
@@ -269,6 +270,8 @@ export default function Trade() {
   const [horizontalLines, setHorizontalLines] = useState<{price: number}[]>([]);
   const [chartDimensions, setChartDimensions] = useState({width: 0, height: 0});
   const [priceRange, setPriceRange] = useState({ min: 0, max: 0 });
+  const chartContainerRef = useRef<View>(null);
+  const [chartContainerLayout, setChartContainerLayout] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const [customMinutes, setCustomMinutes] = useState('1');
   const [customSeconds, setCustomSeconds] = useState('0');
   const [demoAddAmount, setDemoAddAmount] = useState('1000');
@@ -1196,44 +1199,13 @@ export default function Trade() {
       </View>
       
       {/* Chart Area - Takes remaining space */}
-      <TouchableOpacity 
+      <View 
+        ref={chartContainerRef}
         style={styles.chartContainer}
-        activeOpacity={1}
-        onPress={(event) => {
-          if (selectedDrawTool === 'horizontal' && priceRange.max > priceRange.min) {
-            const { locationY } = event.nativeEvent;
-            const chartHeight = chartDimensions.height || 300;
-            
-            // Chart has padding - top: 20, bottom: 45 (for price axis)
-            const chartPaddingTop = 20;
-            const chartPaddingBottom = 45;
-            const effectiveChartHeight = chartHeight - chartPaddingTop - chartPaddingBottom;
-            
-            // Adjust Y position for padding
-            const adjustedY = locationY - chartPaddingTop;
-            
-            // Calculate price from Y position
-            // Top of chart = maxPrice, Bottom = minPrice
-            const priceRatio = Math.max(0, Math.min(1, adjustedY / effectiveChartHeight));
-            const price = priceRange.max - (priceRatio * (priceRange.max - priceRange.min));
-            
-            console.log('Adding horizontal line:', { 
-              locationY, 
-              chartHeight, 
-              priceRange, 
-              price,
-              adjustedY,
-              priceRatio
-            });
-            
-            setHorizontalLines(prev => [...prev, { price }]);
-            setSelectedDrawTool(null);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          }
-        }}
         onLayout={(event) => {
-          const { width, height } = event.nativeEvent.layout;
+          const { x, y, width, height } = event.nativeEvent.layout;
           setChartDimensions({ width, height });
+          setChartContainerLayout({ x, y, width, height });
         }}
       >
         {/* TradingView Chart */}
@@ -1254,6 +1226,41 @@ export default function Trade() {
             horizontalLines={horizontalLines}
             onPriceUpdate={(price) => setCurrentPrice(price)}
             onPriceRangeChange={(range) => setPriceRange(range)}
+            onChartClick={(y: number, chartHeight: number) => {
+              // Handle chart click for drawing tools
+              if (selectedDrawTool === 'horizontal' && priceRange.max > priceRange.min) {
+                // Chart has padding - top: 20, bottom: 45 (for price axis)
+                const chartPaddingTop = 20;
+                const chartPaddingBottom = 45;
+                const effectiveChartHeight = chartHeight - chartPaddingTop - chartPaddingBottom;
+                
+                // Adjust Y position for padding
+                const adjustedY = y - chartPaddingTop;
+                
+                // Calculate price from Y position
+                // Top of chart = maxPrice, Bottom = minPrice
+                const priceRatio = Math.max(0, Math.min(1, adjustedY / effectiveChartHeight));
+                const price = priceRange.max - (priceRatio * (priceRange.max - priceRange.min));
+                
+                console.log('Adding horizontal line from chart click:', { 
+                  y, 
+                  chartHeight, 
+                  priceRange, 
+                  price,
+                  adjustedY,
+                  priceRatio
+                });
+                
+                // Only add line if price is valid
+                if (!isNaN(price) && price > 0) {
+                  setHorizontalLines(prev => [...prev, { price }]);
+                  setSelectedDrawTool(null);
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                } else {
+                  console.log('Invalid price calculated, not adding line');
+                }
+              }
+            }}
             authToken={token}
           />
         </View>
@@ -1326,7 +1333,7 @@ export default function Trade() {
             blurRadius={2}
           />
         )}
-      </TouchableOpacity>
+      </View>
 
       {/* Tools Bar - Between chart and trading panel */}
       <View style={styles.toolsBar}>
