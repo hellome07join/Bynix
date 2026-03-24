@@ -646,8 +646,49 @@ export default function Trade() {
     let totalLost = 0;
     let lastResult: any = null;
     
+    console.log(`Settling ${trades.length} trades simultaneously...`);
+    
+    // First, get exit price ONCE for all trades of same asset
+    const exitPriceCache: {[key: string]: number} = {};
+    
+    // Pre-fetch exit prices for all unique assets
     for (const trade of trades) {
-      const result = await settleTradeById(trade.id, false); // Don't refresh after each
+      const cleanSymbol = trade.asset.replace(' OTC', '').replace('/', '').toUpperCase();
+      if (!exitPriceCache[cleanSymbol]) {
+        try {
+          let apiUrl = '';
+          if (typeof window !== 'undefined') {
+            const currentUrl = window.location.origin;
+            if (currentUrl.includes('preview.emergentagent.com') || currentUrl.includes('ngrok')) {
+              apiUrl = `${currentUrl}/api`;
+            } else {
+              apiUrl = `${currentUrl}/api`;
+            }
+          } else {
+            apiUrl = '/api';
+          }
+          const response = await fetch(`${apiUrl}/chart/tick/${cleanSymbol}`, { method: 'POST' });
+          if (response.ok) {
+            const data = await response.json();
+            if (data.new_tick && data.new_tick.close) {
+              exitPriceCache[cleanSymbol] = data.new_tick.close;
+              console.log(`Cached exit price for ${cleanSymbol}: ${exitPriceCache[cleanSymbol]}`);
+            }
+          }
+        } catch (error) {
+          console.error(`Failed to get exit price for ${cleanSymbol}:`, error);
+        }
+      }
+    }
+    
+    // Settle each trade with cached exit price
+    for (const trade of trades) {
+      const cleanSymbol = trade.asset.replace(' OTC', '').replace('/', '').toUpperCase();
+      const exitPrice = exitPriceCache[cleanSymbol] || currentPrice;
+      
+      console.log(`Settling trade ${trade.trade_id} with exit price: ${exitPrice}`);
+      
+      const result = await settleTradeWithCachedPrice(trade, exitPrice, false);
       if (result) {
         lastResult = result;
         if (result.won) {
@@ -657,6 +698,8 @@ export default function Trade() {
         }
       }
     }
+    
+    console.log(`Settlement complete: ${totalWon} won, ${totalLost} lost`);
     
     // Refresh user balance once after all trades settled
     if (token) {
@@ -669,6 +712,80 @@ export default function Trade() {
       setTradeResult(lastResult);
       showResultPopup();
     }
+  };
+
+  // Settle trade with pre-cached exit price
+  const settleTradeWithCachedPrice = async (trade: ActiveTrade, exitPrice: number, shouldRefreshUser: boolean = true) => {
+    if (!trade) return null;
+    
+    console.log(`settleTradeWithCachedPrice: trade_id=${trade.trade_id}, exit=${exitPrice}`);
+
+    // TRADE SETTLEMENT - Get result from backend
+    const entryPrice = trade.entry_price;
+    let won: boolean = false;
+    let profitLoss: number = -trade.amount;
+    let finalExitPrice = exitPrice;
+    
+    if (token && trade.trade_id) {
+      try {
+        const result = await api.settleTrade(trade.trade_id, exitPrice, token);
+        console.log(`Backend settlement result for ${trade.trade_id}:`, result);
+        
+        won = result.status === 'won';
+        profitLoss = result.profit_loss;
+        
+        if (result.exit_price) {
+          finalExitPrice = result.exit_price;
+        }
+        
+        if (shouldRefreshUser) {
+          const { refreshUser } = useAuthStore.getState();
+          await refreshUser();
+        }
+        
+      } catch (error: any) {
+        console.error(`Error settling trade ${trade.trade_id}:`, error);
+        // Check if trade was already settled
+        if (error.message?.includes('already settled')) {
+          console.log(`Trade ${trade.trade_id} was already settled, skipping`);
+          return null;
+        }
+        // Fallback to price-based logic
+        if (trade.type === 'call') {
+          won = exitPrice > entryPrice;
+        } else {
+          won = exitPrice < entryPrice;
+        }
+        if (exitPrice === entryPrice) won = false;
+        profitLoss = won ? trade.amount * (payoutPercentage / 100) : -trade.amount;
+      }
+    } else {
+      // Not logged in - use local logic
+      if (trade.type === 'call') {
+        won = exitPrice > entryPrice;
+      } else {
+        won = exitPrice < entryPrice;
+      }
+      if (exitPrice === entryPrice) won = false;
+      profitLoss = won ? trade.amount * (payoutPercentage / 100) : -trade.amount;
+    }
+
+    // Success or Error haptic feedback
+    if (won) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+
+    return {
+      won,
+      amount: trade.amount,
+      profit: profitLoss,
+      entry_price: entryPrice,
+      exit_price: finalExitPrice,
+      type: trade.type,
+      asset: trade.asset,
+    };
   };
 
   const loadMarketData = async () => {
@@ -863,6 +980,12 @@ export default function Trade() {
   // Settle a specific trade by ID
   const settleTradeById = async (tradeId: string, shouldRefreshUser: boolean = true) => {
     const trade = activeTrades.find(t => t.id === tradeId);
+    if (!trade) return null;
+    return await settleTradeWithData(trade, shouldRefreshUser);
+  };
+
+  // Settle trade with direct trade data (avoids stale state issues in batch settlement)
+  const settleTradeWithData = async (trade: ActiveTrade, shouldRefreshUser: boolean = true) => {
     if (!trade) return null;
 
     // Get the OFFICIAL exit price from SERVER (synced across all devices)
