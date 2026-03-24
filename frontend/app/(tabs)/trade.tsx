@@ -791,7 +791,7 @@ export default function Trade() {
     return {
       won,
       amount: trade.amount,
-      profit: profitLoss,
+      profitLoss: profitLoss,
       entry_price: entryPrice,
       exit_price: finalExitPrice,
       type: trade.type,
