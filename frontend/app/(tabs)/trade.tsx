@@ -1389,8 +1389,8 @@ export default function Trade() {
           style={styles.marketSelectBtn}
           onPress={() => setShowAssetPicker(true)}
         >
-          <Ionicons name="swap-horizontal" size={16} color="#FFB800" />
-          <Text style={styles.assetBtnText}>Asset</Text>
+          <Text style={styles.assetFlagIcon}>{currentAsset.icon}</Text>
+          <Text style={styles.assetBtnText}>{currentAsset.label.split(' ')[0]}</Text>
           <Ionicons name="chevron-down" size={14} color="#FFB800" />
         </TouchableOpacity>
         
@@ -3319,8 +3319,12 @@ const styles = StyleSheet.create({
   },
   assetBtnText: {
     color: '#FFB800',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
+  },
+  assetFlagIcon: {
+    fontSize: 14,
+    marginRight: 2,
   },
   indicatorBtn: {
     alignItems: 'center',
