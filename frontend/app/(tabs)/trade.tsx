@@ -1244,42 +1244,8 @@ export default function Trade() {
       <View style={styles.bottomPanel}>
         {/* Investment Amount */}
         <View style={styles.amountSection}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <Text style={styles.labelText}>Investment Amount</Text>
-            {/* Quick Amount Buttons */}
-            <View style={{ flexDirection: 'row', gap: 4 }}>
-              <TouchableOpacity 
-                style={[styles.quickButton, parseFloat(amount) === 100 && styles.quickButtonActive]}
-                onPress={() => setAmount('100')}
-              >
-                <Text style={styles.quickButtonText}>$100</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.quickButton, parseFloat(amount) === 500 && styles.quickButtonActive]}
-                onPress={() => setAmount('500')}
-              >
-                <Text style={styles.quickButtonText}>$500</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.quickButton, parseFloat(amount) === 1000 && styles.quickButtonActive]}
-                onPress={() => setAmount('1000')}
-              >
-                <Text style={styles.quickButtonText}>$1K</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-          {/* Amount Input with +/- buttons */}
-          <View style={styles.amountInputContainer}>
-            <TouchableOpacity 
-              style={styles.amountControlBtn}
-              onPress={() => {
-                const current = parseFloat(amount) || 0;
-                if (current > 10) setAmount(String(current - 10));
-              }}
-            >
-              <Text style={styles.amountControlText}>−</Text>
-            </TouchableOpacity>
-            
+          <Text style={styles.labelText}>Investment Amount</Text>
+          <View style={styles.amountRow}>
             <View style={styles.amountInput}>
               <Text style={styles.dollarSign}>$</Text>
               <TextInput
@@ -1291,16 +1257,17 @@ export default function Trade() {
                 placeholderTextColor="#666"
               />
             </View>
-            
-            <TouchableOpacity 
-              style={styles.amountControlBtnPlus}
-              onPress={() => {
-                const current = parseFloat(amount) || 0;
-                setAmount(String(current + 10));
-              }}
-            >
-              <Text style={styles.amountControlTextPlus}>+</Text>
-            </TouchableOpacity>
+            <View style={styles.quickButtons}>
+              {[10, 50, 100].map(val => (
+                <TouchableOpacity 
+                  key={val}
+                  style={styles.quickButton}
+                  onPress={() => setAmount(val.toString())}
+                >
+                  <Text style={styles.quickButtonText}>${val}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </View>
 
@@ -4018,54 +3985,17 @@ const styles = StyleSheet.create({
   },
   amountRow: {
     flexDirection: 'row',
-    alignItems: 'stretch',
     gap: 6,
   },
-  amountInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-  },
-  amountControlBtn: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    paddingHorizontal: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderTopLeftRadius: 8,
-    borderBottomLeftRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    borderRightWidth: 0,
-  },
-  amountControlBtnPlus: {
-    backgroundColor: 'rgba(0, 229, 90, 0.2)',
-    paddingHorizontal: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderTopRightRadius: 8,
-    borderBottomRightRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 229, 90, 0.4)',
-    borderLeftWidth: 0,
-  },
-  amountControlText: {
-    color: '#888',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  amountControlTextPlus: {
-    color: '#00E55A',
-    fontSize: 18,
-    fontWeight: '700',
-  },
   amountInput: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
     paddingHorizontal: 10,
-    paddingVertical: 10,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
-    minWidth: 70,
   },
   dollarSign: {
     color: '#00E55A',
@@ -4085,26 +4015,15 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   quickButton: {
-    backgroundColor: 'rgba(0, 229, 90, 0.12)',
-    paddingHorizontal: 10,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 229, 90, 0.25)',
-  },
-  quickButtonActive: {
-    backgroundColor: 'rgba(0, 229, 90, 0.3)',
-    borderColor: '#00E55A',
+    backgroundColor: 'rgba(0, 229, 90, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 6,
   },
   quickButtonText: {
     color: '#00E55A',
     fontSize: 11,
     fontWeight: '700',
-  },
-  quickButtonTextActive: {
-    color: '#00E55A',
   },
   profitPreview: {
     flexDirection: 'row',
