@@ -111,10 +111,15 @@ export default function Profile() {
     total_withdrawal_amount: 0
   });
   const [loadingTransactions, setLoadingTransactions] = useState(false);
-  const [depositAmount, setDepositAmount] = useState('');
+  const [depositAmount, setDepositAmount] = useState('21');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawAddress, setWithdrawAddress] = useState('');
   const [selectedCrypto, setSelectedCrypto] = useState('USDT');
+  const [selectedNetwork, setSelectedNetwork] = useState('USDT (TRC20)');
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [showNetworkDropdown, setShowNetworkDropdown] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
   
   // Settings State
   const [notificationSettings, setNotificationSettings] = useState({
@@ -1520,11 +1525,11 @@ export default function Profile() {
             {/* Quick Actions */}
             <View style={styles.financeQuickActions}>
               <TouchableOpacity 
-                style={[styles.financeQuickBtn, { backgroundColor: '#00E55A' }]}
-                onPress={() => setFinanceSubTab('Deposit')}
+                style={styles.depositBonusBtn}
+                onPress={() => setShowDepositModal(true)}
               >
-                <Ionicons name="add-circle" size={22} color="#0A0A0A" />
-                <Text style={styles.financeQuickBtnText}>Deposit</Text>
+                <Ionicons name="gift" size={20} color="#0A0A0A" />
+                <Text style={styles.depositBonusBtnText}>200% Deposit</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.financeQuickBtn, { backgroundColor: '#FF3B3B' }]}
@@ -2082,6 +2087,138 @@ export default function Profile() {
       >
         {renderTabContent()}
       </ScrollView>
+
+      {/* Deposit Funds Modal */}
+      <Modal visible={showDepositModal} transparent animationType="slide">
+        <View style={styles.depositModalOverlay}>
+          <View style={styles.depositModalContent}>
+            {/* Header */}
+            <View style={styles.depositModalHeader}>
+              <Text style={styles.depositModalTitle}>Deposit Funds</Text>
+              <TouchableOpacity onPress={() => setShowDepositModal(false)}>
+                <Ionicons name="close" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Amount Input */}
+              <Text style={styles.depositLabel}>Enter Amount</Text>
+              <View style={styles.depositAmountBox}>
+                <Text style={styles.depositAmountPrefix}>$</Text>
+                <TextInput
+                  style={styles.depositAmountInput}
+                  value={depositAmount}
+                  onChangeText={setDepositAmount}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor="#444"
+                />
+              </View>
+              <Text style={styles.depositMinimum}>Minimum deposit: $21</Text>
+
+              {/* Quick Amounts */}
+              <View style={styles.depositQuickAmounts}>
+                {['50', '100', '250', '500', '1000'].map((amt) => (
+                  <TouchableOpacity
+                    key={amt}
+                    style={[styles.depositQuickBtn, depositAmount === amt && styles.depositQuickBtnActive]}
+                    onPress={() => setDepositAmount(amt)}
+                  >
+                    <Text style={[styles.depositQuickBtnText, depositAmount === amt && styles.depositQuickBtnTextActive]}>
+                      ${amt}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Network Selection */}
+              <Text style={styles.depositLabel}>Select Network</Text>
+              <TouchableOpacity 
+                style={styles.depositNetworkSelect}
+                onPress={() => setShowNetworkDropdown(!showNetworkDropdown)}
+              >
+                <View style={styles.depositNetworkLeft}>
+                  <Ionicons name="link" size={18} color="#00E55A" />
+                  <Text style={styles.depositNetworkText}>{selectedNetwork}</Text>
+                </View>
+                <Ionicons name="chevron-down" size={20} color="#888" />
+              </TouchableOpacity>
+
+              {showNetworkDropdown && (
+                <View style={styles.depositNetworkDropdown}>
+                  {['USDT (TRC20)', 'USDT (ERC20)', 'BTC (Bitcoin)', 'ETH (Ethereum)', 'LTC (Litecoin)'].map((network) => (
+                    <TouchableOpacity
+                      key={network}
+                      style={[styles.depositNetworkOption, selectedNetwork === network && styles.depositNetworkOptionActive]}
+                      onPress={() => {
+                        setSelectedNetwork(network);
+                        setShowNetworkDropdown(false);
+                      }}
+                    >
+                      <Text style={[styles.depositNetworkOptionText, selectedNetwork === network && { color: '#00E55A' }]}>
+                        {network}
+                      </Text>
+                      {selectedNetwork === network && <Ionicons name="checkmark" size={18} color="#00E55A" />}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {/* No Fees Info */}
+              <Text style={styles.depositNoFees}>No fees - Pay exact amount only</Text>
+
+              {/* Promo Code */}
+              <Text style={styles.depositLabel}>Promo Code (Optional)</Text>
+              <View style={styles.depositPromoRow}>
+                <TextInput
+                  style={styles.depositPromoInput}
+                  placeholder="Enter code"
+                  placeholderTextColor="#444"
+                  value={promoCode}
+                  onChangeText={setPromoCode}
+                />
+                <TouchableOpacity 
+                  style={styles.depositPromoQuickBtn}
+                  onPress={() => {
+                    setPromoCode('BYNIX');
+                    setAppliedPromo('BYNIX');
+                  }}
+                >
+                  <Text style={styles.depositPromoQuickText}>BYNIX</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.depositPromoQuickBtn}
+                  onPress={() => {
+                    setPromoCode('VIP50');
+                    setAppliedPromo('VIP50');
+                  }}
+                >
+                  <Text style={styles.depositPromoQuickText}>VIP50</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Promo Info Box */}
+              <View style={styles.depositPromoInfo}>
+                <Ionicons name="gift" size={20} color="#FFD700" />
+                <Text style={styles.depositPromoInfoText}>
+                  BYNIX: 200% bonus ($100+) - New users only!
+                </Text>
+              </View>
+
+              {/* Generate Address Button */}
+              <TouchableOpacity 
+                style={styles.depositGenerateBtn}
+                onPress={() => {
+                  setShowDepositModal(false);
+                  router.push('/(tabs)/wallet');
+                }}
+              >
+                <Text style={styles.depositGenerateBtnText}>Generate Deposit Address</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* Nickname Modal */}
       <Modal visible={showNicknameModal} transparent animationType="slide">
@@ -3843,6 +3980,215 @@ const styles = StyleSheet.create({
   txType: {
     color: '#888',
     fontSize: 13,
+  },
+  // Deposit Bonus Button
+  depositBonusBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFD700',
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+    borderWidth: 2,
+    borderColor: '#E6C200',
+  },
+  depositBonusBtnText: {
+    color: '#0A0A0A',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  // Deposit Modal Styles
+  depositModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'flex-end',
+  },
+  depositModalContent: {
+    backgroundColor: '#0F1428',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 40,
+    maxHeight: '90%',
+  },
+  depositModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  depositModalTitle: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  depositLabel: {
+    color: '#888',
+    fontSize: 14,
+    marginBottom: 10,
+    marginTop: 16,
+  },
+  depositAmountBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0D2818',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 90, 0.3)',
+  },
+  depositAmountPrefix: {
+    color: '#00E55A',
+    fontSize: 28,
+    fontWeight: '700',
+    marginRight: 8,
+  },
+  depositAmountInput: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 28,
+    fontWeight: '700',
+    padding: 0,
+  },
+  depositMinimum: {
+    color: '#666',
+    fontSize: 12,
+    marginTop: 8,
+  },
+  depositQuickAmounts: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 16,
+  },
+  depositQuickBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'transparent',
+  },
+  depositQuickBtnActive: {
+    backgroundColor: '#0D2818',
+    borderColor: '#00E55A',
+  },
+  depositQuickBtnText: {
+    color: '#888',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  depositQuickBtnTextActive: {
+    color: '#00E55A',
+  },
+  depositNetworkSelect: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  depositNetworkLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  depositNetworkText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  depositNetworkDropdown: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    overflow: 'hidden',
+  },
+  depositNetworkOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  depositNetworkOptionActive: {
+    backgroundColor: 'rgba(0, 229, 90, 0.1)',
+  },
+  depositNetworkOptionText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+  },
+  depositNoFees: {
+    color: '#00E55A',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 16,
+  },
+  depositPromoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  depositPromoInput: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    color: '#FFFFFF',
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  depositPromoQuickBtn: {
+    backgroundColor: '#00E55A',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 10,
+  },
+  depositPromoQuickText: {
+    color: '#0A0A0A',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  depositPromoInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(100, 100, 100, 0.3)',
+    borderRadius: 10,
+    padding: 14,
+    marginTop: 16,
+    gap: 12,
+  },
+  depositPromoInfoText: {
+    color: '#FFD700',
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+  },
+  depositGenerateBtn: {
+    backgroundColor: '#00E55A',
+    borderRadius: 12,
+    paddingVertical: 18,
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  depositGenerateBtnText: {
+    color: '#0A0A0A',
+    fontSize: 16,
+    fontWeight: '700',
   },
   cancelBtn: {
     paddingVertical: 12,
