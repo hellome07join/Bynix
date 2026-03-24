@@ -3006,7 +3006,7 @@ const styles = StyleSheet.create({
   },
   chartContainer: {
     flex: 1,
-    backgroundColor: '#0A1A0F',
+    backgroundColor: '#0A0A0A',
   },
   chartWrapper: {
     flex: 1,
