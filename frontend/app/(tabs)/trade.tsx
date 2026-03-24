@@ -1536,13 +1536,12 @@ export default function Trade() {
           <Ionicons name="chevron-down" size={14} color="#FFB800" />
         </TouchableOpacity>
         
-        {/* Indicator Button */}
+        {/* Indicator Button - Icon only */}
         <TouchableOpacity 
           style={styles.indicatorBtn}
           onPress={() => setShowIndicatorModal(true)}
         >
-          <Ionicons name="analytics" size={16} color="#FFB800" />
-          <Text style={styles.indicatorBtnText}>Indicator</Text>
+          <Ionicons name="analytics" size={18} color="#FFB800" />
         </TouchableOpacity>
       </View>
 
@@ -3688,13 +3687,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   indicatorBtn: {
-    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: 'rgba(255, 184, 0, 0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    width: 36,
+    height: 36,
     borderRadius: 10,
-    gap: 4,
     borderWidth: 1,
     borderColor: 'rgba(255, 184, 0, 0.3)',
   },
