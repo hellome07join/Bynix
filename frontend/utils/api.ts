@@ -47,6 +47,8 @@ export const api = {
   // Auth
   signup: (data: any) => apiRequest('/auth/signup', { method: 'POST', body: data }),
   verifyOTP: (data: any) => apiRequest('/auth/verify-otp', { method: 'POST', body: data }),
+  verifyEmail: (data: { email: string; otp: string }) => apiRequest('/auth/verify-email', { method: 'POST', body: data }),
+  resendOTP: (data: { email: string }) => apiRequest('/auth/resend-otp', { method: 'POST', body: data }),
   login: (data: any) => apiRequest('/auth/login', { method: 'POST', body: data }),
   getMe: (token: string) => apiRequest('/auth/me', { token }),
   googleSession: (sessionId: string) => apiRequest('/auth/google/session', { 

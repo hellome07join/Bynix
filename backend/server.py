@@ -19,6 +19,7 @@ import asyncio
 import base64
 from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContent
 from tarspay_service import tarspay_service, fetch_live_exchange_rate, get_current_rate
+from email_service import send_verification_otp, verify_otp, resend_otp
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -261,18 +262,36 @@ async def get_current_user(authorization: Optional[str] = Header(None), request:
 
 # ============= Authentication Routes =============
 
+class SendOTPRequest(BaseModel):
+    email: EmailStr
+
+class VerifyEmailOTPRequest(BaseModel):
+    email: EmailStr
+    otp: str
+
 @api_router.post("/auth/signup")
 async def signup(user: UserCreate):
-    """Register a new user with email and password"""
+    """Register a new user with email and password - sends OTP for verification"""
     # Check if user exists
     existing_user = await db.users.find_one({"email": user.email})
     if existing_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
+        if existing_user.get("is_verified"):
+            raise HTTPException(status_code=400, detail="Email already registered")
+        else:
+            # User exists but not verified - resend OTP
+            success, message = send_verification_otp(user.email)
+            if success:
+                return {
+                    "message": "Verification code sent to your email",
+                    "requires_verification": True,
+                    "email": user.email
+                }
+            else:
+                raise HTTPException(status_code=500, detail=message)
     
     # Create user
     user_id = f"user_{uuid.uuid4().hex[:12]}"
     hashed_password = hash_password(user.password)
-    otp = generate_otp()
     
     # Generate unique account ID (incremental starting from 10000001)
     last_user = await db.users.find_one(
@@ -303,37 +322,80 @@ async def signup(user: UserCreate):
         "bonus_balance": 0.0,
         "is_admin": False,
         "is_verified": False,
-        "otp": otp,
-        "otp_created_at": datetime.now(timezone.utc),
         "created_at": datetime.now(timezone.utc)
     }
     
     await db.users.insert_one(new_user)
     
-    # Auto-verify and login the user immediately
+    # Send OTP email
+    success, message = send_verification_otp(user.email)
+    
+    if success:
+        return {
+            "message": "Account created! Verification code sent to your email.",
+            "requires_verification": True,
+            "email": user.email
+        }
+    else:
+        # Delete user if email failed
+        await db.users.delete_one({"user_id": user_id})
+        raise HTTPException(status_code=500, detail=f"Failed to send verification email: {message}")
+
+@api_router.post("/auth/verify-email")
+async def verify_email_otp(request: VerifyEmailOTPRequest):
+    """Verify email with OTP code"""
+    # Check OTP
+    success, message = verify_otp(request.email, request.otp)
+    
+    if not success:
+        raise HTTPException(status_code=400, detail=message)
+    
+    # Get user
+    user = await db.users.find_one({"email": request.email})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Update user as verified
     await db.users.update_one(
-        {"user_id": user_id},
+        {"email": request.email},
         {"$set": {"is_verified": True}}
     )
     
-    # Generate access token for immediate login
-    access_token = create_access_token({"sub": user_id})
+    # Generate access token
+    access_token = create_access_token({"sub": user["user_id"]})
     
     return {
-        "message": "Account created successfully!",
-        "user_id": user_id,
-        "account_id": str(account_id),
+        "message": "Email verified successfully!",
         "access_token": access_token,
+        "token_type": "bearer",
         "user": {
-            "user_id": user_id,
-            "email": user.email,
-            "name": user.name,
-            "demo_balance": 10000.0,
-            "real_balance": 0.0,
-            "bonus_balance": 0.0,
-            "is_admin": False
+            "user_id": user["user_id"],
+            "email": user["email"],
+            "name": user.get("name", ""),
+            "demo_balance": user.get("demo_balance", 10000.0),
+            "real_balance": user.get("real_balance", 0.0),
+            "bonus_balance": user.get("bonus_balance", 0.0),
+            "is_admin": user.get("is_admin", False)
         }
     }
+
+@api_router.post("/auth/resend-otp")
+async def resend_verification_otp(request: SendOTPRequest):
+    """Resend OTP to email"""
+    # Check if user exists
+    user = await db.users.find_one({"email": request.email})
+    if not user:
+        raise HTTPException(status_code=404, detail="Email not found")
+    
+    if user.get("is_verified"):
+        raise HTTPException(status_code=400, detail="Email already verified")
+    
+    success, message = resend_otp(request.email)
+    
+    if success:
+        return {"message": "Verification code sent to your email"}
+    else:
+        raise HTTPException(status_code=400, detail=message)
 
 @api_router.post("/auth/verify-otp")
 async def verify_otp(verification: OTPVerification):

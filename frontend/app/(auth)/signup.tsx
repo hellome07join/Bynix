@@ -203,6 +203,21 @@ export default function Signup() {
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<{name: string; flag: string; region: string} | null>(null);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
+  
+  // OTP Verification State
+  const [showOTPScreen, setShowOTPScreen] = useState(false);
+  const [otp, setOTP] = useState(['', '', '', '', '', '']);
+  const [verifyingOTP, setVerifyingOTP] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const otpInputRefs = useRef<Array<TextInput | null>>([]);
+
+  // OTP Cooldown timer
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCooldown]);
 
   // Animations
   const logoRotate = useRef(new Animated.Value(0)).current;
@@ -359,14 +374,113 @@ export default function Signup() {
         country_flag: selectedCountry.flag,
       });
       
-      // Auto-login user and redirect to trade page
-      await login(response.access_token, response.user);
-      router.replace('/(tabs)/trade');
+      // Check if email verification is required
+      if (response.requires_verification) {
+        setShowOTPScreen(true);
+        setResendCooldown(60);
+        if (Platform.OS === 'web') {
+          window.alert('Verification code sent to your email!');
+        } else {
+          Alert.alert('Success', 'Verification code sent to your email!');
+        }
+      } else if (response.access_token) {
+        // Auto-login user and redirect to trade page
+        await login(response.access_token, response.user);
+        router.replace('/(tabs)/trade');
+      }
     } catch (error: any) {
       if (Platform.OS === 'web') {
         window.alert(error.message || 'Could not create account');
       } else {
         Alert.alert('Signup Failed', error.message || 'Could not create account');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle OTP input change
+  const handleOTPChange = (value: string, index: number) => {
+    if (value.length > 1) {
+      // Handle paste
+      const digits = value.replace(/\D/g, '').slice(0, 6).split('');
+      const newOTP = [...otp];
+      digits.forEach((digit, i) => {
+        if (index + i < 6) newOTP[index + i] = digit;
+      });
+      setOTP(newOTP);
+      const lastIndex = Math.min(index + digits.length, 5);
+      otpInputRefs.current[lastIndex]?.focus();
+    } else {
+      const newOTP = [...otp];
+      newOTP[index] = value;
+      setOTP(newOTP);
+      
+      // Auto focus next input
+      if (value && index < 5) {
+        otpInputRefs.current[index + 1]?.focus();
+      }
+    }
+  };
+
+  // Handle OTP backspace
+  const handleOTPKeyPress = (e: any, index: number) => {
+    if (e.nativeEvent.key === 'Backspace' && !otp[index] && index > 0) {
+      otpInputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  // Verify OTP
+  const handleVerifyOTP = async () => {
+    const otpCode = otp.join('');
+    if (otpCode.length !== 6) {
+      if (Platform.OS === 'web') {
+        window.alert('Please enter 6-digit verification code');
+      } else {
+        Alert.alert('Error', 'Please enter 6-digit verification code');
+      }
+      return;
+    }
+
+    setVerifyingOTP(true);
+    try {
+      const response = await api.verifyEmail({ email, otp: otpCode });
+      
+      if (response.access_token) {
+        await login(response.access_token, response.user);
+        router.replace('/(tabs)/trade');
+      }
+    } catch (error: any) {
+      if (Platform.OS === 'web') {
+        window.alert(error.message || 'Invalid verification code');
+      } else {
+        Alert.alert('Verification Failed', error.message || 'Invalid verification code');
+      }
+      setOTP(['', '', '', '', '', '']);
+      otpInputRefs.current[0]?.focus();
+    } finally {
+      setVerifyingOTP(false);
+    }
+  };
+
+  // Resend OTP
+  const handleResendOTP = async () => {
+    if (resendCooldown > 0) return;
+    
+    setLoading(true);
+    try {
+      await api.resendOTP({ email });
+      setResendCooldown(60);
+      if (Platform.OS === 'web') {
+        window.alert('New verification code sent!');
+      } else {
+        Alert.alert('Success', 'New verification code sent to your email!');
+      }
+    } catch (error: any) {
+      if (Platform.OS === 'web') {
+        window.alert(error.message || 'Failed to resend code');
+      } else {
+        Alert.alert('Error', error.message || 'Failed to resend code');
       }
     } finally {
       setLoading(false);
@@ -392,6 +506,115 @@ export default function Signup() {
   };
 
   const passwordStrength = getPasswordStrength();
+
+  // OTP Verification Screen
+  if (showOTPScreen) {
+    return (
+      <View style={styles.container}>
+        <LinearGradient
+          colors={['#000000', '#0a0a0a', '#001a0d', '#000000']}
+          style={styles.backgroundGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        />
+        
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.otpContainer}
+        >
+          <ScrollView 
+            contentContainerStyle={styles.otpContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Back Button */}
+            <TouchableOpacity 
+              style={styles.otpBackBtn}
+              onPress={() => {
+                setShowOTPScreen(false);
+                setOTP(['', '', '', '', '', '']);
+              }}
+            >
+              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            {/* Email Icon */}
+            <View style={styles.otpIconContainer}>
+              <LinearGradient
+                colors={['#0D2818', '#001a0d']}
+                style={styles.otpIconBg}
+              >
+                <Ionicons name="mail" size={48} color="#00E55A" />
+              </LinearGradient>
+            </View>
+
+            {/* Title */}
+            <Text style={styles.otpTitle}>Verify Your Email</Text>
+            <Text style={styles.otpSubtitle}>
+              We've sent a 6-digit verification code to
+            </Text>
+            <Text style={styles.otpEmail}>{email}</Text>
+
+            {/* OTP Input */}
+            <View style={styles.otpInputContainer}>
+              {otp.map((digit, index) => (
+                <TextInput
+                  key={index}
+                  ref={(ref) => otpInputRefs.current[index] = ref}
+                  style={[
+                    styles.otpInput,
+                    digit && styles.otpInputFilled
+                  ]}
+                  value={digit}
+                  onChangeText={(value) => handleOTPChange(value, index)}
+                  onKeyPress={(e) => handleOTPKeyPress(e, index)}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  selectTextOnFocus
+                />
+              ))}
+            </View>
+
+            {/* Verify Button */}
+            <TouchableOpacity
+              style={[styles.otpVerifyBtn, verifyingOTP && styles.otpVerifyBtnDisabled]}
+              onPress={handleVerifyOTP}
+              disabled={verifyingOTP}
+            >
+              {verifyingOTP ? (
+                <ActivityIndicator color="#0A0A0A" />
+              ) : (
+                <Text style={styles.otpVerifyBtnText}>Verify Email</Text>
+              )}
+            </TouchableOpacity>
+
+            {/* Resend */}
+            <View style={styles.otpResendContainer}>
+              <Text style={styles.otpResendText}>Didn't receive the code? </Text>
+              <TouchableOpacity 
+                onPress={handleResendOTP}
+                disabled={resendCooldown > 0 || loading}
+              >
+                <Text style={[
+                  styles.otpResendLink,
+                  (resendCooldown > 0 || loading) && styles.otpResendLinkDisabled
+                ]}>
+                  {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Code'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Info */}
+            <View style={styles.otpInfoBox}>
+              <Ionicons name="information-circle" size={18} color="#888" />
+              <Text style={styles.otpInfoText}>
+                Check your spam folder if you don't see the email
+              </Text>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -1372,5 +1595,123 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  // OTP Verification Styles
+  otpContainer: {
+    flex: 1,
+  },
+  otpContent: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingTop: 60,
+    paddingBottom: 40,
+    alignItems: 'center',
+  },
+  otpBackBtn: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    padding: 8,
+    zIndex: 10,
+  },
+  otpIconContainer: {
+    marginBottom: 24,
+  },
+  otpIconBg: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(0, 229, 90, 0.3)',
+  },
+  otpTitle: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  otpSubtitle: {
+    color: '#888',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  otpEmail: {
+    color: '#00E55A',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 32,
+    textAlign: 'center',
+  },
+  otpInputContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 32,
+  },
+  otpInput: {
+    width: 48,
+    height: 56,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  otpInputFilled: {
+    borderColor: '#00E55A',
+    backgroundColor: 'rgba(0, 229, 90, 0.1)',
+  },
+  otpVerifyBtn: {
+    width: '100%',
+    backgroundColor: '#00E55A',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  otpVerifyBtnDisabled: {
+    opacity: 0.6,
+  },
+  otpVerifyBtnText: {
+    color: '#0A0A0A',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  otpResendContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  otpResendText: {
+    color: '#888',
+    fontSize: 14,
+  },
+  otpResendLink: {
+    color: '#00E55A',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  otpResendLinkDisabled: {
+    color: '#666',
+  },
+  otpInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    gap: 8,
+  },
+  otpInfoText: {
+    color: '#888',
+    fontSize: 12,
+    flex: 1,
   },
 });
