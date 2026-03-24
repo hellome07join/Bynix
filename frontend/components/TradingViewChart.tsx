@@ -1498,11 +1498,11 @@ export default function TradingViewChart({
     
     // Inline style for zoom buttons (web only)
     const zoomButtonStyle: React.CSSProperties = {
-      width: 32,
-      height: 32,
-      borderRadius: 6,
-      backgroundColor: 'rgba(0, 229, 90, 0.2)',
-      border: '1px solid rgba(0, 229, 90, 0.4)',
+      width: 22,
+      height: 22,
+      borderRadius: 4,
+      backgroundColor: 'rgba(0, 229, 90, 0.15)',
+      border: '1px solid rgba(0, 229, 90, 0.3)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -1996,7 +1996,7 @@ export default function TradingViewChart({
             <Text style={styles.zoomButtonText}>−</Text>
           </div>
           <div 
-            style={{...zoomButtonStyle, marginTop: 8}}
+            style={{...zoomButtonStyle, marginTop: 4}}
             onClick={() => setTargetScale(1)}
           >
             <Text style={styles.zoomButtonText}>⟲</Text>
@@ -2049,25 +2049,25 @@ const styles = StyleSheet.create({
   },
   zoomControls: {
     position: 'absolute',
-    left: 8,
-    top: 8,
+    left: 6,
+    top: 6,
     flexDirection: 'column',
     alignItems: 'center',
-    gap: 4,
+    gap: 2,
   },
   zoomButtonText: {
     color: '#00E55A',
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '700',
     textAlign: 'center',
   },
   zoomLevelContainer: {
-    paddingVertical: 2,
-    paddingHorizontal: 4,
+    paddingVertical: 1,
+    paddingHorizontal: 2,
   },
   zoomLevelText: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 9,
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 7,
     fontWeight: '600',
   },
 });
