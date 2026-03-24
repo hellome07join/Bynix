@@ -2517,8 +2517,8 @@ export default function Trade() {
           <View style={[styles.resultBadge, tradeResult.won ? styles.resultBadgeWin : styles.resultBadgeLoss]}>
             <Ionicons 
               name={tradeResult.won ? 'checkmark-circle' : 'close-circle'} 
-              size={28} 
-              color={tradeResult.won ? '#00E55A' : '#FF3B3B'} 
+              size={22} 
+              color={tradeResult.won ? '#0A1A0F' : '#FFFFFF'} 
             />
             <Text style={[styles.resultBadgeText, tradeResult.won ? styles.resultTextWin : styles.resultTextLoss]}>
               {tradeResult.won ? 'Profit' : 'Loss'} {tradeResult.won ? '+' : '-'}${Math.abs(tradeResult.profitLoss).toFixed(2)}
@@ -4233,29 +4233,39 @@ const styles = StyleSheet.create({
   resultBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    borderRadius: 16,
-    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 8,
     borderWidth: 2,
   },
   resultBadgeWin: {
-    backgroundColor: '#0A1A0F',
-    borderColor: '#00E55A',
+    backgroundColor: '#00E55A',
+    borderColor: '#00B847',
+    shadowColor: '#00E55A',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+    elevation: 10,
   },
   resultBadgeLoss: {
-    backgroundColor: '#1A0A0A',
-    borderColor: '#FF3B3B',
+    backgroundColor: '#FF3B3B',
+    borderColor: '#CC2F2F',
+    shadowColor: '#FF3B3B',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+    elevation: 10,
   },
   resultBadgeText: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '800',
   },
   resultTextWin: {
-    color: '#00E55A',
+    color: '#0A1A0F',
   },
   resultTextLoss: {
-    color: '#FF3B3B',
+    color: '#FFFFFF',
   },
   resultCard: {
     width: '100%',
