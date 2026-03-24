@@ -251,6 +251,13 @@ export default function Trade() {
   const [selectedTradeDetail, setSelectedTradeDetail] = useState<any>(null);
   const [showTradeDetail, setShowTradeDetail] = useState(false);
   const tradeDetailAnim = useRef(new Animated.Value(0)).current;
+  const [historyPage, setHistoryPage] = useState(1);
+  const [loadingMoreHistory, setLoadingMoreHistory] = useState(false);
+  const [hasMoreHistory, setHasMoreHistory] = useState(true);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDateRange, setSelectedDateRange] = useState<'24h' | '7d' | '30d' | 'custom'>('24h');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
   const [selectedDrawTool, setSelectedDrawTool] = useState<string | null>(null);
   const [chartType, setChartType] = useState<'candle' | 'line' | 'bar'>('candle');
   const [customMinutes, setCustomMinutes] = useState('1');
@@ -366,34 +373,101 @@ export default function Trade() {
   const wsRef = useRef<any>(null);
   const cooldownRef = useRef(false);
 
-  // Fetch trade history from backend - both real and demo
-  const fetchTradeHistory = async () => {
+  // Get date range filter params
+  const getDateRangeParams = () => {
+    const now = new Date();
+    let startDate: Date | null = null;
+    
+    switch (selectedDateRange) {
+      case '24h':
+        startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        break;
+      case '7d':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case '30d':
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case 'custom':
+        if (customStartDate) {
+          startDate = new Date(customStartDate);
+        }
+        break;
+    }
+    
+    let params = '';
+    if (startDate) {
+      params += `&start_date=${startDate.toISOString()}`;
+    }
+    if (selectedDateRange === 'custom' && customEndDate) {
+      params += `&end_date=${new Date(customEndDate).toISOString()}`;
+    }
+    return params;
+  };
+
+  // Fetch trade history from backend - both real and demo with pagination
+  const fetchTradeHistory = async (loadMore = false) => {
     if (!token) return;
+    
     try {
+      const page = loadMore ? historyPage + 1 : 1;
+      const dateParams = getDateRangeParams();
+      
+      if (loadMore) {
+        setLoadingMoreHistory(true);
+      }
+      
       // Fetch real account trades
-      const realResponse = await fetch(`${API_URL}/trades/history?account_type=real`, {
+      const realResponse = await fetch(`${API_URL}/trades/history?account_type=real&page=${page}&limit=20${dateParams}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (realResponse.ok) {
         const realData = await realResponse.json();
-        setRealTradeHistory(realData.trades || []);
+        if (loadMore) {
+          setRealTradeHistory(prev => [...prev, ...(realData.trades || [])]);
+        } else {
+          setRealTradeHistory(realData.trades || []);
+        }
+        setHasMoreHistory((realData.trades || []).length >= 20);
       }
       
       // Fetch demo account trades
-      const demoResponse = await fetch(`${API_URL}/trades/history?account_type=demo`, {
+      const demoResponse = await fetch(`${API_URL}/trades/history?account_type=demo&page=${page}&limit=20${dateParams}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (demoResponse.ok) {
         const demoData = await demoResponse.json();
-        setDemoTradeHistory(demoData.trades || []);
+        if (loadMore) {
+          setDemoTradeHistory(prev => [...prev, ...(demoData.trades || [])]);
+        } else {
+          setDemoTradeHistory(demoData.trades || []);
+        }
       }
       
-      // Also set current account type history
-      const currentData = historyTab === 'real' ? realTradeHistory : demoTradeHistory;
-      setTradeHistory(currentData);
+      if (loadMore) {
+        setHistoryPage(page);
+        setLoadingMoreHistory(false);
+      } else {
+        setHistoryPage(1);
+      }
     } catch (error) {
       console.error('Error fetching trade history:', error);
+      setLoadingMoreHistory(false);
     }
+  };
+  
+  // Load more history
+  const loadMoreHistory = () => {
+    if (!loadingMoreHistory && hasMoreHistory) {
+      fetchTradeHistory(true);
+    }
+  };
+  
+  // Apply date filter
+  const applyDateFilter = () => {
+    setShowDatePicker(false);
+    setHistoryPage(1);
+    fetchTradeHistory(false);
   };
   
   // Show trade detail with animation
@@ -437,7 +511,7 @@ export default function Trade() {
     if (token) {
       fetchTradeHistory();
     }
-  }, [token, accountType]);
+  }, [token, accountType, selectedDateRange]);
 
   // Reset selected asset when account type changes to ensure it's valid for the new account
   useEffect(() => {
@@ -1613,6 +1687,62 @@ export default function Trade() {
               </TouchableOpacity>
             </View>
 
+            {/* Date Range Filter */}
+            <View style={styles.dateFilterContainer}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <TouchableOpacity
+                  style={[styles.dateFilterBtn, selectedDateRange === '24h' && styles.dateFilterBtnActive]}
+                  onPress={() => setSelectedDateRange('24h')}
+                >
+                  <Text style={[styles.dateFilterText, selectedDateRange === '24h' && styles.dateFilterTextActive]}>24H</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.dateFilterBtn, selectedDateRange === '7d' && styles.dateFilterBtnActive]}
+                  onPress={() => setSelectedDateRange('7d')}
+                >
+                  <Text style={[styles.dateFilterText, selectedDateRange === '7d' && styles.dateFilterTextActive]}>7D</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.dateFilterBtn, selectedDateRange === '30d' && styles.dateFilterBtnActive]}
+                  onPress={() => setSelectedDateRange('30d')}
+                >
+                  <Text style={[styles.dateFilterText, selectedDateRange === '30d' && styles.dateFilterTextActive]}>30D</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.dateFilterBtn, selectedDateRange === 'custom' && styles.dateFilterBtnActive]}
+                  onPress={() => setShowDatePicker(true)}
+                >
+                  <Ionicons name="calendar" size={14} color={selectedDateRange === 'custom' ? '#00E55A' : '#888'} />
+                  <Text style={[styles.dateFilterText, selectedDateRange === 'custom' && styles.dateFilterTextActive]}>Custom</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+
+            {/* Custom Date Picker Modal */}
+            {showDatePicker && (
+              <View style={styles.customDatePicker}>
+                <Text style={styles.customDateLabel}>Start Date (YYYY-MM-DD)</Text>
+                <TextInput
+                  style={styles.customDateInput}
+                  placeholder="2025-01-01"
+                  placeholderTextColor="#666"
+                  value={customStartDate}
+                  onChangeText={setCustomStartDate}
+                />
+                <Text style={styles.customDateLabel}>End Date (YYYY-MM-DD)</Text>
+                <TextInput
+                  style={styles.customDateInput}
+                  placeholder="2025-12-31"
+                  placeholderTextColor="#666"
+                  value={customEndDate}
+                  onChangeText={setCustomEndDate}
+                />
+                <TouchableOpacity style={styles.applyDateBtn} onPress={applyDateFilter}>
+                  <Text style={styles.applyDateBtnText}>Apply Filter</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             <ScrollView showsVerticalScrollIndicator={false}>
               {/* Running Trades Section - Show ALL active trades */}
               {activeTrades.length > 0 && (
@@ -1720,6 +1850,24 @@ export default function Trade() {
                     </TouchableOpacity>
                   ))
                 )}
+                
+                {/* Load More Button */}
+                {hasMoreHistory && (historyTab === 'real' ? realTradeHistory : demoTradeHistory).length >= 20 && (
+                  <TouchableOpacity 
+                    style={styles.loadMoreBtn}
+                    onPress={loadMoreHistory}
+                    disabled={loadingMoreHistory}
+                  >
+                    {loadingMoreHistory ? (
+                      <Text style={styles.loadMoreText}>Loading...</Text>
+                    ) : (
+                      <>
+                        <Ionicons name="refresh" size={16} color="#00E55A" />
+                        <Text style={styles.loadMoreText}>Load More</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
               </View>
 
               {/* Summary Section */}
@@ -1731,13 +1879,13 @@ export default function Trade() {
                   </Text>
                 </View>
                 <View style={styles.summaryItem}>
-                  <Text style={styles.summaryLabel}>Won</Text>
+                  <Text style={styles.summaryLabel}>Profit</Text>
                   <Text style={[styles.summaryValue, { color: '#00E55A' }]}>
                     {(historyTab === 'real' ? realTradeHistory : demoTradeHistory).filter(t => t.status === 'won').length}
                   </Text>
                 </View>
                 <View style={styles.summaryItem}>
-                  <Text style={styles.summaryLabel}>Lost</Text>
+                  <Text style={styles.summaryLabel}>Loss</Text>
                   <Text style={[styles.summaryValue, { color: '#FF3B3B' }]}>
                     {(historyTab === 'real' ? realTradeHistory : demoTradeHistory).filter(t => t.status === 'lost').length}
                   </Text>
@@ -2893,6 +3041,86 @@ const styles = StyleSheet.create({
   detailResultText: {
     fontSize: 18,
     fontWeight: '800',
+  },
+  // Date Filter Styles
+  dateFilterContainer: {
+    marginBottom: 16,
+  },
+  dateFilterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 20,
+    marginRight: 10,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  dateFilterBtnActive: {
+    backgroundColor: 'rgba(0, 229, 90, 0.15)',
+    borderColor: '#00E55A',
+  },
+  dateFilterText: {
+    color: '#888',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  dateFilterTextActive: {
+    color: '#00E55A',
+  },
+  customDatePicker: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  customDateLabel: {
+    color: '#888',
+    fontSize: 12,
+    marginBottom: 6,
+  },
+  customDateInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 8,
+    padding: 12,
+    color: '#FFFFFF',
+    fontSize: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  applyDateBtn: {
+    backgroundColor: '#00E55A',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  applyDateBtnText: {
+    color: '#0A0A0A',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  loadMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 229, 90, 0.1)',
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 16,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 90, 0.3)',
+  },
+  loadMoreText: {
+    color: '#00E55A',
+    fontSize: 14,
+    fontWeight: '600',
   },
   toolsSection: {
     marginBottom: 20,
