@@ -1429,7 +1429,7 @@ async def get_profile_stats(authorization: Optional[str] = Header(None), request
     # Get user's profile info
     user_doc = await db.users.find_one(
         {"user_id": user.user_id},
-        {"account_id": 1, "nickname": 1, "full_name": 1, "name": 1, "country": 1, "country_flag": 1}
+        {"account_id": 1, "nickname": 1, "full_name": 1, "name": 1, "country": 1, "country_flag": 1, "is_verified": 1}
     )
     
     # Ensure user has account_id (migration for existing users)
@@ -1485,6 +1485,7 @@ async def get_profile_stats(authorization: Optional[str] = Header(None), request
             "nickname": user_doc.get("nickname") if user_doc else None,
             "country": user_doc.get("country") if user_doc else None,
             "country_flag": user_doc.get("country_flag", "🌍") if user_doc else "🌍",
+            "is_verified": user_doc.get("is_verified", False) if user_doc else False,
         }
     
     stats = results[0]
@@ -1499,6 +1500,7 @@ async def get_profile_stats(authorization: Optional[str] = Header(None), request
         "nickname": user_doc.get("nickname") if user_doc else None,
         "country": user_doc.get("country") if user_doc else None,
         "country_flag": user_doc.get("country_flag", "🌍") if user_doc else "🌍",
+        "is_verified": user_doc.get("is_verified", False) if user_doc else False,
     }
 
 @api_router.put("/profile/nickname")

@@ -197,6 +197,7 @@ export default function Profile() {
           nickname: stats.nickname || '',
           country: stats.country || prev.country,
           countryFlag: stats.country_flag || prev.countryFlag,
+          isEmailVerified: stats.is_verified || false,
         }));
         // Also update nickname state for the modal
         if (stats.nickname) {
