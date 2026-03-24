@@ -883,7 +883,7 @@ async def request_withdrawal(withdrawal: WithdrawalRequest, authorization: Optio
 
 @api_router.get("/wallet/transactions")
 async def get_transactions(authorization: Optional[str] = Header(None), request: Request = None):
-    """Get user's transaction history"""
+    """Get user's transaction history with summary stats"""
     user = await get_current_user(authorization, request)
     
     transactions = await db.transactions.find(
@@ -891,7 +891,31 @@ async def get_transactions(authorization: Optional[str] = Header(None), request:
         {"_id": 0}
     ).sort("created_at", -1).to_list(100)
     
-    return transactions
+    # Calculate summary statistics
+    total_deposits = 0
+    total_deposit_amount = 0.0
+    total_withdrawals = 0
+    total_withdrawal_amount = 0.0
+    
+    for tx in transactions:
+        if tx.get("type") == "deposit":
+            total_deposits += 1
+            if tx.get("status") == "completed":
+                total_deposit_amount += tx.get("amount", 0)
+        elif tx.get("type") == "withdrawal":
+            total_withdrawals += 1
+            if tx.get("status") == "completed":
+                total_withdrawal_amount += tx.get("amount", 0)
+    
+    return {
+        "transactions": transactions,
+        "summary": {
+            "total_deposits": total_deposits,
+            "total_deposit_amount": total_deposit_amount,
+            "total_withdrawals": total_withdrawals,
+            "total_withdrawal_amount": total_withdrawal_amount
+        }
+    }
 
 # ============= Notification Routes =============
 

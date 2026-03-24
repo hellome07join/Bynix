@@ -102,8 +102,14 @@ export default function Profile() {
   const [activitySubTab, setActivitySubTab] = useState('Login History');
   
   // Finance State
-  const [financeSubTab, setFinanceSubTab] = useState('Deposit');
+  const [financeSubTab, setFinanceSubTab] = useState('Overview');
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [transactionSummary, setTransactionSummary] = useState({
+    total_deposits: 0,
+    total_deposit_amount: 0,
+    total_withdrawals: 0,
+    total_withdrawal_amount: 0
+  });
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -1408,12 +1414,22 @@ export default function Profile() {
       if (response.ok) {
         const data = await response.json();
         setTransactions(data.transactions || []);
+        if (data.summary) {
+          setTransactionSummary(data.summary);
+        }
       }
     } catch (error) {
       console.error('Error fetching transactions:', error);
     }
     setLoadingTransactions(false);
   };
+
+  // Fetch transactions when Finance tab Overview is active
+  useEffect(() => {
+    if (activeTab === 'Finance' && financeSubTab === 'Overview' && token) {
+      fetchTransactions();
+    }
+  }, [activeTab, financeSubTab, token]);
 
   const renderFinanceTab = () => {
     const CRYPTO_OPTIONS = [
@@ -1443,17 +1459,16 @@ export default function Profile() {
 
         {/* Sub Tabs */}
         <View style={styles.financeSubTabs}>
-          {['Deposit', 'Withdraw', 'History'].map((tab) => (
+          {['Overview', 'Deposit', 'Withdraw'].map((tab) => (
             <TouchableOpacity
               key={tab}
               style={[styles.financeSubTab, financeSubTab === tab && styles.financeSubTabActive]}
               onPress={() => {
                 setFinanceSubTab(tab);
-                if (tab === 'History') fetchTransactions();
               }}
             >
               <Ionicons 
-                name={tab === 'Deposit' ? 'arrow-down-circle' : tab === 'Withdraw' ? 'arrow-up-circle' : 'list'}
+                name={tab === 'Overview' ? 'stats-chart' : tab === 'Deposit' ? 'arrow-down-circle' : 'arrow-up-circle'}
                 size={18}
                 color={financeSubTab === tab ? '#00E55A' : '#666'}
               />
@@ -1463,6 +1478,141 @@ export default function Profile() {
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* Overview Section - Shows Summary and All Transactions */}
+        {financeSubTab === 'Overview' && (
+          <View style={styles.financeSection}>
+            {/* Summary Stats Cards */}
+            <View style={styles.financeSummaryRow}>
+              {/* Total Deposits Card */}
+              <View style={[styles.financeSummaryCard, { borderLeftColor: '#00E55A' }]}>
+                <View style={styles.financeSummaryIconBox}>
+                  <Ionicons name="arrow-down-circle" size={28} color="#00E55A" />
+                </View>
+                <View style={styles.financeSummaryInfo}>
+                  <Text style={styles.financeSummaryLabel}>Total Deposits</Text>
+                  <Text style={[styles.financeSummaryAmount, { color: '#00E55A' }]}>
+                    ${transactionSummary.total_deposit_amount.toFixed(2)}
+                  </Text>
+                  <Text style={styles.financeSummaryCount}>
+                    {transactionSummary.total_deposits} {transactionSummary.total_deposits === 1 ? 'Transaction' : 'Transactions'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Total Withdrawals Card */}
+              <View style={[styles.financeSummaryCard, { borderLeftColor: '#FF3B3B' }]}>
+                <View style={styles.financeSummaryIconBox}>
+                  <Ionicons name="arrow-up-circle" size={28} color="#FF3B3B" />
+                </View>
+                <View style={styles.financeSummaryInfo}>
+                  <Text style={styles.financeSummaryLabel}>Total Withdrawals</Text>
+                  <Text style={[styles.financeSummaryAmount, { color: '#FF3B3B' }]}>
+                    ${transactionSummary.total_withdrawal_amount.toFixed(2)}
+                  </Text>
+                  <Text style={styles.financeSummaryCount}>
+                    {transactionSummary.total_withdrawals} {transactionSummary.total_withdrawals === 1 ? 'Transaction' : 'Transactions'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Quick Actions */}
+            <View style={styles.financeQuickActions}>
+              <TouchableOpacity 
+                style={[styles.financeQuickBtn, { backgroundColor: '#00E55A' }]}
+                onPress={() => setFinanceSubTab('Deposit')}
+              >
+                <Ionicons name="add-circle" size={22} color="#0A0A0A" />
+                <Text style={styles.financeQuickBtnText}>Deposit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.financeQuickBtn, { backgroundColor: '#FF3B3B' }]}
+                onPress={() => setFinanceSubTab('Withdraw')}
+              >
+                <Ionicons name="remove-circle" size={22} color="#FFFFFF" />
+                <Text style={[styles.financeQuickBtnText, { color: '#FFFFFF' }]}>Withdraw</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* All Transactions Section */}
+            <View style={styles.financeHistoryHeader}>
+              <View style={styles.financeHistoryTitleRow}>
+                <Ionicons name="time" size={20} color="#00E55A" />
+                <Text style={styles.financeHistoryTitle}>All Transactions</Text>
+              </View>
+              <Text style={styles.financeHistorySubtitle}>
+                {transactions.length} total records
+              </Text>
+            </View>
+
+            {loadingTransactions ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#00E55A" />
+              </View>
+            ) : transactions.length === 0 ? (
+              <View style={styles.emptyTransactions}>
+                <Ionicons name="document-text-outline" size={48} color="#444" />
+                <Text style={styles.emptyTransactionsText}>No transactions yet</Text>
+                <Text style={styles.emptyTransactionsSubtext}>
+                  Make your first deposit to start trading
+                </Text>
+              </View>
+            ) : (
+              transactions.map((tx, index) => (
+                <View key={tx.transaction_id || index} style={styles.transactionItem}>
+                  <View style={styles.transactionLeft}>
+                    <View style={[
+                      styles.transactionIcon,
+                      { backgroundColor: tx.type === 'deposit' ? 'rgba(0, 229, 90, 0.15)' : 'rgba(255, 59, 59, 0.15)' }
+                    ]}>
+                      <Ionicons 
+                        name={tx.type === 'deposit' ? 'arrow-down' : 'arrow-up'} 
+                        size={18} 
+                        color={tx.type === 'deposit' ? '#00E55A' : '#FF3B3B'} 
+                      />
+                    </View>
+                    <View>
+                      <Text style={styles.transactionType}>
+                        {tx.type === 'deposit' ? 'Deposit' : 'Withdrawal'}
+                      </Text>
+                      <Text style={styles.transactionDate}>
+                        {tx.created_at ? new Date(tx.created_at).toLocaleDateString('en-US', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        }) : 'N/A'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.transactionRight}>
+                    <Text style={[
+                      styles.transactionAmount,
+                      { color: tx.type === 'deposit' ? '#00E55A' : '#FF3B3B' }
+                    ]}>
+                      {tx.type === 'deposit' ? '+' : '-'}${tx.amount?.toFixed(2) || '0.00'}
+                    </Text>
+                    <View style={[
+                      styles.transactionStatus,
+                      { backgroundColor: tx.status === 'completed' ? 'rgba(0, 229, 90, 0.15)' : 
+                        tx.status === 'pending' ? 'rgba(255, 184, 0, 0.15)' : 'rgba(255, 59, 59, 0.15)' }
+                    ]}>
+                      <Text style={[
+                        styles.transactionStatusText,
+                        { color: tx.status === 'completed' ? '#00E55A' : 
+                          tx.status === 'pending' ? '#FFB800' : '#FF3B3B' }
+                      ]}>
+                        {tx.status ? tx.status.charAt(0).toUpperCase() + tx.status.slice(1) : 'Pending'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        )}
 
         {/* Deposit Section */}
         {financeSubTab === 'Deposit' && (
@@ -1599,73 +1749,6 @@ export default function Profile() {
                 Minimum withdrawal: $10 • Processing time: 24-48 hours
               </Text>
             </View>
-          </View>
-        )}
-
-        {/* History Section */}
-        {financeSubTab === 'History' && (
-          <View style={styles.financeSection}>
-            <View style={styles.financeSectionHeader}>
-              <Ionicons name="list" size={24} color="#00E55A" />
-              <Text style={styles.financeSectionTitle}>Transaction History</Text>
-            </View>
-
-            {loadingTransactions ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#00E55A" />
-              </View>
-            ) : transactions.length === 0 ? (
-              <View style={styles.emptyTransactions}>
-                <Ionicons name="document-text-outline" size={48} color="#444" />
-                <Text style={styles.emptyTransactionsText}>No transactions yet</Text>
-              </View>
-            ) : (
-              transactions.map((tx, index) => (
-                <View key={tx._id || index} style={styles.transactionItem}>
-                  <View style={styles.transactionLeft}>
-                    <View style={[
-                      styles.transactionIcon,
-                      { backgroundColor: tx.type === 'deposit' ? 'rgba(0, 229, 90, 0.15)' : 'rgba(255, 59, 59, 0.15)' }
-                    ]}>
-                      <Ionicons 
-                        name={tx.type === 'deposit' ? 'arrow-down' : 'arrow-up'} 
-                        size={18} 
-                        color={tx.type === 'deposit' ? '#00E55A' : '#FF3B3B'} 
-                      />
-                    </View>
-                    <View>
-                      <Text style={styles.transactionType}>
-                        {tx.type === 'deposit' ? 'Deposit' : 'Withdrawal'}
-                      </Text>
-                      <Text style={styles.transactionDate}>
-                        {tx.created_at ? new Date(tx.created_at).toLocaleDateString() : 'N/A'}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.transactionRight}>
-                    <Text style={[
-                      styles.transactionAmount,
-                      { color: tx.type === 'deposit' ? '#00E55A' : '#FF3B3B' }
-                    ]}>
-                      {tx.type === 'deposit' ? '+' : '-'}${tx.amount?.toFixed(2) || '0.00'}
-                    </Text>
-                    <View style={[
-                      styles.transactionStatus,
-                      { backgroundColor: tx.status === 'completed' ? 'rgba(0, 229, 90, 0.15)' : 
-                        tx.status === 'pending' ? 'rgba(255, 184, 0, 0.15)' : 'rgba(255, 59, 59, 0.15)' }
-                    ]}>
-                      <Text style={[
-                        styles.transactionStatusText,
-                        { color: tx.status === 'completed' ? '#00E55A' : 
-                          tx.status === 'pending' ? '#FFB800' : '#FF3B3B' }
-                      ]}>
-                        {tx.status || 'Pending'}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              ))
-            )}
           </View>
         )}
       </>
@@ -3361,6 +3444,352 @@ const styles = StyleSheet.create({
   },
   disableBtn: {
     backgroundColor: '#FF3B3B',
+  },
+  // Finance Tab Styles
+  financeBalanceCards: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  financeBalanceCard: {
+    flex: 1,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  financeBalanceLabel: {
+    color: '#888',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  financeBalanceValue: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  financeSubTabs: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 16,
+  },
+  financeSubTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 10,
+    gap: 6,
+  },
+  financeSubTabActive: {
+    backgroundColor: 'rgba(0, 229, 90, 0.15)',
+  },
+  financeSubTabText: {
+    color: '#666',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  financeSubTabTextActive: {
+    color: '#00E55A',
+  },
+  financeSection: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  financeSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 16,
+  },
+  financeSectionTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  financeSummaryRow: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  financeSummaryCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    padding: 16,
+    borderLeftWidth: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  financeSummaryIconBox: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  financeSummaryInfo: {
+    flex: 1,
+  },
+  financeSummaryLabel: {
+    color: '#888',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  financeSummaryAmount: {
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  financeSummaryCount: {
+    color: '#666',
+    fontSize: 11,
+  },
+  financeQuickActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+  },
+  financeQuickBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+  },
+  financeQuickBtnText: {
+    color: '#0A0A0A',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  financeHistoryHeader: {
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  financeHistoryTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  financeHistoryTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  financeHistorySubtitle: {
+    color: '#666',
+    fontSize: 12,
+  },
+  financeInputLabel: {
+    color: '#888',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  financeInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    color: '#FFFFFF',
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  financeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#00E55A',
+    borderRadius: 12,
+    paddingVertical: 16,
+    marginTop: 20,
+    gap: 8,
+  },
+  financeBtnText: {
+    color: '#0A0A0A',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  cryptoOptions: {
+    marginBottom: 8,
+  },
+  cryptoOption: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    padding: 14,
+    marginRight: 10,
+    alignItems: 'center',
+    minWidth: 80,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  cryptoOptionActive: {
+    backgroundColor: 'rgba(0, 229, 90, 0.15)',
+    borderColor: '#00E55A',
+  },
+  cryptoIcon: {
+    fontSize: 24,
+    marginBottom: 6,
+  },
+  cryptoName: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  cryptoNetwork: {
+    color: '#666',
+    fontSize: 10,
+  },
+  quickAmounts: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  quickAmount: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  quickAmountActive: {
+    backgroundColor: '#00E55A',
+    borderColor: '#00E55A',
+  },
+  quickAmountText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  bonusInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 16,
+    gap: 10,
+  },
+  bonusText: {
+    color: '#FFD700',
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
+  availableBalance: {
+    backgroundColor: 'rgba(0, 229, 90, 0.1)',
+    borderRadius: 10,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  availableBalanceLabel: {
+    color: '#888',
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  availableBalanceValue: {
+    color: '#00E55A',
+    fontSize: 28,
+    fontWeight: '800',
+  },
+  withdrawInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    gap: 8,
+  },
+  withdrawInfoText: {
+    color: '#888',
+    fontSize: 11,
+    flex: 1,
+  },
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  emptyTransactions: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyTransactionsText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 12,
+  },
+  emptyTransactionsSubtext: {
+    color: '#444',
+    fontSize: 13,
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  transactionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  transactionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  transactionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  transactionType: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  transactionDate: {
+    color: '#666',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  transactionRight: {
+    alignItems: 'flex-end',
+  },
+  transactionAmount: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  transactionStatus: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  transactionStatusText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
   cancelBtn: {
     paddingVertical: 12,
