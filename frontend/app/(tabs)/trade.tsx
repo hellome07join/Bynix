@@ -264,6 +264,15 @@ export default function Trade() {
   const [customSeconds, setCustomSeconds] = useState('0');
   const [demoAddAmount, setDemoAddAmount] = useState('1000');
   
+  // Deposit Modal State
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [depositAmount, setDepositAmount] = useState('21');
+  const [selectedNetwork, setSelectedNetwork] = useState('USDT (TRC20)');
+  const [showNetworkDropdown, setShowNetworkDropdown] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
+  const [generatedAddress, setGeneratedAddress] = useState<string | null>(null);
+  const [isGeneratingAddress, setIsGeneratingAddress] = useState(false);
+  
   // UTC Time and Candle Countdown
   const [utcTime, setUtcTime] = useState('');
   const [candleCountdown, setCandleCountdown] = useState(0);
@@ -1058,7 +1067,7 @@ export default function Trade() {
           {/* Premium Gold Deposit Button */}
           <TouchableOpacity 
             style={styles.depositButton3D}
-            onPress={() => router.push('/(tabs)/wallet')}
+            onPress={() => setShowDepositModal(true)}
             activeOpacity={0.8}
           >
             <View style={styles.depositButton3DInner}>
@@ -1299,6 +1308,207 @@ export default function Trade() {
                   )}
                 </TouchableOpacity>
               ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Deposit Funds Modal */}
+      <Modal visible={showDepositModal} transparent animationType="slide">
+        <View style={depositModalStyles.overlay}>
+          <View style={depositModalStyles.content}>
+            {/* Header */}
+            <View style={depositModalStyles.header}>
+              <Text style={depositModalStyles.title}>Deposit Funds</Text>
+              <TouchableOpacity onPress={() => {
+                setShowDepositModal(false);
+                setGeneratedAddress(null);
+                setShowNetworkDropdown(false);
+              }}>
+                <Ionicons name="close" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {!generatedAddress ? (
+                <>
+                  {/* Amount Input */}
+                  <Text style={depositModalStyles.label}>Enter Amount</Text>
+                  <View style={depositModalStyles.amountBox}>
+                    <Text style={depositModalStyles.amountPrefix}>$</Text>
+                    <TextInput
+                      style={depositModalStyles.amountInput}
+                      value={depositAmount}
+                      onChangeText={setDepositAmount}
+                      keyboardType="numeric"
+                      placeholder="0"
+                      placeholderTextColor="#444"
+                    />
+                  </View>
+                  <Text style={depositModalStyles.minimum}>Minimum deposit: $21</Text>
+
+                  {/* Quick Amounts */}
+                  <View style={depositModalStyles.quickAmounts}>
+                    {['50', '100', '250', '500', '1000'].map((amt) => (
+                      <TouchableOpacity
+                        key={amt}
+                        style={[depositModalStyles.quickBtn, depositAmount === amt && depositModalStyles.quickBtnActive]}
+                        onPress={() => setDepositAmount(amt)}
+                      >
+                        <Text style={[depositModalStyles.quickBtnText, depositAmount === amt && depositModalStyles.quickBtnTextActive]}>
+                          ${amt}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  {/* Network Selection */}
+                  <Text style={depositModalStyles.label}>Select Network</Text>
+                  <TouchableOpacity 
+                    style={depositModalStyles.networkSelect}
+                    onPress={() => setShowNetworkDropdown(!showNetworkDropdown)}
+                  >
+                    <View style={depositModalStyles.networkLeft}>
+                      <Ionicons name="link" size={18} color="#00E55A" />
+                      <Text style={depositModalStyles.networkText}>{selectedNetwork}</Text>
+                    </View>
+                    <Ionicons name="chevron-down" size={20} color="#888" />
+                  </TouchableOpacity>
+
+                  {showNetworkDropdown && (
+                    <View style={depositModalStyles.networkDropdown}>
+                      {['USDT (TRC20)', 'USDT (ERC20)', 'BTC (Bitcoin)', 'ETH (Ethereum)', 'LTC (Litecoin)'].map((network) => (
+                        <TouchableOpacity
+                          key={network}
+                          style={[depositModalStyles.networkOption, selectedNetwork === network && depositModalStyles.networkOptionActive]}
+                          onPress={() => {
+                            setSelectedNetwork(network);
+                            setShowNetworkDropdown(false);
+                          }}
+                        >
+                          <Text style={[depositModalStyles.networkOptionText, selectedNetwork === network && { color: '#00E55A' }]}>
+                            {network}
+                          </Text>
+                          {selectedNetwork === network && <Ionicons name="checkmark" size={18} color="#00E55A" />}
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* No Fees Info */}
+                  <Text style={depositModalStyles.noFees}>No fees - Pay exact amount only</Text>
+
+                  {/* Promo Code */}
+                  <Text style={depositModalStyles.label}>Promo Code (Optional)</Text>
+                  <View style={depositModalStyles.promoRow}>
+                    <TextInput
+                      style={depositModalStyles.promoInput}
+                      placeholder="Enter code"
+                      placeholderTextColor="#444"
+                      value={promoCode}
+                      onChangeText={setPromoCode}
+                    />
+                    <TouchableOpacity 
+                      style={depositModalStyles.promoQuickBtn}
+                      onPress={() => setPromoCode('BYNIX')}
+                    >
+                      <Text style={depositModalStyles.promoQuickText}>BYNIX</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={depositModalStyles.promoQuickBtn}
+                      onPress={() => setPromoCode('VIP50')}
+                    >
+                      <Text style={depositModalStyles.promoQuickText}>VIP50</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Promo Info Box */}
+                  <View style={depositModalStyles.promoInfo}>
+                    <Ionicons name="gift" size={20} color="#FFD700" />
+                    <Text style={depositModalStyles.promoInfoText}>
+                      BYNIX: 200% bonus ($100+) - New users only!
+                    </Text>
+                  </View>
+
+                  {/* Generate Address Button */}
+                  <TouchableOpacity 
+                    style={depositModalStyles.generateBtn}
+                    onPress={async () => {
+                      if (parseFloat(depositAmount) < 21) {
+                        Alert.alert('Invalid Amount', 'Minimum deposit is $21');
+                        return;
+                      }
+                      setIsGeneratingAddress(true);
+                      // Generate a mock crypto address
+                      const networkPrefix = selectedNetwork.includes('TRC20') ? 'T' : 
+                        selectedNetwork.includes('BTC') ? '1' : 
+                        selectedNetwork.includes('ETH') ? '0x' : 'L';
+                      const randomPart = Math.random().toString(36).substring(2, 15) + 
+                                        Math.random().toString(36).substring(2, 15);
+                      const address = networkPrefix + randomPart.substring(0, selectedNetwork.includes('ETH') ? 40 : 33);
+                      setTimeout(() => {
+                        setGeneratedAddress(address);
+                        setIsGeneratingAddress(false);
+                      }, 1500);
+                    }}
+                    disabled={isGeneratingAddress}
+                  >
+                    {isGeneratingAddress ? (
+                      <Text style={depositModalStyles.generateBtnText}>Generating...</Text>
+                    ) : (
+                      <Text style={depositModalStyles.generateBtnText}>Generate Deposit Address</Text>
+                    )}
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  {/* Generated Address View */}
+                  <View style={depositModalStyles.addressSection}>
+                    <View style={depositModalStyles.successIcon}>
+                      <Ionicons name="checkmark-circle" size={60} color="#00E55A" />
+                    </View>
+                    <Text style={depositModalStyles.addressTitle}>Deposit Address Generated</Text>
+                    <Text style={depositModalStyles.addressNetwork}>{selectedNetwork}</Text>
+                    
+                    <View style={depositModalStyles.addressBox}>
+                      <Text style={depositModalStyles.addressText} selectable>{generatedAddress}</Text>
+                    </View>
+                    
+                    <TouchableOpacity 
+                      style={depositModalStyles.copyBtn}
+                      onPress={() => {
+                        // Copy to clipboard (mock)
+                        Alert.alert('Copied!', 'Address copied to clipboard');
+                      }}
+                    >
+                      <Ionicons name="copy" size={18} color="#0A0A0A" />
+                      <Text style={depositModalStyles.copyBtnText}>Copy Address</Text>
+                    </TouchableOpacity>
+
+                    <View style={depositModalStyles.depositInfo}>
+                      <Text style={depositModalStyles.depositInfoTitle}>Amount to Send:</Text>
+                      <Text style={depositModalStyles.depositInfoAmount}>${depositAmount}</Text>
+                    </View>
+
+                    <View style={depositModalStyles.warningBox}>
+                      <Ionicons name="warning" size={20} color="#FFB800" />
+                      <Text style={depositModalStyles.warningText}>
+                        Only send {selectedNetwork.split(' ')[0]} to this address. Sending any other asset may result in permanent loss.
+                      </Text>
+                    </View>
+
+                    <TouchableOpacity 
+                      style={depositModalStyles.doneBtn}
+                      onPress={() => {
+                        setShowDepositModal(false);
+                        setGeneratedAddress(null);
+                      }}
+                    >
+                      <Text style={depositModalStyles.doneBtnText}>Done</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
             </ScrollView>
           </View>
         </View>
@@ -4106,5 +4316,297 @@ const accountChoiceStyles = StyleSheet.create({
     color: '#000',
     fontSize: 14,
     fontWeight: '700',
+  },
+});
+
+// Deposit Modal Styles
+const depositModalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'flex-end',
+  },
+  content: {
+    backgroundColor: '#0F1428',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 40,
+    maxHeight: '90%',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  title: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  label: {
+    color: '#888',
+    fontSize: 14,
+    marginBottom: 10,
+    marginTop: 16,
+  },
+  amountBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0D2818',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 90, 0.3)',
+  },
+  amountPrefix: {
+    color: '#00E55A',
+    fontSize: 28,
+    fontWeight: '700',
+    marginRight: 8,
+  },
+  amountInput: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 28,
+    fontWeight: '700',
+    padding: 0,
+  },
+  minimum: {
+    color: '#666',
+    fontSize: 12,
+    marginTop: 8,
+  },
+  quickAmounts: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 16,
+  },
+  quickBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'transparent',
+  },
+  quickBtnActive: {
+    backgroundColor: '#0D2818',
+    borderColor: '#00E55A',
+  },
+  quickBtnText: {
+    color: '#888',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  quickBtnTextActive: {
+    color: '#00E55A',
+  },
+  networkSelect: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  networkLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  networkText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  networkDropdown: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    overflow: 'hidden',
+  },
+  networkOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  networkOptionActive: {
+    backgroundColor: 'rgba(0, 229, 90, 0.1)',
+  },
+  networkOptionText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+  },
+  noFees: {
+    color: '#00E55A',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 16,
+  },
+  promoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  promoInput: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    color: '#FFFFFF',
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  promoQuickBtn: {
+    backgroundColor: '#00E55A',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 10,
+  },
+  promoQuickText: {
+    color: '#0A0A0A',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  promoInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(100, 100, 100, 0.3)',
+    borderRadius: 10,
+    padding: 14,
+    marginTop: 16,
+    gap: 12,
+  },
+  promoInfoText: {
+    color: '#FFD700',
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+  },
+  generateBtn: {
+    backgroundColor: '#00E55A',
+    borderRadius: 12,
+    paddingVertical: 18,
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  generateBtnText: {
+    color: '#0A0A0A',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  // Generated Address Styles
+  addressSection: {
+    alignItems: 'center',
+    paddingTop: 20,
+  },
+  successIcon: {
+    marginBottom: 20,
+  },
+  addressTitle: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  addressNetwork: {
+    color: '#00E55A',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 24,
+  },
+  addressBox: {
+    backgroundColor: 'rgba(0, 229, 90, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    width: '100%',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 90, 0.3)',
+  },
+  addressText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  copyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#00E55A',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 10,
+    gap: 8,
+    marginBottom: 24,
+  },
+  copyBtnText: {
+    color: '#0A0A0A',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  depositInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 10,
+    padding: 16,
+    width: '100%',
+    marginBottom: 16,
+  },
+  depositInfoTitle: {
+    color: '#888',
+    fontSize: 14,
+  },
+  depositInfoAmount: {
+    color: '#00E55A',
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(255, 184, 0, 0.1)',
+    borderRadius: 10,
+    padding: 14,
+    width: '100%',
+    marginBottom: 20,
+    gap: 12,
+  },
+  warningText: {
+    color: '#FFB800',
+    fontSize: 12,
+    flex: 1,
+    lineHeight: 18,
+  },
+  doneBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    paddingVertical: 16,
+    width: '100%',
+    alignItems: 'center',
+  },
+  doneBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
