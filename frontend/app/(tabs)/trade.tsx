@@ -267,6 +267,10 @@ export default function Trade() {
   const [customSeconds, setCustomSeconds] = useState('0');
   const [demoAddAmount, setDemoAddAmount] = useState('1000');
   
+  // Insufficient Balance Modal State
+  const [showInsufficientModal, setShowInsufficientModal] = useState(false);
+  const [insufficientMessage, setInsufficientMessage] = useState('');
+  
   // Deposit Modal State
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [depositAmount, setDepositAmount] = useState('21');
@@ -758,42 +762,17 @@ export default function Trade() {
 
     // Check balance - Show insufficient balance popup with deposit option
     if (tradeAmount > currentBalance) {
-      console.log('>>> INSUFFICIENT BALANCE - Showing popup');
-      Alert.alert(
-        '💰 Insufficient Balance',
-        `You have $${currentBalance.toFixed(2)} but trying to trade $${tradeAmount.toFixed(2)}.\n\nPlease deposit funds to continue trading.`,
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-          {
-            text: 'Deposit Now',
-            onPress: () => setShowDepositModal(true),
-            style: 'default',
-          },
-        ]
-      );
+      console.log('>>> INSUFFICIENT BALANCE - Showing custom modal');
+      setInsufficientMessage(`You have $${currentBalance.toFixed(2)} but trying to trade $${tradeAmount.toFixed(2)}.\n\nPlease deposit funds to continue trading.`);
+      setShowInsufficientModal(true);
       return;
     }
 
     // Additional check for real account with 0 balance
     if (accountType === 'real' && currentBalance <= 0) {
-      Alert.alert(
-        '💰 No Balance',
-        'Your account balance is $0.00.\n\nPlease deposit funds to start trading.',
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-          {
-            text: 'Deposit Now',
-            onPress: () => setShowDepositModal(true),
-            style: 'default',
-          },
-        ]
-      );
+      console.log('>>> ZERO BALANCE - Showing custom modal');
+      setInsufficientMessage('Your account balance is $0.00.\n\nPlease deposit funds to start trading.');
+      setShowInsufficientModal(true);
       return;
     }
 
@@ -1389,6 +1368,91 @@ export default function Trade() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Insufficient Balance Modal */}
+      <Modal visible={showInsufficientModal} transparent animationType="fade">
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0, 0, 0, 0.85)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 20,
+        }}>
+          <View style={{
+            backgroundColor: '#1A1F2E',
+            borderRadius: 20,
+            padding: 24,
+            width: '100%',
+            maxWidth: 340,
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: 'rgba(255, 184, 0, 0.3)',
+          }}>
+            {/* Warning Icon */}
+            <View style={{
+              width: 70,
+              height: 70,
+              borderRadius: 35,
+              backgroundColor: 'rgba(255, 184, 0, 0.15)',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: 16,
+            }}>
+              <Ionicons name="wallet-outline" size={36} color="#FFB800" />
+            </View>
+            
+            <Text style={{
+              color: '#FFB800',
+              fontSize: 20,
+              fontWeight: '700',
+              marginBottom: 12,
+              textAlign: 'center',
+            }}>Insufficient Balance</Text>
+            
+            <Text style={{
+              color: '#AAA',
+              fontSize: 15,
+              textAlign: 'center',
+              lineHeight: 22,
+              marginBottom: 24,
+            }}>{insufficientMessage}</Text>
+            
+            {/* Buttons */}
+            <View style={{ width: '100%', gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowInsufficientModal(false);
+                  setShowDepositModal(true);
+                }}
+                style={{
+                  backgroundColor: '#00E55A',
+                  paddingVertical: 14,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: '#0A1A0F', fontSize: 16, fontWeight: '700' }}>
+                  Deposit Now
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                onPress={() => setShowInsufficientModal(false)}
+                style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  paddingVertical: 14,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: '#888', fontSize: 16, fontWeight: '600' }}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
