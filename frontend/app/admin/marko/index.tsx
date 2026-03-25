@@ -398,11 +398,21 @@ export default function AdminDashboard() {
 
   // Withdrawal Action Handlers
   const handleApproveWithdrawal = async (withdrawalId: string, userEmail: string, amount: number) => {
-    if (!token) return;
+    console.log('[APPROVE] Called with:', withdrawalId, userEmail, amount);
+    
+    if (!token) {
+      Alert.alert('Error', 'Not authenticated');
+      return;
+    }
+    
+    if (!withdrawalId) {
+      Alert.alert('Error', 'Invalid withdrawal ID');
+      return;
+    }
     
     Alert.alert(
       'Confirm Approval',
-      `Approve withdrawal of $${amount.toFixed(2)} for ${userEmail}?`,
+      `Approve withdrawal of $${amount.toFixed(2)} for ${userEmail}?\n\nWithdrawal ID: ${withdrawalId}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -410,6 +420,7 @@ export default function AdminDashboard() {
           style: 'default',
           onPress: async () => {
             try {
+              console.log('[APPROVE] Making API call for:', withdrawalId);
               const response = await fetch(`${API_URL}/admin/withdrawals/${withdrawalId}/approve`, {
                 method: 'POST',
                 headers: {
@@ -418,12 +429,14 @@ export default function AdminDashboard() {
                 }
               });
               
+              const data = await response.json();
+              console.log('[APPROVE] Response:', data);
+              
               if (response.ok) {
                 Alert.alert('Success', `Withdrawal of $${amount.toFixed(2)} approved successfully`);
                 fetchDashboardData(); // Refresh data
               } else {
-                const error = await response.json();
-                Alert.alert('Error', error.detail || 'Failed to approve withdrawal');
+                Alert.alert('Error', data.detail || 'Failed to approve withdrawal');
               }
             } catch (error) {
               console.error('Approve withdrawal error:', error);
@@ -436,11 +449,21 @@ export default function AdminDashboard() {
   };
 
   const handleRejectWithdrawal = async (withdrawalId: string, userEmail: string, amount: number) => {
-    if (!token) return;
+    console.log('[REJECT] Called with:', withdrawalId, userEmail, amount);
+    
+    if (!token) {
+      Alert.alert('Error', 'Not authenticated');
+      return;
+    }
+    
+    if (!withdrawalId) {
+      Alert.alert('Error', 'Invalid withdrawal ID');
+      return;
+    }
     
     Alert.alert(
       'Confirm Rejection',
-      `Reject withdrawal of $${amount.toFixed(2)} for ${userEmail}?`,
+      `Reject withdrawal of $${amount.toFixed(2)} for ${userEmail}?\n\nWithdrawal ID: ${withdrawalId}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -448,6 +471,7 @@ export default function AdminDashboard() {
           style: 'destructive',
           onPress: async () => {
             try {
+              console.log('[REJECT] Making API call for:', withdrawalId);
               const response = await fetch(`${API_URL}/admin/withdrawals/${withdrawalId}/reject`, {
                 method: 'POST',
                 headers: {
@@ -457,12 +481,14 @@ export default function AdminDashboard() {
                 body: JSON.stringify({ reason: 'Rejected by admin' })
               });
               
+              const data = await response.json();
+              console.log('[REJECT] Response:', data);
+              
               if (response.ok) {
                 Alert.alert('Success', `Withdrawal rejected and $${amount.toFixed(2)} refunded to user`);
                 fetchDashboardData(); // Refresh data
               } else {
-                const error = await response.json();
-                Alert.alert('Error', error.detail || 'Failed to reject withdrawal');
+                Alert.alert('Error', data.detail || 'Failed to reject withdrawal');
               }
             } catch (error) {
               console.error('Reject withdrawal error:', error);
@@ -1125,8 +1151,24 @@ export default function AdminDashboard() {
                 </View>
                 <View style={styles.withdrawalInfo}>
                   <Text style={styles.withdrawalEmail}>{wd.user_email || 'User'}</Text>
-                  <Text style={styles.withdrawalAddress}>{wd.wallet_address?.slice(0, 20)}...</Text>
-                  <Text style={styles.withdrawalDate}>{wd.created_at?.split('T')[0] || 'N/A'}</Text>
+                  <TouchableOpacity 
+                    onPress={() => {
+                      if (wd.wallet_address) {
+                        Alert.alert(
+                          'Wallet Address',
+                          wd.wallet_address,
+                          [
+                            { text: 'Close', style: 'cancel' }
+                          ]
+                        );
+                      }
+                    }}
+                  >
+                    <Text style={[styles.withdrawalAddress, { color: COLORS.primary }]} numberOfLines={1}>
+                      {wd.wallet_address || 'No address'}
+                    </Text>
+                  </TouchableOpacity>
+                  <Text style={styles.withdrawalDate}>{wd.created_at?.split(' ')[0] || 'N/A'}</Text>
                 </View>
               </View>
               <View style={styles.withdrawalRight}>
