@@ -6695,5 +6695,610 @@ async def get_user_price(user_id: str, asset: str) -> float:
     # Return normal price
     return await get_asset_price(asset)
 
+# ============= AFFILIATE SYSTEM =============
+
+# Affiliate Models
+class AffiliateCreate(BaseModel):
+    email: EmailStr
+    password: str
+    name: str
+    telegram: Optional[str] = None
+    
+class AffiliateLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class AffiliateWithdrawalRequest(BaseModel):
+    amount: float
+    wallet_address: str
+    payment_method: str = "USDT"
+
+class AffiliateLinkCreate(BaseModel):
+    name: str
+    campaign: Optional[str] = None
+
+# Affiliate Registration
+@api_router.post("/affiliate/register")
+async def affiliate_register(affiliate: AffiliateCreate):
+    # Check if email already exists
+    existing = await db.affiliates.find_one({"email": affiliate.email})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    affiliate_id = str(uuid.uuid4())
+    ref_code = f"BYN{random.randint(10000, 99999)}"
+    
+    affiliate_doc = {
+        "affiliate_id": affiliate_id,
+        "email": affiliate.email,
+        "password_hash": hash_password(affiliate.password),
+        "name": affiliate.name,
+        "telegram": affiliate.telegram,
+        "ref_code": ref_code,
+        "level": 1,
+        "balance": 0.0,
+        "total_earnings": 0.0,
+        "total_deposits": 0,
+        "total_ftds": 0,
+        "total_clicks": 0,
+        "total_registrations": 0,
+        "is_active": True,
+        "created_at": datetime.now(timezone.utc)
+    }
+    
+    await db.affiliates.insert_one(affiliate_doc)
+    
+    # Create default affiliate link
+    default_link = {
+        "link_id": str(uuid.uuid4()),
+        "affiliate_id": affiliate_id,
+        "name": "Default Link",
+        "code": ref_code,
+        "clicks": 0,
+        "registrations": 0,
+        "ftds": 0,
+        "deposits": 0.0,
+        "created_at": datetime.now(timezone.utc)
+    }
+    await db.affiliate_links.insert_one(default_link)
+    
+    # Generate token
+    token = create_access_token({"sub": affiliate_id, "type": "affiliate"})
+    
+    return {
+        "success": True,
+        "token": token,
+        "affiliate": {
+            "affiliate_id": affiliate_id,
+            "email": affiliate.email,
+            "name": affiliate.name,
+            "ref_code": ref_code,
+            "level": 1
+        }
+    }
+
+# Affiliate Login
+@api_router.post("/affiliate/login")
+async def affiliate_login(credentials: AffiliateLogin):
+    affiliate = await db.affiliates.find_one({"email": credentials.email})
+    if not affiliate:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    if not verify_password(credentials.password, affiliate["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    if not affiliate.get("is_active", True):
+        raise HTTPException(status_code=403, detail="Account is suspended")
+    
+    token = create_access_token({"sub": affiliate["affiliate_id"], "type": "affiliate"})
+    
+    return {
+        "success": True,
+        "token": token,
+        "affiliate": {
+            "affiliate_id": affiliate["affiliate_id"],
+            "email": affiliate["email"],
+            "name": affiliate["name"],
+            "ref_code": affiliate["ref_code"],
+            "level": affiliate.get("level", 1)
+        }
+    }
+
+# Get current affiliate
+@api_router.get("/affiliate/me")
+async def get_affiliate_me(authorization: str = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization.split(" ")[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        affiliate_id = payload.get("sub")
+        token_type = payload.get("type")
+        
+        if token_type != "affiliate":
+            raise HTTPException(status_code=401, detail="Invalid token type")
+        
+        affiliate = await db.affiliates.find_one({"affiliate_id": affiliate_id})
+        if not affiliate:
+            raise HTTPException(status_code=404, detail="Affiliate not found")
+        
+        # Calculate level based on deposits
+        total_ftds = affiliate.get("total_ftds", 0)
+        level = 1
+        if total_ftds >= 700: level = 7
+        elif total_ftds >= 400: level = 6
+        elif total_ftds >= 200: level = 5
+        elif total_ftds >= 100: level = 4
+        elif total_ftds >= 50: level = 3
+        elif total_ftds >= 15: level = 2
+        
+        # Update level if changed
+        if level != affiliate.get("level", 1):
+            await db.affiliates.update_one(
+                {"affiliate_id": affiliate_id},
+                {"$set": {"level": level}}
+            )
+        
+        return {
+            "affiliate_id": affiliate["affiliate_id"],
+            "email": affiliate["email"],
+            "name": affiliate["name"],
+            "ref_code": affiliate["ref_code"],
+            "telegram": affiliate.get("telegram"),
+            "level": level,
+            "balance": affiliate.get("balance", 0),
+            "total_earnings": affiliate.get("total_earnings", 0),
+            "total_deposits": affiliate.get("total_deposits", 0),
+            "total_ftds": affiliate.get("total_ftds", 0),
+            "total_clicks": affiliate.get("total_clicks", 0),
+            "total_registrations": affiliate.get("total_registrations", 0),
+            "created_at": affiliate.get("created_at")
+        }
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# Get affiliate dashboard stats
+@api_router.get("/affiliate/dashboard")
+async def get_affiliate_dashboard(authorization: str = Header(None), days: int = 7):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization.split(" ")[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        affiliate_id = payload.get("sub")
+        
+        affiliate = await db.affiliates.find_one({"affiliate_id": affiliate_id})
+        if not affiliate:
+            raise HTTPException(status_code=404, detail="Affiliate not found")
+        
+        # Get stats for date range
+        start_date = datetime.now(timezone.utc) - timedelta(days=days)
+        
+        # Get affiliate links
+        links = await db.affiliate_links.find({"affiliate_id": affiliate_id}).to_list(100)
+        
+        # Calculate period stats from referrals
+        period_stats = {
+            "deposits": 0,
+            "ftds": 0,
+            "clicks": 0,
+            "registrations": 0,
+            "earnings": 0
+        }
+        
+        # Get referrals in period
+        referrals = await db.affiliate_referrals.find({
+            "affiliate_id": affiliate_id,
+            "created_at": {"$gte": start_date}
+        }).to_list(1000)
+        
+        for ref in referrals:
+            period_stats["registrations"] += 1
+            if ref.get("has_deposited"):
+                period_stats["ftds"] += 1
+            period_stats["deposits"] += ref.get("total_deposits", 0)
+            period_stats["earnings"] += ref.get("commission_earned", 0)
+        
+        # Get clicks in period
+        clicks = await db.affiliate_clicks.count_documents({
+            "affiliate_id": affiliate_id,
+            "created_at": {"$gte": start_date}
+        })
+        period_stats["clicks"] = clicks
+        
+        # Calculate level
+        total_ftds = affiliate.get("total_ftds", 0)
+        level = 1
+        level_name = "Starter"
+        revenue_share = 50
+        turnover_share = 2.0
+        
+        levels_data = [
+            {"level": 1, "name": "Starter", "min_ftds": 0, "revenue": 50, "turnover": 2.0},
+            {"level": 2, "name": "Advanced", "min_ftds": 15, "revenue": 55, "turnover": 2.5},
+            {"level": 3, "name": "Professional", "min_ftds": 50, "revenue": 60, "turnover": 3.0},
+            {"level": 4, "name": "Expert", "min_ftds": 100, "revenue": 65, "turnover": 3.5},
+            {"level": 5, "name": "Master", "min_ftds": 200, "revenue": 70, "turnover": 4.0},
+            {"level": 6, "name": "Guru", "min_ftds": 400, "revenue": 75, "turnover": 4.5},
+            {"level": 7, "name": "Legend", "min_ftds": 700, "revenue": 85, "turnover": 5.5},
+        ]
+        
+        for l in levels_data:
+            if total_ftds >= l["min_ftds"]:
+                level = l["level"]
+                level_name = l["name"]
+                revenue_share = l["revenue"]
+                turnover_share = l["turnover"]
+        
+        return {
+            "affiliate": {
+                "affiliate_id": affiliate["affiliate_id"],
+                "name": affiliate["name"],
+                "email": affiliate["email"],
+                "ref_code": affiliate["ref_code"],
+                "level": level,
+                "level_name": level_name,
+                "revenue_share": revenue_share,
+                "turnover_share": turnover_share,
+                "balance": affiliate.get("balance", 0),
+                "total_earnings": affiliate.get("total_earnings", 0),
+                "total_ftds": total_ftds
+            },
+            "period_stats": period_stats,
+            "levels": levels_data,
+            "links_count": len(links)
+        }
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# Get affiliate statistics with chart data
+@api_router.get("/affiliate/statistics")
+async def get_affiliate_statistics(authorization: str = Header(None), days: int = 7):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization.split(" ")[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        affiliate_id = payload.get("sub")
+        
+        start_date = datetime.now(timezone.utc) - timedelta(days=days)
+        
+        # Get daily stats
+        daily_stats = []
+        for i in range(days):
+            day_start = datetime.now(timezone.utc) - timedelta(days=days-1-i)
+            day_start = day_start.replace(hour=0, minute=0, second=0, microsecond=0)
+            day_end = day_start + timedelta(days=1)
+            
+            # Count clicks for this day
+            clicks = await db.affiliate_clicks.count_documents({
+                "affiliate_id": affiliate_id,
+                "created_at": {"$gte": day_start, "$lt": day_end}
+            })
+            
+            # Count registrations
+            registrations = await db.affiliate_referrals.count_documents({
+                "affiliate_id": affiliate_id,
+                "created_at": {"$gte": day_start, "$lt": day_end}
+            })
+            
+            # Count FTDs
+            ftds = await db.affiliate_referrals.count_documents({
+                "affiliate_id": affiliate_id,
+                "has_deposited": True,
+                "first_deposit_at": {"$gte": day_start, "$lt": day_end}
+            })
+            
+            daily_stats.append({
+                "date": day_start.strftime("%Y-%m-%d"),
+                "clicks": clicks,
+                "registrations": registrations,
+                "ftds": ftds
+            })
+        
+        # Get totals for period
+        total_clicks = await db.affiliate_clicks.count_documents({
+            "affiliate_id": affiliate_id,
+            "created_at": {"$gte": start_date}
+        })
+        
+        total_registrations = await db.affiliate_referrals.count_documents({
+            "affiliate_id": affiliate_id,
+            "created_at": {"$gte": start_date}
+        })
+        
+        total_ftds = await db.affiliate_referrals.count_documents({
+            "affiliate_id": affiliate_id,
+            "has_deposited": True,
+            "first_deposit_at": {"$gte": start_date}
+        })
+        
+        # Sum deposits
+        pipeline = [
+            {"$match": {"affiliate_id": affiliate_id, "created_at": {"$gte": start_date}}},
+            {"$group": {"_id": None, "total": {"$sum": "$total_deposits"}}}
+        ]
+        deposits_result = await db.affiliate_referrals.aggregate(pipeline).to_list(1)
+        total_deposits = deposits_result[0]["total"] if deposits_result else 0
+        
+        return {
+            "period": {"days": days, "start": start_date.isoformat()},
+            "totals": {
+                "clicks": total_clicks,
+                "registrations": total_registrations,
+                "ftds": total_ftds,
+                "deposits": total_deposits
+            },
+            "daily_stats": daily_stats
+        }
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# Get affiliate links
+@api_router.get("/affiliate/links")
+async def get_affiliate_links(authorization: str = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization.split(" ")[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        affiliate_id = payload.get("sub")
+        
+        links = await db.affiliate_links.find({"affiliate_id": affiliate_id}).to_list(100)
+        
+        return {"links": links}
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# Create affiliate link
+@api_router.post("/affiliate/links")
+async def create_affiliate_link(link: AffiliateLinkCreate, authorization: str = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization.split(" ")[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        affiliate_id = payload.get("sub")
+        
+        # Generate unique code
+        code = f"BYN{random.randint(10000, 99999)}"
+        
+        link_doc = {
+            "link_id": str(uuid.uuid4()),
+            "affiliate_id": affiliate_id,
+            "name": link.name,
+            "campaign": link.campaign,
+            "code": code,
+            "clicks": 0,
+            "registrations": 0,
+            "ftds": 0,
+            "deposits": 0.0,
+            "created_at": datetime.now(timezone.utc)
+        }
+        
+        await db.affiliate_links.insert_one(link_doc)
+        
+        return {"success": True, "link": link_doc}
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# Track affiliate click
+@api_router.post("/affiliate/track/click")
+async def track_affiliate_click(ref_code: str):
+    # Find the link
+    link = await db.affiliate_links.find_one({"code": ref_code})
+    if not link:
+        return {"success": False, "error": "Invalid ref code"}
+    
+    # Record click
+    click_doc = {
+        "click_id": str(uuid.uuid4()),
+        "affiliate_id": link["affiliate_id"],
+        "link_id": link["link_id"],
+        "ref_code": ref_code,
+        "created_at": datetime.now(timezone.utc)
+    }
+    await db.affiliate_clicks.insert_one(click_doc)
+    
+    # Update link stats
+    await db.affiliate_links.update_one(
+        {"link_id": link["link_id"]},
+        {"$inc": {"clicks": 1}}
+    )
+    
+    # Update affiliate stats
+    await db.affiliates.update_one(
+        {"affiliate_id": link["affiliate_id"]},
+        {"$inc": {"total_clicks": 1}}
+    )
+    
+    return {"success": True}
+
+# Get affiliate referrals
+@api_router.get("/affiliate/referrals")
+async def get_affiliate_referrals(authorization: str = Header(None), limit: int = 50):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization.split(" ")[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        affiliate_id = payload.get("sub")
+        
+        referrals = await db.affiliate_referrals.find(
+            {"affiliate_id": affiliate_id}
+        ).sort("created_at", -1).limit(limit).to_list(limit)
+        
+        return {"referrals": referrals}
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# Request withdrawal
+@api_router.post("/affiliate/withdrawal")
+async def request_affiliate_withdrawal(request: AffiliateWithdrawalRequest, authorization: str = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization.split(" ")[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        affiliate_id = payload.get("sub")
+        
+        affiliate = await db.affiliates.find_one({"affiliate_id": affiliate_id})
+        if not affiliate:
+            raise HTTPException(status_code=404, detail="Affiliate not found")
+        
+        if affiliate.get("balance", 0) < request.amount:
+            raise HTTPException(status_code=400, detail="Insufficient balance")
+        
+        if request.amount < 50:
+            raise HTTPException(status_code=400, detail="Minimum withdrawal is $50")
+        
+        withdrawal_doc = {
+            "withdrawal_id": str(uuid.uuid4()),
+            "affiliate_id": affiliate_id,
+            "amount": request.amount,
+            "wallet_address": request.wallet_address,
+            "payment_method": request.payment_method,
+            "status": "pending",
+            "created_at": datetime.now(timezone.utc)
+        }
+        
+        await db.affiliate_withdrawals.insert_one(withdrawal_doc)
+        
+        # Deduct from balance
+        await db.affiliates.update_one(
+            {"affiliate_id": affiliate_id},
+            {"$inc": {"balance": -request.amount}}
+        )
+        
+        return {"success": True, "withdrawal": withdrawal_doc}
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# Get withdrawal history
+@api_router.get("/affiliate/withdrawals")
+async def get_affiliate_withdrawals(authorization: str = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization.split(" ")[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        affiliate_id = payload.get("sub")
+        
+        withdrawals = await db.affiliate_withdrawals.find(
+            {"affiliate_id": affiliate_id}
+        ).sort("created_at", -1).to_list(100)
+        
+        return {"withdrawals": withdrawals}
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# Get promo materials
+@api_router.get("/affiliate/promo-materials")
+async def get_promo_materials():
+    materials = await db.promo_materials.find({"is_active": True}).to_list(100)
+    
+    # Default materials if none exist
+    if not materials:
+        materials = [
+            {
+                "material_id": "1",
+                "type": "banner",
+                "name": "Main Banner 728x90",
+                "size": "728x90",
+                "preview_url": "https://via.placeholder.com/728x90/00E55A/000000?text=BYNIX+Trade+Now",
+                "category": "banners"
+            },
+            {
+                "material_id": "2",
+                "type": "banner",
+                "name": "Square Banner 300x250",
+                "size": "300x250",
+                "preview_url": "https://via.placeholder.com/300x250/00E55A/000000?text=BYNIX",
+                "category": "banners"
+            },
+            {
+                "material_id": "3",
+                "type": "landing",
+                "name": "Main Landing Page",
+                "preview_url": "/affiliate",
+                "category": "landings"
+            }
+        ]
+    
+    return {"materials": materials}
+
+# Get TOP 10 affiliates
+@api_router.get("/affiliate/top10")
+async def get_top10_affiliates():
+    top_affiliates = await db.affiliates.find(
+        {"is_active": True}
+    ).sort("total_earnings", -1).limit(10).to_list(10)
+    
+    # Mask names for privacy
+    result = []
+    for i, aff in enumerate(top_affiliates):
+        name = aff.get("name", "Anonymous")
+        masked_name = name[0] + "***" + name[-1] if len(name) > 2 else "***"
+        result.append({
+            "rank": i + 1,
+            "name": masked_name,
+            "level": aff.get("level", 1),
+            "total_earnings": aff.get("total_earnings", 0),
+            "total_ftds": aff.get("total_ftds", 0)
+        })
+    
+    return {"top_affiliates": result}
+
+# Update affiliate profile
+@api_router.put("/affiliate/profile")
+async def update_affiliate_profile(authorization: str = Header(None), name: str = None, telegram: str = None):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization.split(" ")[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        affiliate_id = payload.get("sub")
+        
+        update_data = {}
+        if name: update_data["name"] = name
+        if telegram: update_data["telegram"] = telegram
+        
+        if update_data:
+            await db.affiliates.update_one(
+                {"affiliate_id": affiliate_id},
+                {"$set": update_data}
+            )
+        
+        return {"success": True}
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
 # Include router - MUST be at the end of file after ALL route definitions
 app.include_router(api_router)

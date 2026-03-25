@@ -68,7 +68,7 @@ export default function AffiliateHomePage() {
         {/* Header */}
         <View style={styles.header}>
           <BynixLogo />
-          <TouchableOpacity style={styles.loginBtn} onPress={() => router.push('/login')}>
+          <TouchableOpacity style={styles.loginBtn} onPress={() => router.push('/affiliate/login')}>
             <Ionicons name="log-in-outline" size={20} color="#FFF" />
           </TouchableOpacity>
         </View>
@@ -76,13 +76,13 @@ export default function AffiliateHomePage() {
         {/* Hero Section */}
         <LinearGradient colors={['#0A0E1A', '#1A1F36']} style={styles.hero}>
           <View style={styles.heroBadge}>
-            <Text style={styles.heroBadgeText}>🔥 EARN UP TO 80% COMMISSION</Text>
+            <Text style={styles.heroBadgeText}>🔥 EARN UP TO 85% COMMISSION</Text>
           </View>
           <Text style={styles.heroTitle}>Turn Your Traffic Into{'\n'}<Text style={styles.heroHighlight}>Passive Income</Text></Text>
           <Text style={styles.heroDesc}>
             Join 368K+ partners earning millions weekly. No limits, instant tracking, weekly payouts.
           </Text>
-          <TouchableOpacity style={styles.heroBtn} onPress={() => router.push('/register')}>
+          <TouchableOpacity style={styles.heroBtn} onPress={() => router.push('/affiliate/login')}>
             <LinearGradient colors={['#00E55A', '#00C94D']} style={styles.heroBtnGradient}>
               <Text style={styles.heroBtnText}>START EARNING NOW</Text>
               <Ionicons name="arrow-forward" size={20} color="#000" />
