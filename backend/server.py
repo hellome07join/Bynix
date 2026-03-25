@@ -5177,5 +5177,695 @@ async def admin_get_affiliate_stats(authorization: Optional[str] = Header(None),
         "pending_payouts": pending_payouts
     }
 
+# ============= ADVANCED USER MANAGEMENT SYSTEM =============
+
+@api_router.get("/admin/users/detailed")
+async def get_detailed_users(
+    search: str = None,
+    status: str = None,
+    country: str = None,
+    min_balance: float = None,
+    max_balance: float = None,
+    profit_status: str = None,  # profitable, losing, neutral
+    segment: str = None,  # vip, high_risk, new, inactive
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    limit: int = 50,
+    offset: int = 0,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get users with advanced filtering"""
+    admin = await get_current_user(authorization, request)
+    
+    # Build query
+    query = {}
+    
+    if search:
+        query["$or"] = [
+            {"email": {"$regex": search, "$options": "i"}},
+            {"name": {"$regex": search, "$options": "i"}},
+            {"full_name": {"$regex": search, "$options": "i"}},
+            {"account_id": {"$regex": search, "$options": "i"}},
+            {"user_id": {"$regex": search, "$options": "i"}}
+        ]
+    
+    if status:
+        query["account_status"] = status
+    
+    if country:
+        query["country"] = country
+    
+    if min_balance is not None:
+        query["real_balance"] = {"$gte": min_balance}
+    
+    if max_balance is not None:
+        if "real_balance" in query:
+            query["real_balance"]["$lte"] = max_balance
+        else:
+            query["real_balance"] = {"$lte": max_balance}
+    
+    # Sorting
+    sort_dir = -1 if sort_order == "desc" else 1
+    
+    users = await db.users.find(query).sort(sort_by, sort_dir).skip(offset).limit(limit).to_list(limit)
+    total_count = await db.users.count_documents(query)
+    
+    result = []
+    for u in users:
+        # Get trading stats
+        trades = await db.trades.find({"user_id": u.get("user_id"), "account_type": "real"}).to_list(1000)
+        total_trades = len(trades)
+        won_trades = len([t for t in trades if t.get("status") == "won"])
+        lost_trades = len([t for t in trades if t.get("status") == "lost"])
+        total_profit = sum(t.get("profit_loss", 0) for t in trades if t.get("status") in ["won", "lost"])
+        win_rate = (won_trades / total_trades * 100) if total_trades > 0 else 0
+        
+        # Get deposit/withdrawal totals
+        deposits = await db.deposits.find({"user_id": u.get("user_id"), "status": "completed"}).to_list(100)
+        withdrawals = await db.withdrawals.find({"user_id": u.get("user_id"), "status": "completed"}).to_list(100)
+        total_deposited = sum(d.get("amount_usd", 0) for d in deposits)
+        total_withdrawn = sum(w.get("amount", 0) for w in withdrawals)
+        
+        # Filter by profit status
+        if profit_status:
+            if profit_status == "profitable" and total_profit <= 0:
+                continue
+            if profit_status == "losing" and total_profit >= 0:
+                continue
+        
+        # Filter by segment
+        if segment:
+            if segment == "vip" and u.get("tier") != "vip":
+                continue
+            if segment == "high_risk" and u.get("risk_level") not in ["high", "critical"]:
+                continue
+            if segment == "new":
+                created = u.get("created_at")
+                if created and (datetime.now(timezone.utc) - created).days > 7:
+                    continue
+        
+        result.append({
+            "user_id": u.get("user_id"),
+            "email": u.get("email"),
+            "name": u.get("name") or u.get("full_name"),
+            "account_id": u.get("account_id"),
+            "country": u.get("country", "Unknown"),
+            "country_flag": u.get("country_flag", "🌍"),
+            "phone": u.get("phone"),
+            "account_status": u.get("account_status", "active"),
+            "is_verified": u.get("is_verified", False),
+            "kyc_status": u.get("kyc_status", "pending"),
+            "tier": u.get("tier", "standard"),
+            "role": u.get("role", "user"),
+            "balances": {
+                "real": u.get("real_balance", 0),
+                "demo": u.get("demo_balance", 10000),
+                "bonus": u.get("bonus_balance", 0),
+                "locked": u.get("locked_balance", 0)
+            },
+            "trading_stats": {
+                "total_trades": total_trades,
+                "won_trades": won_trades,
+                "lost_trades": lost_trades,
+                "win_rate": round(win_rate, 1),
+                "net_profit": round(total_profit, 2)
+            },
+            "financial_stats": {
+                "total_deposited": total_deposited,
+                "total_withdrawn": total_withdrawn,
+                "net_deposit": total_deposited - total_withdrawn
+            },
+            "risk_level": u.get("risk_level", "normal"),
+            "risk_score": u.get("risk_score", 0),
+            "is_shadow_banned": u.get("is_shadow_banned", False),
+            "is_flagged": u.get("is_flagged", False),
+            "last_login": str(u.get("last_login", "")),
+            "created_at": str(u.get("created_at", ""))
+        })
+    
+    return {
+        "users": result,
+        "total": total_count,
+        "limit": limit,
+        "offset": offset
+    }
+
+@api_router.get("/admin/users/{user_id}/full-profile")
+async def get_user_full_profile(
+    user_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get complete user profile with all details"""
+    admin = await get_current_user(authorization, request)
+    
+    user = await db.users.find_one({"user_id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Trading data
+    trades = await db.trades.find({"user_id": user_id}).sort("created_at", -1).to_list(500)
+    real_trades = [t for t in trades if t.get("account_type") == "real"]
+    
+    total_trades = len(real_trades)
+    won_trades = len([t for t in real_trades if t.get("status") == "won"])
+    lost_trades = len([t for t in real_trades if t.get("status") == "lost"])
+    total_profit = sum(t.get("profit_loss", 0) for t in real_trades if t.get("status") in ["won", "lost"])
+    total_volume = sum(t.get("amount", 0) for t in real_trades)
+    avg_trade_size = total_volume / total_trades if total_trades > 0 else 0
+    win_rate = (won_trades / total_trades * 100) if total_trades > 0 else 0
+    
+    # Financial data
+    deposits = await db.deposits.find({"user_id": user_id}).sort("created_at", -1).to_list(100)
+    withdrawals = await db.withdrawals.find({"user_id": user_id}).sort("created_at", -1).to_list(100)
+    
+    total_deposited = sum(d.get("amount_usd", 0) for d in deposits if d.get("status") == "completed")
+    total_withdrawn = sum(w.get("amount", 0) for w in withdrawals if w.get("status") == "completed")
+    pending_withdrawals = sum(w.get("amount", 0) for w in withdrawals if w.get("status") == "pending")
+    
+    # Activity logs
+    user_logs = await db.user_activity_logs.find({"user_id": user_id}).sort("timestamp", -1).limit(50).to_list(50)
+    
+    # Admin notes
+    admin_notes = await db.admin_notes.find({"user_id": user_id}).sort("created_at", -1).to_list(20)
+    
+    # Calculate risk score
+    risk_score = 30  # Base
+    if total_profit > total_deposited * 0.5:
+        risk_score += 20  # Highly profitable
+    if win_rate > 65:
+        risk_score += 15  # High win rate
+    if total_volume > 50000:
+        risk_score += 10  # High volume
+    if user.get("is_flagged"):
+        risk_score += 20
+    risk_score = min(100, max(0, risk_score))
+    
+    # Recent trades for chart
+    recent_trades = [
+        {
+            "trade_id": t.get("trade_id"),
+            "asset": t.get("asset"),
+            "amount": t.get("amount"),
+            "direction": t.get("direction"),
+            "status": t.get("status"),
+            "profit_loss": t.get("profit_loss", 0),
+            "created_at": str(t.get("created_at", ""))
+        }
+        for t in trades[:20]
+    ]
+    
+    # Recent deposits
+    recent_deposits = [
+        {
+            "amount": d.get("amount_usd"),
+            "method": d.get("payment_type", "crypto"),
+            "status": d.get("status"),
+            "created_at": str(d.get("created_at", ""))
+        }
+        for d in deposits[:10]
+    ]
+    
+    # Recent withdrawals
+    recent_withdrawals = [
+        {
+            "amount": w.get("amount"),
+            "method": w.get("method", "crypto"),
+            "status": w.get("status"),
+            "wallet": w.get("wallet_address", "")[:20] + "..." if w.get("wallet_address") else "",
+            "created_at": str(w.get("created_at", ""))
+        }
+        for w in withdrawals[:10]
+    ]
+    
+    return {
+        "user_id": user.get("user_id"),
+        "account_id": user.get("account_id"),
+        "email": user.get("email"),
+        "name": user.get("name") or user.get("full_name"),
+        "phone": user.get("phone"),
+        "country": user.get("country", "Unknown"),
+        "country_flag": user.get("country_flag", "🌍"),
+        "timezone": user.get("timezone", "UTC"),
+        "registration_ip": user.get("registration_ip"),
+        "last_ip": user.get("last_ip"),
+        "account_status": user.get("account_status", "active"),
+        "is_verified": user.get("is_verified", False),
+        "kyc_status": user.get("kyc_status", "pending"),
+        "kyc_documents": user.get("kyc_documents", []),
+        "tier": user.get("tier", "standard"),
+        "role": user.get("role", "user"),
+        "two_factor_enabled": user.get("two_factor_enabled", False),
+        "balances": {
+            "real": user.get("real_balance", 0),
+            "demo": user.get("demo_balance", 10000),
+            "bonus": user.get("bonus_balance", 0),
+            "locked": user.get("locked_balance", 0)
+        },
+        "trading_summary": {
+            "total_trades": total_trades,
+            "won_trades": won_trades,
+            "lost_trades": lost_trades,
+            "win_rate": round(win_rate, 1),
+            "total_volume": round(total_volume, 2),
+            "avg_trade_size": round(avg_trade_size, 2),
+            "net_profit": round(total_profit, 2)
+        },
+        "financial_summary": {
+            "total_deposited": total_deposited,
+            "total_withdrawn": total_withdrawn,
+            "pending_withdrawals": pending_withdrawals,
+            "net_deposit": total_deposited - total_withdrawn
+        },
+        "risk_profile": {
+            "risk_score": risk_score,
+            "risk_level": user.get("risk_level", "normal"),
+            "is_flagged": user.get("is_flagged", False),
+            "is_shadow_banned": user.get("is_shadow_banned", False),
+            "flag_reason": user.get("flag_reason"),
+            "win_rate_modifier": user.get("win_rate_modifier", 100),
+            "payout_modifier": user.get("payout_modifier", 100),
+            "max_trade_amount": user.get("max_trade_amount"),
+            "withdrawal_locked": user.get("withdrawal_locked", False)
+        },
+        "admin_notes": [
+            {
+                "note": n.get("note"),
+                "admin_id": n.get("admin_id"),
+                "created_at": str(n.get("created_at", ""))
+            }
+            for n in admin_notes
+        ],
+        "recent_trades": recent_trades,
+        "recent_deposits": recent_deposits,
+        "recent_withdrawals": recent_withdrawals,
+        "activity_logs": [
+            {
+                "action": l.get("action"),
+                "details": l.get("details"),
+                "ip": l.get("ip"),
+                "timestamp": str(l.get("timestamp", ""))
+            }
+            for l in user_logs[:20]
+        ],
+        "last_login": str(user.get("last_login", "")),
+        "created_at": str(user.get("created_at", ""))
+    }
+
+@api_router.post("/admin/users/{user_id}/status")
+async def update_user_status(
+    user_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Update user account status (active/suspended/banned)"""
+    admin = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    status = body.get("status")  # active, suspended, restricted, banned
+    reason = body.get("reason", "")
+    
+    if status not in ["active", "suspended", "restricted", "banned"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    await db.users.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {
+                "account_status": status,
+                "status_reason": reason,
+                "status_updated_at": datetime.now(timezone.utc),
+                "status_updated_by": admin.user_id
+            }
+        }
+    )
+    
+    await db.admin_logs.insert_one({
+        "action": "user_status_change",
+        "admin_id": admin.user_id,
+        "target_user_id": user_id,
+        "details": {"status": status, "reason": reason},
+        "timestamp": datetime.now(timezone.utc)
+    })
+    
+    return {"success": True, "status": status}
+
+@api_router.post("/admin/users/{user_id}/adjust-balance")
+async def admin_adjust_balance(
+    user_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Adjust user balance (add/remove)"""
+    admin = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    amount = float(body.get("amount", 0))
+    balance_type = body.get("balance_type", "real")  # real, demo, bonus
+    operation = body.get("operation", "add")  # add, remove
+    reason = body.get("reason", "Admin adjustment")
+    
+    field_map = {"real": "real_balance", "demo": "demo_balance", "bonus": "bonus_balance"}
+    field = field_map.get(balance_type, "real_balance")
+    
+    if operation == "remove":
+        amount = -abs(amount)
+    else:
+        amount = abs(amount)
+    
+    result = await db.users.update_one(
+        {"user_id": user_id},
+        {"$inc": {field: amount}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Log the adjustment
+    await db.balance_adjustments.insert_one({
+        "adjustment_id": f"adj_{uuid.uuid4().hex[:12]}",
+        "user_id": user_id,
+        "admin_id": admin.user_id,
+        "amount": amount,
+        "balance_type": balance_type,
+        "reason": reason,
+        "created_at": datetime.now(timezone.utc)
+    })
+    
+    await db.admin_logs.insert_one({
+        "action": "balance_adjustment",
+        "admin_id": admin.user_id,
+        "target_user_id": user_id,
+        "details": {"amount": amount, "balance_type": balance_type, "reason": reason},
+        "timestamp": datetime.now(timezone.utc)
+    })
+    
+    return {"success": True, "amount_adjusted": amount}
+
+@api_router.post("/admin/users/{user_id}/lock-withdrawals")
+async def lock_user_withdrawals(
+    user_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Lock/unlock user withdrawals"""
+    admin = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    locked = body.get("locked", True)
+    reason = body.get("reason", "")
+    
+    await db.users.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {
+                "withdrawal_locked": locked,
+                "withdrawal_lock_reason": reason,
+                "withdrawal_locked_at": datetime.now(timezone.utc) if locked else None,
+                "withdrawal_locked_by": admin.user_id if locked else None
+            }
+        }
+    )
+    
+    await db.admin_logs.insert_one({
+        "action": "withdrawal_lock",
+        "admin_id": admin.user_id,
+        "target_user_id": user_id,
+        "details": {"locked": locked, "reason": reason},
+        "timestamp": datetime.now(timezone.utc)
+    })
+    
+    return {"success": True, "withdrawal_locked": locked}
+
+@api_router.post("/admin/users/{user_id}/tier")
+async def set_user_tier(
+    user_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Set user tier (standard/vip/premium)"""
+    admin = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    tier = body.get("tier", "standard")
+    
+    if tier not in ["standard", "vip", "premium"]:
+        raise HTTPException(status_code=400, detail="Invalid tier")
+    
+    await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {"tier": tier}}
+    )
+    
+    await db.admin_logs.insert_one({
+        "action": "tier_change",
+        "admin_id": admin.user_id,
+        "target_user_id": user_id,
+        "details": {"tier": tier},
+        "timestamp": datetime.now(timezone.utc)
+    })
+    
+    return {"success": True, "tier": tier}
+
+@api_router.post("/admin/users/{user_id}/notes")
+async def add_user_note(
+    user_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Add admin note to user"""
+    admin = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    note = body.get("note", "")
+    
+    if not note:
+        raise HTTPException(status_code=400, detail="Note cannot be empty")
+    
+    await db.admin_notes.insert_one({
+        "note_id": f"note_{uuid.uuid4().hex[:12]}",
+        "user_id": user_id,
+        "admin_id": admin.user_id,
+        "note": note,
+        "created_at": datetime.now(timezone.utc)
+    })
+    
+    return {"success": True}
+
+@api_router.post("/admin/users/{user_id}/kyc/verify")
+async def verify_user_kyc(
+    user_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Verify or reject user KYC"""
+    admin = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    status = body.get("status")  # verified, rejected
+    reason = body.get("reason", "")
+    
+    if status not in ["verified", "rejected"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    await db.users.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {
+                "kyc_status": status,
+                "kyc_verified_at": datetime.now(timezone.utc) if status == "verified" else None,
+                "kyc_rejected_reason": reason if status == "rejected" else None,
+                "kyc_verified_by": admin.user_id
+            }
+        }
+    )
+    
+    await db.admin_logs.insert_one({
+        "action": "kyc_verification",
+        "admin_id": admin.user_id,
+        "target_user_id": user_id,
+        "details": {"status": status, "reason": reason},
+        "timestamp": datetime.now(timezone.utc)
+    })
+    
+    return {"success": True, "kyc_status": status}
+
+@api_router.post("/admin/users/{user_id}/force-logout")
+async def force_logout_user(
+    user_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Force logout user from all sessions"""
+    admin = await get_current_user(authorization, request)
+    
+    # Invalidate all user sessions
+    await db.user_sessions.delete_many({"user_id": user_id})
+    
+    # Update user record
+    await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {"force_logout_at": datetime.now(timezone.utc)}}
+    )
+    
+    await db.admin_logs.insert_one({
+        "action": "force_logout",
+        "admin_id": admin.user_id,
+        "target_user_id": user_id,
+        "timestamp": datetime.now(timezone.utc)
+    })
+    
+    return {"success": True, "message": "User logged out from all sessions"}
+
+@api_router.get("/admin/users/{user_id}/trades")
+async def get_user_trades(
+    user_id: str,
+    limit: int = 100,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get user's trade history"""
+    admin = await get_current_user(authorization, request)
+    
+    trades = await db.trades.find({"user_id": user_id}).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    return {
+        "trades": [
+            {
+                "trade_id": t.get("trade_id"),
+                "asset": t.get("asset"),
+                "amount": t.get("amount"),
+                "direction": t.get("direction"),
+                "status": t.get("status"),
+                "entry_price": t.get("entry_price"),
+                "exit_price": t.get("exit_price"),
+                "profit_loss": t.get("profit_loss", 0),
+                "payout_percentage": t.get("payout_percentage"),
+                "account_type": t.get("account_type"),
+                "admin_override": t.get("admin_override", False),
+                "created_at": str(t.get("created_at", ""))
+            }
+            for t in trades
+        ]
+    }
+
+@api_router.get("/admin/users/{user_id}/transactions")
+async def get_user_transactions(
+    user_id: str,
+    limit: int = 100,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get user's transaction history"""
+    admin = await get_current_user(authorization, request)
+    
+    deposits = await db.deposits.find({"user_id": user_id}).sort("created_at", -1).limit(limit).to_list(limit)
+    withdrawals = await db.withdrawals.find({"user_id": user_id}).sort("created_at", -1).limit(limit).to_list(limit)
+    adjustments = await db.balance_adjustments.find({"user_id": user_id}).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    return {
+        "deposits": [
+            {
+                "amount": d.get("amount_usd"),
+                "method": d.get("payment_type"),
+                "status": d.get("status"),
+                "transaction_id": d.get("transaction_id") or d.get("deposit_id"),
+                "created_at": str(d.get("created_at", ""))
+            }
+            for d in deposits
+        ],
+        "withdrawals": [
+            {
+                "amount": w.get("amount"),
+                "method": w.get("method"),
+                "status": w.get("status"),
+                "wallet_address": w.get("wallet_address"),
+                "created_at": str(w.get("created_at", ""))
+            }
+            for w in withdrawals
+        ],
+        "adjustments": [
+            {
+                "amount": a.get("amount"),
+                "balance_type": a.get("balance_type"),
+                "reason": a.get("reason"),
+                "admin_id": a.get("admin_id"),
+                "created_at": str(a.get("created_at", ""))
+            }
+            for a in adjustments
+        ]
+    }
+
+@api_router.post("/admin/users/bulk-action")
+async def bulk_user_action(
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Perform bulk action on multiple users"""
+    admin = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    user_ids = body.get("user_ids", [])
+    action = body.get("action")  # suspend, activate, flag, unlag
+    reason = body.get("reason", "Bulk action")
+    
+    if not user_ids:
+        raise HTTPException(status_code=400, detail="No users selected")
+    
+    update = {}
+    if action == "suspend":
+        update = {"account_status": "suspended", "status_reason": reason}
+    elif action == "activate":
+        update = {"account_status": "active", "status_reason": ""}
+    elif action == "flag":
+        update = {"is_flagged": True, "flag_reason": reason}
+    elif action == "unflag":
+        update = {"is_flagged": False, "flag_reason": ""}
+    else:
+        raise HTTPException(status_code=400, detail="Invalid action")
+    
+    result = await db.users.update_many(
+        {"user_id": {"$in": user_ids}},
+        {"$set": update}
+    )
+    
+    await db.admin_logs.insert_one({
+        "action": f"bulk_{action}",
+        "admin_id": admin.user_id,
+        "details": {"user_ids": user_ids, "reason": reason, "count": result.modified_count},
+        "timestamp": datetime.now(timezone.utc)
+    })
+    
+    return {"success": True, "affected_count": result.modified_count}
+
+@api_router.get("/admin/users/segments")
+async def get_user_segments(authorization: Optional[str] = Header(None), request: Request = None):
+    """Get user segment counts"""
+    admin = await get_current_user(authorization, request)
+    
+    total = await db.users.count_documents({})
+    active = await db.users.count_documents({"account_status": "active"})
+    suspended = await db.users.count_documents({"account_status": "suspended"})
+    vip = await db.users.count_documents({"tier": "vip"})
+    verified = await db.users.count_documents({"is_verified": True})
+    flagged = await db.users.count_documents({"is_flagged": True})
+    shadow_banned = await db.users.count_documents({"is_shadow_banned": True})
+    
+    # New users (last 7 days)
+    week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    new_users = await db.users.count_documents({"created_at": {"$gte": week_ago}})
+    
+    return {
+        "total": total,
+        "active": active,
+        "suspended": suspended,
+        "vip": vip,
+        "verified": verified,
+        "flagged": flagged,
+        "shadow_banned": shadow_banned,
+        "new_users_7d": new_users
+    }
+
 # Include router - MUST be at the end of file after ALL route definitions
 app.include_router(api_router)
