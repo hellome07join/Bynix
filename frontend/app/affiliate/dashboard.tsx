@@ -67,6 +67,9 @@ export default function AffiliateDashboard() {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showLevelsModal, setShowLevelsModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [showMyAccountModal, setShowMyAccountModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showHelpCenterModal, setShowHelpCenterModal] = useState(false);
   
   // Data
   const [affiliate, setAffiliate] = useState<any>(null);
@@ -242,6 +245,21 @@ export default function AffiliateDashboard() {
   const ProfileDropdown = () => {
     if (!showProfileMenu) return null;
     
+    const handleMyAccount = () => {
+      setShowProfileMenu(false);
+      setShowMyAccountModal(true);
+    };
+    
+    const handleSettings = () => {
+      setShowProfileMenu(false);
+      setShowSettingsModal(true);
+    };
+    
+    const handleHelpCenter = () => {
+      setShowProfileMenu(false);
+      setShowHelpCenterModal(true);
+    };
+    
     return (
       <Pressable style={styles.dropdownOverlay} onPress={() => setShowProfileMenu(false)}>
         <View style={styles.profileDropdown}>
@@ -254,11 +272,11 @@ export default function AffiliateDashboard() {
             <Text style={styles.profileName}>{affiliate?.name}</Text>
             <Text style={styles.profileEmail}>{affiliate?.email}</Text>
             <View style={styles.profileIdBadge}>
-              <Text style={styles.profileId}>ID: {affiliate?.ref_code}</Text>
+              <Text style={styles.profileId}>ID: {affiliate?.ref_code || links?.[0]?.code || 'BYN00000'}</Text>
             </View>
           </View>
           
-          <TouchableOpacity style={styles.profileMenuItem} onPress={() => setShowProfileMenu(false)}>
+          <TouchableOpacity style={styles.profileMenuItem} onPress={handleMyAccount}>
             <View style={[styles.profileMenuIconWrap, { backgroundColor: COLORS.accentLight }]}>
               <Ionicons name="person-outline" size={16} color={COLORS.accent} />
             </View>
@@ -266,7 +284,7 @@ export default function AffiliateDashboard() {
             <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.profileMenuItem} onPress={() => setShowProfileMenu(false)}>
+          <TouchableOpacity style={styles.profileMenuItem} onPress={handleSettings}>
             <View style={[styles.profileMenuIconWrap, { backgroundColor: COLORS.purpleLight }]}>
               <Ionicons name="settings-outline" size={16} color={COLORS.purple} />
             </View>
@@ -274,7 +292,7 @@ export default function AffiliateDashboard() {
             <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.profileMenuItem} onPress={() => setShowProfileMenu(false)}>
+          <TouchableOpacity style={styles.profileMenuItem} onPress={handleHelpCenter}>
             <View style={[styles.profileMenuIconWrap, { backgroundColor: COLORS.warningLight }]}>
               <Ionicons name="help-circle-outline" size={16} color={COLORS.warning} />
             </View>
@@ -2260,6 +2278,301 @@ export default function AffiliateDashboard() {
       <BottomNav />
       <LevelsModal />
       
+      {/* My Account Modal */}
+      <Modal visible={showMyAccountModal} transparent animationType="slide">
+        <View style={styles.fullModalOverlay}>
+          <View style={styles.fullModalContent}>
+            <View style={styles.fullModalHeader}>
+              <TouchableOpacity onPress={() => setShowMyAccountModal(false)} style={styles.modalBackBtn}>
+                <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+              <Text style={styles.fullModalTitle}>My Account</Text>
+              <View style={{ width: 24 }} />
+            </View>
+            
+            <ScrollView style={styles.fullModalBody}>
+              {/* Profile Header */}
+              <View style={styles.accountProfileSection}>
+                <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={styles.accountAvatar}>
+                  <Text style={styles.accountAvatarText}>{affiliate?.name?.charAt(0) || 'A'}</Text>
+                </LinearGradient>
+                <Text style={styles.accountName}>{affiliate?.name || 'Affiliate'}</Text>
+                <Text style={styles.accountEmail}>{affiliate?.email}</Text>
+                <View style={styles.accountIdBadge}>
+                  <Text style={styles.accountIdText}>ID: {affiliate?.ref_code || links?.[0]?.code || 'BYN00000'}</Text>
+                </View>
+              </View>
+              
+              {/* Account Info */}
+              <View style={styles.accountInfoCard}>
+                <Text style={styles.accountInfoTitle}>Account Information</Text>
+                
+                <View style={styles.accountInfoRow}>
+                  <Text style={styles.accountInfoLabel}>Full Name</Text>
+                  <Text style={styles.accountInfoValue}>{affiliate?.name || 'N/A'}</Text>
+                </View>
+                
+                <View style={styles.accountInfoRow}>
+                  <Text style={styles.accountInfoLabel}>Email</Text>
+                  <Text style={styles.accountInfoValue}>{affiliate?.email || 'N/A'}</Text>
+                </View>
+                
+                <View style={styles.accountInfoRow}>
+                  <Text style={styles.accountInfoLabel}>Affiliate ID</Text>
+                  <Text style={styles.accountInfoValue}>{affiliate?.ref_code || links?.[0]?.code || 'N/A'}</Text>
+                </View>
+                
+                <View style={styles.accountInfoRow}>
+                  <Text style={styles.accountInfoLabel}>Level</Text>
+                  <Text style={[styles.accountInfoValue, { color: COLORS.primary }]}>
+                    {LEVELS.find(l => l.level === (affiliate?.level || 1))?.name || 'Starter'}
+                  </Text>
+                </View>
+                
+                <View style={styles.accountInfoRow}>
+                  <Text style={styles.accountInfoLabel}>Member Since</Text>
+                  <Text style={styles.accountInfoValue}>
+                    {affiliate?.created_at ? new Date(affiliate.created_at).toLocaleDateString() : 'N/A'}
+                  </Text>
+                </View>
+              </View>
+              
+              {/* Stats Overview */}
+              <View style={styles.accountStatsCard}>
+                <Text style={styles.accountInfoTitle}>Performance Overview</Text>
+                
+                <View style={styles.accountStatsGrid}>
+                  <View style={styles.accountStatItem}>
+                    <Text style={styles.accountStatValue}>{formatMoney(affiliate?.total_earnings || 0)}</Text>
+                    <Text style={styles.accountStatLabel}>Total Earnings</Text>
+                  </View>
+                  <View style={styles.accountStatItem}>
+                    <Text style={styles.accountStatValue}>{affiliate?.total_ftds || 0}</Text>
+                    <Text style={styles.accountStatLabel}>Total FTDs</Text>
+                  </View>
+                  <View style={styles.accountStatItem}>
+                    <Text style={styles.accountStatValue}>{dashboardData?.registrations || 0}</Text>
+                    <Text style={styles.accountStatLabel}>Registrations</Text>
+                  </View>
+                  <View style={styles.accountStatItem}>
+                    <Text style={styles.accountStatValue}>{links?.length || 0}</Text>
+                    <Text style={styles.accountStatLabel}>Active Links</Text>
+                  </View>
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+      
+      {/* Settings Modal */}
+      <Modal visible={showSettingsModal} transparent animationType="slide">
+        <View style={styles.fullModalOverlay}>
+          <View style={styles.fullModalContent}>
+            <View style={styles.fullModalHeader}>
+              <TouchableOpacity onPress={() => setShowSettingsModal(false)} style={styles.modalBackBtn}>
+                <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+              <Text style={styles.fullModalTitle}>Settings</Text>
+              <View style={{ width: 24 }} />
+            </View>
+            
+            <ScrollView style={styles.fullModalBody}>
+              {/* Notification Settings */}
+              <View style={styles.settingsSection}>
+                <Text style={styles.settingsSectionTitle}>Notifications</Text>
+                
+                <View style={styles.settingsRow}>
+                  <View style={styles.settingsRowLeft}>
+                    <Ionicons name="mail-outline" size={20} color={COLORS.primary} />
+                    <View style={styles.settingsRowText}>
+                      <Text style={styles.settingsRowTitle}>Email Notifications</Text>
+                      <Text style={styles.settingsRowDesc}>Receive updates via email</Text>
+                    </View>
+                  </View>
+                  <View style={styles.settingsToggle}>
+                    <View style={[styles.toggleTrack, { backgroundColor: COLORS.primary }]}>
+                      <View style={[styles.toggleThumb, { right: 2 }]} />
+                    </View>
+                  </View>
+                </View>
+                
+                <View style={styles.settingsRow}>
+                  <View style={styles.settingsRowLeft}>
+                    <Ionicons name="notifications-outline" size={20} color={COLORS.accent} />
+                    <View style={styles.settingsRowText}>
+                      <Text style={styles.settingsRowTitle}>Push Notifications</Text>
+                      <Text style={styles.settingsRowDesc}>Get instant alerts</Text>
+                    </View>
+                  </View>
+                  <View style={styles.settingsToggle}>
+                    <View style={[styles.toggleTrack, { backgroundColor: COLORS.primary }]}>
+                      <View style={[styles.toggleThumb, { right: 2 }]} />
+                    </View>
+                  </View>
+                </View>
+              </View>
+              
+              {/* Payment Settings */}
+              <View style={styles.settingsSection}>
+                <Text style={styles.settingsSectionTitle}>Payment</Text>
+                
+                <TouchableOpacity style={styles.settingsRow}>
+                  <View style={styles.settingsRowLeft}>
+                    <Ionicons name="wallet-outline" size={20} color={COLORS.warning} />
+                    <View style={styles.settingsRowText}>
+                      <Text style={styles.settingsRowTitle}>Withdrawal Methods</Text>
+                      <Text style={styles.settingsRowDesc}>Manage payout options</Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={COLORS.textMuted} />
+                </TouchableOpacity>
+                
+                <TouchableOpacity style={styles.settingsRow}>
+                  <View style={styles.settingsRowLeft}>
+                    <Ionicons name="card-outline" size={20} color={COLORS.purple} />
+                    <View style={styles.settingsRowText}>
+                      <Text style={styles.settingsRowTitle}>Bank Details</Text>
+                      <Text style={styles.settingsRowDesc}>Add/Update bank information</Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              </View>
+              
+              {/* Security Settings */}
+              <View style={styles.settingsSection}>
+                <Text style={styles.settingsSectionTitle}>Security</Text>
+                
+                <TouchableOpacity style={styles.settingsRow}>
+                  <View style={styles.settingsRowLeft}>
+                    <Ionicons name="lock-closed-outline" size={20} color={COLORS.danger} />
+                    <View style={styles.settingsRowText}>
+                      <Text style={styles.settingsRowTitle}>Change Password</Text>
+                      <Text style={styles.settingsRowDesc}>Update your password</Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={COLORS.textMuted} />
+                </TouchableOpacity>
+                
+                <TouchableOpacity style={styles.settingsRow}>
+                  <View style={styles.settingsRowLeft}>
+                    <Ionicons name="shield-checkmark-outline" size={20} color={COLORS.primary} />
+                    <View style={styles.settingsRowText}>
+                      <Text style={styles.settingsRowTitle}>Two-Factor Auth</Text>
+                      <Text style={styles.settingsRowDesc}>Enhanced security</Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+      
+      {/* Help Center Modal */}
+      <Modal visible={showHelpCenterModal} transparent animationType="slide">
+        <View style={styles.fullModalOverlay}>
+          <View style={styles.fullModalContent}>
+            <View style={styles.fullModalHeader}>
+              <TouchableOpacity onPress={() => setShowHelpCenterModal(false)} style={styles.modalBackBtn}>
+                <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+              <Text style={styles.fullModalTitle}>Help Center</Text>
+              <View style={{ width: 24 }} />
+            </View>
+            
+            <ScrollView style={styles.fullModalBody}>
+              {/* Search */}
+              <View style={styles.helpSearchBox}>
+                <Ionicons name="search" size={20} color={COLORS.textMuted} />
+                <TextInput 
+                  style={styles.helpSearchInput}
+                  placeholder="Search for help..."
+                  placeholderTextColor={COLORS.textMuted}
+                />
+              </View>
+              
+              {/* FAQ Categories */}
+              <View style={styles.helpSection}>
+                <Text style={styles.helpSectionTitle}>Frequently Asked Questions</Text>
+                
+                <TouchableOpacity style={styles.helpFaqItem}>
+                  <View style={[styles.helpFaqIcon, { backgroundColor: COLORS.primaryLight }]}>
+                    <Ionicons name="cash-outline" size={20} color={COLORS.primary} />
+                  </View>
+                  <View style={styles.helpFaqText}>
+                    <Text style={styles.helpFaqTitle}>How do commissions work?</Text>
+                    <Text style={styles.helpFaqDesc}>Learn about RevShare & Turnover models</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+                </TouchableOpacity>
+                
+                <TouchableOpacity style={styles.helpFaqItem}>
+                  <View style={[styles.helpFaqIcon, { backgroundColor: COLORS.accentLight }]}>
+                    <Ionicons name="wallet-outline" size={20} color={COLORS.accent} />
+                  </View>
+                  <View style={styles.helpFaqText}>
+                    <Text style={styles.helpFaqTitle}>When can I withdraw?</Text>
+                    <Text style={styles.helpFaqDesc}>Withdrawal rules and minimum amounts</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+                </TouchableOpacity>
+                
+                <TouchableOpacity style={styles.helpFaqItem}>
+                  <View style={[styles.helpFaqIcon, { backgroundColor: COLORS.warningLight }]}>
+                    <Ionicons name="trending-up-outline" size={20} color={COLORS.warning} />
+                  </View>
+                  <View style={styles.helpFaqText}>
+                    <Text style={styles.helpFaqTitle}>How to level up?</Text>
+                    <Text style={styles.helpFaqDesc}>Requirements for each affiliate level</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+                </TouchableOpacity>
+                
+                <TouchableOpacity style={styles.helpFaqItem}>
+                  <View style={[styles.helpFaqIcon, { backgroundColor: COLORS.purpleLight }]}>
+                    <Ionicons name="link-outline" size={20} color={COLORS.purple} />
+                  </View>
+                  <View style={styles.helpFaqText}>
+                    <Text style={styles.helpFaqTitle}>Creating referral links</Text>
+                    <Text style={styles.helpFaqDesc}>Set up and track your links</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              </View>
+              
+              {/* Contact Support */}
+              <View style={styles.helpSection}>
+                <Text style={styles.helpSectionTitle}>Need More Help?</Text>
+                
+                <View style={styles.helpContactCard}>
+                  <Ionicons name="headset" size={32} color={COLORS.primary} />
+                  <Text style={styles.helpContactTitle}>Contact Support</Text>
+                  <Text style={styles.helpContactDesc}>Our team is available 24/7 to assist you</Text>
+                  <TouchableOpacity style={styles.helpContactBtn}>
+                    <Ionicons name="chatbubbles-outline" size={18} color="#fff" />
+                    <Text style={styles.helpContactBtnText}>Start Chat</Text>
+                  </TouchableOpacity>
+                </View>
+                
+                <View style={styles.helpContactMethods}>
+                  <TouchableOpacity style={styles.helpContactMethod}>
+                    <Ionicons name="mail-outline" size={20} color={COLORS.accent} />
+                    <Text style={styles.helpContactMethodText}>Email Support</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.helpContactMethod}>
+                    <Ionicons name="logo-telegram" size={20} color={COLORS.accent} />
+                    <Text style={styles.helpContactMethodText}>Telegram</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+      
       {/* Toast Notification */}
       {toast.visible && (
         <View style={styles.toastContainer}>
@@ -2751,4 +3064,62 @@ const styles = StyleSheet.create({
   traderCommissionLabel: { fontSize: 10, color: COLORS.textMuted, fontWeight: '600', marginBottom: 4 },
   traderCommissionValue: { fontSize: 18, fontWeight: '700' },
   traderCommissionNote: { fontSize: 9, color: COLORS.textMuted, marginTop: 4, textAlign: 'center' },
+  
+  // Full Screen Modal Styles
+  fullModalOverlay: { flex: 1, backgroundColor: COLORS.bg },
+  fullModalContent: { flex: 1, backgroundColor: COLORS.white },
+  fullModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  modalBackBtn: { padding: 4 },
+  fullModalTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text },
+  fullModalBody: { flex: 1, padding: 20 },
+  
+  // My Account Styles
+  accountProfileSection: { alignItems: 'center', paddingVertical: 24, borderBottomWidth: 1, borderBottomColor: COLORS.border, marginBottom: 20 },
+  accountAvatar: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  accountAvatarText: { fontSize: 32, fontWeight: '700', color: '#fff' },
+  accountName: { fontSize: 20, fontWeight: '700', color: COLORS.text },
+  accountEmail: { fontSize: 14, color: COLORS.textMuted, marginTop: 4 },
+  accountIdBadge: { backgroundColor: COLORS.primaryLight, paddingHorizontal: 16, paddingVertical: 6, borderRadius: 16, marginTop: 12 },
+  accountIdText: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
+  accountInfoCard: { backgroundColor: COLORS.white, borderRadius: 16, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: COLORS.border },
+  accountInfoTitle: { fontSize: 16, fontWeight: '700', color: COLORS.text, marginBottom: 16 },
+  accountInfoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  accountInfoLabel: { fontSize: 14, color: COLORS.textMuted },
+  accountInfoValue: { fontSize: 14, fontWeight: '600', color: COLORS.text },
+  accountStatsCard: { backgroundColor: COLORS.primaryLight, borderRadius: 16, padding: 20 },
+  accountStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
+  accountStatItem: { width: '50%', paddingVertical: 12 },
+  accountStatValue: { fontSize: 20, fontWeight: '700', color: COLORS.primary },
+  accountStatLabel: { fontSize: 12, color: COLORS.textSecondary, marginTop: 4 },
+  
+  // Settings Styles
+  settingsSection: { marginBottom: 24 },
+  settingsSectionTitle: { fontSize: 14, fontWeight: '700', color: COLORS.textMuted, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
+  settingsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: COLORS.white, paddingVertical: 16, paddingHorizontal: 16, borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: COLORS.border },
+  settingsRowLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  settingsRowText: { marginLeft: 12, flex: 1 },
+  settingsRowTitle: { fontSize: 14, fontWeight: '600', color: COLORS.text },
+  settingsRowDesc: { fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
+  settingsToggle: { marginLeft: 8 },
+  toggleTrack: { width: 44, height: 24, borderRadius: 12, justifyContent: 'center', position: 'relative' },
+  toggleThumb: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff', position: 'absolute' },
+  
+  // Help Center Styles
+  helpSearchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.cardLight, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, marginBottom: 24 },
+  helpSearchInput: { flex: 1, marginLeft: 12, fontSize: 14, color: COLORS.text },
+  helpSection: { marginBottom: 24 },
+  helpSectionTitle: { fontSize: 16, fontWeight: '700', color: COLORS.text, marginBottom: 16 },
+  helpFaqItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, padding: 16, borderRadius: 12, marginBottom: 10, borderWidth: 1, borderColor: COLORS.border },
+  helpFaqIcon: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  helpFaqText: { flex: 1, marginLeft: 14 },
+  helpFaqTitle: { fontSize: 14, fontWeight: '600', color: COLORS.text },
+  helpFaqDesc: { fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
+  helpContactCard: { backgroundColor: COLORS.primaryLight, borderRadius: 16, padding: 24, alignItems: 'center', marginBottom: 16 },
+  helpContactTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text, marginTop: 12 },
+  helpContactDesc: { fontSize: 13, color: COLORS.textSecondary, marginTop: 4, textAlign: 'center' },
+  helpContactBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primary, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 24, marginTop: 16 },
+  helpContactBtnText: { fontSize: 14, fontWeight: '700', color: '#fff', marginLeft: 8 },
+  helpContactMethods: { flexDirection: 'row', justifyContent: 'center', gap: 16 },
+  helpContactMethod: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border },
+  helpContactMethodText: { fontSize: 13, fontWeight: '600', color: COLORS.text, marginLeft: 8 },
 });
