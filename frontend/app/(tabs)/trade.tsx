@@ -92,6 +92,7 @@ export default function Trade() {
   const [apiPayouts, setApiPayouts] = useState<Record<string, number>>({});
   const [inactiveAssets, setInactiveAssets] = useState<Set<string>>(new Set());
   const [isTradingEnabled, setIsTradingEnabled] = useState(true);
+  const [dbAssets, setDbAssets] = useState<any[]>([]); // Assets from database
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showToolsModal, setShowToolsModal] = useState(false);
@@ -574,6 +575,54 @@ export default function Trade() {
     }
   };
 
+  // Helper function to get icon for asset category
+  const getCategoryIcon = (category: string, symbol: string) => {
+    // Forex icons based on currency
+    if (category === 'forex') {
+      if (symbol?.includes('EUR')) return '🇪🇺';
+      if (symbol?.includes('GBP')) return '🇬🇧';
+      if (symbol?.includes('USD')) return '🇺🇸';
+      if (symbol?.includes('JPY')) return '🇯🇵';
+      if (symbol?.includes('AUD')) return '🇦🇺';
+      if (symbol?.includes('NZD')) return '🇳🇿';
+      if (symbol?.includes('CAD')) return '🇨🇦';
+      if (symbol?.includes('CHF')) return '🇨🇭';
+      return '💱';
+    }
+    // Crypto icons
+    if (category === 'crypto') {
+      if (symbol?.includes('BTC')) return '₿';
+      if (symbol?.includes('ETH')) return 'Ξ';
+      if (symbol?.includes('BNB')) return '🔶';
+      if (symbol?.includes('XRP')) return '✕';
+      if (symbol?.includes('DOGE')) return '🐕';
+      if (symbol?.includes('SOL')) return '◎';
+      if (symbol?.includes('ADA')) return '₳';
+      return '🪙';
+    }
+    // Stock icons
+    if (category === 'stocks') {
+      if (symbol?.includes('AAPL')) return '🍎';
+      if (symbol?.includes('TSLA')) return '⚡';
+      if (symbol?.includes('GOOGL')) return '🔍';
+      if (symbol?.includes('AMZN')) return '📦';
+      if (symbol?.includes('MSFT')) return '🪟';
+      if (symbol?.includes('META')) return '👤';
+      if (symbol?.includes('NVDA')) return '🎮';
+      if (symbol?.includes('NFLX')) return '🎬';
+      return '📈';
+    }
+    // Commodities icons
+    if (category === 'commodities') {
+      if (symbol?.includes('XAU') || symbol?.includes('GOLD')) return '🥇';
+      if (symbol?.includes('XAG') || symbol?.includes('SILVER')) return '🥈';
+      if (symbol?.includes('OIL')) return '🛢️';
+      if (symbol?.includes('GAS')) return '⛽';
+      return '💎';
+    }
+    return '📊';
+  };
+
   // Fetch trending assets
   const fetchTrendingAssets = async () => {
     try {
@@ -596,6 +645,20 @@ export default function Trade() {
         const assets = await response.json();
         const payoutMap: Record<string, number> = {};
         const inactiveSet = new Set<string>();
+        
+        // Convert database assets to format compatible with asset picker
+        const formattedAssets = assets
+          .filter((asset: any) => asset.is_active !== false)
+          .map((asset: any) => ({
+            value: asset.symbol + ' OTC',
+            label: asset.name || asset.symbol + ' OTC',
+            symbol: asset.symbol,
+            payout: asset.payout_percentage || 85,
+            category: asset.category || 'forex',
+            icon: getCategoryIcon(asset.category, asset.symbol),
+          }));
+        
+        setDbAssets(formattedAssets);
         
         assets.forEach((asset: any) => {
           // Track inactive assets
@@ -629,8 +692,7 @@ export default function Trade() {
         
         setApiPayouts(payoutMap);
         setInactiveAssets(inactiveSet);
-        console.log('Loaded payouts from API:', Object.keys(payoutMap).length, 'mappings');
-        console.log('Inactive assets:', inactiveSet.size);
+        console.log('Loaded', formattedAssets.length, 'assets from API');
       }
     } catch (error) {
       console.error('Error fetching asset payouts:', error);
@@ -701,13 +763,14 @@ export default function Trade() {
     }
   };
 
-  // Get assets for current account type
-  const currentAssets = getAssetsForAccount(accountType);
+  // Get assets - use database assets if available, fallback to hardcoded
+  const hardcodedAssets = getAssetsForAccount(accountType);
+  const currentAssets = dbAssets.length > 0 ? dbAssets : hardcodedAssets;
   
   // Get current asset data
   const currentAsset = currentAssets.find(a => a.value === selectedAsset) || currentAssets[0];
   // Use API payout if available, otherwise fallback to hardcoded payout
-  const payoutPercentage = apiPayouts[currentAsset.value] || apiPayouts[currentAsset.label] || currentAsset.payout;
+  const payoutPercentage = apiPayouts[currentAsset?.value] || apiPayouts[currentAsset?.label] || currentAsset?.payout || 85;
 
   // Calculate potential profit
   const tradeAmount = parseFloat(amount) || 0;
