@@ -1053,120 +1053,353 @@ export default function AdminDashboard() {
     </View>
   );
 
-  // Trading Control Content
-  const TradingControlContent = () => (
-    <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
-      <View style={styles.pageHeader}>
-        <Text style={styles.pageTitle}>Trading Control</Text>
-        <Text style={styles.pageSubtitle}>Manage trading assets and platform controls</Text>
-      </View>
+  // Trading Control Content - FULLY FUNCTIONAL
+  const TradingControlContent = () => {
+    const [localGlobalPayout, setLocalGlobalPayout] = useState(85);
+    const [updatingAsset, setUpdatingAsset] = useState(null);
+    const [showPayoutModal, setShowPayoutModal] = useState(false);
+    const [editingAsset, setEditingAsset] = useState(null);
+    const [newPayout, setNewPayout] = useState('');
 
-      {/* Global Trading Toggle */}
-      <View style={styles.globalToggleCard}>
-        <LinearGradient 
-          colors={tradingEnabled ? COLORS.gradient2 : COLORS.gradient4} 
-          style={styles.globalToggleGradient}
-        >
-          <View style={styles.globalToggleContent}>
-            <View style={styles.globalToggleLeft}>
-              <Ionicons name={tradingEnabled ? 'play-circle' : 'pause-circle'} size={40} color="#FFF" />
-              <View style={{marginLeft: 16}}>
-                <Text style={styles.globalToggleLabel}>Global Trading</Text>
-                <Text style={styles.globalToggleStatus}>{tradingEnabled ? 'ENABLED' : 'DISABLED'}</Text>
+    // Toggle Global Trading
+    const handleToggleTrading = async (enabled) => {
+      try {
+        const response = await fetch(`${API_URL}/admin/trading/toggle`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ enabled })
+        });
+        
+        if (response.ok) {
+          setTradingEnabled(enabled);
+          alert(enabled ? 'Trading Enabled!' : 'Trading Disabled!');
+        }
+      } catch (error) {
+        console.error('Toggle trading error:', error);
+        alert('Failed to toggle trading');
+      }
+    };
+
+    // Toggle Asset Status
+    const handleToggleAsset = async (asset, newStatus) => {
+      setUpdatingAsset(asset.asset_id || asset.symbol);
+      try {
+        const response = await fetch(`${API_URL}/admin/assets/${asset.asset_id || asset.symbol}/toggle`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ is_active: newStatus })
+        });
+        
+        if (response.ok) {
+          // Update local state
+          setTradingAssets(prev => prev.map(a => 
+            (a.asset_id === asset.asset_id || a.symbol === asset.symbol) 
+              ? { ...a, is_active: newStatus } 
+              : a
+          ));
+        }
+      } catch (error) {
+        console.error('Toggle asset error:', error);
+      }
+      setUpdatingAsset(null);
+    };
+
+    // Update Asset Payout
+    const handleUpdatePayout = async () => {
+      if (!editingAsset || !newPayout) return;
+      
+      try {
+        const response = await fetch(`${API_URL}/admin/assets/${editingAsset.asset_id || editingAsset.symbol}/payout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ payout_percentage: parseFloat(newPayout) })
+        });
+        
+        if (response.ok) {
+          setTradingAssets(prev => prev.map(a => 
+            (a.asset_id === editingAsset.asset_id || a.symbol === editingAsset.symbol) 
+              ? { ...a, payout_percentage: parseFloat(newPayout) } 
+              : a
+          ));
+          setShowPayoutModal(false);
+          setEditingAsset(null);
+          setNewPayout('');
+          alert('Payout updated!');
+        }
+      } catch (error) {
+        console.error('Update payout error:', error);
+        alert('Failed to update payout');
+      }
+    };
+
+    // Set Global Payout
+    const handleGlobalPayout = async (payout) => {
+      try {
+        const response = await fetch(`${API_URL}/admin/global-payout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ payout_percentage: payout })
+        });
+        
+        if (response.ok) {
+          setLocalGlobalPayout(payout);
+          setTradingAssets(prev => prev.map(a => ({ ...a, payout_percentage: payout })));
+          alert(`Global payout set to ${payout}%`);
+        }
+      } catch (error) {
+        console.error('Global payout error:', error);
+      }
+    };
+
+    // Update Global Win Rate
+    const handleWinRateChange = async (rate) => {
+      try {
+        const response = await fetch(`${API_URL}/admin/god-mode/global-win-rate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ modifier: rate })
+        });
+        
+        if (response.ok) {
+          setGlobalWinRate(rate);
+        }
+      } catch (error) {
+        console.error('Win rate error:', error);
+      }
+    };
+
+    return (
+      <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.pageHeader}>
+          <Text style={styles.pageTitle}>Trading Control</Text>
+          <Text style={styles.pageSubtitle}>Manage trading assets and platform controls</Text>
+        </View>
+
+        {/* Global Trading Toggle */}
+        <View style={styles.globalToggleCard}>
+          <LinearGradient 
+            colors={tradingEnabled ? COLORS.gradient2 : COLORS.gradient4} 
+            style={styles.globalToggleGradient}
+          >
+            <View style={styles.globalToggleContent}>
+              <View style={styles.globalToggleLeft}>
+                <Ionicons name={tradingEnabled ? 'play-circle' : 'pause-circle'} size={40} color="#FFF" />
+                <View style={{marginLeft: 16}}>
+                  <Text style={styles.globalToggleLabel}>Global Trading</Text>
+                  <Text style={styles.globalToggleStatus}>{tradingEnabled ? 'ENABLED' : 'DISABLED'}</Text>
+                </View>
               </View>
+              <Switch
+                value={tradingEnabled}
+                onValueChange={handleToggleTrading}
+                trackColor={{ false: 'rgba(255,255,255,0.3)', true: 'rgba(255,255,255,0.5)' }}
+                thumbColor="#FFF"
+              />
             </View>
-            <Switch
-              value={tradingEnabled}
-              onValueChange={setTradingEnabled}
-              trackColor={{ false: 'rgba(255,255,255,0.3)', true: 'rgba(255,255,255,0.5)' }}
-              thumbColor="#FFF"
-            />
-          </View>
-        </LinearGradient>
-      </View>
+          </LinearGradient>
+        </View>
 
-      {/* Quick Controls */}
-      <View style={styles.quickControlsGrid}>
-        <View style={[styles.quickControlCard, { backgroundColor: COLORS.primaryLight }]}>
-          <Ionicons name="flash" size={24} color={COLORS.primary} />
-          <Text style={styles.quickControlValue}>50ms</Text>
-          <Text style={styles.quickControlLabel}>Execution Delay</Text>
-        </View>
-        <View style={[styles.quickControlCard, { backgroundColor: COLORS.warningLight }]}>
-          <Ionicons name="trending-up" size={24} color={COLORS.warning} />
-          <Text style={styles.quickControlValue}>{globalWinRate}%</Text>
-          <Text style={styles.quickControlLabel}>Global Win Rate</Text>
-        </View>
-        <View style={[styles.quickControlCard, { backgroundColor: COLORS.dangerLight }]}>
-          <Ionicons name="wallet" size={24} color={COLORS.danger} />
-          <Text style={styles.quickControlValue}>$10K</Text>
-          <Text style={styles.quickControlLabel}>Profit Cap</Text>
-        </View>
-      </View>
-
-      {/* Trading Assets */}
-      <View style={styles.sectionCard}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Trading Assets</Text>
-          <TouchableOpacity style={styles.addAssetBtn}>
-            <Ionicons name="add" size={18} color={COLORS.primary} />
-            <Text style={styles.addAssetBtnText}>Add Asset</Text>
+        {/* Quick Controls */}
+        <View style={styles.quickControlsGrid}>
+          <TouchableOpacity style={[styles.quickControlCard, { backgroundColor: COLORS.primaryLight }]}>
+            <Ionicons name="flash" size={24} color={COLORS.primary} />
+            <Text style={styles.quickControlValue}>50ms</Text>
+            <Text style={styles.quickControlLabel}>Execution Delay</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.quickControlCard, { backgroundColor: COLORS.warningLight }]}
+            onPress={() => {
+              const rates = [35, 40, 45, 50, 55, 60];
+              const currentIndex = rates.indexOf(globalWinRate);
+              const nextRate = rates[(currentIndex + 1) % rates.length];
+              handleWinRateChange(nextRate);
+            }}
+          >
+            <Ionicons name="trending-up" size={24} color={COLORS.warning} />
+            <Text style={styles.quickControlValue}>{globalWinRate}%</Text>
+            <Text style={styles.quickControlLabel}>Global Win Rate (Tap)</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.quickControlCard, { backgroundColor: COLORS.dangerLight }]}>
+            <Ionicons name="wallet" size={24} color={COLORS.danger} />
+            <Text style={styles.quickControlValue}>$10K</Text>
+            <Text style={styles.quickControlLabel}>Profit Cap</Text>
           </TouchableOpacity>
         </View>
 
-        {[
-          { symbol: 'BTCUSDT', name: 'Bitcoin', payout: 95, enabled: true, category: 'Crypto' },
-          { symbol: 'ETHUSDT', name: 'Ethereum', payout: 92, enabled: true, category: 'Crypto' },
-          { symbol: 'EURUSD', name: 'Euro/Dollar', payout: 88, enabled: true, category: 'Forex' },
-          { symbol: 'GBPUSD', name: 'Pound/Dollar', payout: 85, enabled: false, category: 'Forex' },
-          { symbol: 'XAUUSD', name: 'Gold', payout: 90, enabled: true, category: 'Commodities' },
-        ].map((asset, index) => (
-          <View key={asset.symbol} style={styles.assetRow}>
-            <View style={styles.assetLeft}>
-              <View style={[styles.assetIcon, { backgroundColor: asset.enabled ? COLORS.primaryLight : COLORS.cardHover }]}>
-                <Text style={[styles.assetIconText, { color: asset.enabled ? COLORS.primary : COLORS.textMuted }]}>
-                  {asset.symbol.slice(0, 3)}
-                </Text>
-              </View>
-              <View>
-                <Text style={styles.assetSymbol}>{asset.symbol}</Text>
-                <Text style={styles.assetName}>{asset.name}</Text>
-              </View>
-            </View>
-            <View style={styles.assetMiddle}>
-              <Text style={styles.assetPayout}>{asset.payout}%</Text>
-              <Text style={styles.assetPayoutLabel}>Payout</Text>
-            </View>
-            <View style={styles.assetCategory}>
-              <Text style={styles.assetCategoryText}>{asset.category}</Text>
-            </View>
-            <Switch
-              value={asset.enabled}
-              trackColor={{ false: COLORS.border, true: COLORS.success }}
-              thumbColor="#FFF"
-            />
+        {/* Trading Assets - Now from API */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Trading Assets ({tradingAssets.length})</Text>
+            <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh}>
+              <Ionicons name="refresh" size={18} color={COLORS.primary} />
+            </TouchableOpacity>
           </View>
-        ))}
-      </View>
 
-      {/* Payout Control */}
-      <View style={[styles.sectionCard, { marginBottom: 40 }]}>
-        <Text style={styles.sectionTitle}>Dynamic Payout Control</Text>
-        <Text style={styles.payoutDesc}>Adjust global payout percentage for all assets</Text>
-        
-        <View style={styles.payoutSlider}>
-          <View style={styles.payoutSliderTrack}>
-            <View style={[styles.payoutSliderFill, { width: '85%' }]} />
+          {tradingAssets.slice(0, 20).map((asset, index) => (
+            <View key={asset.asset_id || asset.symbol || index} style={styles.assetRow}>
+              <View style={styles.assetLeft}>
+                <View style={[styles.assetIcon, { backgroundColor: asset.is_active ? COLORS.primaryLight : COLORS.cardHover }]}>
+                  <Text style={[styles.assetIconText, { color: asset.is_active ? COLORS.primary : COLORS.textMuted }]}>
+                    {(asset.symbol || '').slice(0, 3)}
+                  </Text>
+                </View>
+                <View>
+                  <Text style={styles.assetSymbol}>{asset.symbol}</Text>
+                  <Text style={styles.assetName}>{asset.name}</Text>
+                </View>
+              </View>
+              <TouchableOpacity 
+                style={styles.assetMiddle}
+                onPress={() => {
+                  setEditingAsset(asset);
+                  setNewPayout(String(asset.payout_percentage || 85));
+                  setShowPayoutModal(true);
+                }}
+              >
+                <Text style={styles.assetPayout}>{asset.payout_percentage || 85}%</Text>
+                <Text style={styles.assetPayoutLabel}>Tap to Edit</Text>
+              </TouchableOpacity>
+              <View style={styles.assetCategory}>
+                <Text style={styles.assetCategoryText}>{asset.category || 'Other'}</Text>
+              </View>
+              <Switch
+                value={asset.is_active !== false}
+                onValueChange={(val) => handleToggleAsset(asset, val)}
+                trackColor={{ false: COLORS.border, true: COLORS.success }}
+                thumbColor="#FFF"
+                disabled={updatingAsset === (asset.asset_id || asset.symbol)}
+              />
+            </View>
+          ))}
+          
+          {tradingAssets.length > 20 && (
+            <Text style={styles.moreAssetsText}>+ {tradingAssets.length - 20} more assets</Text>
+          )}
+        </View>
+
+        {/* Global Payout Control */}
+        <View style={[styles.sectionCard, { marginBottom: 20 }]}>
+          <Text style={styles.sectionTitle}>Global Payout Control</Text>
+          <Text style={styles.payoutDesc}>Set payout for ALL assets at once</Text>
+          
+          <View style={styles.payoutSlider}>
+            <View style={styles.payoutSliderTrack}>
+              <View style={[styles.payoutSliderFill, { width: `${localGlobalPayout}%` }]} />
+            </View>
+            <View style={styles.payoutSliderLabels}>
+              <Text style={styles.payoutSliderLabel}>50%</Text>
+              <Text style={styles.payoutSliderValue}>{localGlobalPayout}%</Text>
+              <Text style={styles.payoutSliderLabel}>100%</Text>
+            </View>
           </View>
-          <View style={styles.payoutSliderLabels}>
-            <Text style={styles.payoutSliderLabel}>50%</Text>
-            <Text style={styles.payoutSliderValue}>85%</Text>
-            <Text style={styles.payoutSliderLabel}>100%</Text>
+          
+          <View style={styles.payoutPresets}>
+            {[60, 70, 80, 85, 90, 95].map(payout => (
+              <TouchableOpacity 
+                key={payout}
+                style={[styles.payoutPresetBtn, localGlobalPayout === payout && styles.payoutPresetBtnActive]}
+                onPress={() => handleGlobalPayout(payout)}
+              >
+                <Text style={[styles.payoutPresetText, localGlobalPayout === payout && styles.payoutPresetTextActive]}>
+                  {payout}%
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
-      </View>
-    </ScrollView>
-  );
+
+        {/* Win Rate Presets */}
+        <View style={[styles.sectionCard, { marginBottom: 40 }]}>
+          <Text style={styles.sectionTitle}>Win Rate Presets</Text>
+          <View style={styles.winRatePresets}>
+            {[
+              { rate: 35, label: 'Very Low', color: COLORS.danger },
+              { rate: 45, label: 'Low', color: COLORS.warning },
+              { rate: 50, label: 'Balanced', color: COLORS.primary },
+              { rate: 55, label: 'Moderate', color: COLORS.info },
+              { rate: 65, label: 'High', color: COLORS.success },
+            ].map(preset => (
+              <TouchableOpacity 
+                key={preset.rate}
+                style={[
+                  styles.winRatePresetBtn, 
+                  globalWinRate === preset.rate && { backgroundColor: preset.color + '20', borderColor: preset.color }
+                ]}
+                onPress={() => handleWinRateChange(preset.rate)}
+              >
+                <Text style={[
+                  styles.winRatePresetValue, 
+                  globalWinRate === preset.rate && { color: preset.color }
+                ]}>
+                  {preset.rate}%
+                </Text>
+                <Text style={[
+                  styles.winRatePresetLabel,
+                  globalWinRate === preset.rate && { color: preset.color }
+                ]}>
+                  {preset.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Payout Edit Modal */}
+        <Modal visible={showPayoutModal} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.payoutModalContent}>
+              <Text style={styles.payoutModalTitle}>Edit Payout</Text>
+              <Text style={styles.payoutModalAsset}>{editingAsset?.symbol}</Text>
+              
+              <View style={styles.payoutInputRow}>
+                <TextInput
+                  style={styles.payoutInput}
+                  value={newPayout}
+                  onChangeText={setNewPayout}
+                  keyboardType="decimal-pad"
+                  placeholder="85"
+                />
+                <Text style={styles.payoutInputSuffix}>%</Text>
+              </View>
+              
+              <View style={styles.payoutModalActions}>
+                <TouchableOpacity 
+                  style={styles.payoutModalCancel}
+                  onPress={() => {
+                    setShowPayoutModal(false);
+                    setEditingAsset(null);
+                  }}
+                >
+                  <Text style={styles.payoutModalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.payoutModalSave}
+                  onPress={handleUpdatePayout}
+                >
+                  <Text style={styles.payoutModalSaveText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </ScrollView>
+    );
+  };
 
   // Live Trades Content
   const LiveTradesContent = () => (

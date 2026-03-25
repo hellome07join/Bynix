@@ -4113,6 +4113,96 @@ async def toggle_maintenance(authorization: Optional[str] = Header(None), reques
     
     return {"success": True, "maintenance_mode": enabled}
 
+# ============= ADMIN ASSET CONTROL =============
+
+@api_router.get("/admin/assets")
+async def get_admin_assets(authorization: Optional[str] = Header(None), request: Request = None):
+    """Get all assets for admin (including inactive)"""
+    user = await get_current_user(authorization, request)
+    
+    assets = await db.assets.find({}, {"_id": 0}).to_list(200)
+    return {"assets": assets}
+
+@api_router.post("/admin/assets/{asset_id}/toggle")
+async def toggle_asset_status(asset_id: str, authorization: Optional[str] = Header(None), request: Request = None):
+    """Enable/Disable an asset"""
+    user = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    is_active = body.get("is_active", True)
+    
+    result = await db.assets.update_one(
+        {"asset_id": asset_id},
+        {"$set": {"is_active": is_active}}
+    )
+    
+    if result.modified_count == 0:
+        # Try by symbol
+        result = await db.assets.update_one(
+            {"symbol": asset_id},
+            {"$set": {"is_active": is_active}}
+        )
+    
+    return {"success": True, "is_active": is_active}
+
+@api_router.post("/admin/assets/{asset_id}/payout")
+async def update_asset_payout(asset_id: str, authorization: Optional[str] = Header(None), request: Request = None):
+    """Update asset payout percentage"""
+    user = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    payout = body.get("payout_percentage", 85.0)
+    
+    result = await db.assets.update_one(
+        {"asset_id": asset_id},
+        {"$set": {"payout_percentage": payout}}
+    )
+    
+    if result.modified_count == 0:
+        result = await db.assets.update_one(
+            {"symbol": asset_id},
+            {"$set": {"payout_percentage": payout}}
+        )
+    
+    return {"success": True, "payout_percentage": payout}
+
+@api_router.post("/admin/global-payout")
+async def set_global_payout(authorization: Optional[str] = Header(None), request: Request = None):
+    """Set global payout for all assets"""
+    user = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    payout = body.get("payout_percentage", 85.0)
+    
+    await db.assets.update_many(
+        {},
+        {"$set": {"payout_percentage": payout}}
+    )
+    
+    return {"success": True, "global_payout": payout}
+
+@api_router.post("/admin/trading/toggle")
+async def toggle_global_trading(authorization: Optional[str] = Header(None), request: Request = None):
+    """Toggle global trading on/off"""
+    user = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    enabled = body.get("enabled", True)
+    
+    await db.platform_settings.update_one(
+        {"_id": "god_mode"},
+        {
+            "$set": {
+                "trading_enabled": enabled,
+                "updated_at": datetime.now(timezone.utc),
+                "updated_by": user.user_id
+            }
+        },
+        upsert=True
+    )
+    
+    return {"success": True, "trading_enabled": enabled}
+
 # ============= TRADE ENGINE CONTROL =============
 
 @api_router.get("/admin/trades/live")
