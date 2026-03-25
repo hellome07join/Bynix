@@ -348,16 +348,10 @@ export default function AdminDashboard() {
     };
     init();
     
-    // Dashboard stats & trades refresh every 10 seconds
-    const statsInterval = setInterval(() => { fetchTrades(); fetchDashboardStats(); }, 10000);
+    // All data refresh every 10 seconds
+    const interval = setInterval(() => { fetchTrades(); fetchDashboardStats(); fetchTrendingAssets(); }, 10000);
     
-    // Trending assets refresh every 2 minutes (120000 ms)
-    const trendingInterval = setInterval(() => { fetchTrendingAssets(); }, 120000);
-    
-    return () => {
-      clearInterval(statsInterval);
-      clearInterval(trendingInterval);
-    };
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => { fetchUsers(); }, [searchQuery, userFilter]);
