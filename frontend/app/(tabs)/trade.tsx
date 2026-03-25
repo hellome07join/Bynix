@@ -1878,11 +1878,17 @@ export default function Trade() {
               ))}
             </View>
             
-            {/* Asset List */}
+            {/* Asset List - Sorted by Payout (Highest First) */}
             <ScrollView style={styles.assetList} showsVerticalScrollIndicator={false}>
               {currentAssets
                 .filter(asset => asset.category === selectedCategory)
                 .filter(asset => !inactiveAssets.has(asset.value) && !inactiveAssets.has(asset.label))
+                .sort((a, b) => {
+                  // Sort by payout percentage (highest first)
+                  const payoutA = apiPayouts[a.value] || apiPayouts[a.label] || a.payout || 0;
+                  const payoutB = apiPayouts[b.value] || apiPayouts[b.label] || b.payout || 0;
+                  return payoutB - payoutA;
+                })
                 .map((asset) => (
                 <TouchableOpacity
                   key={asset.value}
