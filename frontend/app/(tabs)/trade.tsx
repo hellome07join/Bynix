@@ -88,6 +88,7 @@ export default function Trade() {
   const [timeframe, setTimeframe] = useState('1m');
   const [duration, setDuration] = useState(60);
   const [showAssetPicker, setShowAssetPicker] = useState(false);
+  const [trendingAssets, setTrendingAssets] = useState<any[]>([]);
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showToolsModal, setShowToolsModal] = useState(false);
@@ -569,6 +570,32 @@ export default function Trade() {
       console.error('Error saving tutorial status:', error);
     }
   };
+
+  // Fetch trending assets
+  const fetchTrendingAssets = async () => {
+    try {
+      const response = await fetch(`${API_URL}/market/trending?limit=10&days=7`);
+      if (response.ok) {
+        const data = await response.json();
+        setTrendingAssets(data.trending || []);
+      }
+    } catch (error) {
+      console.error('Error fetching trending assets:', error);
+    }
+  };
+
+  // Fetch trending assets on mount and when asset picker opens
+  useEffect(() => {
+    fetchTrendingAssets();
+    const interval = setInterval(fetchTrendingAssets, 30000); // Refresh every 30 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (showAssetPicker) {
+      fetchTrendingAssets();
+    }
+  }, [showAssetPicker]);
 
   const skipTutorial = async () => {
     await completeTutorial();
@@ -1705,6 +1732,46 @@ export default function Trade() {
                 <Ionicons name="close-circle" size={22} color="#666" />
               </TouchableOpacity>
             </View>
+            
+            {/* Trending Assets Section */}
+            {trendingAssets.length > 0 && (
+              <View style={styles.trendingSection}>
+                <View style={styles.trendingSectionHeader}>
+                  <Text style={styles.trendingSectionTitle}>🔥 Trending</Text>
+                  <Text style={styles.trendingSectionSubtitle}>Most traded this week</Text>
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.trendingScroll}>
+                  {trendingAssets.slice(0, 5).map((item: any, idx: number) => (
+                    <TouchableOpacity
+                      key={idx}
+                      style={[
+                        styles.trendingAssetCard,
+                        idx === 0 && styles.trendingAssetCardTop,
+                        selectedAsset === item.asset && styles.trendingAssetCardSelected
+                      ]}
+                      onPress={() => {
+                        setSelectedAsset(item.asset);
+                        setShowAssetPicker(false);
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      }}
+                    >
+                      <View style={styles.trendingRankBadge}>
+                        <Text style={styles.trendingRankText}>#{idx + 1}</Text>
+                      </View>
+                      <Text style={styles.trendingAssetName}>{item.asset}</Text>
+                      <Text style={styles.trendingAssetCategory}>{item.category?.toUpperCase()}</Text>
+                      <View style={styles.trendingAssetStats}>
+                        <Text style={styles.trendingAssetTrades}>{item.trade_count} trades</Text>
+                        <Text style={[styles.trendingAssetWinRate, { color: item.win_rate >= 50 ? '#00E55A' : '#FF4444' }]}>
+                          {item.win_rate}% WR
+                        </Text>
+                      </View>
+                      <Text style={styles.trendingAssetPayout}>{item.payout}% Payout</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
             
             {/* Category Tabs */}
             <View style={styles.categoryTabs}>
@@ -4845,6 +4912,95 @@ const styles = StyleSheet.create({
   },
   categoryTabTextActive: {
     color: '#FFFFFF',
+  },
+  // Trending Assets Styles
+  trendingSection: {
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  trendingSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  trendingSectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  trendingSectionSubtitle: {
+    fontSize: 10,
+    color: '#888',
+  },
+  trendingScroll: {
+    flexDirection: 'row',
+  },
+  trendingAssetCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    padding: 12,
+    marginRight: 10,
+    minWidth: 110,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  trendingAssetCardTop: {
+    backgroundColor: 'rgba(255, 165, 0, 0.15)',
+    borderColor: 'rgba(255, 165, 0, 0.4)',
+  },
+  trendingAssetCardSelected: {
+    backgroundColor: 'rgba(0, 229, 90, 0.15)',
+    borderColor: 'rgba(0, 229, 90, 0.5)',
+  },
+  trendingRankBadge: {
+    position: 'absolute',
+    top: -6,
+    left: 8,
+    backgroundColor: '#FF6B00',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  trendingRankText: {
+    color: '#FFF',
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  trendingAssetName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginTop: 4,
+  },
+  trendingAssetCategory: {
+    fontSize: 8,
+    color: '#888',
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  trendingAssetStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 8,
+  },
+  trendingAssetTrades: {
+    fontSize: 9,
+    color: '#AAA',
+  },
+  trendingAssetWinRate: {
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  trendingAssetPayout: {
+    fontSize: 10,
+    color: '#00E55A',
+    marginTop: 4,
+    fontWeight: '600',
   },
   assetList: {
     maxHeight: 350,

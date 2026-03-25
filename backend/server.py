@@ -6224,6 +6224,62 @@ async def get_automation_logs(
 
 # ============= TRENDING ASSETS =============
 
+@api_router.get("/market/trending")
+async def get_public_trending_assets(
+    limit: int = 10,
+    days: int = 7
+):
+    """Get trending assets for users (public endpoint)"""
+    # Get trades from last N days
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    
+    # Aggregate trades by asset
+    pipeline = [
+        {"$match": {"created_at": {"$gte": cutoff}}},
+        {"$group": {
+            "_id": "$asset",
+            "trade_count": {"$sum": 1},
+            "total_volume": {"$sum": "$amount"},
+            "win_count": {"$sum": {"$cond": [{"$eq": ["$status", "won"]}, 1, 0]}},
+            "loss_count": {"$sum": {"$cond": [{"$eq": ["$status", "lost"]}, 1, 0]}},
+            "unique_traders": {"$addToSet": "$user_id"}
+        }},
+        {"$project": {
+            "asset": "$_id",
+            "trade_count": 1,
+            "total_volume": 1,
+            "win_count": 1,
+            "loss_count": 1,
+            "unique_traders": {"$size": "$unique_traders"},
+            "win_rate": {
+                "$cond": [
+                    {"$eq": [{"$add": ["$win_count", "$loss_count"]}, 0]},
+                    0,
+                    {"$multiply": [{"$divide": ["$win_count", {"$add": ["$win_count", "$loss_count"]}]}, 100]}
+                ]
+            }
+        }},
+        {"$sort": {"trade_count": -1}},
+        {"$limit": limit}
+    ]
+    
+    trending = await db.trades.aggregate(pipeline).to_list(limit)
+    
+    result = []
+    for item in trending:
+        asset_doc = await db.assets.find_one({"symbol": item.get("asset")})
+        result.append({
+            "asset": item.get("asset"),
+            "name": asset_doc.get("name") if asset_doc else item.get("asset"),
+            "category": asset_doc.get("category") if asset_doc else "unknown",
+            "payout": asset_doc.get("payout_percentage", 80) if asset_doc else 80,
+            "trade_count": item.get("trade_count", 0),
+            "unique_traders": item.get("unique_traders", 0),
+            "win_rate": round(item.get("win_rate", 0), 1)
+        })
+    
+    return {"trending": result}
+
 @api_router.get("/admin/market/trending")
 async def get_trending_assets(
     limit: int = 10,
