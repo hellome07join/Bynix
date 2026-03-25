@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, Dimensions, ActivityIndicator, RefreshControl, TextInput, Modal, Pressable } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, Dimensions, ActivityIndicator, RefreshControl, TextInput, Modal, Pressable, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Clipboard from 'expo-clipboard';
 import { API_URL } from '../../utils/api';
 
 const { width } = Dimensions.get('window');
@@ -87,6 +88,14 @@ export default function AffiliateDashboard() {
     affiliateProgram: 'revenue_sharing',
     comment: '',
   });
+  
+  // Toast State
+  const [toast, setToast] = useState<{ visible: boolean; message: string }>({ visible: false, message: '' });
+  
+  const showToast = (message: string) => {
+    setToast({ visible: true, message });
+    setTimeout(() => setToast({ visible: false, message: '' }), 2500);
+  };
 
   const LINK_TYPES = [
     { value: 'main_page', label: 'Main page' },
@@ -544,6 +553,20 @@ export default function AffiliateDashboard() {
     // Local state for dropdown visibility to prevent conflicts
     const [localLinkTypeOpen, setLocalLinkTypeOpen] = useState(false);
     const [localProgramOpen, setLocalProgramOpen] = useState(false);
+    const [copiedCode, setCopiedCode] = useState<string | null>(null);
+    
+    const copyToClipboard = async (linkCode: string) => {
+      try {
+        const fullLink = `https://bynix.io/r/${linkCode}`;
+        await Clipboard.setStringAsync(fullLink);
+        setCopiedCode(linkCode);
+        showToast('Link copied to clipboard!');
+        setTimeout(() => setCopiedCode(null), 2000);
+      } catch (error) {
+        console.error('Failed to copy:', error);
+        showToast('Failed to copy link');
+      }
+    };
     
     const createNewLink = async () => {
       try {
@@ -578,6 +601,26 @@ export default function AffiliateDashboard() {
         return { label: 'Turnover', color: COLORS.accent, bg: COLORS.accentLight };
       }
       return { label: 'RevShare', color: COLORS.primary, bg: COLORS.primaryLight };
+    };
+
+    const handleLinkTypePress = () => {
+      setLocalLinkTypeOpen(!localLinkTypeOpen);
+      setLocalProgramOpen(false);
+    };
+
+    const handleProgramPress = () => {
+      setLocalProgramOpen(!localProgramOpen);
+      setLocalLinkTypeOpen(false);
+    };
+
+    const selectLinkType = (value: string) => {
+      setNewLinkForm({...newLinkForm, linkType: value});
+      setLocalLinkTypeOpen(false);
+    };
+
+    const selectProgram = (value: string) => {
+      setNewLinkForm({...newLinkForm, affiliateProgram: value});
+      setLocalProgramOpen(false);
     };
 
     return (
@@ -624,6 +667,7 @@ export default function AffiliateDashboard() {
           <View style={styles.linksListContainer}>
             {links.map((link, i) => {
               const programInfo = getProgramBadge(link.program || 'revenue_sharing');
+              const isCopied = copiedCode === link.code;
               return (
                 <View key={i} style={styles.linkCardNew}>
                   {/* Link Header with Program Badge */}
@@ -636,15 +680,26 @@ export default function AffiliateDashboard() {
                     </View>
                   </View>
                   
-                  {/* Link URL - Domain: bynix.io */}
+                  {/* Link URL - Domain: bynix.io with Copy */}
                   <View style={styles.linkUrlContainer}>
                     <Text style={styles.linkUrlLabel}>Referral Link</Text>
-                    <TouchableOpacity style={styles.linkUrlBoxNew}>
-                      <Text style={styles.linkUrlTextNew} numberOfLines={1}>bynix.io/r/{link.code}</Text>
-                      <View style={styles.copyBtnNew}>
-                        <Ionicons name="copy-outline" size={18} color={COLORS.primary} />
+                    <TouchableOpacity 
+                      style={[styles.linkUrlBoxNew, isCopied && styles.linkUrlBoxCopied]} 
+                      onPress={() => copyToClipboard(link.code)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.linkUrlTextNew} numberOfLines={1} selectable>
+                        bynix.io/r/{link.code}
+                      </Text>
+                      <View style={[styles.copyBtnNew, isCopied && styles.copyBtnCopied]}>
+                        <Ionicons 
+                          name={isCopied ? "checkmark" : "copy-outline"} 
+                          size={18} 
+                          color={isCopied ? COLORS.white : COLORS.primary} 
+                        />
                       </View>
                     </TouchableOpacity>
+                    {isCopied && <Text style={styles.copiedText}>Link copied!</Text>}
                   </View>
                   
                   {/* Link Type & Comment Row */}
@@ -688,65 +743,71 @@ export default function AffiliateDashboard() {
           </View>
         )}
         
-        {/* New Link Modal - Completely Separate */}
-        <Modal visible={showNewLinkModal} transparent animationType="slide" onRequestClose={() => { setShowNewLinkModal(false); closeAllDropdowns(); }}>
+        {/* New Link Modal - Fixed Structure */}
+        <Modal 
+          visible={showNewLinkModal} 
+          transparent 
+          animationType="slide" 
+          onRequestClose={() => { setShowNewLinkModal(false); closeAllDropdowns(); }}
+        >
           <View style={styles.modalOverlay}>
-            <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => { setShowNewLinkModal(false); closeAllDropdowns(); }} />
+            <Pressable 
+              style={styles.modalBackdrop} 
+              onPress={() => { setShowNewLinkModal(false); closeAllDropdowns(); }} 
+            />
             <View style={styles.newLinkModalContent}>
               <Text style={styles.newLinkModalTitle}>New Link</Text>
               
               {/* Link Type Dropdown */}
               <Text style={styles.inputLabel}>Link Type</Text>
-              <TouchableOpacity 
+              <Pressable 
                 style={[styles.dropdownSelector, localLinkTypeOpen && styles.dropdownSelectorActive]} 
-                onPress={() => { setLocalLinkTypeOpen(!localLinkTypeOpen); setLocalProgramOpen(false); }}
-                activeOpacity={0.7}
+                onPress={handleLinkTypePress}
               >
                 <Text style={styles.dropdownText}>
                   {LINK_TYPES.find(t => t.value === newLinkForm.linkType)?.label}
                 </Text>
                 <Ionicons name={localLinkTypeOpen ? "chevron-up" : "chevron-down"} size={20} color={COLORS.textSecondary} />
-              </TouchableOpacity>
+              </Pressable>
               
               {localLinkTypeOpen && (
                 <View style={styles.dropdownMenu}>
                   {LINK_TYPES.map((type) => (
-                    <TouchableOpacity 
+                    <Pressable 
                       key={type.value} 
                       style={[styles.dropdownItem, newLinkForm.linkType === type.value && styles.dropdownItemActive]}
-                      onPress={() => { setNewLinkForm({...newLinkForm, linkType: type.value}); setLocalLinkTypeOpen(false); }}
+                      onPress={() => selectLinkType(type.value)}
                     >
                       {newLinkForm.linkType === type.value && <Ionicons name="checkmark" size={18} color={COLORS.primary} style={{marginRight: 8}} />}
                       <Text style={[styles.dropdownItemText, newLinkForm.linkType === type.value && styles.dropdownItemTextActive]}>{type.label}</Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   ))}
                 </View>
               )}
               
               {/* Affiliate Program Dropdown */}
               <Text style={[styles.inputLabel, { marginTop: 16 }]}>Affiliate Program</Text>
-              <TouchableOpacity 
+              <Pressable 
                 style={[styles.dropdownSelector, localProgramOpen && styles.dropdownSelectorActive]} 
-                onPress={() => { setLocalProgramOpen(!localProgramOpen); setLocalLinkTypeOpen(false); }}
-                activeOpacity={0.7}
+                onPress={handleProgramPress}
               >
                 <Text style={styles.dropdownText}>
                   {AFFILIATE_PROGRAMS.find(p => p.value === newLinkForm.affiliateProgram)?.label}
                 </Text>
                 <Ionicons name={localProgramOpen ? "chevron-up" : "chevron-down"} size={20} color={COLORS.textSecondary} />
-              </TouchableOpacity>
+              </Pressable>
               
               {localProgramOpen && (
                 <View style={styles.dropdownMenu}>
                   {AFFILIATE_PROGRAMS.map((prog) => (
-                    <TouchableOpacity 
+                    <Pressable 
                       key={prog.value} 
                       style={[styles.dropdownItem, newLinkForm.affiliateProgram === prog.value && styles.dropdownItemActive]}
-                      onPress={() => { setNewLinkForm({...newLinkForm, affiliateProgram: prog.value}); setLocalProgramOpen(false); }}
+                      onPress={() => selectProgram(prog.value)}
                     >
                       {newLinkForm.affiliateProgram === prog.value && <Ionicons name="checkmark" size={18} color={COLORS.primary} style={{marginRight: 8}} />}
                       <Text style={[styles.dropdownItemText, newLinkForm.affiliateProgram === prog.value && styles.dropdownItemTextActive]}>{prog.label}</Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   ))}
                 </View>
               )}
@@ -766,12 +827,12 @@ export default function AffiliateDashboard() {
               
               {/* Buttons */}
               <View style={styles.modalButtons}>
-                <TouchableOpacity style={styles.cancelBtn} onPress={() => { setShowNewLinkModal(false); closeAllDropdowns(); }}>
+                <Pressable style={styles.cancelBtn} onPress={() => { setShowNewLinkModal(false); closeAllDropdowns(); }}>
                   <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.saveBtn} onPress={createNewLink}>
+                </Pressable>
+                <Pressable style={styles.saveBtn} onPress={createNewLink}>
                   <Text style={styles.saveBtnText}>Save</Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
             </View>
           </View>
@@ -912,6 +973,16 @@ export default function AffiliateDashboard() {
       
       <BottomNav />
       <LevelsModal />
+      
+      {/* Toast Notification */}
+      {toast.visible && (
+        <View style={styles.toastContainer}>
+          <View style={styles.toast}>
+            <Ionicons name="checkmark-circle" size={20} color={COLORS.white} />
+            <Text style={styles.toastText}>{toast.message}</Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -1102,8 +1173,11 @@ const styles = StyleSheet.create({
   linkUrlContainer: { marginBottom: 14 },
   linkUrlLabel: { fontSize: 11, color: COLORS.textMuted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
   linkUrlBoxNew: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.cardLight, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 10 },
+  linkUrlBoxCopied: { backgroundColor: COLORS.primaryLight, borderWidth: 1, borderColor: COLORS.primary },
   linkUrlTextNew: { flex: 1, fontSize: 14, color: COLORS.primary, fontWeight: '500' },
-  copyBtnNew: { padding: 4 },
+  copyBtnNew: { padding: 8, borderRadius: 8, backgroundColor: COLORS.white },
+  copyBtnCopied: { backgroundColor: COLORS.primary },
+  copiedText: { color: COLORS.primary, fontSize: 11, marginTop: 6, fontWeight: '600' },
   
   // Link Meta Row
   linkMetaRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 },
@@ -1199,4 +1273,9 @@ const styles = StyleSheet.create({
   levelRowRight: { alignItems: 'flex-end' },
   levelRevenue: { fontSize: 18, fontWeight: '800' },
   levelTurnover: { color: COLORS.textMuted, fontSize: 10, marginTop: 2 },
+  
+  // Toast
+  toastContainer: { position: 'absolute', top: 100, left: 0, right: 0, alignItems: 'center', zIndex: 9999 },
+  toast: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primary, paddingHorizontal: 20, paddingVertical: 14, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 8 },
+  toastText: { color: COLORS.white, fontSize: 14, fontWeight: '600', marginLeft: 10 },
 });
