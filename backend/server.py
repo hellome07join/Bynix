@@ -3266,6 +3266,8 @@ async def add_chart_tick(symbol: str, authorization: Optional[str] = Header(None
             else:
                 symbol_with_slash = symbol_clean
             
+            print(f"[TRADE SEARCH] Looking for pending trades - user={user.user_id}, symbol_clean={symbol_clean}, symbol_with_slash={symbol_with_slash}")
+            
             active_trade = await db.trades.find_one({
                 "user_id": user.user_id,
                 "status": "pending",
@@ -3274,6 +3276,12 @@ async def add_chart_tick(symbol: str, authorization: Optional[str] = Header(None
                     {"asset": {"$regex": symbol_with_slash, "$options": "i"}}
                 ]
             })
+            
+            if active_trade:
+                print(f"[TRADE SEARCH] Found active trade: {active_trade.get('trade_id')} for asset {active_trade.get('asset')}")
+            else:
+                print(f"[TRADE SEARCH] No pending trade found for {symbol_clean}")
+            
             
             # If no predetermined_outcome but AI is enabled with 100%, force it
             if active_trade and not active_trade.get("predetermined_outcome") and ai_enabled and ai_win_rate >= 100:
@@ -3305,8 +3313,13 @@ async def add_chart_tick(symbol: str, authorization: Optional[str] = Header(None
     last_tick = ticks[-1]
     now = int(datetime.now(timezone.utc).timestamp())
     
+    # Handle last_tick["time"] being either int or datetime
+    last_tick_time = last_tick["time"]
+    if isinstance(last_tick_time, datetime):
+        last_tick_time = int(last_tick_time.timestamp())
+    
     # Only add new tick if at least 1 second has passed
-    if now <= last_tick["time"]:
+    if now <= last_tick_time:
         # Return the current last tick so all clients stay synced
         return {
             "message": "Synced", 
@@ -3341,11 +3354,15 @@ async def add_chart_tick(symbol: str, authorization: Optional[str] = Header(None
             else:
                 should_go_up = False
             
+            print(f"[PRICE CONTROL] 100% AI Active - trade_type={trade_type}, should_go_up={should_go_up}, entry={entry_price}, base={base_price}")
+            
             # Force price movement in winning direction
             if should_go_up:
                 change = abs(change) * 3.0  # Strong upward movement
             else:
                 change = -abs(change) * 3.0  # Strong downward movement
+            
+            print(f"[PRICE CONTROL] Applied change={change}, new_price={base_price + change}")
             
             # Ensure price is on correct side of entry
             if should_go_up and base_price + change <= entry_price:
