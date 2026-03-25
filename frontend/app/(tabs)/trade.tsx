@@ -589,7 +589,8 @@ export default function Trade() {
   // Fetch asset payouts from API (admin configured)
   const fetchAssetPayouts = async () => {
     try {
-      const response = await fetch(`${API_URL}/assets`);
+      // include_inactive=true to get ALL assets including disabled ones
+      const response = await fetch(`${API_URL}/assets?include_inactive=true`);
       if (response.ok) {
         const assets = await response.json();
         const payoutMap: Record<string, number> = {};
@@ -599,11 +600,16 @@ export default function Trade() {
           // Track inactive assets
           if (asset.is_active === false) {
             if (asset.symbol) {
-              inactiveSet.add(asset.symbol);
-              inactiveSet.add(asset.symbol + ' OTC');
+              // Add multiple formats for matching
+              inactiveSet.add(asset.symbol);           // "USD/CHF"
+              inactiveSet.add(asset.symbol + ' OTC');  // "USD/CHF OTC"
+              // Also add without slash for edge cases
+              const noSlash = asset.symbol.replace('/', '');
+              inactiveSet.add(noSlash);                // "USDCHF"
+              inactiveSet.add(noSlash + ' OTC');       // "USDCHF OTC"
             }
             if (asset.name) {
-              inactiveSet.add(asset.name);
+              inactiveSet.add(asset.name);             // "USD/CHF OTC"
             }
           }
           

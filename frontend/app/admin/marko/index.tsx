@@ -218,8 +218,8 @@ export default function AdminDashboard() {
         setAllUsers(data.users || []);
       }
       
-      // Fetch assets
-      const assetsRes = await fetch(`${API_URL}/assets`, { headers });
+      // Fetch assets (use admin endpoint to get ALL including inactive)
+      const assetsRes = await fetch(`${API_URL}/admin/assets`, { headers });
       if (assetsRes.ok) {
         const data = await assetsRes.json();
         setTradingAssets(data.assets || data || []);

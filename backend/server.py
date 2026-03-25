@@ -656,8 +656,8 @@ async def logout(request: Request):
 # ============= Trading Routes =============
 
 @api_router.get("/assets")
-async def get_assets():
-    """Get all tradeable assets"""
+async def get_assets(include_inactive: bool = False):
+    """Get all tradeable assets. Use include_inactive=true to get all assets including disabled ones."""
     # Create default assets if fewer than 60 exist (to add all new assets)
     count = await db.assets.count_documents({})
     if count < 60:
@@ -737,7 +737,11 @@ async def get_assets():
         ]
         await db.assets.insert_many(default_assets)
     
-    assets = await db.assets.find({"is_active": True}, {"_id": 0}).to_list(100)
+    # Return all assets or only active based on query param
+    if include_inactive:
+        assets = await db.assets.find({}, {"_id": 0}).to_list(200)
+    else:
+        assets = await db.assets.find({"is_active": True}, {"_id": 0}).to_list(100)
     return assets
 
 @api_router.post("/trades")
