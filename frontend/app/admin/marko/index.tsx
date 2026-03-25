@@ -12,6 +12,7 @@ import {
   Switch,
   Dimensions,
   Image,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -939,8 +940,105 @@ export default function AdminDashboard() {
     </ScrollView>
   );
 
-  // AI Control Content
-  const AIControlContent = () => (
+  // AI Control Content - FULLY FUNCTIONAL
+  const AIControlContent = () => {
+    const [aiEnabled, setAiEnabled] = useState(godModeStatus?.ai_enabled !== false);
+    const [selectedStrategy, setSelectedStrategy] = useState(godModeStatus?.ai_strategy || 'balanced');
+    const [winRate, setWinRate] = useState(godModeStatus?.ai_win_rate || 45);
+    const [marketTrend, setMarketTrend] = useState(godModeStatus?.ai_market_trend || 'sideways');
+    const [updating, setUpdating] = useState(false);
+    
+    // Auth headers using token from parent scope
+    const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+    // Update local state when godModeStatus changes
+    useEffect(() => {
+      if (godModeStatus) {
+        setAiEnabled(godModeStatus.ai_enabled !== false);
+        setSelectedStrategy(godModeStatus.ai_strategy || 'balanced');
+        setWinRate(godModeStatus.ai_win_rate || 45);
+        setMarketTrend(godModeStatus.ai_market_trend || 'sideways');
+      }
+    }, [godModeStatus]);
+
+    const handleToggleAI = async (enabled: boolean) => {
+      try {
+        setUpdating(true);
+        const response = await fetch(`${API_URL}/admin/ai/toggle`, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify({ enabled })
+        });
+        if (response.ok) {
+          setAiEnabled(enabled);
+          Alert.alert('Success', `AI System ${enabled ? 'activated' : 'deactivated'}`);
+        }
+      } catch (error) {
+        Alert.alert('Error', 'Failed to toggle AI system');
+      } finally {
+        setUpdating(false);
+      }
+    };
+
+    const handleSetStrategy = async (strategy: string) => {
+      try {
+        setUpdating(true);
+        const response = await fetch(`${API_URL}/admin/ai/strategy`, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify({ strategy })
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setSelectedStrategy(strategy);
+          setWinRate(data.ai_win_rate);
+          Alert.alert('Success', `Strategy set to ${strategy.charAt(0).toUpperCase() + strategy.slice(1)}`);
+        }
+      } catch (error) {
+        Alert.alert('Error', 'Failed to set strategy');
+      } finally {
+        setUpdating(false);
+      }
+    };
+
+    const handleSetWinRate = async (rate: number) => {
+      try {
+        setUpdating(true);
+        const response = await fetch(`${API_URL}/admin/ai/win-rate`, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify({ win_rate: rate })
+        });
+        if (response.ok) {
+          setWinRate(rate);
+        }
+      } catch (error) {
+        Alert.alert('Error', 'Failed to set win rate');
+      } finally {
+        setUpdating(false);
+      }
+    };
+
+    const handleSetMarketTrend = async (trend: string) => {
+      try {
+        setUpdating(true);
+        const response = await fetch(`${API_URL}/admin/ai/market-trend`, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify({ trend })
+        });
+        if (response.ok) {
+          setMarketTrend(trend);
+          Alert.alert('Success', `Market trend set to ${trend.charAt(0).toUpperCase() + trend.slice(1)}`);
+        }
+      } catch (error) {
+        Alert.alert('Error', 'Failed to set market trend');
+      } finally {
+        setUpdating(false);
+      }
+    };
+
+    return (
     <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
       <View style={styles.pageHeader}>
         <Text style={styles.pageTitle}>AI Trading Automation</Text>
@@ -949,7 +1047,10 @@ export default function AdminDashboard() {
 
       {/* AI Status Card */}
       <View style={styles.aiStatusCard}>
-        <LinearGradient colors={COLORS.gradient5} style={styles.aiStatusGradient}>
+        <LinearGradient 
+          colors={aiEnabled ? COLORS.gradient5 : ['#666', '#444']} 
+          style={styles.aiStatusGradient}
+        >
           <View style={styles.aiStatusContent}>
             <View style={styles.aiStatusLeft}>
               <View style={styles.aiIcon}>
@@ -957,11 +1058,13 @@ export default function AdminDashboard() {
               </View>
               <View>
                 <Text style={styles.aiStatusLabel}>AI System Status</Text>
-                <Text style={styles.aiStatusValue}>ACTIVE</Text>
+                <Text style={styles.aiStatusValue}>{aiEnabled ? 'ACTIVE' : 'INACTIVE'}</Text>
               </View>
             </View>
             <Switch
-              value={true}
+              value={aiEnabled}
+              onValueChange={handleToggleAI}
+              disabled={updating}
               trackColor={{ false: 'rgba(255,255,255,0.3)', true: 'rgba(255,255,255,0.5)' }}
               thumbColor="#FFF"
             />
@@ -978,13 +1081,18 @@ export default function AdminDashboard() {
             { id: 'balanced', label: 'Balanced', desc: 'Moderate risk/reward', icon: 'options', color: COLORS.primary },
             { id: 'aggressive', label: 'Aggressive', desc: 'Higher risk, max profits', icon: 'flash', color: COLORS.danger },
           ].map((strategy) => (
-            <TouchableOpacity key={strategy.id} style={[styles.strategyCard, strategy.id === 'balanced' && styles.strategyCardActive]}>
+            <TouchableOpacity 
+              key={strategy.id} 
+              style={[styles.strategyCard, selectedStrategy === strategy.id && styles.strategyCardActive]}
+              onPress={() => handleSetStrategy(strategy.id)}
+              disabled={updating}
+            >
               <View style={[styles.strategyIcon, { backgroundColor: strategy.color + '15' }]}>
                 <Ionicons name={strategy.icon} size={24} color={strategy.color} />
               </View>
               <Text style={styles.strategyLabel}>{strategy.label}</Text>
               <Text style={styles.strategyDesc}>{strategy.desc}</Text>
-              {strategy.id === 'balanced' && (
+              {selectedStrategy === strategy.id && (
                 <View style={styles.activeIndicator}>
                   <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
                 </View>
@@ -998,11 +1106,11 @@ export default function AdminDashboard() {
       <View style={styles.sectionCard}>
         <View style={styles.controlHeader}>
           <Text style={styles.sectionTitle}>Win Rate Control</Text>
-          <Text style={styles.controlValue}>45%</Text>
+          <Text style={styles.controlValue}>{winRate}%</Text>
         </View>
         <View style={styles.sliderContainer}>
           <View style={styles.sliderTrack}>
-            <View style={[styles.sliderFill, { width: '45%', backgroundColor: COLORS.primary }]} />
+            <View style={[styles.sliderFill, { width: `${winRate}%`, backgroundColor: COLORS.primary }]} />
           </View>
           <View style={styles.sliderLabels}>
             <Text style={styles.sliderLabel}>0%</Text>
@@ -1011,12 +1119,14 @@ export default function AdminDashboard() {
           </View>
         </View>
         <View style={styles.presetButtons}>
-          {['25%', '35%', '45%', '55%', '65%'].map((preset) => (
+          {[25, 35, 45, 55, 65].map((preset) => (
             <TouchableOpacity 
               key={preset} 
-              style={[styles.presetBtn, preset === '45%' && styles.presetBtnActive]}
+              style={[styles.presetBtn, winRate === preset && styles.presetBtnActive]}
+              onPress={() => handleSetWinRate(preset)}
+              disabled={updating}
             >
-              <Text style={[styles.presetBtnText, preset === '45%' && styles.presetBtnTextActive]}>{preset}</Text>
+              <Text style={[styles.presetBtnText, winRate === preset && styles.presetBtnTextActive]}>{preset}%</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -1033,16 +1143,22 @@ export default function AdminDashboard() {
           ].map((trend) => (
             <TouchableOpacity 
               key={trend.id} 
-              style={[styles.trendBtn, trend.id === 'sideways' && { backgroundColor: trend.color + '15', borderColor: trend.color }]}
+              style={[
+                styles.trendBtn, 
+                marketTrend === trend.id && { backgroundColor: trend.color + '15', borderColor: trend.color }
+              ]}
+              onPress={() => handleSetMarketTrend(trend.id)}
+              disabled={updating}
             >
-              <Ionicons name={trend.icon} size={20} color={trend.id === 'sideways' ? trend.color : COLORS.textMuted} />
-              <Text style={[styles.trendBtnText, trend.id === 'sideways' && { color: trend.color }]}>{trend.label}</Text>
+              <Ionicons name={trend.icon} size={20} color={marketTrend === trend.id ? trend.color : COLORS.textMuted} />
+              <Text style={[styles.trendBtnText, marketTrend === trend.id && { color: trend.color }]}>{trend.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
       </View>
     </ScrollView>
-  );
+    );
+  };
 
   // Placeholder content for other menus
   const PlaceholderContent = ({ title }) => (

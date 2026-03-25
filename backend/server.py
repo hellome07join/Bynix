@@ -3981,8 +3981,111 @@ async def get_god_mode_status(authorization: Optional[str] = Header(None), reque
         "maintenance_mode": settings.get("maintenance_mode", False),
         "emergency_message": settings.get("emergency_message", ""),
         "updated_at": str(settings.get("updated_at", "")),
-        "updated_by": settings.get("updated_by")
+        "updated_by": settings.get("updated_by"),
+        # AI Automation settings
+        "ai_enabled": settings.get("ai_enabled", True),
+        "ai_strategy": settings.get("ai_strategy", "balanced"),  # conservative, balanced, aggressive
+        "ai_win_rate": settings.get("ai_win_rate", 45),  # 0-100
+        "ai_market_trend": settings.get("ai_market_trend", "sideways")  # bullish, sideways, bearish
     }
+
+@api_router.post("/admin/ai/toggle")
+async def toggle_ai_system(authorization: Optional[str] = Header(None), request: Request = None):
+    """Toggle AI trading system on/off"""
+    user = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    enabled = body.get("enabled", True)
+    
+    await db.platform_settings.update_one(
+        {"_id": "god_mode"},
+        {
+            "$set": {
+                "ai_enabled": enabled,
+                "updated_at": datetime.now(timezone.utc),
+                "updated_by": user.user_id
+            }
+        },
+        upsert=True
+    )
+    
+    return {"success": True, "ai_enabled": enabled}
+
+@api_router.post("/admin/ai/strategy")
+async def set_ai_strategy(authorization: Optional[str] = Header(None), request: Request = None):
+    """Set AI trading strategy preset"""
+    user = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    strategy = body.get("strategy", "balanced")  # conservative, balanced, aggressive
+    
+    # Set corresponding win rate based on strategy
+    strategy_win_rates = {
+        "conservative": 35,
+        "balanced": 45,
+        "aggressive": 55
+    }
+    win_rate = strategy_win_rates.get(strategy, 45)
+    
+    await db.platform_settings.update_one(
+        {"_id": "god_mode"},
+        {
+            "$set": {
+                "ai_strategy": strategy,
+                "ai_win_rate": win_rate,
+                "updated_at": datetime.now(timezone.utc),
+                "updated_by": user.user_id
+            }
+        },
+        upsert=True
+    )
+    
+    return {"success": True, "ai_strategy": strategy, "ai_win_rate": win_rate}
+
+@api_router.post("/admin/ai/win-rate")
+async def set_ai_win_rate(authorization: Optional[str] = Header(None), request: Request = None):
+    """Set AI win rate control"""
+    user = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    win_rate = body.get("win_rate", 45)
+    win_rate = max(0, min(100, win_rate))  # Clamp between 0-100
+    
+    await db.platform_settings.update_one(
+        {"_id": "god_mode"},
+        {
+            "$set": {
+                "ai_win_rate": win_rate,
+                "updated_at": datetime.now(timezone.utc),
+                "updated_by": user.user_id
+            }
+        },
+        upsert=True
+    )
+    
+    return {"success": True, "ai_win_rate": win_rate}
+
+@api_router.post("/admin/ai/market-trend")
+async def set_ai_market_trend(authorization: Optional[str] = Header(None), request: Request = None):
+    """Set AI market trend simulation"""
+    user = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    trend = body.get("trend", "sideways")  # bullish, sideways, bearish
+    
+    await db.platform_settings.update_one(
+        {"_id": "god_mode"},
+        {
+            "$set": {
+                "ai_market_trend": trend,
+                "updated_at": datetime.now(timezone.utc),
+                "updated_by": user.user_id
+            }
+        },
+        upsert=True
+    )
+    
+    return {"success": True, "ai_market_trend": trend}
 
 @api_router.post("/admin/god-mode/kill-switch")
 async def toggle_kill_switch(authorization: Optional[str] = Header(None), request: Request = None):
