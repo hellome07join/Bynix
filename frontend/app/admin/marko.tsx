@@ -302,10 +302,15 @@ export default function AdminDashboard() {
 
   const fetchAssets = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/admin/assets`, { headers: { 'Authorization': `Bearer ${token}` } });
-      if (res.ok) setAssets((await res.json()).assets || []);
+      // Use public assets API (no auth required)
+      const res = await fetch(`${API_URL}/assets`);
+      if (res.ok) {
+        const data = await res.json();
+        // Public API returns array directly, admin API returns {assets: []}
+        setAssets(Array.isArray(data) ? data : data.assets || []);
+      }
     } catch (e) { console.error(e); }
-  }, [token]);
+  }, []);
 
   // Automation Engine Fetching
   const fetchAutomationRules = useCallback(async () => {
@@ -733,6 +738,29 @@ export default function AdminDashboard() {
             <View style={styles.page}>
               <Text style={styles.sectionTitle}>💹 Market Control</Text>
               
+              {/* Available Assets */}
+              <View style={styles.marketSection}>
+                <Text style={styles.marketSubtitle}>Trading Assets ({assets.length})</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.assetScroll}>
+                  {assets.map((a: any) => (
+                    <TouchableOpacity 
+                      key={a.asset_id} 
+                      style={[styles.assetChip, priceForm.asset === a.symbol && styles.assetChipActive]}
+                      onPress={() => {
+                        setPriceForm({...priceForm, asset: a.symbol});
+                        setSpikeForm({...spikeForm, asset: a.symbol});
+                        setShadowForm({...shadowForm, asset: a.symbol});
+                      }}
+                    >
+                      <Text style={[styles.assetChipText, priceForm.asset === a.symbol && styles.assetChipTextActive]}>
+                        {a.symbol}
+                      </Text>
+                      <Text style={styles.assetChipCategory}>{a.category}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+              
               {/* Active Manipulations */}
               <View style={styles.marketSection}>
                 <Text style={styles.marketSubtitle}>Active Price Injections ({marketStatus?.active_injections?.length || 0})</Text>
@@ -756,11 +784,9 @@ export default function AdminDashboard() {
               {/* Price Injection Form */}
               <View style={styles.marketSection}>
                 <Text style={styles.marketSubtitle}>Inject Price</Text>
+                <Text style={styles.selectedAsset}>Selected: <Text style={styles.selectedAssetValue}>{priceForm.asset}</Text></Text>
                 <View style={styles.formRow}>
-                  <TextInput style={[styles.formInput, { flex: 1 }]} placeholder="Asset (e.g. BTCUSD)" value={priceForm.asset} onChangeText={(t) => setPriceForm({...priceForm, asset: t})} />
                   <TextInput style={[styles.formInput, { flex: 1 }]} placeholder="Price" keyboardType="numeric" value={String(priceForm.price)} onChangeText={(t) => setPriceForm({...priceForm, price: parseFloat(t) || 0})} />
-                </View>
-                <View style={styles.formRow}>
                   <TextInput style={[styles.formInput, { flex: 1 }]} placeholder="Duration (sec)" keyboardType="numeric" value={String(priceForm.duration)} onChangeText={(t) => setPriceForm({...priceForm, duration: parseInt(t) || 60})} />
                   <TouchableOpacity style={styles.injectBtn} onPress={injectPrice}>
                     <Text style={styles.injectBtnText}>INJECT</Text>
@@ -771,17 +797,17 @@ export default function AdminDashboard() {
               {/* Price Spike */}
               <View style={styles.marketSection}>
                 <Text style={styles.marketSubtitle}>Trigger Price Spike</Text>
+                <Text style={styles.selectedAsset}>Selected: <Text style={styles.selectedAssetValue}>{spikeForm.asset}</Text></Text>
                 <View style={styles.formRow}>
-                  <TextInput style={[styles.formInput, { flex: 1 }]} placeholder="Asset" value={spikeForm.asset} onChangeText={(t) => setSpikeForm({...spikeForm, asset: t})} />
                   <TouchableOpacity style={[styles.dirBtn, spikeForm.direction === 'up' && styles.dirBtnActive]} onPress={() => setSpikeForm({...spikeForm, direction: 'up'})}>
                     <Ionicons name="trending-up" size={18} color={spikeForm.direction === 'up' ? '#FFF' : '#00D4AA'} />
+                    <Text style={[styles.dirBtnText, spikeForm.direction === 'up' && { color: '#FFF' }]}>UP</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.dirBtn, spikeForm.direction === 'down' && styles.dirBtnActiveDown]} onPress={() => setSpikeForm({...spikeForm, direction: 'down'})}>
                     <Ionicons name="trending-down" size={18} color={spikeForm.direction === 'down' ? '#FFF' : '#FF3B30'} />
+                    <Text style={[styles.dirBtnText, spikeForm.direction === 'down' && { color: '#FFF' }]}>DOWN</Text>
                   </TouchableOpacity>
-                </View>
-                <View style={styles.formRow}>
-                  <TextInput style={[styles.formInput, { flex: 1 }]} placeholder="Percentage" keyboardType="numeric" value={String(spikeForm.percentage)} onChangeText={(t) => setSpikeForm({...spikeForm, percentage: parseFloat(t) || 5})} />
+                  <TextInput style={[styles.formInput, { flex: 1 }]} placeholder="%" keyboardType="numeric" value={String(spikeForm.percentage)} onChangeText={(t) => setSpikeForm({...spikeForm, percentage: parseFloat(t) || 5})} />
                   <TouchableOpacity style={styles.spikeBtn} onPress={triggerSpike}>
                     <Text style={styles.spikeBtnText}>SPIKE</Text>
                   </TouchableOpacity>
@@ -791,6 +817,7 @@ export default function AdminDashboard() {
               {/* Shadow Prices */}
               <View style={styles.marketSection}>
                 <Text style={styles.marketSubtitle}>Shadow Prices ({marketStatus?.shadow_prices?.length || 0})</Text>
+                <Text style={styles.shadowDesc}>Show different prices to specific users</Text>
                 {marketStatus?.shadow_prices?.length > 0 && (
                   marketStatus.shadow_prices.map((s: any, idx: number) => (
                     <View key={idx} style={styles.shadowCard}>
@@ -804,11 +831,9 @@ export default function AdminDashboard() {
                     </View>
                   ))
                 )}
+                <Text style={styles.selectedAsset}>Asset: <Text style={styles.selectedAssetValue}>{shadowForm.asset}</Text></Text>
                 <View style={styles.formRow}>
-                  <TextInput style={[styles.formInput, { flex: 1 }]} placeholder="User ID" value={shadowForm.user_id} onChangeText={(t) => setShadowForm({...shadowForm, user_id: t})} />
-                </View>
-                <View style={styles.formRow}>
-                  <TextInput style={[styles.formInput, { flex: 1 }]} placeholder="Asset" value={shadowForm.asset} onChangeText={(t) => setShadowForm({...shadowForm, asset: t})} />
+                  <TextInput style={[styles.formInput, { flex: 2 }]} placeholder="User ID" value={shadowForm.user_id} onChangeText={(t) => setShadowForm({...shadowForm, user_id: t})} />
                   <TextInput style={[styles.formInput, { flex: 1 }]} placeholder="Price" keyboardType="numeric" value={String(shadowForm.price)} onChangeText={(t) => setShadowForm({...shadowForm, price: parseFloat(t) || 0})} />
                 </View>
                 <TouchableOpacity style={styles.shadowBtn} onPress={setShadowPrice}>
@@ -1415,17 +1440,27 @@ const styles = StyleSheet.create({
   // Market Control Styles
   marketSection: { backgroundColor: '#FFF', borderRadius: 12, padding: 16, marginBottom: 12 },
   marketSubtitle: { fontSize: 14, fontWeight: '600', color: '#1A1F36', marginBottom: 12 },
+  assetScroll: { marginBottom: 8 },
+  assetChip: { backgroundColor: '#F6F9FC', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10, marginRight: 8, alignItems: 'center', minWidth: 80, borderWidth: 2, borderColor: 'transparent' },
+  assetChipActive: { backgroundColor: '#635BFF', borderColor: '#4A42E8' },
+  assetChipText: { fontSize: 13, fontWeight: '700', color: '#1A1F36' },
+  assetChipTextActive: { color: '#FFF' },
+  assetChipCategory: { fontSize: 9, color: '#8898AA', marginTop: 2, textTransform: 'uppercase' },
+  selectedAsset: { fontSize: 12, color: '#8898AA', marginBottom: 8 },
+  selectedAssetValue: { fontWeight: '700', color: '#635BFF' },
+  shadowDesc: { fontSize: 11, color: '#8898AA', marginBottom: 8, fontStyle: 'italic' },
+  dirBtnText: { fontSize: 10, fontWeight: '600', color: '#8898AA', marginTop: 2 },
   injectionCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFF3E0', padding: 12, borderRadius: 8, marginBottom: 8 },
   injInfo: { flex: 1 },
   injAsset: { fontSize: 14, fontWeight: '700', color: '#1A1F36' },
   injPrice: { fontSize: 12, color: '#8898AA' },
   clearBtn: { padding: 8 },
   noData: { fontSize: 12, color: '#8898AA', fontStyle: 'italic' },
-  formRow: { flexDirection: 'row', marginBottom: 8 },
+  formRow: { flexDirection: 'row', marginBottom: 8, alignItems: 'center' },
   formInput: { backgroundColor: '#F6F9FC', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 12, fontSize: 13, marginRight: 8 },
   injectBtn: { backgroundColor: '#AF52DE', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, justifyContent: 'center' },
   injectBtnText: { color: '#FFF', fontSize: 12, fontWeight: '700' },
-  dirBtn: { width: 40, height: 40, borderRadius: 8, backgroundColor: '#F6F9FC', justifyContent: 'center', alignItems: 'center', marginLeft: 8 },
+  dirBtn: { flexDirection: 'column', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, backgroundColor: '#F6F9FC', justifyContent: 'center', alignItems: 'center', marginRight: 8 },
   dirBtnActive: { backgroundColor: '#00D4AA' },
   dirBtnActiveDown: { backgroundColor: '#FF3B30' },
   spikeBtn: { backgroundColor: '#FF6B6B', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, justifyContent: 'center' },
