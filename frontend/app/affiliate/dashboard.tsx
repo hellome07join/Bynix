@@ -486,6 +486,11 @@ export default function AffiliateDashboard() {
       { key: 'countries', label: 'Countries', icon: 'globe-outline' },
     ];
     
+    // Search state for Trader ID
+    const [traderSearchQuery, setTraderSearchQuery] = React.useState('');
+    const [searchedTrader, setSearchedTrader] = React.useState<any>(null);
+    const [isSearching, setIsSearching] = React.useState(false);
+    
     // Sample data - will be replaced with real API data
     const datesData = statisticsData?.daily_stats || [];
     const tradersData = statisticsData?.traders || [];
@@ -499,6 +504,55 @@ export default function AffiliateDashboard() {
     };
     
     const getTotalPages = (data: any[]) => Math.ceil(data.length / STATS_PER_PAGE);
+    
+    // Search trader by ID
+    const handleTraderSearch = () => {
+      if (!traderSearchQuery.trim()) {
+        setSearchedTrader(null);
+        return;
+      }
+      
+      setIsSearching(true);
+      
+      // Search in traders data
+      const found = tradersData.find((t: any) => 
+        t.user_id?.toString().includes(traderSearchQuery) ||
+        t.user_id === traderSearchQuery
+      );
+      
+      if (found) {
+        setSearchedTrader(found);
+      } else {
+        // Create a mock searched trader result for demo
+        setSearchedTrader({
+          user_id: traderSearchQuery,
+          country_flag: '🌍',
+          created_at: new Date().toISOString().slice(0, 10),
+          link_type: 'revenue',
+          link_code: 'BYN001',
+          balance: 0,
+          deposits_count: 0,
+          deposits_sum: 0,
+          bonuses: 0,
+          withdrawals: 0,
+          turnover: 0,
+          turnover_clear: 0,
+          pnl: 0,
+          pnl_clear: 0,
+          vol_share: 0,
+          rev_share: 0,
+          not_found: true
+        });
+      }
+      
+      setIsSearching(false);
+    };
+    
+    // Clear search
+    const clearTraderSearch = () => {
+      setTraderSearchQuery('');
+      setSearchedTrader(null);
+    };
     
     // Render Dates Tab
     const renderDatesTab = () => (
@@ -543,28 +597,206 @@ export default function AffiliateDashboard() {
       const revenueRate = currentLevelData.revenue;
       const turnoverRate = currentLevelData.turnover;
       
-      return (
-        <ScrollView horizontal showsHorizontalScrollIndicator={true} style={styles.horizontalScroll}>
-          <View style={styles.wideTableWrapperTradersNew}>
-            {/* Table Header - Complete columns as per user request */}
-            <View style={styles.wideTableHeader}>
-              <Text style={[styles.statsTableHeaderText, styles.colUserId]}>USER ID</Text>
-              <Text style={[styles.statsTableHeaderText, styles.colDate]}>REG DATE</Text>
-              <Text style={[styles.statsTableHeaderText, styles.colLinkType]}>LINK TYPE</Text>
-              <Text style={[styles.statsTableHeaderText, styles.colSmallNum]}>COMM %</Text>
-              <Text style={[styles.statsTableHeaderText, styles.colLinkId]}>LINK ID</Text>
-              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>BALANCE</Text>
-              <Text style={[styles.statsTableHeaderText, styles.colSmallNum]}>DEPS</Text>
-              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>DEPS SUM</Text>
-              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>BONUSES</Text>
-              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>WITHDRAW</Text>
-              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>TURNOVER ALL</Text>
-              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>TURNOVER CLR</Text>
-              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>P/L ALL</Text>
-              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>P/L CLEAR</Text>
-              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>VOL SHARE</Text>
-              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>REV SHARE</Text>
+      // Render single trader detail card
+      const renderTraderDetailCard = (trader: any) => {
+        const linkType = trader.link_type || 'revenue';
+        const isRevenue = linkType === 'revenue' || linkType === 'revenue_sharing';
+        const commRate = isRevenue ? revenueRate : turnoverRate;
+        const volShare = !isRevenue ? ((trader.turnover || 0) * turnoverRate / 100) : 0;
+        const userPnL = trader.pnl || 0;
+        const revShare = isRevenue ? (-userPnL * revenueRate / 100) : 0;
+        
+        return (
+          <View style={styles.traderDetailCard}>
+            {/* Header with User ID and Flag */}
+            <View style={styles.traderDetailHeader}>
+              <View style={styles.traderIdRow}>
+                <Text style={styles.traderDetailFlag}>{trader.country_flag || '🌍'}</Text>
+                <Text style={styles.traderDetailId}>ID: {trader.user_id}</Text>
+              </View>
+              <TouchableOpacity onPress={clearTraderSearch} style={styles.closeSearchBtn}>
+                <Ionicons name="close-circle" size={24} color={COLORS.textMuted} />
+              </TouchableOpacity>
             </View>
+            
+            {trader.not_found && (
+              <View style={styles.traderNotFoundBanner}>
+                <Ionicons name="information-circle" size={18} color={COLORS.warning} />
+                <Text style={styles.traderNotFoundText}>Trader not found in your referrals</Text>
+              </View>
+            )}
+            
+            {/* Detail Rows */}
+            <View style={styles.traderDetailGrid}>
+              {/* Row 1 */}
+              <View style={styles.traderDetailRow}>
+                <View style={styles.traderDetailItem}>
+                  <Text style={styles.traderDetailLabel}>REG DATE</Text>
+                  <Text style={styles.traderDetailValue}>{trader.created_at?.slice(0, 10) || '-'}</Text>
+                </View>
+                <View style={styles.traderDetailItem}>
+                  <Text style={styles.traderDetailLabel}>LINK TYPE</Text>
+                  <View style={[
+                    styles.linkTypeBadgeLarge,
+                    { backgroundColor: isRevenue ? COLORS.primaryLight : COLORS.accentLight }
+                  ]}>
+                    <Text style={[
+                      styles.linkTypeBadgeTextLarge,
+                      { color: isRevenue ? COLORS.primary : COLORS.accent }
+                    ]}>
+                      {isRevenue ? 'Revenue' : 'Turnover'}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.traderDetailItem}>
+                  <Text style={styles.traderDetailLabel}>COMMISSION</Text>
+                  <Text style={[styles.traderDetailValue, { color: COLORS.primary, fontWeight: '700' }]}>{commRate}%</Text>
+                </View>
+              </View>
+              
+              {/* Row 2 */}
+              <View style={styles.traderDetailRow}>
+                <View style={styles.traderDetailItem}>
+                  <Text style={styles.traderDetailLabel}>LINK ID</Text>
+                  <Text style={[styles.traderDetailValue, { color: COLORS.accent }]}>#{trader.link_code || '-'}</Text>
+                </View>
+                <View style={styles.traderDetailItem}>
+                  <Text style={styles.traderDetailLabel}>BALANCE</Text>
+                  <Text style={[styles.traderDetailValue, { color: COLORS.primary }]}>${(trader.balance || 0).toFixed(2)}</Text>
+                </View>
+                <View style={styles.traderDetailItem}>
+                  <Text style={styles.traderDetailLabel}>DEPOSITS</Text>
+                  <Text style={styles.traderDetailValue}>{trader.deposits_count || 0}x</Text>
+                </View>
+              </View>
+              
+              {/* Row 3 */}
+              <View style={styles.traderDetailRow}>
+                <View style={styles.traderDetailItem}>
+                  <Text style={styles.traderDetailLabel}>DEPOSITS SUM</Text>
+                  <Text style={styles.traderDetailValue}>${(trader.deposits_sum || trader.deposits || 0).toFixed(2)}</Text>
+                </View>
+                <View style={styles.traderDetailItem}>
+                  <Text style={styles.traderDetailLabel}>BONUSES</Text>
+                  <Text style={styles.traderDetailValue}>${(trader.bonuses || 0).toFixed(2)}</Text>
+                </View>
+                <View style={styles.traderDetailItem}>
+                  <Text style={styles.traderDetailLabel}>WITHDRAWALS</Text>
+                  <Text style={styles.traderDetailValue}>${(trader.withdrawals || 0).toFixed(2)}</Text>
+                </View>
+              </View>
+              
+              {/* Row 4 */}
+              <View style={styles.traderDetailRow}>
+                <View style={styles.traderDetailItem}>
+                  <Text style={styles.traderDetailLabel}>TURNOVER ALL</Text>
+                  <Text style={styles.traderDetailValue}>${(trader.turnover || 0).toFixed(2)}</Text>
+                </View>
+                <View style={styles.traderDetailItem}>
+                  <Text style={styles.traderDetailLabel}>TURNOVER CLR</Text>
+                  <Text style={[styles.traderDetailValue, { color: COLORS.textMuted }]}>
+                    {trader.turnover_clear ? `$${trader.turnover_clear.toFixed(2)}` : '-'}
+                  </Text>
+                </View>
+              </View>
+              
+              {/* Row 5 */}
+              <View style={styles.traderDetailRow}>
+                <View style={styles.traderDetailItem}>
+                  <Text style={styles.traderDetailLabel}>P/L ALL</Text>
+                  <Text style={[styles.traderDetailValue, { color: userPnL >= 0 ? COLORS.primary : COLORS.danger }]}>
+                    ${userPnL.toFixed(2)}
+                  </Text>
+                </View>
+                <View style={styles.traderDetailItem}>
+                  <Text style={styles.traderDetailLabel}>P/L CLEAR</Text>
+                  <Text style={[styles.traderDetailValue, { color: COLORS.textMuted }]}>
+                    {trader.pnl_clear ? `$${trader.pnl_clear.toFixed(2)}` : '-'}
+                  </Text>
+                </View>
+              </View>
+              
+              {/* Commission Row - Highlighted */}
+              <View style={styles.traderCommissionRow}>
+                <View style={styles.traderCommissionItem}>
+                  <Text style={styles.traderCommissionLabel}>VOL SHARE</Text>
+                  <Text style={[styles.traderCommissionValue, { color: volShare > 0 ? COLORS.primary : COLORS.textMuted }]}>
+                    {!isRevenue && volShare > 0 ? `$${volShare.toFixed(2)}` : '$ 0.00'}
+                  </Text>
+                  <Text style={styles.traderCommissionNote}>
+                    {!isRevenue ? 'From Turnover' : 'N/A (Revenue Link)'}
+                  </Text>
+                </View>
+                <View style={styles.traderCommissionItem}>
+                  <Text style={styles.traderCommissionLabel}>REV SHARE</Text>
+                  <Text style={[styles.traderCommissionValue, { 
+                    color: revShare >= 0 ? COLORS.primary : COLORS.danger,
+                    fontWeight: '700'
+                  }]}>
+                    {isRevenue ? `${revShare >= 0 ? '' : '-'}$${Math.abs(revShare).toFixed(2)}` : '$ 0.00'}
+                  </Text>
+                  <Text style={styles.traderCommissionNote}>
+                    {isRevenue ? (revShare < 0 ? 'User Profit (You Lose)' : 'User Loss (You Earn)') : 'N/A (Turnover Link)'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        );
+      };
+      
+      return (
+        <View>
+          {/* Search Bar */}
+          <View style={styles.traderSearchContainer}>
+            <View style={styles.traderSearchBar}>
+              <Ionicons name="search" size={20} color={COLORS.textMuted} />
+              <TextInput
+                style={styles.traderSearchInput}
+                placeholder="Search Trader ID (e.g., 10000003)"
+                placeholderTextColor={COLORS.textMuted}
+                value={traderSearchQuery}
+                onChangeText={setTraderSearchQuery}
+                keyboardType="number-pad"
+                onSubmitEditing={handleTraderSearch}
+              />
+              {traderSearchQuery ? (
+                <TouchableOpacity onPress={clearTraderSearch}>
+                  <Ionicons name="close-circle" size={20} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            <TouchableOpacity style={styles.traderSearchBtn} onPress={handleTraderSearch}>
+              <Ionicons name="arrow-forward" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+          
+          {/* Search Result Card */}
+          {searchedTrader && renderTraderDetailCard(searchedTrader)}
+          
+          {/* Traders Table - Only show when not searching */}
+          {!searchedTrader && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={true} style={styles.horizontalScroll}>
+              <View style={styles.wideTableWrapperTradersNew}>
+                {/* Table Header - Complete columns as per user request */}
+                <View style={styles.wideTableHeader}>
+                  <Text style={[styles.statsTableHeaderText, styles.colUserId]}>USER ID</Text>
+                  <Text style={[styles.statsTableHeaderText, styles.colDate]}>REG DATE</Text>
+                  <Text style={[styles.statsTableHeaderText, styles.colLinkType]}>LINK TYPE</Text>
+                  <Text style={[styles.statsTableHeaderText, styles.colSmallNum]}>COMM %</Text>
+                  <Text style={[styles.statsTableHeaderText, styles.colLinkId]}>LINK ID</Text>
+                  <Text style={[styles.statsTableHeaderText, styles.colMoney]}>BALANCE</Text>
+                  <Text style={[styles.statsTableHeaderText, styles.colSmallNum]}>DEPS</Text>
+                  <Text style={[styles.statsTableHeaderText, styles.colMoney]}>DEPS SUM</Text>
+                  <Text style={[styles.statsTableHeaderText, styles.colMoney]}>BONUSES</Text>
+                  <Text style={[styles.statsTableHeaderText, styles.colMoney]}>WITHDRAW</Text>
+                  <Text style={[styles.statsTableHeaderText, styles.colMoney]}>TURNOVER ALL</Text>
+                  <Text style={[styles.statsTableHeaderText, styles.colMoney]}>TURNOVER CLR</Text>
+                  <Text style={[styles.statsTableHeaderText, styles.colMoney]}>P/L ALL</Text>
+                  <Text style={[styles.statsTableHeaderText, styles.colMoney]}>P/L CLEAR</Text>
+                  <Text style={[styles.statsTableHeaderText, styles.colMoney]}>VOL SHARE</Text>
+                  <Text style={[styles.statsTableHeaderText, styles.colMoney]}>REV SHARE</Text>
+                </View>
             
             {/* Table Rows - Show placeholder if no data */}
             {tradersData.length === 0 ? (
@@ -735,8 +967,10 @@ export default function AffiliateDashboard() {
                 );
               })
             )}
-          </View>
-        </ScrollView>
+              </View>
+            </ScrollView>
+          )}
+        </View>
       );
     };
     
@@ -1833,4 +2067,32 @@ const styles = StyleSheet.create({
   // Link Type Badge
   linkTypeBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   linkTypeBadgeText: { fontSize: 10, fontWeight: '600' },
+  
+  // Trader Search Styles
+  traderSearchContainer: { flexDirection: 'row', marginBottom: 16, gap: 8 },
+  traderSearchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.cardLight, borderRadius: 12, paddingHorizontal: 12, borderWidth: 1, borderColor: COLORS.border },
+  traderSearchInput: { flex: 1, fontSize: 14, color: COLORS.text, paddingVertical: 12, marginLeft: 8 },
+  traderSearchBtn: { width: 44, height: 44, backgroundColor: COLORS.primary, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  
+  // Trader Detail Card Styles
+  traderDetailCard: { backgroundColor: COLORS.white, borderRadius: 16, borderWidth: 1, borderColor: COLORS.primary + '30', marginBottom: 16, overflow: 'hidden' },
+  traderDetailHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: COLORS.primaryLight, padding: 16 },
+  traderIdRow: { flexDirection: 'row', alignItems: 'center' },
+  traderDetailFlag: { fontSize: 28, marginRight: 12 },
+  traderDetailId: { fontSize: 20, fontWeight: '700', color: COLORS.primary },
+  closeSearchBtn: { padding: 4 },
+  traderNotFoundBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.warning + '20', paddingVertical: 8, paddingHorizontal: 16, gap: 8 },
+  traderNotFoundText: { fontSize: 12, color: COLORS.warning, fontWeight: '500' },
+  traderDetailGrid: { padding: 16 },
+  traderDetailRow: { flexDirection: 'row', marginBottom: 16, gap: 12 },
+  traderDetailItem: { flex: 1 },
+  traderDetailLabel: { fontSize: 10, color: COLORS.textMuted, fontWeight: '600', marginBottom: 4, textTransform: 'uppercase' },
+  traderDetailValue: { fontSize: 14, color: COLORS.text, fontWeight: '600' },
+  linkTypeBadgeLarge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, alignSelf: 'flex-start' },
+  linkTypeBadgeTextLarge: { fontSize: 12, fontWeight: '700' },
+  traderCommissionRow: { flexDirection: 'row', marginTop: 8, gap: 12, backgroundColor: COLORS.cardLight, borderRadius: 12, padding: 16 },
+  traderCommissionItem: { flex: 1, alignItems: 'center' },
+  traderCommissionLabel: { fontSize: 10, color: COLORS.textMuted, fontWeight: '600', marginBottom: 4 },
+  traderCommissionValue: { fontSize: 18, fontWeight: '700' },
+  traderCommissionNote: { fontSize: 9, color: COLORS.textMuted, marginTop: 4, textAlign: 'center' },
 });
