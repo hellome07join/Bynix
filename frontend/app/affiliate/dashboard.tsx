@@ -1530,27 +1530,288 @@ export default function AffiliateDashboard() {
   };
 
   // Promo Content
-  const PromoContent = () => (
-    <View style={styles.content}>
-      <Text style={styles.sectionTitle}>Promo Materials</Text>
-      <Text style={styles.sectionSubtitle}>Download banners and landing pages</Text>
-      
-      {promoMaterials.map((material, i) => (
-        <View key={i} style={styles.promoCard}>
-          <View style={styles.promoPreview}>
-            <Image source={{ uri: material.preview_url }} style={styles.promoImage} resizeMode="cover" />
+  // Promo Content with Landing Pages
+  const PromoContent = () => {
+    const [showCodeModal, setShowCodeModal] = useState(false);
+    const [selectedLanding, setSelectedLanding] = useState<any>(null);
+    const [codeCopied, setCodeCopied] = useState(false);
+    
+    // Get affiliate's first link code for tracking
+    const affiliateRefCode = links && links.length > 0 ? links[0].code : (affiliate?.ref_code || 'YOURCODE');
+    const trackingUrl = `https://bynix-markets.preview.emergentagent.com?ref=${affiliateRefCode}`;
+    
+    // Landing Page Templates
+    const landingPages = [
+      {
+        id: 'modern-dark',
+        name: 'Modern Dark Landing',
+        description: 'Dark themed, professional trading signup page',
+        preview: '🌙',
+        color: '#1a1a2e',
+      },
+      {
+        id: 'gradient-pro',
+        name: 'Gradient Pro Landing',
+        description: 'Colorful gradient, attention-grabbing design',
+        preview: '🎨',
+        color: '#667eea',
+      },
+      {
+        id: 'minimal-clean',
+        name: 'Minimal Clean Landing',
+        description: 'Clean, minimal design for high conversions',
+        preview: '✨',
+        color: '#10B981',
+      }
+    ];
+    
+    // Generate landing page HTML code
+    const generateLandingCode = (landingId: string) => {
+      const baseCode = `<!-- Bynix Affiliate Landing Page - ${landingId} -->
+<!-- Affiliate Code: ${affiliateRefCode} -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Start Trading with Bynix - Professional Trading Platform</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    ${landingId === 'modern-dark' ? `
+    body { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #fff; min-height: 100vh; }
+    .container { max-width: 500px; margin: 0 auto; padding: 40px 20px; text-align: center; }
+    .logo { font-size: 32px; font-weight: 800; color: #10B981; margin-bottom: 20px; }
+    h1 { font-size: 28px; margin-bottom: 16px; line-height: 1.3; }
+    .highlight { color: #10B981; }
+    p { color: #94a3b8; font-size: 16px; margin-bottom: 32px; line-height: 1.6; }
+    .features { display: flex; justify-content: center; gap: 24px; margin-bottom: 32px; flex-wrap: wrap; }
+    .feature { background: rgba(255,255,255,0.05); padding: 16px 20px; border-radius: 12px; }
+    .feature-icon { font-size: 24px; margin-bottom: 8px; }
+    .feature-text { font-size: 12px; color: #94a3b8; }
+    .cta-btn { display: inline-block; background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: #fff; padding: 16px 48px; border-radius: 12px; font-size: 18px; font-weight: 700; text-decoration: none; transition: transform 0.2s; }
+    .cta-btn:hover { transform: scale(1.05); }
+    .trust { margin-top: 32px; color: #64748b; font-size: 12px; }
+    ` : landingId === 'gradient-pro' ? `
+    body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; min-height: 100vh; }
+    .container { max-width: 500px; margin: 0 auto; padding: 40px 20px; text-align: center; }
+    .logo { font-size: 32px; font-weight: 800; color: #fff; margin-bottom: 20px; text-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+    h1 { font-size: 28px; margin-bottom: 16px; line-height: 1.3; }
+    .highlight { color: #fbbf24; }
+    p { color: rgba(255,255,255,0.85); font-size: 16px; margin-bottom: 32px; line-height: 1.6; }
+    .features { display: flex; justify-content: center; gap: 24px; margin-bottom: 32px; flex-wrap: wrap; }
+    .feature { background: rgba(255,255,255,0.15); padding: 16px 20px; border-radius: 12px; backdrop-filter: blur(10px); }
+    .feature-icon { font-size: 24px; margin-bottom: 8px; }
+    .feature-text { font-size: 12px; color: rgba(255,255,255,0.8); }
+    .cta-btn { display: inline-block; background: #fff; color: #667eea; padding: 16px 48px; border-radius: 12px; font-size: 18px; font-weight: 700; text-decoration: none; transition: transform 0.2s; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+    .cta-btn:hover { transform: scale(1.05); }
+    .trust { margin-top: 32px; color: rgba(255,255,255,0.6); font-size: 12px; }
+    ` : `
+    body { background: #f8fafc; color: #1e293b; min-height: 100vh; }
+    .container { max-width: 500px; margin: 0 auto; padding: 40px 20px; text-align: center; }
+    .logo { font-size: 32px; font-weight: 800; color: #10B981; margin-bottom: 20px; }
+    h1 { font-size: 28px; margin-bottom: 16px; line-height: 1.3; color: #0f172a; }
+    .highlight { color: #10B981; }
+    p { color: #64748b; font-size: 16px; margin-bottom: 32px; line-height: 1.6; }
+    .features { display: flex; justify-content: center; gap: 24px; margin-bottom: 32px; flex-wrap: wrap; }
+    .feature { background: #fff; padding: 16px 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .feature-icon { font-size: 24px; margin-bottom: 8px; }
+    .feature-text { font-size: 12px; color: #64748b; }
+    .cta-btn { display: inline-block; background: #10B981; color: #fff; padding: 16px 48px; border-radius: 12px; font-size: 18px; font-weight: 700; text-decoration: none; transition: transform 0.2s; }
+    .cta-btn:hover { transform: scale(1.05); background: #059669; }
+    .trust { margin-top: 32px; color: #94a3b8; font-size: 12px; }
+    `}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">BYNIX</div>
+    <h1>Start Trading <span class="highlight">Smarter</span> Today</h1>
+    <p>Join thousands of traders on Bynix - the professional trading platform with up to 95% profit on winning trades.</p>
+    
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">📈</div>
+        <div class="feature-text">95% Profit</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-text">Fast Execution</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🔒</div>
+        <div class="feature-text">Secure</div>
+      </div>
+    </div>
+    
+    <!-- AFFILIATE TRACKING LINK - DO NOT MODIFY -->
+    <a href="${trackingUrl}" class="cta-btn" id="signup-btn">
+      Start Trading Now →
+    </a>
+    
+    <p class="trust">✓ 24/7 Support • ✓ Instant Withdrawals • ✓ Demo Account</p>
+  </div>
+  
+  <!-- Bynix Affiliate Tracking Script -->
+  <script>
+    (function() {
+      var refCode = '${affiliateRefCode}';
+      var btn = document.getElementById('signup-btn');
+      if (btn) {
+        btn.addEventListener('click', function(e) {
+          // Track click event
+          console.log('Bynix Affiliate Click: ' + refCode);
+        });
+      }
+    })();
+  </script>
+</body>
+</html>`;
+      return baseCode;
+    };
+    
+    const handleGetCode = (landing: any) => {
+      setSelectedLanding(landing);
+      setShowCodeModal(true);
+      setCodeCopied(false);
+    };
+    
+    const copyCode = async () => {
+      if (!selectedLanding) return;
+      try {
+        const code = generateLandingCode(selectedLanding.id);
+        await Clipboard.setStringAsync(code);
+        setCodeCopied(true);
+        showToast('Landing page code copied!');
+        setTimeout(() => setCodeCopied(false), 3000);
+      } catch (error) {
+        showToast('Failed to copy code');
+      }
+    };
+    
+    return (
+      <View style={styles.content}>
+        <Text style={styles.sectionTitle}>Promo Materials</Text>
+        <Text style={styles.sectionSubtitle}>Download banners and landing pages</Text>
+        
+        {/* Existing Banner Materials */}
+        {promoMaterials.map((material, i) => (
+          <View key={i} style={styles.promoCard}>
+            <View style={styles.promoPreview}>
+              <Image source={{ uri: material.preview_url }} style={styles.promoImage} resizeMode="cover" />
+            </View>
+            <View style={styles.promoInfo}>
+              <Text style={styles.promoName}>{material.name}</Text>
+              <Text style={styles.promoSize}>{material.size || material.type}</Text>
+            </View>
+            <TouchableOpacity style={styles.promoDownloadBtn}>
+              <Ionicons name="download-outline" size={22} color={COLORS.primary} />
+            </TouchableOpacity>
           </View>
-          <View style={styles.promoInfo}>
-            <Text style={styles.promoName}>{material.name}</Text>
-            <Text style={styles.promoSize}>{material.size || material.type}</Text>
+        ))}
+        
+        {/* Landing Pages Section */}
+        <View style={styles.landingSection}>
+          <Text style={styles.landingSectionTitle}>Embeddable Landing Pages</Text>
+          <Text style={styles.landingSectionSubtitle}>
+            Copy HTML code and add to your website. All signups will be tracked to your affiliate account.
+          </Text>
+          
+          {landingPages.map((landing, i) => (
+            <View key={i} style={styles.landingCard}>
+              <View style={[styles.landingPreview, { backgroundColor: landing.color }]}>
+                <Text style={styles.landingPreviewEmoji}>{landing.preview}</Text>
+              </View>
+              <View style={styles.landingInfo}>
+                <Text style={styles.landingName}>{landing.name}</Text>
+                <Text style={styles.landingDesc}>{landing.description}</Text>
+                <View style={styles.landingMeta}>
+                  <Ionicons name="code-slash" size={12} color={COLORS.textMuted} />
+                  <Text style={styles.landingMetaText}>HTML • Tracking Enabled</Text>
+                </View>
+              </View>
+              <TouchableOpacity 
+                style={styles.getCodeBtn}
+                onPress={() => handleGetCode(landing)}
+              >
+                <Ionicons name="code" size={16} color="#fff" />
+                <Text style={styles.getCodeBtnText}>Get Code</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+          
+          {/* Tracking Info */}
+          <View style={styles.trackingInfoBox}>
+            <Ionicons name="link" size={20} color={COLORS.primary} />
+            <View style={styles.trackingInfoText}>
+              <Text style={styles.trackingInfoTitle}>Your Tracking Code: {affiliateRefCode}</Text>
+              <Text style={styles.trackingInfoDesc}>
+                All landing pages include your affiliate code. Users who sign up will be credited to your account.
+              </Text>
+            </View>
           </View>
-          <TouchableOpacity style={styles.promoDownloadBtn}>
-            <Ionicons name="download-outline" size={22} color={COLORS.primary} />
-          </TouchableOpacity>
         </View>
-      ))}
-    </View>
-  );
+        
+        {/* Code Modal */}
+        <Modal visible={showCodeModal} transparent animationType="slide">
+          <View style={styles.codeModalOverlay}>
+            <TouchableOpacity style={styles.codeModalBackdrop} onPress={() => setShowCodeModal(false)} />
+            <View style={styles.codeModalContent}>
+              <View style={styles.codeModalHeader}>
+                <Text style={styles.codeModalTitle}>
+                  {selectedLanding?.name || 'Landing Page'} Code
+                </Text>
+                <TouchableOpacity onPress={() => setShowCodeModal(false)}>
+                  <Ionicons name="close" size={24} color={COLORS.text} />
+                </TouchableOpacity>
+              </View>
+              
+              <ScrollView style={styles.codeModalBody}>
+                <Text style={styles.codeModalInstructions}>
+                  Copy this HTML code and paste it into your website. Your affiliate tracking code ({affiliateRefCode}) is already embedded.
+                </Text>
+                
+                <View style={styles.codePreviewBox}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+                    <Text style={styles.codePreviewText}>
+                      {selectedLanding ? generateLandingCode(selectedLanding.id).slice(0, 500) + '...' : ''}
+                    </Text>
+                  </ScrollView>
+                </View>
+                
+                <View style={styles.codeFeatures}>
+                  <View style={styles.codeFeatureItem}>
+                    <Ionicons name="checkmark-circle" size={16} color={COLORS.primary} />
+                    <Text style={styles.codeFeatureText}>Responsive design</Text>
+                  </View>
+                  <View style={styles.codeFeatureItem}>
+                    <Ionicons name="checkmark-circle" size={16} color={COLORS.primary} />
+                    <Text style={styles.codeFeatureText}>Affiliate tracking included</Text>
+                  </View>
+                  <View style={styles.codeFeatureItem}>
+                    <Ionicons name="checkmark-circle" size={16} color={COLORS.primary} />
+                    <Text style={styles.codeFeatureText}>Ready to use - no editing needed</Text>
+                  </View>
+                </View>
+              </ScrollView>
+              
+              <View style={styles.codeModalFooter}>
+                <TouchableOpacity 
+                  style={[styles.copyCodeBtn, codeCopied && styles.copyCodeBtnCopied]}
+                  onPress={copyCode}
+                >
+                  <Ionicons name={codeCopied ? "checkmark" : "copy"} size={20} color="#fff" />
+                  <Text style={styles.copyCodeBtnText}>
+                    {codeCopied ? 'Copied!' : 'Copy Full HTML Code'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </View>
+    );
+  };
 
   // Top 10 Content
   const Top10Content = () => {
@@ -2067,6 +2328,43 @@ const styles = StyleSheet.create({
   supportCard: { backgroundColor: COLORS.white, borderRadius: 20, padding: 40, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
   supportTitle: { color: COLORS.text, fontSize: 22, fontWeight: '700', marginTop: 20 },
   supportText: { color: COLORS.textSecondary, fontSize: 14, marginTop: 8, marginBottom: 32 },
+  
+  // Landing Pages Section
+  landingSection: { marginTop: 24, paddingTop: 20, borderTopWidth: 1, borderTopColor: COLORS.border },
+  landingSectionTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text, marginBottom: 4 },
+  landingSectionSubtitle: { fontSize: 12, color: COLORS.textMuted, marginBottom: 16, lineHeight: 18 },
+  landingCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: 14, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
+  landingPreview: { width: 56, height: 56, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  landingPreviewEmoji: { fontSize: 24 },
+  landingInfo: { flex: 1, marginLeft: 14 },
+  landingName: { fontSize: 14, fontWeight: '700', color: COLORS.text },
+  landingDesc: { fontSize: 11, color: COLORS.textMuted, marginTop: 2 },
+  landingMeta: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
+  landingMetaText: { fontSize: 10, color: COLORS.textMuted, marginLeft: 4 },
+  getCodeBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+  getCodeBtnText: { fontSize: 11, fontWeight: '600', color: '#fff', marginLeft: 4 },
+  trackingInfoBox: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: COLORS.primaryLight, borderRadius: 12, padding: 14, marginTop: 8, borderLeftWidth: 3, borderLeftColor: COLORS.primary },
+  trackingInfoText: { flex: 1, marginLeft: 12 },
+  trackingInfoTitle: { fontSize: 13, fontWeight: '700', color: COLORS.primary },
+  trackingInfoDesc: { fontSize: 11, color: COLORS.textSecondary, marginTop: 4, lineHeight: 16 },
+  
+  // Code Modal
+  codeModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  codeModalBackdrop: { flex: 1 },
+  codeModalContent: { backgroundColor: COLORS.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '85%' },
+  codeModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  codeModalTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text },
+  codeModalBody: { padding: 20 },
+  codeModalInstructions: { fontSize: 13, color: COLORS.textSecondary, lineHeight: 20, marginBottom: 16 },
+  codePreviewBox: { backgroundColor: '#1a1a2e', borderRadius: 12, padding: 16, maxHeight: 150 },
+  codePreviewText: { fontSize: 10, color: '#10B981', fontFamily: 'monospace' },
+  codeFeatures: { marginTop: 20 },
+  codeFeatureItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  codeFeatureText: { fontSize: 13, color: COLORS.text, marginLeft: 10 },
+  codeModalFooter: { padding: 20, borderTopWidth: 1, borderTopColor: COLORS.border },
+  copyCodeBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primary, paddingVertical: 16, borderRadius: 14 },
+  copyCodeBtnCopied: { backgroundColor: COLORS.accent },
+  copyCodeBtnText: { fontSize: 16, fontWeight: '700', color: '#fff', marginLeft: 8 },
   telegramBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0088CC', paddingHorizontal: 32, paddingVertical: 16, borderRadius: 16 },
   telegramBtnText: { color: '#FFF', fontSize: 16, fontWeight: '600', marginLeft: 12 },
   supportEmail: { color: COLORS.textMuted, fontSize: 13, marginTop: 20 },
