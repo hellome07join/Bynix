@@ -17,7 +17,7 @@ const AFFILIATE_LEVELS = [
   { level: 4, name: 'Expert', icon: 'star', color: '#EC4899', gradient: ['#EC4899', '#DB2777'], deposits: '100-199', revenue: 65, turnover: 3.5 },
   { level: 5, name: 'Master', icon: 'medal', color: '#F59E0B', gradient: ['#F59E0B', '#D97706'], deposits: '200-399', revenue: 70, turnover: 4 },
   { level: 6, name: 'Guru', icon: 'flame', color: '#EF4444', gradient: ['#EF4444', '#DC2626'], deposits: '400-699', revenue: 75, turnover: 4.5 },
-  { level: 7, name: 'Legend', icon: 'diamond', color: '#FFD700', gradient: ['#FFD700', '#FFA500'], deposits: '700+', revenue: 80, turnover: 5 },
+  { level: 7, name: 'Legend', icon: 'diamond', color: '#FFD700', gradient: ['#FFD700', '#FFA500'], deposits: '700+', revenue: 85, turnover: 5.5 },
 ];
 
 const OPPORTUNITIES = [
