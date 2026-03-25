@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput, Dimensions } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput, Dimensions, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+
+// Bynix Official Logo
+const BYNIX_LOGO_URL = 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/lgz5jvli_IMG_3255.png';
 
 const { width } = Dimensions.get('window');
 
@@ -37,18 +40,19 @@ const STEPS = [
   { num: '03', title: 'Earn Commissions', desc: 'Get paid up to 80% revenue share weekly via crypto or bank transfer.', icon: 'cash' },
 ];
 
-// Bynix Logo Component
-const BynixLogo = ({ size = 'normal' }: { size?: 'normal' | 'large' }) => (
-  <View style={[styles.logoContainer, size === 'large' && styles.logoLarge]}>
-    <LinearGradient colors={['#FF4136', '#E53935']} style={[styles.logoIconBox, size === 'large' && styles.logoIconBoxLarge]}>
-      <Text style={[styles.logoIconText, size === 'large' && styles.logoIconTextLarge]}>₿</Text>
-    </LinearGradient>
-    <View>
-      <Text style={[styles.logoText, size === 'large' && styles.logoTextLarge]}>BYNIX</Text>
-      {size === 'normal' && <Text style={styles.logoSubtext}>AFFILIATE</Text>}
+// Bynix Logo Component with actual logo image
+const BynixLogo = ({ size = 'normal' }: { size?: 'normal' | 'large' }) => {
+  const logoSize = size === 'large' ? { width: 180, height: 90 } : { width: 140, height: 70 };
+  return (
+    <View style={[styles.logoContainer, size === 'large' && styles.logoLarge]}>
+      <Image 
+        source={{ uri: BYNIX_LOGO_URL }} 
+        style={logoSize}
+        resizeMode="contain"
+      />
     </View>
-  </View>
-);
+  );
+};
 
 export default function AffiliateHomePage() {
   const router = useRouter();
