@@ -7237,6 +7237,36 @@ async def create_affiliate_link(link: AffiliateLinkCreate, authorization: str = 
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
+# Delete affiliate link
+@api_router.delete("/affiliate/links/{link_code}")
+async def delete_affiliate_link(link_code: str, authorization: str = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization.replace("Bearer ", "")
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        affiliate_id = payload.get("affiliate_id")
+        
+        if not affiliate_id:
+            raise HTTPException(status_code=401, detail="Invalid affiliate token")
+        
+        # Find and delete the link
+        result = await db.affiliate_links.delete_one({
+            "code": link_code,
+            "affiliate_id": affiliate_id
+        })
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Link not found")
+        
+        return {"success": True, "message": "Link deleted"}
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
 # Track affiliate click
 @api_router.post("/affiliate/track/click")
 async def track_affiliate_click(ref_code: str):

@@ -566,8 +566,13 @@ export default function AffiliateDashboard() {
     };
     
     const createNewLink = async () => {
+      Keyboard.dismiss();
       try {
         const token = await getToken();
+        if (!token) {
+          showToast('Please login again');
+          return;
+        }
         const res = await fetch(`${API_URL}/affiliate/links`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -581,9 +586,48 @@ export default function AffiliateDashboard() {
         if (res.ok) {
           setShowNewLinkModal(false);
           setNewLinkForm({ linkType: 'main_page', affiliateProgram: 'revenue_sharing', comment: '' });
+          showToast('Link created successfully!');
           fetchLinks();
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          showToast(errData.detail || 'Failed to create link');
         }
-      } catch (e) { console.error(e); }
+      } catch (e) { 
+        console.error('Create link error:', e); 
+        showToast('Error creating link');
+      }
+    };
+    
+    const deleteLink = async (linkCode: string) => {
+      Alert.alert(
+        'Delete Link',
+        `Are you sure you want to delete link #${linkCode}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Delete', 
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                const token = await getToken();
+                const res = await fetch(`${API_URL}/affiliate/links/${linkCode}`, {
+                  method: 'DELETE',
+                  headers: { 'Authorization': `Bearer ${token}` },
+                });
+                if (res.ok) {
+                  showToast('Link deleted');
+                  fetchLinks();
+                } else {
+                  showToast('Failed to delete link');
+                }
+              } catch (e) {
+                console.error('Delete error:', e);
+                showToast('Error deleting link');
+              }
+            }
+          }
+        ]
+      );
     };
 
     const getProgramBadge = (program: string) => {
@@ -640,14 +684,22 @@ export default function AffiliateDashboard() {
               const isCopied = copiedCode === link.code;
               return (
                 <View key={i} style={styles.linkCardNew}>
-                  {/* Link Header with Program Badge */}
+                  {/* Link Header with Program Badge and Delete */}
                   <View style={styles.linkCardHeader}>
-                    <View style={styles.linkCodeBadge}>
-                      <Text style={styles.linkCodeText}>#{link.code}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <View style={styles.linkCodeBadge}>
+                        <Text style={styles.linkCodeText}>#{link.code}</Text>
+                      </View>
+                      <View style={[styles.programBadge, { backgroundColor: programInfo.bg }]}>
+                        <Text style={[styles.programBadgeText, { color: programInfo.color }]}>{programInfo.label}</Text>
+                      </View>
                     </View>
-                    <View style={[styles.programBadge, { backgroundColor: programInfo.bg }]}>
-                      <Text style={[styles.programBadgeText, { color: programInfo.color }]}>{programInfo.label}</Text>
-                    </View>
+                    <TouchableOpacity 
+                      style={styles.deleteBtn}
+                      onPress={() => deleteLink(link.code)}
+                    >
+                      <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
+                    </TouchableOpacity>
                   </View>
                   
                   {/* Link URL - Domain: bynix.io with Copy */}
@@ -1121,6 +1173,7 @@ const styles = StyleSheet.create({
   linkCodeText: { fontSize: 13, fontWeight: '700', color: COLORS.text },
   programBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
   programBadgeText: { fontSize: 12, fontWeight: '700' },
+  deleteBtn: { padding: 8, borderRadius: 8, backgroundColor: COLORS.dangerLight },
   
   // Link URL Container
   linkUrlContainer: { marginBottom: 14 },
