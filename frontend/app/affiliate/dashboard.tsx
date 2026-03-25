@@ -465,7 +465,7 @@ export default function AffiliateDashboard() {
       <View style={styles.refLinkCard}>
         <Text style={styles.refLinkLabel}>Your Referral Link</Text>
         <View style={styles.refLinkBox}>
-          <Text style={styles.refLinkText} numberOfLines={1}>bynix.io/r/{affiliate?.ref_code}</Text>
+          <Text style={styles.refLinkText} numberOfLines={1}>bynix-markets.preview.emergentagent.com?ref={affiliate?.ref_code}</Text>
           <TouchableOpacity style={styles.copyBtn}>
             <Ionicons name="copy-outline" size={20} color={COLORS.primary} />
           </TouchableOpacity>
@@ -554,7 +554,7 @@ export default function AffiliateDashboard() {
     
     const copyToClipboard = async (linkCode: string) => {
       try {
-        const fullLink = `https://bynix.io/r/${linkCode}`;
+        const fullLink = `https://bynix-markets.preview.emergentagent.com?ref=${linkCode}`;
         await Clipboard.setStringAsync(fullLink);
         setCopiedCode(linkCode);
         showToast('Link copied to clipboard!');
@@ -705,7 +705,7 @@ export default function AffiliateDashboard() {
                     </TouchableOpacity>
                   </View>
                   
-                  {/* Link URL - Domain: bynix.io with Copy */}
+                  {/* Link URL - Emergent Preview with Copy */}
                   <View style={styles.linkUrlContainer}>
                     <Text style={styles.linkUrlLabel}>Referral Link</Text>
                     <TouchableOpacity 
@@ -714,7 +714,7 @@ export default function AffiliateDashboard() {
                       activeOpacity={0.7}
                     >
                       <Text style={styles.linkUrlTextNew} numberOfLines={1} selectable>
-                        bynix.io/r/{link.code}
+                        bynix-markets.preview.emergentagent.com?ref={link.code}
                       </Text>
                       <View style={[styles.copyBtnNew, isCopied && styles.copyBtnCopied]}>
                         <Ionicons 
