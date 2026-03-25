@@ -55,7 +55,7 @@ export default function AdminLogin() {
           if (response.ok) {
             const data = await response.json();
             if (data.is_admin) {
-              router.replace('/admin/dashboard');
+              router.replace('/admin/marko');
               return;
             }
           }
@@ -99,7 +99,7 @@ export default function AdminLogin() {
         await AsyncStorage.setItem('user', JSON.stringify(data.user));
         
         // Navigate to admin dashboard
-        router.replace('/admin/dashboard');
+        router.replace('/admin/marko');
       } else {
         setError(data.detail || 'Invalid credentials');
       }
