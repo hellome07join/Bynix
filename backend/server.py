@@ -3189,8 +3189,7 @@ async def add_chart_tick(symbol: str, authorization: Optional[str] = Header(None
     
     return {"message": "Tick added", "new_tick": new_tick, "ticks_count": len(ticks), "synced": True}
 
-# Include router - must be after all endpoint definitions
-app.include_router(api_router)
+# Note: app.include_router(api_router) moved to end of file to include all routes
 
 app.add_middleware(
     CORSMiddleware,
@@ -3785,3 +3784,761 @@ async def reject_withdrawal(
     return {"success": True, "message": "Withdrawal rejected and balance refunded"}
 
 
+
+
+# ============= GOD MODE CONTROL SYSTEM =============
+
+@api_router.get("/admin/god-mode/status")
+async def get_god_mode_status(authorization: Optional[str] = Header(None), request: Request = None):
+    """Get current God Mode settings"""
+    user = await get_current_user(authorization, request)
+    
+    # Get or create platform settings
+    settings = await db.platform_settings.find_one({"_id": "god_mode"})
+    if not settings:
+        settings = {
+            "_id": "god_mode",
+            "trading_enabled": True,
+            "withdrawals_enabled": True,
+            "deposits_enabled": True,
+            "global_payout_modifier": 100,  # percentage (100 = normal)
+            "global_win_rate_modifier": 100,  # percentage
+            "maintenance_mode": False,
+            "emergency_message": "",
+            "updated_at": datetime.now(timezone.utc),
+            "updated_by": None
+        }
+        await db.platform_settings.insert_one(settings)
+    
+    return {
+        "trading_enabled": settings.get("trading_enabled", True),
+        "withdrawals_enabled": settings.get("withdrawals_enabled", True),
+        "deposits_enabled": settings.get("deposits_enabled", True),
+        "global_payout_modifier": settings.get("global_payout_modifier", 100),
+        "global_win_rate_modifier": settings.get("global_win_rate_modifier", 100),
+        "maintenance_mode": settings.get("maintenance_mode", False),
+        "emergency_message": settings.get("emergency_message", ""),
+        "updated_at": str(settings.get("updated_at", "")),
+        "updated_by": settings.get("updated_by")
+    }
+
+@api_router.post("/admin/god-mode/kill-switch")
+async def toggle_kill_switch(authorization: Optional[str] = Header(None), request: Request = None):
+    """Toggle trading kill switch - instantly disable/enable all trading"""
+    user = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    enabled = body.get("enabled", False)
+    
+    await db.platform_settings.update_one(
+        {"_id": "god_mode"},
+        {
+            "$set": {
+                "trading_enabled": enabled,
+                "updated_at": datetime.now(timezone.utc),
+                "updated_by": user.user_id
+            }
+        },
+        upsert=True
+    )
+    
+    # Log the action
+    await db.admin_logs.insert_one({
+        "action": "kill_switch",
+        "admin_id": user.user_id,
+        "details": {"trading_enabled": enabled},
+        "timestamp": datetime.now(timezone.utc)
+    })
+    
+    return {"success": True, "trading_enabled": enabled}
+
+@api_router.post("/admin/god-mode/freeze-withdrawals")
+async def freeze_withdrawals(authorization: Optional[str] = Header(None), request: Request = None):
+    """Freeze/unfreeze all withdrawals"""
+    user = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    enabled = body.get("enabled", True)
+    
+    await db.platform_settings.update_one(
+        {"_id": "god_mode"},
+        {
+            "$set": {
+                "withdrawals_enabled": enabled,
+                "updated_at": datetime.now(timezone.utc),
+                "updated_by": user.user_id
+            }
+        },
+        upsert=True
+    )
+    
+    await db.admin_logs.insert_one({
+        "action": "freeze_withdrawals",
+        "admin_id": user.user_id,
+        "details": {"withdrawals_enabled": enabled},
+        "timestamp": datetime.now(timezone.utc)
+    })
+    
+    return {"success": True, "withdrawals_enabled": enabled}
+
+@api_router.post("/admin/god-mode/global-payout")
+async def set_global_payout(authorization: Optional[str] = Header(None), request: Request = None):
+    """Set global payout modifier (affects all trades)"""
+    user = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    modifier = float(body.get("modifier", 100))  # 0-200%
+    
+    if modifier < 0 or modifier > 200:
+        raise HTTPException(status_code=400, detail="Modifier must be between 0 and 200")
+    
+    await db.platform_settings.update_one(
+        {"_id": "god_mode"},
+        {
+            "$set": {
+                "global_payout_modifier": modifier,
+                "updated_at": datetime.now(timezone.utc),
+                "updated_by": user.user_id
+            }
+        },
+        upsert=True
+    )
+    
+    await db.admin_logs.insert_one({
+        "action": "global_payout_change",
+        "admin_id": user.user_id,
+        "details": {"modifier": modifier},
+        "timestamp": datetime.now(timezone.utc)
+    })
+    
+    return {"success": True, "global_payout_modifier": modifier}
+
+@api_router.post("/admin/god-mode/global-win-rate")
+async def set_global_win_rate(authorization: Optional[str] = Header(None), request: Request = None):
+    """Set global win rate modifier"""
+    user = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    modifier = float(body.get("modifier", 100))  # 0-200%
+    
+    if modifier < 0 or modifier > 200:
+        raise HTTPException(status_code=400, detail="Modifier must be between 0 and 200")
+    
+    await db.platform_settings.update_one(
+        {"_id": "god_mode"},
+        {
+            "$set": {
+                "global_win_rate_modifier": modifier,
+                "updated_at": datetime.now(timezone.utc),
+                "updated_by": user.user_id
+            }
+        },
+        upsert=True
+    )
+    
+    await db.admin_logs.insert_one({
+        "action": "global_win_rate_change",
+        "admin_id": user.user_id,
+        "details": {"modifier": modifier},
+        "timestamp": datetime.now(timezone.utc)
+    })
+    
+    return {"success": True, "global_win_rate_modifier": modifier}
+
+@api_router.post("/admin/god-mode/maintenance")
+async def toggle_maintenance(authorization: Optional[str] = Header(None), request: Request = None):
+    """Toggle maintenance mode"""
+    user = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    enabled = body.get("enabled", False)
+    message = body.get("message", "Platform is under maintenance. Please try again later.")
+    
+    await db.platform_settings.update_one(
+        {"_id": "god_mode"},
+        {
+            "$set": {
+                "maintenance_mode": enabled,
+                "emergency_message": message,
+                "updated_at": datetime.now(timezone.utc),
+                "updated_by": user.user_id
+            }
+        },
+        upsert=True
+    )
+    
+    return {"success": True, "maintenance_mode": enabled}
+
+# ============= TRADE ENGINE CONTROL =============
+
+@api_router.get("/admin/trades/live")
+async def get_live_trades(
+    limit: int = 50,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get live/active trades for monitoring"""
+    user = await get_current_user(authorization, request)
+    
+    # Get active (pending) trades
+    active_trades = await db.trades.find(
+        {"status": "active"}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    # Get recent completed trades
+    recent_trades = await db.trades.find(
+        {"status": {"$in": ["won", "lost", "cancelled"]}}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    # Get user info for trades
+    result_active = []
+    for t in active_trades:
+        user_info = await db.users.find_one({"user_id": t.get("user_id")})
+        result_active.append({
+            "trade_id": t.get("trade_id"),
+            "user_id": t.get("user_id"),
+            "user_email": user_info.get("email") if user_info else "Unknown",
+            "asset": t.get("asset"),
+            "amount": t.get("amount"),
+            "direction": t.get("direction"),
+            "entry_price": t.get("entry_price"),
+            "payout_percentage": t.get("payout_percentage", 80),
+            "expiry_time": str(t.get("expiry_time", "")),
+            "created_at": str(t.get("created_at", "")),
+            "account_type": t.get("account_type", "demo"),
+            "status": "active"
+        })
+    
+    result_recent = []
+    for t in recent_trades:
+        user_info = await db.users.find_one({"user_id": t.get("user_id")})
+        result_recent.append({
+            "trade_id": t.get("trade_id"),
+            "user_id": t.get("user_id"),
+            "user_email": user_info.get("email") if user_info else "Unknown",
+            "asset": t.get("asset"),
+            "amount": t.get("amount"),
+            "direction": t.get("direction"),
+            "entry_price": t.get("entry_price"),
+            "exit_price": t.get("exit_price"),
+            "profit_loss": t.get("profit_loss", 0),
+            "status": t.get("status"),
+            "created_at": str(t.get("created_at", "")),
+            "account_type": t.get("account_type", "demo")
+        })
+    
+    return {
+        "active_trades": result_active,
+        "recent_trades": result_recent,
+        "active_count": len(result_active)
+    }
+
+@api_router.post("/admin/trades/{trade_id}/override")
+async def override_trade_result(
+    trade_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Override trade result (force win/lose)"""
+    admin = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    forced_result = body.get("result")  # "win" or "lose"
+    
+    if forced_result not in ["win", "lose"]:
+        raise HTTPException(status_code=400, detail="Result must be 'win' or 'lose'")
+    
+    trade = await db.trades.find_one({"trade_id": trade_id})
+    if not trade:
+        raise HTTPException(status_code=404, detail="Trade not found")
+    
+    # Get user
+    user = await db.users.find_one({"user_id": trade["user_id"]})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    amount = trade.get("amount", 0)
+    payout_percentage = trade.get("payout_percentage", 80)
+    account_type = trade.get("account_type", "demo")
+    balance_field = "demo_balance" if account_type == "demo" else "real_balance"
+    
+    # If trade was already settled, reverse the previous result first
+    if trade.get("status") in ["won", "lost"]:
+        old_profit_loss = trade.get("profit_loss", 0)
+        await db.users.update_one(
+            {"user_id": trade["user_id"]},
+            {"$inc": {balance_field: -old_profit_loss}}
+        )
+    
+    # Apply new result
+    if forced_result == "win":
+        profit = amount * (payout_percentage / 100)
+        new_status = "won"
+        profit_loss = profit
+        # Return original amount + profit
+        await db.users.update_one(
+            {"user_id": trade["user_id"]},
+            {"$inc": {balance_field: amount + profit}}
+        )
+    else:
+        new_status = "lost"
+        profit_loss = -amount
+        # Don't return anything (amount already deducted)
+    
+    # Update trade
+    await db.trades.update_one(
+        {"trade_id": trade_id},
+        {
+            "$set": {
+                "status": new_status,
+                "profit_loss": profit_loss,
+                "admin_override": True,
+                "overridden_by": admin.user_id,
+                "overridden_at": datetime.now(timezone.utc)
+            }
+        }
+    )
+    
+    # Log the action
+    await db.admin_logs.insert_one({
+        "action": "trade_override",
+        "admin_id": admin.user_id,
+        "trade_id": trade_id,
+        "details": {
+            "forced_result": forced_result,
+            "user_id": trade["user_id"],
+            "amount": amount
+        },
+        "timestamp": datetime.now(timezone.utc)
+    })
+    
+    return {"success": True, "new_status": new_status, "profit_loss": profit_loss}
+
+@api_router.post("/admin/trades/{trade_id}/cancel")
+async def cancel_trade(
+    trade_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Cancel a trade and refund the user"""
+    admin = await get_current_user(authorization, request)
+    
+    trade = await db.trades.find_one({"trade_id": trade_id})
+    if not trade:
+        raise HTTPException(status_code=404, detail="Trade not found")
+    
+    if trade.get("status") == "cancelled":
+        raise HTTPException(status_code=400, detail="Trade already cancelled")
+    
+    amount = trade.get("amount", 0)
+    account_type = trade.get("account_type", "demo")
+    balance_field = "demo_balance" if account_type == "demo" else "real_balance"
+    
+    # If trade was settled, need to reverse
+    if trade.get("status") in ["won", "lost"]:
+        old_profit_loss = trade.get("profit_loss", 0)
+        # Reverse previous settlement
+        await db.users.update_one(
+            {"user_id": trade["user_id"]},
+            {"$inc": {balance_field: -old_profit_loss}}
+        )
+    
+    # Refund original amount
+    await db.users.update_one(
+        {"user_id": trade["user_id"]},
+        {"$inc": {balance_field: amount}}
+    )
+    
+    # Update trade status
+    await db.trades.update_one(
+        {"trade_id": trade_id},
+        {
+            "$set": {
+                "status": "cancelled",
+                "profit_loss": 0,
+                "cancelled_by": admin.user_id,
+                "cancelled_at": datetime.now(timezone.utc)
+            }
+        }
+    )
+    
+    await db.admin_logs.insert_one({
+        "action": "trade_cancelled",
+        "admin_id": admin.user_id,
+        "trade_id": trade_id,
+        "details": {"amount_refunded": amount},
+        "timestamp": datetime.now(timezone.utc)
+    })
+    
+    return {"success": True, "message": f"Trade cancelled, ${amount} refunded"}
+
+# ============= USER RISK CONTROL =============
+
+@api_router.get("/admin/users/{user_id}/risk-profile")
+async def get_user_risk_profile(
+    user_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get detailed user risk profile"""
+    admin = await get_current_user(authorization, request)
+    
+    user = await db.users.find_one({"user_id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Calculate trading stats
+    trades = await db.trades.find({"user_id": user_id}).to_list(1000)
+    total_trades = len(trades)
+    won_trades = len([t for t in trades if t.get("status") == "won"])
+    lost_trades = len([t for t in trades if t.get("status") == "lost"])
+    total_volume = sum(t.get("amount", 0) for t in trades)
+    total_profit = sum(t.get("profit_loss", 0) for t in trades if t.get("status") in ["won", "lost"])
+    
+    win_rate = (won_trades / total_trades * 100) if total_trades > 0 else 0
+    
+    # Calculate deposits/withdrawals
+    deposits = await db.deposits.find({"user_id": user_id, "status": "completed"}).to_list(100)
+    withdrawals = await db.withdrawals.find({"user_id": user_id, "status": "completed"}).to_list(100)
+    total_deposited = sum(d.get("amount_usd", 0) for d in deposits)
+    total_withdrawn = sum(w.get("amount", 0) for w in withdrawals)
+    
+    # Calculate AI risk score (simplified)
+    risk_score = 50  # Base score
+    if total_profit > total_deposited:
+        risk_score += min(30, (total_profit - total_deposited) / 100)  # Profitable user = higher risk
+    if win_rate > 60:
+        risk_score += 10  # High win rate
+    if total_volume > 10000:
+        risk_score += 10  # High volume
+    risk_score = min(100, max(0, risk_score))
+    
+    return {
+        "user_id": user_id,
+        "email": user.get("email"),
+        "name": user.get("name") or user.get("full_name"),
+        "balances": {
+            "real": user.get("real_balance", 0),
+            "demo": user.get("demo_balance", 10000),
+            "bonus": user.get("bonus_balance", 0)
+        },
+        "trading_stats": {
+            "total_trades": total_trades,
+            "won_trades": won_trades,
+            "lost_trades": lost_trades,
+            "win_rate": round(win_rate, 2),
+            "total_volume": total_volume,
+            "total_profit": total_profit
+        },
+        "financial_stats": {
+            "total_deposited": total_deposited,
+            "total_withdrawn": total_withdrawn,
+            "net_deposit": total_deposited - total_withdrawn
+        },
+        "risk_controls": {
+            "win_rate_modifier": user.get("win_rate_modifier", 100),
+            "payout_modifier": user.get("payout_modifier", 100),
+            "max_trade_amount": user.get("max_trade_amount"),
+            "is_shadow_banned": user.get("is_shadow_banned", False),
+            "is_flagged": user.get("is_flagged", False),
+            "risk_level": user.get("risk_level", "normal"),
+            "notes": user.get("admin_notes", "")
+        },
+        "ai_risk_score": round(risk_score, 1),
+        "created_at": str(user.get("created_at", ""))
+    }
+
+@api_router.post("/admin/users/{user_id}/win-rate")
+async def set_user_win_rate(
+    user_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Set user-specific win rate modifier (hidden from user)"""
+    admin = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    modifier = float(body.get("modifier", 100))  # 0-200%
+    
+    if modifier < 0 or modifier > 200:
+        raise HTTPException(status_code=400, detail="Modifier must be between 0 and 200")
+    
+    result = await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {"win_rate_modifier": modifier}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    await db.admin_logs.insert_one({
+        "action": "user_win_rate_change",
+        "admin_id": admin.user_id,
+        "target_user_id": user_id,
+        "details": {"modifier": modifier},
+        "timestamp": datetime.now(timezone.utc)
+    })
+    
+    return {"success": True, "win_rate_modifier": modifier}
+
+@api_router.post("/admin/users/{user_id}/payout")
+async def set_user_payout(
+    user_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Set user-specific payout modifier"""
+    admin = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    modifier = float(body.get("modifier", 100))  # 0-200%
+    
+    result = await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {"payout_modifier": modifier}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    await db.admin_logs.insert_one({
+        "action": "user_payout_change",
+        "admin_id": admin.user_id,
+        "target_user_id": user_id,
+        "details": {"modifier": modifier},
+        "timestamp": datetime.now(timezone.utc)
+    })
+    
+    return {"success": True, "payout_modifier": modifier}
+
+@api_router.post("/admin/users/{user_id}/shadow-ban")
+async def shadow_ban_user(
+    user_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Shadow ban user (they don't know they're banned)"""
+    admin = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    banned = body.get("banned", True)
+    reason = body.get("reason", "")
+    
+    result = await db.users.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {
+                "is_shadow_banned": banned,
+                "shadow_ban_reason": reason,
+                "shadow_banned_at": datetime.now(timezone.utc) if banned else None,
+                "shadow_banned_by": admin.user_id if banned else None
+            }
+        }
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    await db.admin_logs.insert_one({
+        "action": "shadow_ban",
+        "admin_id": admin.user_id,
+        "target_user_id": user_id,
+        "details": {"banned": banned, "reason": reason},
+        "timestamp": datetime.now(timezone.utc)
+    })
+    
+    return {"success": True, "is_shadow_banned": banned}
+
+@api_router.post("/admin/users/{user_id}/flag")
+async def flag_user(
+    user_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Flag user for review"""
+    admin = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    flagged = body.get("flagged", True)
+    reason = body.get("reason", "")
+    
+    result = await db.users.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {
+                "is_flagged": flagged,
+                "flag_reason": reason,
+                "flagged_at": datetime.now(timezone.utc) if flagged else None,
+                "flagged_by": admin.user_id if flagged else None
+            }
+        }
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {"success": True, "is_flagged": flagged}
+
+@api_router.post("/admin/users/{user_id}/risk-level")
+async def set_user_risk_level(
+    user_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Set user risk level (normal, low, medium, high, critical)"""
+    admin = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    risk_level = body.get("level", "normal")
+    
+    if risk_level not in ["normal", "low", "medium", "high", "critical"]:
+        raise HTTPException(status_code=400, detail="Invalid risk level")
+    
+    result = await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {"risk_level": risk_level}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {"success": True, "risk_level": risk_level}
+
+@api_router.post("/admin/users/{user_id}/max-trade")
+async def set_user_max_trade(
+    user_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Set maximum trade amount for user"""
+    admin = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    max_amount = body.get("max_amount")  # None = no limit
+    
+    result = await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {"max_trade_amount": max_amount}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {"success": True, "max_trade_amount": max_amount}
+
+@api_router.post("/admin/users/{user_id}/notes")
+async def add_admin_notes(
+    user_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Add admin notes to user profile"""
+    admin = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    notes = body.get("notes", "")
+    
+    result = await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {"admin_notes": notes}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {"success": True}
+
+# ============= ADMIN LOGS =============
+
+@api_router.get("/admin/logs")
+async def get_admin_logs(
+    limit: int = 100,
+    action: str = None,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get admin activity logs"""
+    user = await get_current_user(authorization, request)
+    
+    query = {}
+    if action:
+        query["action"] = action
+    
+    logs = await db.admin_logs.find(query).sort("timestamp", -1).limit(limit).to_list(limit)
+    
+    return {
+        "logs": [
+            {
+                "action": log.get("action"),
+                "admin_id": log.get("admin_id"),
+                "details": log.get("details"),
+                "timestamp": str(log.get("timestamp", ""))
+            }
+            for log in logs
+        ]
+    }
+
+# ============= PLATFORM STATS (REAL-TIME) =============
+
+@api_router.get("/admin/platform/live-stats")
+async def get_live_platform_stats(authorization: Optional[str] = Header(None), request: Request = None):
+    """Get real-time platform statistics"""
+    user = await get_current_user(authorization, request)
+    
+    now = datetime.now(timezone.utc)
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    # Active trades
+    active_trades = await db.trades.count_documents({"status": "active"})
+    
+    # Today's stats
+    today_trades = await db.trades.find({"created_at": {"$gte": today}}).to_list(10000)
+    today_volume = sum(t.get("amount", 0) for t in today_trades)
+    today_profit = sum(t.get("profit_loss", 0) for t in today_trades if t.get("status") in ["won", "lost"])
+    platform_profit_today = -today_profit  # Platform profit = user losses
+    
+    today_deposits = await db.deposits.find({"created_at": {"$gte": today}, "status": "completed"}).to_list(1000)
+    today_deposit_total = sum(d.get("amount_usd", 0) for d in today_deposits)
+    
+    today_withdrawals = await db.withdrawals.find({"created_at": {"$gte": today}, "status": "completed"}).to_list(1000)
+    today_withdrawal_total = sum(w.get("amount", 0) for w in today_withdrawals)
+    
+    # Pending counts
+    pending_withdrawals = await db.withdrawals.count_documents({"status": "pending"})
+    pending_deposits = await db.deposits.count_documents({"status": "pending"})
+    
+    # Active users (traded in last hour)
+    hour_ago = now - timedelta(hours=1)
+    active_users = len(await db.trades.distinct("user_id", {"created_at": {"$gte": hour_ago}}))
+    
+    # God mode status
+    god_mode = await db.platform_settings.find_one({"_id": "god_mode"})
+    
+    return {
+        "live": {
+            "active_trades": active_trades,
+            "active_users": active_users,
+            "pending_withdrawals": pending_withdrawals,
+            "pending_deposits": pending_deposits
+        },
+        "today": {
+            "total_trades": len(today_trades),
+            "total_volume": today_volume,
+            "platform_profit": platform_profit_today,
+            "total_deposits": today_deposit_total,
+            "total_withdrawals": today_withdrawal_total,
+            "net_flow": today_deposit_total - today_withdrawal_total
+        },
+        "god_mode": {
+            "trading_enabled": god_mode.get("trading_enabled", True) if god_mode else True,
+            "withdrawals_enabled": god_mode.get("withdrawals_enabled", True) if god_mode else True,
+            "global_payout": god_mode.get("global_payout_modifier", 100) if god_mode else 100,
+            "global_win_rate": god_mode.get("global_win_rate_modifier", 100) if god_mode else 100
+        },
+        "timestamp": str(now)
+    }
+
+
+
+# Include router - MUST be at the end of file after ALL route definitions
+app.include_router(api_router)

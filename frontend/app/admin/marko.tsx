@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -26,173 +26,170 @@ const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL
     ? `${window.location.origin}/api`
     : 'http://localhost:8001/api';
 
+// Interfaces
+interface GodModeStatus {
+  trading_enabled: boolean;
+  withdrawals_enabled: boolean;
+  deposits_enabled: boolean;
+  global_payout_modifier: number;
+  global_win_rate_modifier: number;
+  maintenance_mode: boolean;
+}
+
+interface LiveStats {
+  live: {
+    active_trades: number;
+    active_users: number;
+    pending_withdrawals: number;
+    pending_deposits: number;
+  };
+  today: {
+    total_trades: number;
+    total_volume: number;
+    platform_profit: number;
+    total_deposits: number;
+    total_withdrawals: number;
+    net_flow: number;
+  };
+  god_mode: {
+    trading_enabled: boolean;
+    withdrawals_enabled: boolean;
+    global_payout: number;
+    global_win_rate: number;
+  };
+}
+
+interface ActiveTrade {
+  trade_id: string;
+  user_id: string;
+  user_email: string;
+  asset: string;
+  amount: number;
+  direction: string;
+  entry_price: number;
+  payout_percentage: number;
+  expiry_time: string;
+  account_type: string;
+}
+
+interface RecentTrade {
+  trade_id: string;
+  user_email: string;
+  asset: string;
+  amount: number;
+  direction: string;
+  profit_loss: number;
+  status: string;
+}
+
+interface UserRiskProfile {
+  user_id: string;
+  email: string;
+  name: string;
+  balances: { real: number; demo: number; bonus: number };
+  trading_stats: {
+    total_trades: number;
+    won_trades: number;
+    lost_trades: number;
+    win_rate: number;
+    total_volume: number;
+    total_profit: number;
+  };
+  risk_controls: {
+    win_rate_modifier: number;
+    payout_modifier: number;
+    is_shadow_banned: boolean;
+    is_flagged: boolean;
+    risk_level: string;
+  };
+  ai_risk_score: number;
+}
+
 interface User {
   user_id: string;
   email: string;
   name: string;
-  account_id: string;
   real_balance: number;
   demo_balance: number;
   bonus_balance: number;
   is_verified: boolean;
-  is_admin: boolean;
-  created_at: string;
-  country?: string;
-  country_flag?: string;
-}
-
-interface Trade {
-  trade_id: string;
-  user_id: string;
-  asset: string;
-  amount: number;
-  direction: string;
-  status: string;
-  profit_loss: number;
-  created_at: string;
-}
-
-interface Deposit {
-  _id: string;
-  user_id: string;
-  amount_usd: number;
-  status: string;
-  payment_type: string;
-  created_at: string;
-}
-
-interface Withdrawal {
-  withdrawal_id: string;
-  user_id: string;
-  user_email: string;
-  user_name: string;
-  amount: number;
-  method: string;
-  wallet_address: string;
-  status: string;
-  created_at: string;
-}
-
-interface Asset {
-  asset_id: string;
-  symbol: string;
-  name: string;
-  category: string;
-  payout_percentage: number;
-  is_active: boolean;
-  is_otc: boolean;
-  min_amount: number;
-  max_amount: number;
-}
-
-interface Stats {
-  total_users: number;
-  total_trades: number;
-  total_volume: number;
-  total_deposits: number;
-  total_withdrawals: number;
-  active_users_today: number;
-  pending_withdrawals: number;
-  pending_deposits: number;
-}
-
-interface Analytics {
-  period: string;
-  labels: string[];
-  deposits: { data: number[]; total: number };
-  withdrawals: { data: number[]; total: number };
-  profit_loss: { data: number[]; total: number };
-  summary: {
-    net_revenue: number;
-    total_deposits: number;
-    total_withdrawals: number;
-    platform_profit: number;
-  };
 }
 
 export default function AdminDashboard() {
   const router = useRouter();
   const { token } = useAuthStore();
   
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('god-mode');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [analyticsPeriod, setAnalyticsPeriod] = useState<'week' | 'month' | 'year'>('week');
   
   // Data states
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [godMode, setGodMode] = useState<GodModeStatus | null>(null);
+  const [liveStats, setLiveStats] = useState<LiveStats | null>(null);
+  const [activeTrades, setActiveTrades] = useState<ActiveTrade[]>([]);
+  const [recentTrades, setRecentTrades] = useState<RecentTrade[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [trades, setTrades] = useState<Trade[]>([]);
-  const [deposits, setDeposits] = useState<Deposit[]>([]);
-  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
-  const [assets, setAssets] = useState<Asset[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   
   // Modal states
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [showUserModal, setShowUserModal] = useState(false);
-  const [showManualDepositModal, setShowManualDepositModal] = useState(false);
-  const [showAssetModal, setShowAssetModal] = useState(false);
-  const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
+  const [showUserRiskModal, setShowUserRiskModal] = useState(false);
+  const [selectedUserRisk, setSelectedUserRisk] = useState<UserRiskProfile | null>(null);
+  const [showTradeOverrideModal, setShowTradeOverrideModal] = useState(false);
+  const [selectedTrade, setSelectedTrade] = useState<ActiveTrade | null>(null);
   
   // Form states
-  const [manualDeposit, setManualDeposit] = useState({ userId: '', amount: '', balanceType: 'real', note: '' });
-  const [newAsset, setNewAsset] = useState({ symbol: '', name: '', category: 'forex', payout: '80', isOtc: false, minAmount: '1', maxAmount: '10000' });
+  const [payoutSlider, setPayoutSlider] = useState(100);
+  const [winRateSlider, setWinRateSlider] = useState(100);
+  const [userWinRate, setUserWinRate] = useState('100');
+  const [userPayout, setUserPayout] = useState('100');
 
-  useEffect(() => {
-    fetchAllData();
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === 'overview') {
-      fetchAnalytics();
-    }
-  }, [analyticsPeriod]);
-
-  const fetchAllData = async () => {
-    setLoading(true);
-    await Promise.all([
-      fetchStats(),
-      fetchAnalytics(),
-      fetchUsers(),
-      fetchRecentTrades(),
-      fetchDeposits(),
-      fetchWithdrawals(),
-      fetchAssets(),
-    ]);
-    setLoading(false);
-  };
-
-  const fetchStats = async () => {
+  // Fetch functions
+  const fetchGodModeStatus = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/admin/stats`, {
+      const response = await fetch(`${API_URL}/admin/god-mode/status`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
         const data = await response.json();
-        setStats(data);
+        setGodMode(data);
+        setPayoutSlider(data.global_payout_modifier);
+        setWinRateSlider(data.global_win_rate_modifier);
       }
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      console.error('Error fetching god mode:', error);
     }
-  };
+  }, [token]);
 
-  const fetchAnalytics = async () => {
+  const fetchLiveStats = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/admin/analytics?period=${analyticsPeriod}`, {
+      const response = await fetch(`${API_URL}/admin/platform/live-stats`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
         const data = await response.json();
-        setAnalytics(data);
+        setLiveStats(data);
       }
     } catch (error) {
-      console.error('Error fetching analytics:', error);
+      console.error('Error fetching live stats:', error);
     }
-  };
+  }, [token]);
 
-  const fetchUsers = async () => {
+  const fetchLiveTrades = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_URL}/admin/trades/live`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setActiveTrades(data.active_trades || []);
+        setRecentTrades(data.recent_trades || []);
+      }
+    } catch (error) {
+      console.error('Error fetching live trades:', error);
+    }
+  }, [token]);
+
+  const fetchUsers = useCallback(async () => {
     try {
       const response = await fetch(`${API_URL}/admin/users`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -204,243 +201,250 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error('Error fetching users:', error);
     }
-  };
+  }, [token]);
 
-  const fetchRecentTrades = async () => {
+  const fetchUserRiskProfile = async (userId: string) => {
     try {
-      const response = await fetch(`${API_URL}/admin/trades?limit=50`, {
+      const response = await fetch(`${API_URL}/admin/users/${userId}/risk-profile`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
         const data = await response.json();
-        setTrades(data.trades || []);
+        setSelectedUserRisk(data);
+        setUserWinRate(data.risk_controls.win_rate_modifier?.toString() || '100');
+        setUserPayout(data.risk_controls.payout_modifier?.toString() || '100');
+        setShowUserRiskModal(true);
       }
     } catch (error) {
-      console.error('Error fetching trades:', error);
+      console.error('Error fetching user risk:', error);
     }
   };
 
-  const fetchDeposits = async () => {
-    try {
-      const response = await fetch(`${API_URL}/admin/deposits`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setDeposits(data.deposits || []);
-      }
-    } catch (error) {
-      console.error('Error fetching deposits:', error);
-    }
-  };
-
-  const fetchWithdrawals = async () => {
-    try {
-      const response = await fetch(`${API_URL}/admin/withdrawals`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setWithdrawals(data.withdrawals || []);
-      }
-    } catch (error) {
-      console.error('Error fetching withdrawals:', error);
-    }
-  };
-
-  const fetchAssets = async () => {
-    try {
-      const response = await fetch(`${API_URL}/admin/assets`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setAssets(data.assets || []);
-      }
-    } catch (error) {
-      console.error('Error fetching assets:', error);
-    }
-  };
-
-  const handleManualDeposit = async () => {
-    if (!manualDeposit.userId || !manualDeposit.amount) {
-      Alert.alert('Error', 'Please fill all required fields');
-      return;
-    }
+  useEffect(() => {
+    const init = async () => {
+      setLoading(true);
+      await Promise.all([
+        fetchGodModeStatus(),
+        fetchLiveStats(),
+        fetchLiveTrades(),
+        fetchUsers()
+      ]);
+      setLoading(false);
+    };
+    init();
     
-    try {
-      const response = await fetch(`${API_URL}/admin/manual-deposit`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          user_id: manualDeposit.userId,
-          amount: parseFloat(manualDeposit.amount),
-          balance_type: manualDeposit.balanceType,
-          note: manualDeposit.note || 'Manual deposit by admin'
-        })
-      });
-      
-      if (response.ok) {
-        Alert.alert('Success', `Added $${manualDeposit.amount} to user account`);
-        setShowManualDepositModal(false);
-        setManualDeposit({ userId: '', amount: '', balanceType: 'real', note: '' });
-        fetchUsers();
-        fetchDeposits();
-      } else {
-        const error = await response.json();
-        Alert.alert('Error', error.detail || 'Failed to add deposit');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Network error');
-    }
-  };
-
-  const handleCreateAsset = async () => {
-    if (!newAsset.symbol) {
-      Alert.alert('Error', 'Symbol is required');
-      return;
-    }
+    // Auto-refresh every 5 seconds
+    const interval = setInterval(() => {
+      fetchLiveStats();
+      fetchLiveTrades();
+    }, 5000);
     
+    return () => clearInterval(interval);
+  }, [fetchGodModeStatus, fetchLiveStats, fetchLiveTrades, fetchUsers]);
+
+  // God Mode Actions
+  const toggleKillSwitch = async (enabled: boolean) => {
     try {
-      const response = await fetch(`${API_URL}/admin/assets`, {
+      const response = await fetch(`${API_URL}/admin/god-mode/kill-switch`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          symbol: newAsset.symbol.toUpperCase(),
-          name: newAsset.name || newAsset.symbol,
-          category: newAsset.category,
-          payout_percentage: parseFloat(newAsset.payout),
-          is_otc: newAsset.isOtc,
-          min_amount: parseFloat(newAsset.minAmount),
-          max_amount: parseFloat(newAsset.maxAmount)
-        })
+        body: JSON.stringify({ enabled })
       });
-      
       if (response.ok) {
-        Alert.alert('Success', 'Asset created successfully');
-        setShowAssetModal(false);
-        setNewAsset({ symbol: '', name: '', category: 'forex', payout: '80', isOtc: false, minAmount: '1', maxAmount: '10000' });
-        fetchAssets();
-      } else {
-        const error = await response.json();
-        Alert.alert('Error', error.detail || 'Failed to create asset');
+        setGodMode(prev => prev ? { ...prev, trading_enabled: enabled } : null);
+        Alert.alert('Success', enabled ? 'Trading ENABLED' : 'Trading DISABLED');
       }
     } catch (error) {
-      Alert.alert('Error', 'Network error');
+      Alert.alert('Error', 'Failed to toggle kill switch');
     }
   };
 
-  const handleToggleAsset = async (assetId: string) => {
+  const toggleWithdrawals = async (enabled: boolean) => {
     try {
-      const response = await fetch(`${API_URL}/admin/assets/${assetId}/toggle`, {
+      const response = await fetch(`${API_URL}/admin/god-mode/freeze-withdrawals`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ enabled })
+      });
+      if (response.ok) {
+        setGodMode(prev => prev ? { ...prev, withdrawals_enabled: enabled } : null);
+        Alert.alert('Success', enabled ? 'Withdrawals ENABLED' : 'Withdrawals FROZEN');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to toggle withdrawals');
+    }
+  };
+
+  const updateGlobalPayout = async () => {
+    try {
+      const response = await fetch(`${API_URL}/admin/god-mode/global-payout`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ modifier: payoutSlider })
+      });
+      if (response.ok) {
+        Alert.alert('Success', `Global payout set to ${payoutSlider}%`);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update payout');
+    }
+  };
+
+  const updateGlobalWinRate = async () => {
+    try {
+      const response = await fetch(`${API_URL}/admin/god-mode/global-win-rate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ modifier: winRateSlider })
+      });
+      if (response.ok) {
+        Alert.alert('Success', `Global win rate set to ${winRateSlider}%`);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update win rate');
+    }
+  };
+
+  // Trade Actions
+  const overrideTrade = async (tradeId: string, result: 'win' | 'lose') => {
+    try {
+      const response = await fetch(`${API_URL}/admin/trades/${tradeId}/override`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ result })
+      });
+      if (response.ok) {
+        Alert.alert('Success', `Trade forced to ${result.toUpperCase()}`);
+        setShowTradeOverrideModal(false);
+        fetchLiveTrades();
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to override trade');
+    }
+  };
+
+  const cancelTrade = async (tradeId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/admin/trades/${tradeId}/cancel`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      
       if (response.ok) {
-        fetchAssets();
+        Alert.alert('Success', 'Trade cancelled and refunded');
+        setShowTradeOverrideModal(false);
+        fetchLiveTrades();
       }
     } catch (error) {
-      console.error('Error toggling asset:', error);
+      Alert.alert('Error', 'Failed to cancel trade');
     }
   };
 
-  const handleWithdrawalAction = async (withdrawalId: string, action: 'approve' | 'reject') => {
+  // User Risk Actions
+  const updateUserWinRate = async () => {
+    if (!selectedUserRisk) return;
     try {
-      const response = await fetch(`${API_URL}/admin/withdrawals/${withdrawalId}/${action}`, {
+      const response = await fetch(`${API_URL}/admin/users/${selectedUserRisk.user_id}/win-rate`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ reason: 'Admin action' })
+        body: JSON.stringify({ modifier: parseFloat(userWinRate) })
       });
-      
       if (response.ok) {
-        Alert.alert('Success', `Withdrawal ${action}ed`);
-        fetchWithdrawals();
-        fetchUsers();
-      } else {
-        const error = await response.json();
-        Alert.alert('Error', error.detail || `Failed to ${action} withdrawal`);
+        Alert.alert('Success', `Win rate set to ${userWinRate}%`);
       }
     } catch (error) {
-      Alert.alert('Error', 'Network error');
+      Alert.alert('Error', 'Failed to update win rate');
+    }
+  };
+
+  const updateUserPayout = async () => {
+    if (!selectedUserRisk) return;
+    try {
+      const response = await fetch(`${API_URL}/admin/users/${selectedUserRisk.user_id}/payout`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ modifier: parseFloat(userPayout) })
+      });
+      if (response.ok) {
+        Alert.alert('Success', `Payout set to ${userPayout}%`);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update payout');
+    }
+  };
+
+  const toggleShadowBan = async (banned: boolean) => {
+    if (!selectedUserRisk) return;
+    try {
+      const response = await fetch(`${API_URL}/admin/users/${selectedUserRisk.user_id}/shadow-ban`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ banned })
+      });
+      if (response.ok) {
+        Alert.alert('Success', banned ? 'User shadow banned' : 'Shadow ban removed');
+        setSelectedUserRisk(prev => prev ? { 
+          ...prev, 
+          risk_controls: { ...prev.risk_controls, is_shadow_banned: banned }
+        } : null);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update shadow ban');
     }
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchAllData();
+    await Promise.all([fetchGodModeStatus(), fetchLiveStats(), fetchLiveTrades(), fetchUsers()]);
     setRefreshing(false);
   };
-
-  const filteredUsers = users.filter(u => 
-    u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    u.account_id?.includes(searchQuery) ||
-    u.name?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
-      minimumFractionDigits: 2
+      minimumFractionDigits: 0
     }).format(amount || 0);
   };
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  // Simple Bar Chart Component
-  const SimpleBarChart = ({ data, labels, color, title }: { data: number[]; labels: string[]; color: string; title: string }) => {
-    const maxValue = Math.max(...data, 1);
-    const chartWidth = SCREEN_WIDTH - 80;
-    const barWidth = Math.min(30, (chartWidth - 20) / Math.max(data.length, 1));
-    
-    return (
-      <View style={styles.chartContainer}>
-        <Text style={styles.chartTitle}>{title}</Text>
-        <View style={styles.chartBars}>
-          {data.length > 0 ? data.map((value, index) => (
-            <View key={index} style={styles.barContainer}>
-              <View style={[styles.bar, { 
-                height: Math.max((value / maxValue) * 80, 4),
-                backgroundColor: color,
-                width: barWidth
-              }]} />
-              <Text style={styles.barLabel}>{labels[index] || ''}</Text>
-            </View>
-          )) : (
-            <Text style={styles.noDataText}>No data available</Text>
-          )}
-        </View>
-      </View>
-    );
-  };
+  const filteredUsers = users.filter(u => 
+    u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    u.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#635BFF" />
-        <Text style={styles.loadingText}>Loading Admin Dashboard...</Text>
+        <ActivityIndicator size="large" color="#FF3B30" />
+        <Text style={styles.loadingText}>Loading Control Center...</Text>
       </View>
     );
   }
 
-  const tabs = ['overview', 'users', 'trades', 'withdrawals', 'assets'];
+  const tabs = ['god-mode', 'trades', 'users', 'logs'];
 
   return (
     <View style={styles.container}>
@@ -448,16 +452,42 @@ export default function AdminDashboard() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color="#1A1F36" />
+            <Ionicons name="arrow-back" size={24} color="#FFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Admin Dashboard</Text>
+          <View>
+            <Text style={styles.headerTitle}>🔥 CONTROL CENTER</Text>
+            <Text style={styles.headerSubtitle}>God Mode Active</Text>
+          </View>
         </View>
-        <View style={styles.headerRight}>
-          <TouchableOpacity onPress={onRefresh} style={styles.refreshBtn}>
-            <Ionicons name="refresh" size={20} color="#635BFF" />
-          </TouchableOpacity>
+        <View style={styles.liveIndicator}>
+          <View style={styles.liveDot} />
+          <Text style={styles.liveText}>LIVE</Text>
         </View>
       </View>
+
+      {/* Live Stats Bar */}
+      {liveStats && (
+        <View style={styles.liveStatsBar}>
+          <View style={styles.liveStat}>
+            <Text style={styles.liveStatValue}>{liveStats.live.active_trades}</Text>
+            <Text style={styles.liveStatLabel}>Active</Text>
+          </View>
+          <View style={styles.liveStat}>
+            <Text style={styles.liveStatValue}>{liveStats.live.active_users}</Text>
+            <Text style={styles.liveStatLabel}>Users</Text>
+          </View>
+          <View style={styles.liveStat}>
+            <Text style={[styles.liveStatValue, { color: liveStats.today.platform_profit >= 0 ? '#00D4AA' : '#FF3B30' }]}>
+              {formatCurrency(liveStats.today.platform_profit)}
+            </Text>
+            <Text style={styles.liveStatLabel}>Today P/L</Text>
+          </View>
+          <View style={styles.liveStat}>
+            <Text style={styles.liveStatValue}>{liveStats.live.pending_withdrawals}</Text>
+            <Text style={styles.liveStatLabel}>Pending</Text>
+          </View>
+        </View>
+      )}
 
       {/* Tabs */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScrollContainer}>
@@ -468,8 +498,17 @@ export default function AdminDashboard() {
               style={[styles.tab, activeTab === tab && styles.tabActive]}
               onPress={() => setActiveTab(tab)}
             >
+              <Ionicons 
+                name={
+                  tab === 'god-mode' ? 'flash' :
+                  tab === 'trades' ? 'trending-up' :
+                  tab === 'users' ? 'people' : 'list'
+                } 
+                size={18} 
+                color={activeTab === tab ? '#FFF' : '#8898AA'} 
+              />
               <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                {tab === 'god-mode' ? 'GOD MODE' : tab.toUpperCase()}
               </Text>
             </TouchableOpacity>
           ))}
@@ -481,355 +520,239 @@ export default function AdminDashboard() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
       >
-        {/* Overview Tab */}
-        {activeTab === 'overview' && (
-          <View style={styles.overviewContainer}>
-            {/* Quick Actions */}
-            <View style={styles.quickActions}>
-              <TouchableOpacity 
-                style={styles.actionBtn}
-                onPress={() => setShowManualDepositModal(true)}
-              >
-                <Ionicons name="add-circle" size={20} color="#FFF" />
-                <Text style={styles.actionBtnText}>Manual Deposit</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.actionBtn, { backgroundColor: '#00D4AA' }]}
-                onPress={() => { setEditingAsset(null); setShowAssetModal(true); }}
-              >
-                <Ionicons name="cube" size={20} color="#FFF" />
-                <Text style={styles.actionBtnText}>New Asset</Text>
-              </TouchableOpacity>
+        {/* GOD MODE TAB */}
+        {activeTab === 'god-mode' && (
+          <View style={styles.godModeContainer}>
+            {/* Kill Switch */}
+            <View style={styles.controlCard}>
+              <View style={styles.controlHeader}>
+                <Ionicons name="power" size={24} color="#FF3B30" />
+                <Text style={styles.controlTitle}>KILL SWITCH</Text>
+              </View>
+              <Text style={styles.controlDesc}>Instantly disable all trading platform-wide</Text>
+              <View style={styles.switchRow}>
+                <Text style={styles.switchLabel}>Trading {godMode?.trading_enabled ? 'ENABLED' : 'DISABLED'}</Text>
+                <Switch
+                  value={godMode?.trading_enabled}
+                  onValueChange={toggleKillSwitch}
+                  trackColor={{ false: '#FF3B30', true: '#00D4AA' }}
+                  thumbColor="#FFF"
+                />
+              </View>
             </View>
 
-            {/* Period Selector */}
-            <View style={styles.periodSelector}>
-              {(['week', 'month', 'year'] as const).map((period) => (
-                <TouchableOpacity
-                  key={period}
-                  style={[styles.periodBtn, analyticsPeriod === period && styles.periodBtnActive]}
-                  onPress={() => setAnalyticsPeriod(period)}
-                >
-                  <Text style={[styles.periodBtnText, analyticsPeriod === period && styles.periodBtnTextActive]}>
-                    {period.charAt(0).toUpperCase() + period.slice(1)}
-                  </Text>
+            {/* Freeze Withdrawals */}
+            <View style={styles.controlCard}>
+              <View style={styles.controlHeader}>
+                <Ionicons name="snow" size={24} color="#007AFF" />
+                <Text style={styles.controlTitle}>FREEZE WITHDRAWALS</Text>
+              </View>
+              <Text style={styles.controlDesc}>Block all withdrawal requests</Text>
+              <View style={styles.switchRow}>
+                <Text style={styles.switchLabel}>Withdrawals {godMode?.withdrawals_enabled ? 'ENABLED' : 'FROZEN'}</Text>
+                <Switch
+                  value={godMode?.withdrawals_enabled}
+                  onValueChange={toggleWithdrawals}
+                  trackColor={{ false: '#FF3B30', true: '#00D4AA' }}
+                  thumbColor="#FFF"
+                />
+              </View>
+            </View>
+
+            {/* Global Payout Slider */}
+            <View style={styles.controlCard}>
+              <View style={styles.controlHeader}>
+                <Ionicons name="cash" size={24} color="#00D4AA" />
+                <Text style={styles.controlTitle}>GLOBAL PAYOUT</Text>
+              </View>
+              <Text style={styles.controlDesc}>Adjust payout percentage for all trades</Text>
+              <View style={styles.sliderContainer}>
+                <Text style={styles.sliderValue}>{payoutSlider}%</Text>
+                <View style={styles.sliderRow}>
+                  <TouchableOpacity 
+                    style={styles.sliderBtn}
+                    onPress={() => setPayoutSlider(Math.max(0, payoutSlider - 10))}
+                  >
+                    <Ionicons name="remove" size={20} color="#FFF" />
+                  </TouchableOpacity>
+                  <View style={styles.sliderTrack}>
+                    <View style={[styles.sliderFill, { width: `${payoutSlider / 2}%` }]} />
+                  </View>
+                  <TouchableOpacity 
+                    style={styles.sliderBtn}
+                    onPress={() => setPayoutSlider(Math.min(200, payoutSlider + 10))}
+                  >
+                    <Ionicons name="add" size={20} color="#FFF" />
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity style={styles.applyBtn} onPress={updateGlobalPayout}>
+                  <Text style={styles.applyBtnText}>APPLY</Text>
                 </TouchableOpacity>
-              ))}
+              </View>
             </View>
 
-            {/* Summary Cards */}
-            {analytics && (
-              <View style={styles.summaryCards}>
-                <View style={[styles.summaryCard, { borderLeftColor: '#4CAF50' }]}>
-                  <Text style={styles.summaryLabel}>Total Deposits</Text>
-                  <Text style={[styles.summaryValue, { color: '#4CAF50' }]}>
-                    {formatCurrency(analytics.summary.total_deposits)}
-                  </Text>
+            {/* Global Win Rate Slider */}
+            <View style={styles.controlCard}>
+              <View style={styles.controlHeader}>
+                <Ionicons name="trophy" size={24} color="#FF9500" />
+                <Text style={styles.controlTitle}>GLOBAL WIN RATE</Text>
+              </View>
+              <Text style={styles.controlDesc}>Adjust platform win probability</Text>
+              <View style={styles.sliderContainer}>
+                <Text style={styles.sliderValue}>{winRateSlider}%</Text>
+                <View style={styles.sliderRow}>
+                  <TouchableOpacity 
+                    style={styles.sliderBtn}
+                    onPress={() => setWinRateSlider(Math.max(0, winRateSlider - 10))}
+                  >
+                    <Ionicons name="remove" size={20} color="#FFF" />
+                  </TouchableOpacity>
+                  <View style={styles.sliderTrack}>
+                    <View style={[styles.sliderFill, { width: `${winRateSlider / 2}%`, backgroundColor: '#FF9500' }]} />
+                  </View>
+                  <TouchableOpacity 
+                    style={styles.sliderBtn}
+                    onPress={() => setWinRateSlider(Math.min(200, winRateSlider + 10))}
+                  >
+                    <Ionicons name="add" size={20} color="#FFF" />
+                  </TouchableOpacity>
                 </View>
-                <View style={[styles.summaryCard, { borderLeftColor: '#F44336' }]}>
-                  <Text style={styles.summaryLabel}>Total Withdrawals</Text>
-                  <Text style={[styles.summaryValue, { color: '#F44336' }]}>
-                    {formatCurrency(analytics.summary.total_withdrawals)}
-                  </Text>
-                </View>
-                <View style={[styles.summaryCard, { borderLeftColor: '#635BFF' }]}>
-                  <Text style={styles.summaryLabel}>Net Revenue</Text>
-                  <Text style={[styles.summaryValue, { color: '#635BFF' }]}>
-                    {formatCurrency(analytics.summary.net_revenue)}
-                  </Text>
-                </View>
-                <View style={[styles.summaryCard, { borderLeftColor: '#FF9800' }]}>
-                  <Text style={styles.summaryLabel}>Platform P/L</Text>
-                  <Text style={[styles.summaryValue, { color: analytics.summary.platform_profit >= 0 ? '#4CAF50' : '#F44336' }]}>
-                    {formatCurrency(analytics.summary.platform_profit)}
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            {/* Charts */}
-            {analytics && (
-              <View style={styles.chartsSection}>
-                <SimpleBarChart
-                  data={analytics.deposits.data}
-                  labels={analytics.labels}
-                  color="#4CAF50"
-                  title="Deposits"
-                />
-                <SimpleBarChart
-                  data={analytics.withdrawals.data}
-                  labels={analytics.labels}
-                  color="#F44336"
-                  title="Withdrawals"
-                />
-                <SimpleBarChart
-                  data={analytics.profit_loss.data}
-                  labels={analytics.labels}
-                  color="#635BFF"
-                  title="Platform Profit/Loss"
-                />
-              </View>
-            )}
-
-            {/* Stats Grid */}
-            <View style={styles.statsGrid}>
-              <View style={[styles.statCard, styles.statCardPrimary]}>
-                <Ionicons name="people" size={24} color="#635BFF" />
-                <Text style={styles.statValue}>{stats?.total_users || 0}</Text>
-                <Text style={styles.statLabel}>Total Users</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Ionicons name="trending-up" size={24} color="#00D4AA" />
-                <Text style={styles.statValue}>{stats?.total_trades || 0}</Text>
-                <Text style={styles.statLabel}>Total Trades</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Ionicons name="time" size={24} color="#FF9800" />
-                <Text style={styles.statValue}>{stats?.pending_withdrawals || 0}</Text>
-                <Text style={styles.statLabel}>Pending W/D</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Ionicons name="flash" size={24} color="#2196F3" />
-                <Text style={styles.statValue}>{stats?.active_users_today || 0}</Text>
-                <Text style={styles.statLabel}>Active Today</Text>
+                <TouchableOpacity style={[styles.applyBtn, { backgroundColor: '#FF9500' }]} onPress={updateGlobalWinRate}>
+                  <Text style={styles.applyBtnText}>APPLY</Text>
+                </TouchableOpacity>
               </View>
             </View>
           </View>
         )}
 
-        {/* Users Tab */}
+        {/* TRADES TAB */}
+        {activeTab === 'trades' && (
+          <View style={styles.tradesContainer}>
+            {/* Active Trades */}
+            <Text style={styles.sectionTitle}>🔴 ACTIVE TRADES ({activeTrades.length})</Text>
+            {activeTrades.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="checkmark-circle" size={40} color="#00D4AA" />
+                <Text style={styles.emptyText}>No active trades</Text>
+              </View>
+            ) : (
+              activeTrades.map((trade) => (
+                <TouchableOpacity 
+                  key={trade.trade_id} 
+                  style={styles.tradeCard}
+                  onPress={() => {
+                    setSelectedTrade(trade);
+                    setShowTradeOverrideModal(true);
+                  }}
+                >
+                  <View style={styles.tradeHeader}>
+                    <Text style={styles.tradeAsset}>{trade.asset}</Text>
+                    <View style={[styles.directionBadge, { backgroundColor: trade.direction === 'up' ? '#00D4AA' : '#FF3B30' }]}>
+                      <Ionicons name={trade.direction === 'up' ? 'arrow-up' : 'arrow-down'} size={14} color="#FFF" />
+                      <Text style={styles.directionText}>{trade.direction.toUpperCase()}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.tradeDetails}>
+                    <Text style={styles.tradeAmount}>{formatCurrency(trade.amount)}</Text>
+                    <Text style={styles.tradeUser}>{trade.user_email}</Text>
+                    <Text style={styles.tradePayout}>Payout: {trade.payout_percentage}%</Text>
+                  </View>
+                  <View style={styles.tradeActions}>
+                    <TouchableOpacity 
+                      style={[styles.actionBtn, { backgroundColor: '#00D4AA' }]}
+                      onPress={() => overrideTrade(trade.trade_id, 'win')}
+                    >
+                      <Text style={styles.actionBtnText}>WIN</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.actionBtn, { backgroundColor: '#FF3B30' }]}
+                      onPress={() => overrideTrade(trade.trade_id, 'lose')}
+                    >
+                      <Text style={styles.actionBtnText}>LOSE</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.actionBtn, { backgroundColor: '#8898AA' }]}
+                      onPress={() => cancelTrade(trade.trade_id)}
+                    >
+                      <Text style={styles.actionBtnText}>CANCEL</Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
+
+            {/* Recent Trades */}
+            <Text style={[styles.sectionTitle, { marginTop: 24 }]}>📊 RECENT TRADES</Text>
+            {recentTrades.slice(0, 10).map((trade) => (
+              <View key={trade.trade_id} style={styles.recentTradeRow}>
+                <View style={styles.recentTradeInfo}>
+                  <Text style={styles.recentAsset}>{trade.asset}</Text>
+                  <Text style={styles.recentUser}>{trade.user_email?.split('@')[0]}</Text>
+                </View>
+                <Text style={styles.recentAmount}>{formatCurrency(trade.amount)}</Text>
+                <View style={[
+                  styles.statusBadge,
+                  { backgroundColor: trade.status === 'won' ? '#E8F5E9' : trade.status === 'lost' ? '#FFEBEE' : '#FFF3E0' }
+                ]}>
+                  <Text style={[
+                    styles.statusText,
+                    { color: trade.status === 'won' ? '#00D4AA' : trade.status === 'lost' ? '#FF3B30' : '#FF9500' }
+                  ]}>
+                    {trade.status.toUpperCase()}
+                  </Text>
+                </View>
+                <Text style={[
+                  styles.recentPL,
+                  { color: trade.profit_loss >= 0 ? '#00D4AA' : '#FF3B30' }
+                ]}>
+                  {trade.profit_loss >= 0 ? '+' : ''}{formatCurrency(trade.profit_loss)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* USERS TAB */}
         {activeTab === 'users' && (
           <View style={styles.usersContainer}>
-            {/* Search */}
             <View style={styles.searchContainer}>
               <Ionicons name="search" size={20} color="#8898AA" />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Search by email, name, or ID..."
+                placeholder="Search users..."
                 placeholderTextColor="#8898AA"
                 value={searchQuery}
                 onChangeText={setSearchQuery}
               />
             </View>
 
-            {/* Add Manual Deposit Button */}
-            <TouchableOpacity 
-              style={styles.addDepositBtn}
-              onPress={() => setShowManualDepositModal(true)}
-            >
-              <Ionicons name="add-circle" size={20} color="#FFF" />
-              <Text style={styles.addDepositBtnText}>Add Manual Deposit</Text>
-            </TouchableOpacity>
-
-            {/* Users List */}
-            <View style={styles.tableContainer}>
-              <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderCell, { flex: 2 }]}>User</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Balance</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Status</Text>
-              </View>
-              {filteredUsers.map((user, index) => (
-                <TouchableOpacity
-                  key={user.user_id || index}
-                  style={styles.tableRow}
-                  onPress={() => {
-                    setSelectedUser(user);
-                    setManualDeposit(prev => ({ ...prev, userId: user.user_id }));
-                    setShowUserModal(true);
-                  }}
-                >
-                  <View style={[styles.tableCell, { flex: 2 }]}>
-                    <Text style={styles.userName}>{user.name || 'No Name'}</Text>
-                    <Text style={styles.userEmail}>{user.email}</Text>
-                    <Text style={styles.userId}>ID: {user.account_id}</Text>
-                  </View>
-                  <View style={[styles.tableCell, { flex: 1 }]}>
-                    <Text style={styles.balanceReal}>{formatCurrency(user.real_balance)}</Text>
-                    <Text style={styles.balanceDemo}>Demo: {formatCurrency(user.demo_balance)}</Text>
-                    <Text style={styles.balanceBonus}>Bonus: {formatCurrency(user.bonus_balance)}</Text>
-                  </View>
-                  <View style={[styles.tableCell, { flex: 1 }]}>
-                    <View style={[
-                      styles.statusBadge,
-                      { backgroundColor: user.is_verified ? '#E8F5E9' : '#FFF3E0' }
-                    ]}>
-                      <Text style={[
-                        styles.statusText,
-                        { color: user.is_verified ? '#4CAF50' : '#FF9800' }
-                      ]}>
-                        {user.is_verified ? 'Verified' : 'Pending'}
-                      </Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
+            {filteredUsers.map((user) => (
+              <TouchableOpacity 
+                key={user.user_id} 
+                style={styles.userCard}
+                onPress={() => fetchUserRiskProfile(user.user_id)}
+              >
+                <View style={styles.userInfo}>
+                  <Text style={styles.userName}>{user.name || user.email?.split('@')[0]}</Text>
+                  <Text style={styles.userEmail}>{user.email}</Text>
+                </View>
+                <View style={styles.userBalances}>
+                  <Text style={styles.userBalance}>{formatCurrency(user.real_balance)}</Text>
+                  <Text style={styles.userBalanceLabel}>Real</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#8898AA" />
+              </TouchableOpacity>
+            ))}
           </View>
         )}
 
-        {/* Trades Tab */}
-        {activeTab === 'trades' && (
-          <View style={styles.tradesContainer}>
-            <View style={styles.tableContainer}>
-              <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Asset</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Amount</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Result</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 1 }]}>P/L</Text>
-              </View>
-              {trades.map((trade, index) => (
-                <View key={trade.trade_id || index} style={styles.tableRow}>
-                  <View style={[styles.tableCell, { flex: 1.5 }]}>
-                    <Text style={styles.tradeAsset}>{trade.asset}</Text>
-                    <Text style={styles.tradeDirection}>
-                      {trade.direction === 'up' ? '📈 UP' : '📉 DOWN'}
-                    </Text>
-                  </View>
-                  <Text style={[styles.tableCell, { flex: 1 }]}>
-                    {formatCurrency(trade.amount)}
-                  </Text>
-                  <View style={[styles.tableCell, { flex: 1 }]}>
-                    <View style={[
-                      styles.statusBadge,
-                      { backgroundColor: trade.status === 'won' ? '#E8F5E9' : trade.status === 'lost' ? '#FFEBEE' : '#FFF3E0' }
-                    ]}>
-                      <Text style={[
-                        styles.statusText,
-                        { color: trade.status === 'won' ? '#4CAF50' : trade.status === 'lost' ? '#F44336' : '#FF9800' }
-                      ]}>
-                        {trade.status?.toUpperCase()}
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={[
-                    styles.tableCell,
-                    { flex: 1, color: trade.profit_loss >= 0 ? '#4CAF50' : '#F44336', fontWeight: '600' }
-                  ]}>
-                    {trade.profit_loss >= 0 ? '+' : ''}{formatCurrency(trade.profit_loss)}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Withdrawals Tab */}
-        {activeTab === 'withdrawals' && (
-          <View style={styles.withdrawalsContainer}>
-            <View style={styles.tableContainer}>
-              <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>User</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Amount</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Status</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Action</Text>
-              </View>
-              {withdrawals.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <Ionicons name="wallet-outline" size={40} color="#8898AA" />
-                  <Text style={styles.emptyStateText}>No withdrawal requests</Text>
-                </View>
-              ) : (
-                withdrawals.map((withdrawal, index) => (
-                  <View key={withdrawal.withdrawal_id || index} style={styles.tableRow}>
-                    <View style={[styles.tableCell, { flex: 1.5 }]}>
-                      <Text style={styles.userName}>{withdrawal.user_name}</Text>
-                      <Text style={styles.userEmail}>{withdrawal.user_email}</Text>
-                      <Text style={styles.walletAddress} numberOfLines={1}>
-                        {withdrawal.wallet_address?.slice(0, 15)}...
-                      </Text>
-                    </View>
-                    <Text style={[styles.tableCell, { flex: 1, fontWeight: '600', color: '#1A1F36' }]}>
-                      {formatCurrency(withdrawal.amount)}
-                    </Text>
-                    <View style={[styles.tableCell, { flex: 1 }]}>
-                      <View style={[
-                        styles.statusBadge,
-                        { backgroundColor: withdrawal.status === 'completed' ? '#E8F5E9' : withdrawal.status === 'rejected' ? '#FFEBEE' : '#FFF3E0' }
-                      ]}>
-                        <Text style={[
-                          styles.statusText,
-                          { color: withdrawal.status === 'completed' ? '#4CAF50' : withdrawal.status === 'rejected' ? '#F44336' : '#FF9800' }
-                        ]}>
-                          {withdrawal.status}
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={[styles.tableCell, { flex: 1 }]}>
-                      {withdrawal.status === 'pending' && (
-                        <View style={styles.actionBtns}>
-                          <TouchableOpacity 
-                            style={styles.approveBtn}
-                            onPress={() => handleWithdrawalAction(withdrawal.withdrawal_id, 'approve')}
-                          >
-                            <Ionicons name="checkmark" size={16} color="#FFF" />
-                          </TouchableOpacity>
-                          <TouchableOpacity 
-                            style={styles.rejectBtn}
-                            onPress={() => handleWithdrawalAction(withdrawal.withdrawal_id, 'reject')}
-                          >
-                            <Ionicons name="close" size={16} color="#FFF" />
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                ))
-              )}
-            </View>
-          </View>
-        )}
-
-        {/* Assets Tab */}
-        {activeTab === 'assets' && (
-          <View style={styles.assetsContainer}>
-            <TouchableOpacity 
-              style={styles.addAssetBtn}
-              onPress={() => { setEditingAsset(null); setShowAssetModal(true); }}
-            >
-              <Ionicons name="add-circle" size={20} color="#FFF" />
-              <Text style={styles.addAssetBtnText}>Create New Asset</Text>
-            </TouchableOpacity>
-
-            <View style={styles.tableContainer}>
-              <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Asset</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Payout</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Type</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Status</Text>
-              </View>
-              {assets.map((asset, index) => (
-                <View key={asset.asset_id || index} style={styles.tableRow}>
-                  <View style={[styles.tableCell, { flex: 1.5 }]}>
-                    <Text style={styles.assetSymbol}>{asset.symbol}</Text>
-                    <Text style={styles.assetName}>{asset.name}</Text>
-                    <Text style={styles.assetCategory}>{asset.category}</Text>
-                  </View>
-                  <Text style={[styles.tableCell, { flex: 1, fontWeight: '600', color: '#635BFF' }]}>
-                    {asset.payout_percentage}%
-                  </Text>
-                  <View style={[styles.tableCell, { flex: 1 }]}>
-                    <View style={[
-                      styles.statusBadge,
-                      { backgroundColor: asset.is_otc ? '#E3F2FD' : '#F3E5F5' }
-                    ]}>
-                      <Text style={[
-                        styles.statusText,
-                        { color: asset.is_otc ? '#2196F3' : '#9C27B0' }
-                      ]}>
-                        {asset.is_otc ? 'OTC' : 'Regular'}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={[styles.tableCell, { flex: 1, alignItems: 'center' }]}>
-                    <Switch
-                      value={asset.is_active}
-                      onValueChange={() => handleToggleAsset(asset.asset_id)}
-                      trackColor={{ false: '#E0E0E0', true: '#C8E6C9' }}
-                      thumbColor={asset.is_active ? '#4CAF50' : '#9E9E9E'}
-                    />
-                  </View>
-                </View>
-              ))}
+        {/* LOGS TAB */}
+        {activeTab === 'logs' && (
+          <View style={styles.logsContainer}>
+            <Text style={styles.sectionTitle}>📋 ADMIN ACTIVITY LOG</Text>
+            <View style={styles.logPlaceholder}>
+              <Ionicons name="document-text" size={40} color="#8898AA" />
+              <Text style={styles.logPlaceholderText}>Activity logs will appear here</Text>
             </View>
           </View>
         )}
@@ -837,235 +760,101 @@ export default function AdminDashboard() {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* Manual Deposit Modal */}
-      <Modal visible={showManualDepositModal} transparent animationType="fade">
+      {/* User Risk Modal */}
+      <Modal visible={showUserRiskModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Manual Deposit</Text>
-              <TouchableOpacity onPress={() => setShowManualDepositModal(false)}>
-                <Ionicons name="close" size={24} color="#1A1F36" />
+              <Text style={styles.modalTitle}>⚠️ USER RISK CONTROL</Text>
+              <TouchableOpacity onPress={() => setShowUserRiskModal(false)}>
+                <Ionicons name="close" size={24} color="#FFF" />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.modalBody}>
-              <Text style={styles.inputLabel}>User ID *</Text>
-              <TextInput
-                style={styles.textInput}
-                value={manualDeposit.userId}
-                onChangeText={(text) => setManualDeposit(prev => ({ ...prev, userId: text }))}
-                placeholder="Enter user ID"
-                placeholderTextColor="#8898AA"
-              />
-              
-              <Text style={styles.inputLabel}>Amount *</Text>
-              <View style={styles.amountInputRow}>
-                <Text style={styles.currencyPrefix}>$</Text>
-                <TextInput
-                  style={styles.amountInput}
-                  value={manualDeposit.amount}
-                  onChangeText={(text) => setManualDeposit(prev => ({ ...prev, amount: text }))}
-                  placeholder="0.00"
-                  keyboardType="numeric"
-                  placeholderTextColor="#8898AA"
-                />
-              </View>
-              
-              <Text style={styles.inputLabel}>Balance Type</Text>
-              <View style={styles.balanceTypeRow}>
-                {['real', 'demo', 'bonus'].map((type) => (
-                  <TouchableOpacity
-                    key={type}
-                    style={[styles.balanceTypeBtn, manualDeposit.balanceType === type && styles.balanceTypeBtnActive]}
-                    onPress={() => setManualDeposit(prev => ({ ...prev, balanceType: type }))}
-                  >
-                    <Text style={[styles.balanceTypeBtnText, manualDeposit.balanceType === type && styles.balanceTypeBtnTextActive]}>
-                      {type.charAt(0).toUpperCase() + type.slice(1)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              
-              <Text style={styles.inputLabel}>Note</Text>
-              <TextInput
-                style={[styles.textInput, { height: 80 }]}
-                value={manualDeposit.note}
-                onChangeText={(text) => setManualDeposit(prev => ({ ...prev, note: text }))}
-                placeholder="Reason for deposit..."
-                placeholderTextColor="#8898AA"
-                multiline
-              />
-              
-              <TouchableOpacity style={styles.submitBtn} onPress={handleManualDeposit}>
-                <Text style={styles.submitBtnText}>Add Deposit</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Asset Modal */}
-      <Modal visible={showAssetModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{editingAsset ? 'Edit Asset' : 'Create Asset'}</Text>
-              <TouchableOpacity onPress={() => setShowAssetModal(false)}>
-                <Ionicons name="close" size={24} color="#1A1F36" />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.modalBody}>
-              <Text style={styles.inputLabel}>Symbol *</Text>
-              <TextInput
-                style={styles.textInput}
-                value={newAsset.symbol}
-                onChangeText={(text) => setNewAsset(prev => ({ ...prev, symbol: text.toUpperCase() }))}
-                placeholder="e.g., BTC/USD"
-                placeholderTextColor="#8898AA"
-                autoCapitalize="characters"
-              />
-              
-              <Text style={styles.inputLabel}>Name</Text>
-              <TextInput
-                style={styles.textInput}
-                value={newAsset.name}
-                onChangeText={(text) => setNewAsset(prev => ({ ...prev, name: text }))}
-                placeholder="e.g., Bitcoin"
-                placeholderTextColor="#8898AA"
-              />
-              
-              <Text style={styles.inputLabel}>Category</Text>
-              <View style={styles.categoryRow}>
-                {['forex', 'crypto', 'stocks', 'otc'].map((cat) => (
-                  <TouchableOpacity
-                    key={cat}
-                    style={[styles.categoryBtn, newAsset.category === cat && styles.categoryBtnActive]}
-                    onPress={() => setNewAsset(prev => ({ ...prev, category: cat, isOtc: cat === 'otc' }))}
-                  >
-                    <Text style={[styles.categoryBtnText, newAsset.category === cat && styles.categoryBtnTextActive]}>
-                      {cat.toUpperCase()}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              
-              <Text style={styles.inputLabel}>Payout Percentage</Text>
-              <View style={styles.amountInputRow}>
-                <TextInput
-                  style={styles.amountInput}
-                  value={newAsset.payout}
-                  onChangeText={(text) => setNewAsset(prev => ({ ...prev, payout: text }))}
-                  placeholder="80"
-                  keyboardType="numeric"
-                  placeholderTextColor="#8898AA"
-                />
-                <Text style={styles.currencySuffix}>%</Text>
-              </View>
-              
-              <View style={styles.rowInputs}>
-                <View style={{ flex: 1, marginRight: 8 }}>
-                  <Text style={styles.inputLabel}>Min Amount</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={newAsset.minAmount}
-                    onChangeText={(text) => setNewAsset(prev => ({ ...prev, minAmount: text }))}
-                    placeholder="1"
-                    keyboardType="numeric"
-                    placeholderTextColor="#8898AA"
-                  />
-                </View>
-                <View style={{ flex: 1, marginLeft: 8 }}>
-                  <Text style={styles.inputLabel}>Max Amount</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={newAsset.maxAmount}
-                    onChangeText={(text) => setNewAsset(prev => ({ ...prev, maxAmount: text }))}
-                    placeholder="10000"
-                    keyboardType="numeric"
-                    placeholderTextColor="#8898AA"
-                  />
-                </View>
-              </View>
-              
-              <View style={styles.otcToggleRow}>
-                <Text style={styles.inputLabel}>OTC Asset</Text>
-                <Switch
-                  value={newAsset.isOtc}
-                  onValueChange={(value) => setNewAsset(prev => ({ ...prev, isOtc: value }))}
-                  trackColor={{ false: '#E0E0E0', true: '#C8E6C9' }}
-                  thumbColor={newAsset.isOtc ? '#4CAF50' : '#9E9E9E'}
-                />
-              </View>
-              
-              <TouchableOpacity style={styles.submitBtn} onPress={handleCreateAsset}>
-                <Text style={styles.submitBtnText}>{editingAsset ? 'Update Asset' : 'Create Asset'}</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* User Detail Modal */}
-      <Modal visible={showUserModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>User Details</Text>
-              <TouchableOpacity onPress={() => setShowUserModal(false)}>
-                <Ionicons name="close" size={24} color="#1A1F36" />
-              </TouchableOpacity>
-            </View>
-            {selectedUser && (
+            
+            {selectedUserRisk && (
               <ScrollView style={styles.modalBody}>
-                <View style={styles.userDetailCard}>
-                  <View style={styles.userDetailRow}>
-                    <Text style={styles.userDetailLabel}>Email</Text>
-                    <Text style={styles.userDetailValue}>{selectedUser.email}</Text>
-                  </View>
-                  <View style={styles.userDetailRow}>
-                    <Text style={styles.userDetailLabel}>Account ID</Text>
-                    <Text style={styles.userDetailValue}>{selectedUser.account_id}</Text>
-                  </View>
-                  <View style={styles.userDetailRow}>
-                    <Text style={styles.userDetailLabel}>User ID</Text>
-                    <Text style={styles.userDetailValue} selectable>{selectedUser.user_id}</Text>
-                  </View>
-                </View>
-                
-                <View style={styles.balanceSection}>
-                  <Text style={styles.sectionTitle}>Balances</Text>
-                  <View style={styles.balanceCards}>
-                    <View style={[styles.balanceCard, { backgroundColor: '#E8F5E9' }]}>
-                      <Text style={styles.balanceCardLabel}>Real</Text>
-                      <Text style={[styles.balanceCardValue, { color: '#4CAF50' }]}>
-                        {formatCurrency(selectedUser.real_balance)}
-                      </Text>
-                    </View>
-                    <View style={[styles.balanceCard, { backgroundColor: '#E3F2FD' }]}>
-                      <Text style={styles.balanceCardLabel}>Demo</Text>
-                      <Text style={[styles.balanceCardValue, { color: '#2196F3' }]}>
-                        {formatCurrency(selectedUser.demo_balance)}
-                      </Text>
-                    </View>
-                    <View style={[styles.balanceCard, { backgroundColor: '#FFF3E0' }]}>
-                      <Text style={styles.balanceCardLabel}>Bonus</Text>
-                      <Text style={[styles.balanceCardValue, { color: '#FF9800' }]}>
-                        {formatCurrency(selectedUser.bonus_balance)}
-                      </Text>
+                {/* User Info */}
+                <View style={styles.riskSection}>
+                  <Text style={styles.riskEmail}>{selectedUserRisk.email}</Text>
+                  <View style={styles.riskScoreContainer}>
+                    <Text style={styles.riskScoreLabel}>AI Risk Score</Text>
+                    <View style={[
+                      styles.riskScoreBadge,
+                      { backgroundColor: selectedUserRisk.ai_risk_score > 70 ? '#FF3B30' : selectedUserRisk.ai_risk_score > 40 ? '#FF9500' : '#00D4AA' }
+                    ]}>
+                      <Text style={styles.riskScoreValue}>{selectedUserRisk.ai_risk_score}</Text>
                     </View>
                   </View>
                 </View>
-                
-                <TouchableOpacity 
-                  style={styles.addDepositToUserBtn}
-                  onPress={() => {
-                    setShowUserModal(false);
-                    setManualDeposit(prev => ({ ...prev, userId: selectedUser.user_id }));
-                    setShowManualDepositModal(true);
-                  }}
-                >
-                  <Ionicons name="add-circle" size={20} color="#FFF" />
-                  <Text style={styles.addDepositToUserBtnText}>Add Manual Deposit</Text>
-                </TouchableOpacity>
+
+                {/* Stats */}
+                <View style={styles.statsGrid}>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statValue}>{selectedUserRisk.trading_stats.total_trades}</Text>
+                    <Text style={styles.statLabel}>Trades</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statValue}>{selectedUserRisk.trading_stats.win_rate}%</Text>
+                    <Text style={styles.statLabel}>Win Rate</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Text style={[styles.statValue, { color: selectedUserRisk.trading_stats.total_profit >= 0 ? '#00D4AA' : '#FF3B30' }]}>
+                      {formatCurrency(selectedUserRisk.trading_stats.total_profit)}
+                    </Text>
+                    <Text style={styles.statLabel}>Profit</Text>
+                  </View>
+                </View>
+
+                {/* Win Rate Control */}
+                <View style={styles.controlSection}>
+                  <Text style={styles.controlLabel}>User Win Rate Modifier</Text>
+                  <View style={styles.inputRow}>
+                    <TextInput
+                      style={styles.controlInput}
+                      value={userWinRate}
+                      onChangeText={setUserWinRate}
+                      keyboardType="numeric"
+                    />
+                    <Text style={styles.inputSuffix}>%</Text>
+                    <TouchableOpacity style={styles.smallApplyBtn} onPress={updateUserWinRate}>
+                      <Text style={styles.smallApplyText}>SET</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Payout Control */}
+                <View style={styles.controlSection}>
+                  <Text style={styles.controlLabel}>User Payout Modifier</Text>
+                  <View style={styles.inputRow}>
+                    <TextInput
+                      style={styles.controlInput}
+                      value={userPayout}
+                      onChangeText={setUserPayout}
+                      keyboardType="numeric"
+                    />
+                    <Text style={styles.inputSuffix}>%</Text>
+                    <TouchableOpacity style={styles.smallApplyBtn} onPress={updateUserPayout}>
+                      <Text style={styles.smallApplyText}>SET</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Shadow Ban */}
+                <View style={styles.controlSection}>
+                  <Text style={styles.controlLabel}>Shadow Ban</Text>
+                  <Text style={styles.controlDesc}>User won't know they're banned</Text>
+                  <View style={styles.switchRow}>
+                    <Text style={styles.switchLabel}>
+                      {selectedUserRisk.risk_controls.is_shadow_banned ? 'BANNED' : 'NORMAL'}
+                    </Text>
+                    <Switch
+                      value={selectedUserRisk.risk_controls.is_shadow_banned}
+                      onValueChange={toggleShadowBan}
+                      trackColor={{ false: '#00D4AA', true: '#FF3B30' }}
+                      thumbColor="#FFF"
+                    />
+                  </View>
+                </View>
               </ScrollView>
             )}
           </View>
@@ -1078,13 +867,13 @@ export default function AdminDashboard() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F9FC',
+    backgroundColor: '#0D1117',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F6F9FC',
+    backgroundColor: '#0D1117',
   },
   loadingText: {
     marginTop: 12,
@@ -1098,9 +887,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#161B22',
     borderBottomWidth: 1,
-    borderBottomColor: '#E6EBF1',
+    borderBottomColor: '#30363D',
   },
   headerLeft: {
     flexDirection: 'row',
@@ -1112,19 +901,58 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1A1F36',
+    color: '#FF3B30',
   },
-  headerRight: {
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#8898AA',
+  },
+  liveIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#FF3B30',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  refreshBtn: {
-    padding: 8,
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFF',
+    marginRight: 4,
+  },
+  liveText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  liveStatsBar: {
+    flexDirection: 'row',
+    backgroundColor: '#161B22',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#30363D',
+  },
+  liveStat: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  liveStatValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  liveStatLabel: {
+    fontSize: 10,
+    color: '#8898AA',
+    marginTop: 2,
   },
   tabScrollContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#161B22',
     borderBottomWidth: 1,
-    borderBottomColor: '#E6EBF1',
+    borderBottomColor: '#30363D',
   },
   tabContainer: {
     flexDirection: 'row',
@@ -1132,159 +960,238 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   tab: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 16,
     marginRight: 8,
     borderRadius: 20,
+    backgroundColor: '#21262D',
   },
   tabActive: {
-    backgroundColor: '#635BFF',
+    backgroundColor: '#FF3B30',
   },
   tabText: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 12,
+    fontWeight: '600',
     color: '#8898AA',
+    marginLeft: 6,
   },
   tabTextActive: {
-    color: '#FFFFFF',
+    color: '#FFF',
   },
   content: {
     flex: 1,
   },
-  overviewContainer: {
+  godModeContainer: {
     padding: 16,
   },
-  quickActions: {
-    flexDirection: 'row',
-    marginBottom: 16,
-  },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#635BFF',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginRight: 12,
-  },
-  actionBtnText: {
-    color: '#FFF',
-    fontWeight: '600',
-    marginLeft: 6,
-  },
-  periodSelector: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    padding: 4,
-    marginBottom: 16,
-  },
-  periodBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: 6,
-  },
-  periodBtnActive: {
-    backgroundColor: '#635BFF',
-  },
-  periodBtnText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#8898AA',
-  },
-  periodBtnTextActive: {
-    color: '#FFFFFF',
-  },
-  summaryCards: {
-    marginBottom: 16,
-  },
-  summaryCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+  controlCard: {
+    backgroundColor: '#161B22',
+    borderRadius: 12,
     padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#30363D',
+  },
+  controlHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
-    borderLeftWidth: 4,
+  },
+  controlTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFF',
+    marginLeft: 8,
+  },
+  controlDesc: {
+    fontSize: 12,
+    color: '#8898AA',
+    marginBottom: 16,
+  },
+  switchRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  summaryLabel: {
-    fontSize: 14,
-    color: '#8898AA',
-  },
-  summaryValue: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  chartsSection: {
-    marginBottom: 16,
-  },
-  chartContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  chartTitle: {
+  switchLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1A1F36',
-    marginBottom: 12,
+    color: '#FFF',
   },
-  chartBars: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-around',
-    height: 100,
-  },
-  barContainer: {
+  sliderContainer: {
     alignItems: 'center',
   },
-  bar: {
-    borderRadius: 4,
-    minHeight: 4,
-  },
-  barLabel: {
-    fontSize: 10,
-    color: '#8898AA',
-    marginTop: 4,
-  },
-  noDataText: {
-    color: '#8898AA',
-    fontSize: 12,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -6,
-  },
-  statCard: {
-    width: '48%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    margin: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  statCardPrimary: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#635BFF',
-  },
-  statValue: {
-    fontSize: 24,
+  sliderValue: {
+    fontSize: 32,
     fontWeight: '700',
-    color: '#1A1F36',
+    color: '#FFF',
+    marginBottom: 16,
+  },
+  sliderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+  },
+  sliderBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#30363D',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sliderTrack: {
+    flex: 1,
+    height: 8,
+    backgroundColor: '#30363D',
+    borderRadius: 4,
+    marginHorizontal: 12,
+    overflow: 'hidden',
+  },
+  sliderFill: {
+    height: '100%',
+    backgroundColor: '#00D4AA',
+    borderRadius: 4,
+  },
+  applyBtn: {
+    backgroundColor: '#00D4AA',
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  applyBtnText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  tradesContainer: {
+    padding: 16,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFF',
+    marginBottom: 12,
+  },
+  emptyState: {
+    alignItems: 'center',
+    padding: 40,
+    backgroundColor: '#161B22',
+    borderRadius: 12,
+  },
+  emptyText: {
+    color: '#8898AA',
     marginTop: 8,
   },
-  statLabel: {
+  tradeCard: {
+    backgroundColor: '#161B22',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#30363D',
+  },
+  tradeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  tradeAsset: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  directionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  directionText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  tradeDetails: {
+    marginBottom: 12,
+  },
+  tradeAmount: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  tradeUser: {
     fontSize: 12,
     color: '#8898AA',
     marginTop: 4,
+  },
+  tradePayout: {
+    fontSize: 12,
+    color: '#00D4AA',
+    marginTop: 2,
+  },
+  tradeActions: {
+    flexDirection: 'row',
+  },
+  actionBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  actionBtnText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  recentTradeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#161B22',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  recentTradeInfo: {
+    flex: 1,
+  },
+  recentAsset: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  recentUser: {
+    fontSize: 11,
+    color: '#8898AA',
+  },
+  recentAmount: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFF',
+    marginRight: 12,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginRight: 12,
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  recentPL: {
+    fontSize: 14,
+    fontWeight: '700',
+    minWidth: 60,
+    textAlign: 'right',
   },
   usersContainer: {
     padding: 16,
@@ -1292,382 +1199,184 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#161B22',
     borderRadius: 8,
     paddingHorizontal: 12,
-    marginBottom: 12,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#E6EBF1',
+    borderColor: '#30363D',
   },
   searchInput: {
     flex: 1,
     paddingVertical: 12,
     paddingHorizontal: 8,
     fontSize: 14,
-    color: '#1A1F36',
-  },
-  addDepositBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#635BFF',
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  addDepositBtnText: {
     color: '#FFF',
-    fontWeight: '600',
-    marginLeft: 6,
   },
-  tableContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  tableHeader: {
+  userCard: {
     flexDirection: 'row',
-    backgroundColor: '#F6F9FC',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E6EBF1',
-  },
-  tableHeaderCell: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#8898AA',
-    textTransform: 'uppercase',
-  },
-  tableRow: {
-    flexDirection: 'row',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F3F7',
     alignItems: 'center',
+    backgroundColor: '#161B22',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#30363D',
   },
-  tableCell: {
-    fontSize: 14,
-    color: '#1A1F36',
+  userInfo: {
+    flex: 1,
   },
   userName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1A1F36',
+    color: '#FFF',
   },
   userEmail: {
     fontSize: 12,
     color: '#8898AA',
     marginTop: 2,
   },
-  userId: {
-    fontSize: 11,
-    color: '#A3ACB9',
-    marginTop: 2,
+  userBalances: {
+    alignItems: 'flex-end',
+    marginRight: 12,
   },
-  balanceReal: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1A1F36',
+  userBalance: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#00D4AA',
   },
-  balanceDemo: {
-    fontSize: 11,
-    color: '#8898AA',
-    marginTop: 2,
-  },
-  balanceBonus: {
-    fontSize: 11,
-    color: '#FF9800',
-    marginTop: 2,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    alignSelf: 'flex-start',
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  tradesContainer: {
-    padding: 16,
-  },
-  tradeAsset: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1A1F36',
-  },
-  tradeDirection: {
-    fontSize: 12,
-    color: '#8898AA',
-    marginTop: 2,
-  },
-  withdrawalsContainer: {
-    padding: 16,
-  },
-  walletAddress: {
+  userBalanceLabel: {
     fontSize: 10,
-    color: '#A3ACB9',
-    marginTop: 2,
+    color: '#8898AA',
   },
-  actionBtns: {
-    flexDirection: 'row',
+  logsContainer: {
+    padding: 16,
   },
-  approveBtn: {
-    backgroundColor: '#4CAF50',
-    padding: 8,
-    borderRadius: 4,
-    marginRight: 4,
-  },
-  rejectBtn: {
-    backgroundColor: '#F44336',
-    padding: 8,
-    borderRadius: 4,
-  },
-  emptyState: {
-    padding: 40,
+  logPlaceholder: {
     alignItems: 'center',
+    padding: 40,
+    backgroundColor: '#161B22',
+    borderRadius: 12,
   },
-  emptyStateText: {
+  logPlaceholderText: {
     color: '#8898AA',
     marginTop: 8,
   },
-  assetsContainer: {
-    padding: 16,
-  },
-  addAssetBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#00D4AA',
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  addAssetBtnText: {
-    color: '#FFF',
-    fontWeight: '600',
-    marginLeft: 6,
-  },
-  assetSymbol: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1A1F36',
-  },
-  assetName: {
-    fontSize: 12,
-    color: '#8898AA',
-    marginTop: 2,
-  },
-  assetCategory: {
-    fontSize: 11,
-    color: '#A3ACB9',
-    marginTop: 2,
-    textTransform: 'uppercase',
-  },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    width: '90%',
-    maxWidth: 400,
+    backgroundColor: '#161B22',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     maxHeight: '85%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#E6EBF1',
+    borderBottomColor: '#30363D',
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#1A1F36',
+    fontWeight: '700',
+    color: '#FF3B30',
   },
   modalBody: {
-    padding: 16,
+    padding: 20,
   },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1A1F36',
-    marginBottom: 8,
-    marginTop: 12,
+  riskSection: {
+    marginBottom: 20,
   },
-  textInput: {
-    borderWidth: 1,
-    borderColor: '#E6EBF1',
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    fontSize: 14,
-    color: '#1A1F36',
-  },
-  amountInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E6EBF1',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-  },
-  currencyPrefix: {
-    fontSize: 16,
-    color: '#8898AA',
-    marginRight: 4,
-  },
-  currencySuffix: {
-    fontSize: 16,
-    color: '#8898AA',
-    marginLeft: 4,
-  },
-  amountInput: {
-    flex: 1,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#1A1F36',
-  },
-  balanceTypeRow: {
-    flexDirection: 'row',
-  },
-  balanceTypeBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: '#F6F9FC',
-    marginRight: 8,
-  },
-  balanceTypeBtnActive: {
-    backgroundColor: '#635BFF',
-  },
-  balanceTypeBtnText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#8898AA',
-  },
-  balanceTypeBtnTextActive: {
-    color: '#FFFFFF',
-  },
-  categoryRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  categoryBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    backgroundColor: '#F6F9FC',
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  categoryBtnActive: {
-    backgroundColor: '#635BFF',
-  },
-  categoryBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#8898AA',
-  },
-  categoryBtnTextActive: {
-    color: '#FFFFFF',
-  },
-  rowInputs: {
-    flexDirection: 'row',
-  },
-  otcToggleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E6EBF1',
-  },
-  submitBtn: {
-    backgroundColor: '#635BFF',
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  submitBtnText: {
-    color: '#FFFFFF',
+  riskEmail: {
     fontSize: 16,
     fontWeight: '600',
-  },
-  userDetailCard: {
-    backgroundColor: '#F6F9FC',
-    borderRadius: 8,
-    padding: 16,
-  },
-  userDetailRow: {
+    color: '#FFF',
     marginBottom: 12,
   },
-  userDetailLabel: {
-    fontSize: 12,
-    color: '#8898AA',
-    marginBottom: 4,
-  },
-  userDetailValue: {
-    fontSize: 14,
-    color: '#1A1F36',
-    fontWeight: '500',
-  },
-  balanceSection: {
-    marginTop: 20,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1A1F36',
-    marginBottom: 12,
-  },
-  balanceCards: {
+  riskScoreContainer: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
   },
-  balanceCard: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    marginHorizontal: 4,
-    alignItems: 'center',
-  },
-  balanceCardLabel: {
-    fontSize: 12,
+  riskScoreLabel: {
+    fontSize: 14,
     color: '#8898AA',
   },
-  balanceCardValue: {
-    fontSize: 16,
+  riskScoreBadge: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  riskScoreValue: {
+    fontSize: 18,
     fontWeight: '700',
+    color: '#FFF',
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    backgroundColor: '#21262D',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  statLabel: {
+    fontSize: 11,
+    color: '#8898AA',
     marginTop: 4,
   },
-  addDepositToUserBtn: {
+  controlSection: {
+    marginBottom: 20,
+  },
+  controlLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFF',
+    marginBottom: 8,
+  },
+  inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#635BFF',
-    paddingVertical: 14,
-    borderRadius: 8,
-    marginTop: 20,
   },
-  addDepositToUserBtnText: {
+  controlInput: {
+    flex: 1,
+    backgroundColor: '#21262D',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    fontSize: 16,
     color: '#FFF',
-    fontWeight: '600',
-    marginLeft: 6,
+    borderWidth: 1,
+    borderColor: '#30363D',
+  },
+  inputSuffix: {
+    fontSize: 16,
+    color: '#8898AA',
+    marginLeft: 8,
+    marginRight: 12,
+  },
+  smallApplyBtn: {
+    backgroundColor: '#FF3B30',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  smallApplyText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
