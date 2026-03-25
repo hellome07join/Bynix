@@ -88,6 +88,7 @@ export default function Trade() {
   const [timeframe, setTimeframe] = useState('1m');
   const [duration, setDuration] = useState(60);
   const [showAssetPicker, setShowAssetPicker] = useState(false);
+  const [assetSearchQuery, setAssetSearchQuery] = useState('');
   const [trendingAssets, setTrendingAssets] = useState<any[]>([]);
   const [apiPayouts, setApiPayouts] = useState<Record<string, number>>({});
   const [inactiveAssets, setInactiveAssets] = useState<Set<string>>(new Set());
@@ -1918,6 +1919,25 @@ export default function Trade() {
               </View>
             )}
             
+            {/* Search Bar */}
+            <View style={styles.assetSearchBar}>
+              <Ionicons name="search" size={18} color="#666" style={{marginRight: 8}} />
+              <TextInput
+                style={styles.assetSearchInput}
+                placeholder="Search assets (e.g., usdchf, BTC, Gold)"
+                placeholderTextColor="#666"
+                value={assetSearchQuery}
+                onChangeText={setAssetSearchQuery}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {assetSearchQuery !== '' && (
+                <TouchableOpacity onPress={() => setAssetSearchQuery('')}>
+                  <Ionicons name="close-circle" size={18} color="#666" />
+                </TouchableOpacity>
+              )}
+            </View>
+            
             {/* Category Tabs */}
             <View style={styles.categoryTabs}>
               {MARKET_CATEGORIES.map((cat) => (
@@ -1944,8 +1964,31 @@ export default function Trade() {
             {/* Asset List - Sorted by Payout (Highest First) */}
             <ScrollView style={styles.assetList} showsVerticalScrollIndicator={false}>
               {currentAssets
-                .filter(asset => asset.category === selectedCategory)
+                .filter(asset => {
+                  // Category filter (skip if searching)
+                  if (assetSearchQuery === '') {
+                    return asset.category === selectedCategory;
+                  }
+                  return true; // Show all categories when searching
+                })
                 .filter(asset => !inactiveAssets.has(asset.value) && !inactiveAssets.has(asset.label))
+                .filter(asset => {
+                  // Flexible search matching
+                  if (assetSearchQuery === '') return true;
+                  
+                  const query = assetSearchQuery.toLowerCase().replace(/[\s\/\-]/g, ''); // Remove spaces, slashes, dashes
+                  const assetValue = (asset.value || '').toLowerCase().replace(/[\s\/\-]/g, '');
+                  const assetLabel = (asset.label || '').toLowerCase().replace(/[\s\/\-]/g, '');
+                  const assetSymbol = (asset.symbol || '').toLowerCase().replace(/[\s\/\-]/g, '');
+                  
+                  // Match against normalized strings
+                  return assetValue.includes(query) || 
+                         assetLabel.includes(query) || 
+                         assetSymbol.includes(query) ||
+                         // Also match original formats
+                         (asset.value || '').toLowerCase().includes(assetSearchQuery.toLowerCase()) ||
+                         (asset.label || '').toLowerCase().includes(assetSearchQuery.toLowerCase());
+                })
                 .sort((a, b) => {
                   // Sort by payout percentage (highest first)
                   const payoutA = apiPayouts[a.value] || apiPayouts[a.label] || a.payout || 0;
@@ -1962,6 +2005,7 @@ export default function Trade() {
                   onPress={() => {
                     setSelectedAsset(asset.value);
                     setShowAssetPicker(false);
+                    setAssetSearchQuery(''); // Clear search on selection
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   }}
                 >
@@ -1975,6 +2019,20 @@ export default function Trade() {
                   )}
                 </TouchableOpacity>
               ))}
+              
+              {/* No results message */}
+              {currentAssets.filter(asset => {
+                if (assetSearchQuery === '') return asset.category === selectedCategory;
+                const query = assetSearchQuery.toLowerCase().replace(/[\s\/\-]/g, '');
+                const assetValue = (asset.value || '').toLowerCase().replace(/[\s\/\-]/g, '');
+                const assetLabel = (asset.label || '').toLowerCase().replace(/[\s\/\-]/g, '');
+                return assetValue.includes(query) || assetLabel.includes(query);
+              }).length === 0 && assetSearchQuery !== '' && (
+                <View style={styles.noSearchResults}>
+                  <Ionicons name="search-outline" size={32} color="#666" />
+                  <Text style={styles.noSearchResultsText}>No assets found for "{assetSearchQuery}"</Text>
+                </View>
+              )}
             </ScrollView>
           </View>
         </View>
@@ -5177,6 +5235,34 @@ const styles = StyleSheet.create({
     color: '#00E55A',
     marginTop: 3,
     fontWeight: '800',
+  },
+  assetSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  assetSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#FFFFFF',
+    padding: 0,
+  },
+  noSearchResults: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  noSearchResultsText: {
+    color: '#666',
+    fontSize: 14,
+    marginTop: 10,
+    textAlign: 'center',
   },
   assetList: {
     maxHeight: 350,
