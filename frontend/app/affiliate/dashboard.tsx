@@ -76,6 +76,9 @@ export default function AffiliateDashboard() {
   const [top10, setTop10] = useState<any[]>([]);
   const [promoMaterials, setPromoMaterials] = useState<any[]>([]);
   const [statsPeriod, setStatsPeriod] = useState(7);
+  const [statsViewTab, setStatsViewTab] = useState<'dates' | 'traders' | 'links' | 'countries'>('dates');
+  const [statsPage, setStatsPage] = useState(1);
+  const STATS_PER_PAGE = 10;
   
   // Forms
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -475,78 +478,287 @@ export default function AffiliateDashboard() {
   );
 
   // Statistics Content
-  const StatsContent = () => (
-    <View style={styles.content}>
-      {/* Period Selector */}
-      <View style={styles.periodSelector}>
-        {[7, 14, 30].map((days) => (
-          <TouchableOpacity
-            key={days}
-            style={[styles.periodBtn, statsPeriod === days && styles.periodBtnActive]}
-            onPress={() => setStatsPeriod(days)}
-          >
-            <Text style={[styles.periodBtnText, statsPeriod === days && styles.periodBtnTextActive]}>
-              {days === 7 ? 'Week' : days === 14 ? '2 Weeks' : 'Month'}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      
-      {/* Stats Overview */}
-      <View style={styles.statsOverviewCard}>
-        <View style={styles.statsOverviewItem}>
-          <Text style={styles.statsOverviewValue}>{formatMoney(statisticsData?.totals?.deposits || 0)}</Text>
-          <Text style={styles.statsOverviewLabel}>Total Deposits</Text>
+  const StatsContent = () => {
+    const STATS_TABS = [
+      { key: 'dates', label: 'Dates', icon: 'calendar-outline' },
+      { key: 'traders', label: 'Traders', icon: 'people-outline' },
+      { key: 'links', label: 'Links', icon: 'link-outline' },
+      { key: 'countries', label: 'Countries', icon: 'globe-outline' },
+    ];
+    
+    // Sample data - will be replaced with real API data
+    const datesData = statisticsData?.daily_stats || [];
+    const tradersData = statisticsData?.traders || [];
+    const linksData = links || [];
+    const countriesData = statisticsData?.countries || [];
+    
+    // Get paginated data
+    const getPaginatedData = (data: any[]) => {
+      const start = (statsPage - 1) * STATS_PER_PAGE;
+      return data.slice(start, start + STATS_PER_PAGE);
+    };
+    
+    const getTotalPages = (data: any[]) => Math.ceil(data.length / STATS_PER_PAGE);
+    
+    // Render Dates Tab
+    const renderDatesTab = () => (
+      <View style={styles.statsTableContainer}>
+        {/* Table Header */}
+        <View style={styles.statsTableHeader}>
+          <Text style={[styles.statsTableHeaderText, { flex: 1.2 }]}>DATE</Text>
+          <Text style={[styles.statsTableHeaderText, { flex: 0.8 }]}>CLICKS</Text>
+          <Text style={[styles.statsTableHeaderText, { flex: 1 }]}>REGS</Text>
+          <Text style={[styles.statsTableHeaderText, { flex: 0.8 }]}>FTD</Text>
         </View>
-        <View style={styles.statsOverviewDivider} />
-        <View style={styles.statsOverviewItem}>
-          <Text style={styles.statsOverviewValue}>{statisticsData?.totals?.ftds || 0}</Text>
-          <Text style={styles.statsOverviewLabel}>Total FTDs</Text>
-        </View>
-      </View>
-      
-      {/* Chart */}
-      <View style={styles.chartCard}>
-        <Text style={styles.chartTitle}>Activity Chart</Text>
-        <View style={styles.chartContainer}>
-          {statisticsData?.daily_stats?.slice(-7).map((day: any, i: number) => (
-            <View key={i} style={styles.chartColumn}>
-              <View style={styles.chartBars}>
-                <View style={[styles.chartBar, { height: Math.max(day.clicks * 1.5, 4), backgroundColor: COLORS.warning }]} />
-                <View style={[styles.chartBar, { height: Math.max(day.registrations * 3, 4), backgroundColor: COLORS.accent }]} />
-                <View style={[styles.chartBar, { height: Math.max(day.ftds * 6, 4), backgroundColor: COLORS.primary }]} />
+        
+        {/* Table Rows */}
+        {datesData.length === 0 ? (
+          <View style={styles.statsEmptyRow}>
+            <Ionicons name="analytics-outline" size={32} color={COLORS.textMuted} />
+            <Text style={styles.statsEmptyText}>No data for this period</Text>
+          </View>
+        ) : (
+          getPaginatedData(datesData).map((day: any, i: number) => {
+            const regPercent = day.clicks > 0 ? ((day.registrations / day.clicks) * 100).toFixed(1) : '0';
+            return (
+              <View key={i} style={[styles.statsTableRow, i % 2 === 0 && styles.statsTableRowAlt]}>
+                <Text style={[styles.statsTableCell, { flex: 1.2 }]}>{day.date || '-'}</Text>
+                <Text style={[styles.statsTableCell, { flex: 0.8 }]}>{day.clicks || 0}</Text>
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={styles.statsTableCell}>{day.registrations || 0}</Text>
+                  <Text style={styles.statsTablePercent}>({regPercent}%)</Text>
+                </View>
+                <Text style={[styles.statsTableCell, { flex: 0.8, color: COLORS.primary }]}>{day.ftds || 0}</Text>
               </View>
-              <Text style={styles.chartLabel}>{day.date?.slice(5)}</Text>
+            );
+          })
+        )}
+      </View>
+    );
+    
+    // Render Traders Tab
+    const renderTradersTab = () => (
+      <View style={styles.statsTableContainer}>
+        {/* Table Header */}
+        <View style={styles.statsTableHeader}>
+          <Text style={[styles.statsTableHeaderText, { flex: 1.5 }]}>TRADER</Text>
+          <Text style={[styles.statsTableHeaderText, { flex: 0.8 }]}>LINK</Text>
+          <Text style={[styles.statsTableHeaderText, { flex: 1 }]}>BALANCE</Text>
+          <Text style={[styles.statsTableHeaderText, { flex: 0.8 }]}>DEPS</Text>
+        </View>
+        
+        {/* Table Rows */}
+        {tradersData.length === 0 ? (
+          <View style={styles.statsEmptyRow}>
+            <Ionicons name="people-outline" size={32} color={COLORS.textMuted} />
+            <Text style={styles.statsEmptyText}>No traders yet</Text>
+          </View>
+        ) : (
+          getPaginatedData(tradersData).map((trader: any, i: number) => (
+            <View key={i} style={[styles.statsTableRow, i % 2 === 0 && styles.statsTableRowAlt]}>
+              <View style={{ flex: 1.5 }}>
+                <View style={styles.traderInfo}>
+                  <Text style={styles.traderFlag}>{trader.country_flag || '🌍'}</Text>
+                  <View>
+                    <Text style={styles.traderIdText}>#{trader.user_id?.slice(-6) || 'N/A'}</Text>
+                    <Text style={styles.traderDateText}>{trader.created_at?.slice(0, 10) || '-'}</Text>
+                  </View>
+                </View>
+              </View>
+              <Text style={[styles.statsTableCell, { flex: 0.8, fontSize: 11 }]}>{trader.link_code || '-'}</Text>
+              <Text style={[styles.statsTableCell, { flex: 1, color: COLORS.primary }]}>${trader.balance?.toFixed(2) || '0.00'}</Text>
+              <Text style={[styles.statsTableCell, { flex: 0.8 }]}>${trader.deposits?.toFixed(0) || '0'}</Text>
             </View>
+          ))
+        )}
+      </View>
+    );
+    
+    // Render Links Tab
+    const renderLinksTab = () => (
+      <View style={styles.statsTableContainer}>
+        {/* Table Header */}
+        <View style={styles.statsTableHeader}>
+          <Text style={[styles.statsTableHeaderText, { flex: 1.2 }]}>LINK</Text>
+          <Text style={[styles.statsTableHeaderText, { flex: 0.8 }]}>CLICKS</Text>
+          <Text style={[styles.statsTableHeaderText, { flex: 1 }]}>REGS</Text>
+          <Text style={[styles.statsTableHeaderText, { flex: 0.8 }]}>FTD</Text>
+        </View>
+        
+        {/* Table Rows */}
+        {linksData.length === 0 ? (
+          <View style={styles.statsEmptyRow}>
+            <Ionicons name="link-outline" size={32} color={COLORS.textMuted} />
+            <Text style={styles.statsEmptyText}>No links created</Text>
+          </View>
+        ) : (
+          getPaginatedData(linksData).map((link: any, i: number) => {
+            const regPercent = link.clicks > 0 ? ((link.registrations / link.clicks) * 100).toFixed(1) : '0';
+            const ftdPercent = link.registrations > 0 ? ((link.ftds / link.registrations) * 100).toFixed(1) : '0';
+            return (
+              <View key={i} style={[styles.statsTableRow, i % 2 === 0 && styles.statsTableRowAlt]}>
+                <View style={{ flex: 1.2 }}>
+                  <Text style={styles.linkCodeCell}>#{link.code}</Text>
+                  <Text style={styles.linkNameCell}>{link.name || '-'}</Text>
+                </View>
+                <Text style={[styles.statsTableCell, { flex: 0.8 }]}>{link.clicks || 0}</Text>
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={styles.statsTableCell}>{link.registrations || 0}</Text>
+                  <Text style={styles.statsTablePercent}>({regPercent}%)</Text>
+                </View>
+                <View style={{ flex: 0.8, flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={[styles.statsTableCell, { color: COLORS.primary }]}>{link.ftds || 0}</Text>
+                  <Text style={styles.statsTablePercent}>({ftdPercent}%)</Text>
+                </View>
+              </View>
+            );
+          })
+        )}
+      </View>
+    );
+    
+    // Render Countries Tab
+    const renderCountriesTab = () => (
+      <View style={styles.statsTableContainer}>
+        {/* Table Header */}
+        <View style={styles.statsTableHeader}>
+          <Text style={[styles.statsTableHeaderText, { flex: 1.5 }]}>COUNTRY</Text>
+          <Text style={[styles.statsTableHeaderText, { flex: 0.8 }]}>CLICKS</Text>
+          <Text style={[styles.statsTableHeaderText, { flex: 0.8 }]}>REGS</Text>
+          <Text style={[styles.statsTableHeaderText, { flex: 0.8 }]}>FTD</Text>
+        </View>
+        
+        {/* Table Rows */}
+        {countriesData.length === 0 ? (
+          <View style={styles.statsEmptyRow}>
+            <Ionicons name="globe-outline" size={32} color={COLORS.textMuted} />
+            <Text style={styles.statsEmptyText}>No country data</Text>
+          </View>
+        ) : (
+          getPaginatedData(countriesData).map((country: any, i: number) => (
+            <View key={i} style={[styles.statsTableRow, i % 2 === 0 && styles.statsTableRowAlt]}>
+              <View style={{ flex: 1.5, flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={styles.countryFlag}>{country.flag || '🌍'}</Text>
+                <Text style={styles.countryName}>{country.name || 'Unknown'}</Text>
+              </View>
+              <Text style={[styles.statsTableCell, { flex: 0.8 }]}>{country.clicks || 0}</Text>
+              <Text style={[styles.statsTableCell, { flex: 0.8 }]}>{country.registrations || 0}</Text>
+              <Text style={[styles.statsTableCell, { flex: 0.8, color: COLORS.primary }]}>{country.ftds || 0}</Text>
+            </View>
+          ))
+        )}
+      </View>
+    );
+    
+    // Get current data length for pagination
+    const getCurrentDataLength = () => {
+      switch (statsViewTab) {
+        case 'dates': return datesData.length;
+        case 'traders': return tradersData.length;
+        case 'links': return linksData.length;
+        case 'countries': return countriesData.length;
+        default: return 0;
+      }
+    };
+    
+    return (
+      <View style={styles.content}>
+        {/* Period Selector */}
+        <View style={styles.statsPeriodRow}>
+          <View style={styles.periodSelector}>
+            {[7, 14, 30].map((days) => (
+              <TouchableOpacity
+                key={days}
+                style={[styles.periodBtn, statsPeriod === days && styles.periodBtnActive]}
+                onPress={() => { setStatsPeriod(days); setStatsPage(1); }}
+              >
+                <Text style={[styles.periodBtnText, statsPeriod === days && styles.periodBtnTextActive]}>
+                  {days === 7 ? '7D' : days === 14 ? '14D' : '30D'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <TouchableOpacity style={styles.filterBtn}>
+            <Ionicons name="filter-outline" size={20} color={COLORS.textSecondary} />
+          </TouchableOpacity>
+        </View>
+        
+        {/* Stats Overview Cards */}
+        <View style={styles.statsOverviewRow}>
+          <View style={styles.statsOverviewMiniCard}>
+            <Text style={styles.statsOverviewMiniValue}>{statisticsData?.totals?.clicks || 0}</Text>
+            <Text style={styles.statsOverviewMiniLabel}>Clicks</Text>
+          </View>
+          <View style={styles.statsOverviewMiniCard}>
+            <Text style={styles.statsOverviewMiniValue}>{statisticsData?.totals?.registrations || 0}</Text>
+            <Text style={styles.statsOverviewMiniLabel}>Regs</Text>
+          </View>
+          <View style={styles.statsOverviewMiniCard}>
+            <Text style={[styles.statsOverviewMiniValue, { color: COLORS.primary }]}>{statisticsData?.totals?.ftds || 0}</Text>
+            <Text style={styles.statsOverviewMiniLabel}>FTDs</Text>
+          </View>
+          <View style={styles.statsOverviewMiniCard}>
+            <Text style={[styles.statsOverviewMiniValue, { color: COLORS.accent }]}>{formatMoney(statisticsData?.totals?.deposits || 0)}</Text>
+            <Text style={styles.statsOverviewMiniLabel}>Deps</Text>
+          </View>
+        </View>
+        
+        {/* View Tabs */}
+        <View style={styles.statsViewTabs}>
+          {STATS_TABS.map((tab) => (
+            <TouchableOpacity
+              key={tab.key}
+              style={[styles.statsViewTab, statsViewTab === tab.key && styles.statsViewTabActive]}
+              onPress={() => { setStatsViewTab(tab.key as any); setStatsPage(1); }}
+            >
+              <Ionicons 
+                name={tab.icon as any} 
+                size={16} 
+                color={statsViewTab === tab.key ? COLORS.primary : COLORS.textMuted} 
+              />
+              <Text style={[styles.statsViewTabText, statsViewTab === tab.key && styles.statsViewTabTextActive]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
           ))}
         </View>
-        <View style={styles.chartLegend}>
-          <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: COLORS.warning }]} /><Text style={styles.legendText}>Clicks</Text></View>
-          <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: COLORS.accent }]} /><Text style={styles.legendText}>Regs</Text></View>
-          <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: COLORS.primary }]} /><Text style={styles.legendText}>FTDs</Text></View>
+        
+        {/* Tab Content */}
+        <View style={styles.statsTabContent}>
+          {statsViewTab === 'dates' && renderDatesTab()}
+          {statsViewTab === 'traders' && renderTradersTab()}
+          {statsViewTab === 'links' && renderLinksTab()}
+          {statsViewTab === 'countries' && renderCountriesTab()}
         </View>
+        
+        {/* Pagination */}
+        {getCurrentDataLength() > STATS_PER_PAGE && (
+          <View style={styles.statsPagination}>
+            <Text style={styles.paginationInfo}>
+              {(statsPage - 1) * STATS_PER_PAGE + 1}-{Math.min(statsPage * STATS_PER_PAGE, getCurrentDataLength())} of {getCurrentDataLength()}
+            </Text>
+            <View style={styles.paginationBtns}>
+              <TouchableOpacity 
+                style={[styles.paginationBtn, statsPage === 1 && styles.paginationBtnDisabled]}
+                onPress={() => statsPage > 1 && setStatsPage(statsPage - 1)}
+                disabled={statsPage === 1}
+              >
+                <Ionicons name="chevron-back" size={18} color={statsPage === 1 ? COLORS.textMuted : COLORS.text} />
+              </TouchableOpacity>
+              <Text style={styles.paginationPage}>{statsPage}</Text>
+              <TouchableOpacity 
+                style={[styles.paginationBtn, statsPage >= getTotalPages(getCurrentDataLength() ? [1] : []) && styles.paginationBtnDisabled]}
+                onPress={() => statsPage < getTotalPages([...Array(getCurrentDataLength())]) && setStatsPage(statsPage + 1)}
+                disabled={statsPage >= getTotalPages([...Array(getCurrentDataLength())])}
+              >
+                <Ionicons name="chevron-forward" size={18} color={statsPage >= getTotalPages([...Array(getCurrentDataLength())]) ? COLORS.textMuted : COLORS.text} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </View>
-      
-      {/* Detailed Stats */}
-      <View style={styles.detailedStatsGrid}>
-        <View style={styles.detailedStatCard}>
-          <Ionicons name="hand-left" size={20} color={COLORS.warning} />
-          <Text style={styles.detailedStatValue}>{statisticsData?.totals?.clicks || 0}</Text>
-          <Text style={styles.detailedStatLabel}>Clicks</Text>
-        </View>
-        <View style={styles.detailedStatCard}>
-          <Ionicons name="person-add" size={20} color={COLORS.accent} />
-          <Text style={styles.detailedStatValue}>{statisticsData?.totals?.registrations || 0}</Text>
-          <Text style={styles.detailedStatLabel}>Registrations</Text>
-        </View>
-        <View style={styles.detailedStatCard}>
-          <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
-          <Text style={styles.detailedStatValue}>{statisticsData?.totals?.ftds || 0}</Text>
-          <Text style={styles.detailedStatLabel}>FTDs</Text>
-        </View>
-      </View>
-    </View>
-  );
+    );
+  };
 
   // Links Content - Full Featured
   const LinksContent = () => {
@@ -1301,4 +1513,58 @@ const styles = StyleSheet.create({
   toastContainer: { position: 'absolute', top: 100, left: 0, right: 0, alignItems: 'center', zIndex: 9999 },
   toast: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primary, paddingHorizontal: 20, paddingVertical: 14, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 8 },
   toastText: { color: COLORS.white, fontSize: 14, fontWeight: '600', marginLeft: 10 },
+  
+  // ===== NEW STATS PAGE STYLES =====
+  // Stats Period Row
+  statsPeriodRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  filterBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: COLORS.cardLight, justifyContent: 'center', alignItems: 'center' },
+  
+  // Stats Overview Row
+  statsOverviewRow: { flexDirection: 'row', marginBottom: 16, gap: 8 },
+  statsOverviewMiniCard: { flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
+  statsOverviewMiniValue: { fontSize: 18, fontWeight: '700', color: COLORS.text },
+  statsOverviewMiniLabel: { fontSize: 10, color: COLORS.textMuted, marginTop: 2 },
+  
+  // Stats View Tabs
+  statsViewTabs: { flexDirection: 'row', backgroundColor: COLORS.cardLight, borderRadius: 12, padding: 4, marginBottom: 16 },
+  statsViewTab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 10, gap: 4 },
+  statsViewTabActive: { backgroundColor: COLORS.white },
+  statsViewTabText: { fontSize: 11, color: COLORS.textMuted, fontWeight: '500' },
+  statsViewTabTextActive: { color: COLORS.primary, fontWeight: '600' },
+  
+  // Stats Tab Content
+  statsTabContent: { backgroundColor: COLORS.white, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.border },
+  
+  // Stats Table
+  statsTableContainer: { },
+  statsTableHeader: { flexDirection: 'row', backgroundColor: COLORS.cardLight, paddingVertical: 12, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  statsTableHeaderText: { fontSize: 10, fontWeight: '700', color: COLORS.textMuted, textTransform: 'uppercase' },
+  statsTableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  statsTableRowAlt: { backgroundColor: COLORS.cardLight + '40' },
+  statsTableCell: { fontSize: 13, color: COLORS.text, fontWeight: '500' },
+  statsTablePercent: { fontSize: 10, color: COLORS.textMuted, marginLeft: 2 },
+  statsEmptyRow: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
+  statsEmptyText: { color: COLORS.textMuted, fontSize: 13, marginTop: 12 },
+  
+  // Trader Info Cell
+  traderInfo: { flexDirection: 'row', alignItems: 'center' },
+  traderFlag: { fontSize: 18, marginRight: 8 },
+  traderIdText: { fontSize: 12, fontWeight: '600', color: COLORS.text },
+  traderDateText: { fontSize: 10, color: COLORS.textMuted },
+  
+  // Link Cell
+  linkCodeCell: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
+  linkNameCell: { fontSize: 10, color: COLORS.textMuted },
+  
+  // Country Cell
+  countryFlag: { fontSize: 20, marginRight: 8 },
+  countryName: { fontSize: 13, color: COLORS.text, fontWeight: '500' },
+  
+  // Pagination
+  statsPagination: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 4 },
+  paginationInfo: { fontSize: 12, color: COLORS.textMuted },
+  paginationBtns: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  paginationBtn: { width: 32, height: 32, borderRadius: 8, backgroundColor: COLORS.cardLight, justifyContent: 'center', alignItems: 'center' },
+  paginationBtnDisabled: { opacity: 0.4 },
+  paginationPage: { fontSize: 14, fontWeight: '600', color: COLORS.text, paddingHorizontal: 8 },
 });
