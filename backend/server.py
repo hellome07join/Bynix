@@ -75,6 +75,7 @@ class UserCreate(BaseModel):
     name: str
     country: Optional[str] = None
     country_flag: Optional[str] = None
+    referred_by: Optional[str] = None  # Affiliate referral code
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -324,10 +325,26 @@ async def signup(user: UserCreate):
         "bonus_balance": 0.0,
         "is_admin": False,
         "is_verified": False,
+        "referred_by": user.referred_by,  # Store affiliate referral code
         "created_at": datetime.now(timezone.utc)
     }
     
     await db.users.insert_one(new_user)
+    
+    # If referred by affiliate, track the registration
+    if user.referred_by:
+        affiliate = await db.affiliates.find_one({"ref_code": user.referred_by})
+        if affiliate:
+            # Increment affiliate's registration count
+            await db.affiliates.update_one(
+                {"ref_code": user.referred_by},
+                {"$inc": {"total_registrations": 1}}
+            )
+            # Also update the link if it was used
+            await db.affiliate_links.update_one(
+                {"code": user.referred_by},
+                {"$inc": {"registrations": 1}}
+            )
     
     # Send OTP email
     success, message = send_verification_otp(user.email)

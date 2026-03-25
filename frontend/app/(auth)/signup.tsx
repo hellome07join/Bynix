@@ -16,7 +16,7 @@ import {
   Easing,
   Modal
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '../../utils/api';
@@ -191,6 +191,7 @@ const DataStream = ({ delay, left }: { delay: number; left: number }) => {
 
 export default function Signup() {
   const router = useRouter();
+  const { ref: urlReferralCode } = useLocalSearchParams<{ ref?: string }>();
   const login = useAuthStore(state => state.login);
   
   const [name, setName] = useState('');
@@ -203,6 +204,26 @@ export default function Signup() {
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<{name: string; flag: string; region: string} | null>(null);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+  
+  // Load referral code from URL or AsyncStorage
+  useEffect(() => {
+    const loadReferralCode = async () => {
+      // First check URL parameter
+      if (urlReferralCode) {
+        console.log('Referral code from URL:', urlReferralCode);
+        setReferralCode(urlReferralCode);
+        return;
+      }
+      // Then check AsyncStorage (set by main layout)
+      const storedCode = await AsyncStorage.getItem('pending_referral_code');
+      if (storedCode) {
+        console.log('Referral code from storage:', storedCode);
+        setReferralCode(storedCode);
+      }
+    };
+    loadReferralCode();
+  }, [urlReferralCode]);
   
   // OTP Verification State
   const [showOTPScreen, setShowOTPScreen] = useState(false);
@@ -372,12 +393,15 @@ export default function Signup() {
         password,
         country: selectedCountry.name,
         country_flag: selectedCountry.flag,
+        referred_by: referralCode || undefined,  // Pass referral code if exists
       });
       
       // Check if email verification is required
       if (response.requires_verification) {
         setShowOTPScreen(true);
         setResendCooldown(60);
+        // Clear stored referral code after successful signup
+        AsyncStorage.removeItem('pending_referral_code');
         if (Platform.OS === 'web') {
           window.alert('Verification code sent to your email!');
         } else {
@@ -385,6 +409,8 @@ export default function Signup() {
         }
       } else if (response.access_token) {
         // Auto-login user and redirect to trade page
+        // Clear stored referral code
+        AsyncStorage.removeItem('pending_referral_code');
         await login(response.access_token, response.user);
         router.replace('/(tabs)/trade');
       }
