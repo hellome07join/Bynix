@@ -11,10 +11,14 @@ import {
   Modal,
   Alert,
   Platform,
+  Switch,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../stores/authStore';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL 
   ? `${process.env.EXPO_PUBLIC_BACKEND_URL}/api`
@@ -57,6 +61,30 @@ interface Deposit {
   created_at: string;
 }
 
+interface Withdrawal {
+  withdrawal_id: string;
+  user_id: string;
+  user_email: string;
+  user_name: string;
+  amount: number;
+  method: string;
+  wallet_address: string;
+  status: string;
+  created_at: string;
+}
+
+interface Asset {
+  asset_id: string;
+  symbol: string;
+  name: string;
+  category: string;
+  payout_percentage: number;
+  is_active: boolean;
+  is_otc: boolean;
+  min_amount: number;
+  max_amount: number;
+}
+
 interface Stats {
   total_users: number;
   total_trades: number;
@@ -68,38 +96,70 @@ interface Stats {
   pending_deposits: number;
 }
 
+interface Analytics {
+  period: string;
+  labels: string[];
+  deposits: { data: number[]; total: number };
+  withdrawals: { data: number[]; total: number };
+  profit_loss: { data: number[]; total: number };
+  summary: {
+    net_revenue: number;
+    total_deposits: number;
+    total_withdrawals: number;
+    platform_profit: number;
+  };
+}
+
 export default function AdminDashboard() {
   const router = useRouter();
-  const { token, user } = useAuthStore();
+  const { token } = useAuthStore();
   
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [analyticsPeriod, setAnalyticsPeriod] = useState<'week' | 'month' | 'year'>('week');
   
   // Data states
   const [stats, setStats] = useState<Stats | null>(null);
+  const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [deposits, setDeposits] = useState<Deposit[]>([]);
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   
   // Modal states
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showUserModal, setShowUserModal] = useState(false);
-  const [editBalance, setEditBalance] = useState('');
-  const [editBalanceType, setEditBalanceType] = useState<'real' | 'demo' | 'bonus'>('real');
+  const [showManualDepositModal, setShowManualDepositModal] = useState(false);
+  const [showAssetModal, setShowAssetModal] = useState(false);
+  const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
+  
+  // Form states
+  const [manualDeposit, setManualDeposit] = useState({ userId: '', amount: '', balanceType: 'real', note: '' });
+  const [newAsset, setNewAsset] = useState({ symbol: '', name: '', category: 'forex', payout: '80', isOtc: false, minAmount: '1', maxAmount: '10000' });
 
   useEffect(() => {
     fetchAllData();
   }, []);
 
+  useEffect(() => {
+    if (activeTab === 'overview') {
+      fetchAnalytics();
+    }
+  }, [analyticsPeriod]);
+
   const fetchAllData = async () => {
     setLoading(true);
     await Promise.all([
       fetchStats(),
+      fetchAnalytics(),
       fetchUsers(),
       fetchRecentTrades(),
       fetchDeposits(),
+      fetchWithdrawals(),
+      fetchAssets(),
     ]);
     setLoading(false);
   };
@@ -115,6 +175,20 @@ export default function AdminDashboard() {
       }
     } catch (error) {
       console.error('Error fetching stats:', error);
+    }
+  };
+
+  const fetchAnalytics = async () => {
+    try {
+      const response = await fetch(`${API_URL}/admin/analytics?period=${analyticsPeriod}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setAnalytics(data);
+      }
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
     }
   };
 
@@ -160,28 +234,141 @@ export default function AdminDashboard() {
     }
   };
 
-  const updateUserBalance = async () => {
-    if (!selectedUser || !editBalance) return;
+  const fetchWithdrawals = async () => {
+    try {
+      const response = await fetch(`${API_URL}/admin/withdrawals`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setWithdrawals(data.withdrawals || []);
+      }
+    } catch (error) {
+      console.error('Error fetching withdrawals:', error);
+    }
+  };
+
+  const fetchAssets = async () => {
+    try {
+      const response = await fetch(`${API_URL}/admin/assets`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setAssets(data.assets || []);
+      }
+    } catch (error) {
+      console.error('Error fetching assets:', error);
+    }
+  };
+
+  const handleManualDeposit = async () => {
+    if (!manualDeposit.userId || !manualDeposit.amount) {
+      Alert.alert('Error', 'Please fill all required fields');
+      return;
+    }
     
     try {
-      const response = await fetch(`${API_URL}/admin/users/${selectedUser.user_id}/balance`, {
+      const response = await fetch(`${API_URL}/admin/manual-deposit`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          balance_type: editBalanceType,
-          amount: parseFloat(editBalance)
+          user_id: manualDeposit.userId,
+          amount: parseFloat(manualDeposit.amount),
+          balance_type: manualDeposit.balanceType,
+          note: manualDeposit.note || 'Manual deposit by admin'
         })
       });
       
       if (response.ok) {
-        Alert.alert('Success', 'Balance updated successfully');
-        setShowUserModal(false);
+        Alert.alert('Success', `Added $${manualDeposit.amount} to user account`);
+        setShowManualDepositModal(false);
+        setManualDeposit({ userId: '', amount: '', balanceType: 'real', note: '' });
+        fetchUsers();
+        fetchDeposits();
+      } else {
+        const error = await response.json();
+        Alert.alert('Error', error.detail || 'Failed to add deposit');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Network error');
+    }
+  };
+
+  const handleCreateAsset = async () => {
+    if (!newAsset.symbol) {
+      Alert.alert('Error', 'Symbol is required');
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API_URL}/admin/assets`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          symbol: newAsset.symbol.toUpperCase(),
+          name: newAsset.name || newAsset.symbol,
+          category: newAsset.category,
+          payout_percentage: parseFloat(newAsset.payout),
+          is_otc: newAsset.isOtc,
+          min_amount: parseFloat(newAsset.minAmount),
+          max_amount: parseFloat(newAsset.maxAmount)
+        })
+      });
+      
+      if (response.ok) {
+        Alert.alert('Success', 'Asset created successfully');
+        setShowAssetModal(false);
+        setNewAsset({ symbol: '', name: '', category: 'forex', payout: '80', isOtc: false, minAmount: '1', maxAmount: '10000' });
+        fetchAssets();
+      } else {
+        const error = await response.json();
+        Alert.alert('Error', error.detail || 'Failed to create asset');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Network error');
+    }
+  };
+
+  const handleToggleAsset = async (assetId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/admin/assets/${assetId}/toggle`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        fetchAssets();
+      }
+    } catch (error) {
+      console.error('Error toggling asset:', error);
+    }
+  };
+
+  const handleWithdrawalAction = async (withdrawalId: string, action: 'approve' | 'reject') => {
+    try {
+      const response = await fetch(`${API_URL}/admin/withdrawals/${withdrawalId}/${action}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ reason: 'Admin action' })
+      });
+      
+      if (response.ok) {
+        Alert.alert('Success', `Withdrawal ${action}ed`);
+        fetchWithdrawals();
         fetchUsers();
       } else {
-        Alert.alert('Error', 'Failed to update balance');
+        const error = await response.json();
+        Alert.alert('Error', error.detail || `Failed to ${action} withdrawal`);
       }
     } catch (error) {
       Alert.alert('Error', 'Network error');
@@ -217,6 +404,33 @@ export default function AdminDashboard() {
     });
   };
 
+  // Simple Bar Chart Component
+  const SimpleBarChart = ({ data, labels, color, title }: { data: number[]; labels: string[]; color: string; title: string }) => {
+    const maxValue = Math.max(...data, 1);
+    const chartWidth = SCREEN_WIDTH - 80;
+    const barWidth = Math.min(30, (chartWidth - 20) / Math.max(data.length, 1));
+    
+    return (
+      <View style={styles.chartContainer}>
+        <Text style={styles.chartTitle}>{title}</Text>
+        <View style={styles.chartBars}>
+          {data.length > 0 ? data.map((value, index) => (
+            <View key={index} style={styles.barContainer}>
+              <View style={[styles.bar, { 
+                height: Math.max((value / maxValue) * 80, 4),
+                backgroundColor: color,
+                width: barWidth
+              }]} />
+              <Text style={styles.barLabel}>{labels[index] || ''}</Text>
+            </View>
+          )) : (
+            <Text style={styles.noDataText}>No data available</Text>
+          )}
+        </View>
+      </View>
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -225,6 +439,8 @@ export default function AdminDashboard() {
       </View>
     );
   }
+
+  const tabs = ['overview', 'users', 'trades', 'withdrawals', 'assets'];
 
   return (
     <View style={styles.container}>
@@ -244,19 +460,21 @@ export default function AdminDashboard() {
       </View>
 
       {/* Tabs */}
-      <View style={styles.tabContainer}>
-        {['overview', 'users', 'trades', 'deposits'].map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tab, activeTab === tab && styles.tabActive]}
-            onPress={() => setActiveTab(tab)}
-          >
-            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScrollContainer}>
+        <View style={styles.tabContainer}>
+          {tabs.map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tab, activeTab === tab && styles.tabActive]}
+              onPress={() => setActiveTab(tab)}
+            >
+              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
 
       <ScrollView
         style={styles.content}
@@ -266,6 +484,93 @@ export default function AdminDashboard() {
         {/* Overview Tab */}
         {activeTab === 'overview' && (
           <View style={styles.overviewContainer}>
+            {/* Quick Actions */}
+            <View style={styles.quickActions}>
+              <TouchableOpacity 
+                style={styles.actionBtn}
+                onPress={() => setShowManualDepositModal(true)}
+              >
+                <Ionicons name="add-circle" size={20} color="#FFF" />
+                <Text style={styles.actionBtnText}>Manual Deposit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.actionBtn, { backgroundColor: '#00D4AA' }]}
+                onPress={() => { setEditingAsset(null); setShowAssetModal(true); }}
+              >
+                <Ionicons name="cube" size={20} color="#FFF" />
+                <Text style={styles.actionBtnText}>New Asset</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Period Selector */}
+            <View style={styles.periodSelector}>
+              {(['week', 'month', 'year'] as const).map((period) => (
+                <TouchableOpacity
+                  key={period}
+                  style={[styles.periodBtn, analyticsPeriod === period && styles.periodBtnActive]}
+                  onPress={() => setAnalyticsPeriod(period)}
+                >
+                  <Text style={[styles.periodBtnText, analyticsPeriod === period && styles.periodBtnTextActive]}>
+                    {period.charAt(0).toUpperCase() + period.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Summary Cards */}
+            {analytics && (
+              <View style={styles.summaryCards}>
+                <View style={[styles.summaryCard, { borderLeftColor: '#4CAF50' }]}>
+                  <Text style={styles.summaryLabel}>Total Deposits</Text>
+                  <Text style={[styles.summaryValue, { color: '#4CAF50' }]}>
+                    {formatCurrency(analytics.summary.total_deposits)}
+                  </Text>
+                </View>
+                <View style={[styles.summaryCard, { borderLeftColor: '#F44336' }]}>
+                  <Text style={styles.summaryLabel}>Total Withdrawals</Text>
+                  <Text style={[styles.summaryValue, { color: '#F44336' }]}>
+                    {formatCurrency(analytics.summary.total_withdrawals)}
+                  </Text>
+                </View>
+                <View style={[styles.summaryCard, { borderLeftColor: '#635BFF' }]}>
+                  <Text style={styles.summaryLabel}>Net Revenue</Text>
+                  <Text style={[styles.summaryValue, { color: '#635BFF' }]}>
+                    {formatCurrency(analytics.summary.net_revenue)}
+                  </Text>
+                </View>
+                <View style={[styles.summaryCard, { borderLeftColor: '#FF9800' }]}>
+                  <Text style={styles.summaryLabel}>Platform P/L</Text>
+                  <Text style={[styles.summaryValue, { color: analytics.summary.platform_profit >= 0 ? '#4CAF50' : '#F44336' }]}>
+                    {formatCurrency(analytics.summary.platform_profit)}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Charts */}
+            {analytics && (
+              <View style={styles.chartsSection}>
+                <SimpleBarChart
+                  data={analytics.deposits.data}
+                  labels={analytics.labels}
+                  color="#4CAF50"
+                  title="Deposits"
+                />
+                <SimpleBarChart
+                  data={analytics.withdrawals.data}
+                  labels={analytics.labels}
+                  color="#F44336"
+                  title="Withdrawals"
+                />
+                <SimpleBarChart
+                  data={analytics.profit_loss.data}
+                  labels={analytics.labels}
+                  color="#635BFF"
+                  title="Platform Profit/Loss"
+                />
+              </View>
+            )}
+
             {/* Stats Grid */}
             <View style={styles.statsGrid}>
               <View style={[styles.statCard, styles.statCardPrimary]}>
@@ -279,69 +584,15 @@ export default function AdminDashboard() {
                 <Text style={styles.statLabel}>Total Trades</Text>
               </View>
               <View style={styles.statCard}>
-                <Ionicons name="cash" size={24} color="#FF6B6B" />
-                <Text style={styles.statValue}>{formatCurrency(stats?.total_volume || 0)}</Text>
-                <Text style={styles.statLabel}>Total Volume</Text>
+                <Ionicons name="time" size={24} color="#FF9800" />
+                <Text style={styles.statValue}>{stats?.pending_withdrawals || 0}</Text>
+                <Text style={styles.statLabel}>Pending W/D</Text>
               </View>
               <View style={styles.statCard}>
-                <Ionicons name="download" size={24} color="#4CAF50" />
-                <Text style={styles.statValue}>{formatCurrency(stats?.total_deposits || 0)}</Text>
-                <Text style={styles.statLabel}>Total Deposits</Text>
+                <Ionicons name="flash" size={24} color="#2196F3" />
+                <Text style={styles.statValue}>{stats?.active_users_today || 0}</Text>
+                <Text style={styles.statLabel}>Active Today</Text>
               </View>
-            </View>
-
-            {/* Pending Actions */}
-            <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>Pending Actions</Text>
-              <View style={styles.pendingRow}>
-                <View style={styles.pendingItem}>
-                  <View style={[styles.pendingBadge, { backgroundColor: '#FFF3E0' }]}>
-                    <Text style={[styles.pendingCount, { color: '#FF9800' }]}>
-                      {stats?.pending_withdrawals || 0}
-                    </Text>
-                  </View>
-                  <Text style={styles.pendingLabel}>Pending Withdrawals</Text>
-                </View>
-                <View style={styles.pendingItem}>
-                  <View style={[styles.pendingBadge, { backgroundColor: '#E3F2FD' }]}>
-                    <Text style={[styles.pendingCount, { color: '#2196F3' }]}>
-                      {stats?.pending_deposits || 0}
-                    </Text>
-                  </View>
-                  <Text style={styles.pendingLabel}>Pending Deposits</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Recent Activity */}
-            <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>Recent Trades</Text>
-              {trades.slice(0, 5).map((trade, index) => (
-                <View key={trade.trade_id || index} style={styles.activityItem}>
-                  <View style={[
-                    styles.activityIcon,
-                    { backgroundColor: trade.status === 'won' ? '#E8F5E9' : '#FFEBEE' }
-                  ]}>
-                    <Ionicons 
-                      name={trade.direction === 'up' ? 'arrow-up' : 'arrow-down'} 
-                      size={16} 
-                      color={trade.status === 'won' ? '#4CAF50' : '#F44336'} 
-                    />
-                  </View>
-                  <View style={styles.activityInfo}>
-                    <Text style={styles.activityTitle}>{trade.asset}</Text>
-                    <Text style={styles.activitySubtitle}>
-                      {formatCurrency(trade.amount)} • {trade.status}
-                    </Text>
-                  </View>
-                  <Text style={[
-                    styles.activityAmount,
-                    { color: trade.profit_loss >= 0 ? '#4CAF50' : '#F44336' }
-                  ]}>
-                    {trade.profit_loss >= 0 ? '+' : ''}{formatCurrency(trade.profit_loss)}
-                  </Text>
-                </View>
-              ))}
             </View>
           </View>
         )}
@@ -361,6 +612,15 @@ export default function AdminDashboard() {
               />
             </View>
 
+            {/* Add Manual Deposit Button */}
+            <TouchableOpacity 
+              style={styles.addDepositBtn}
+              onPress={() => setShowManualDepositModal(true)}
+            >
+              <Ionicons name="add-circle" size={20} color="#FFF" />
+              <Text style={styles.addDepositBtnText}>Add Manual Deposit</Text>
+            </TouchableOpacity>
+
             {/* Users List */}
             <View style={styles.tableContainer}>
               <View style={styles.tableHeader}>
@@ -374,7 +634,7 @@ export default function AdminDashboard() {
                   style={styles.tableRow}
                   onPress={() => {
                     setSelectedUser(user);
-                    setEditBalance(user.real_balance?.toString() || '0');
+                    setManualDeposit(prev => ({ ...prev, userId: user.user_id }));
                     setShowUserModal(true);
                   }}
                 >
@@ -386,6 +646,7 @@ export default function AdminDashboard() {
                   <View style={[styles.tableCell, { flex: 1 }]}>
                     <Text style={styles.balanceReal}>{formatCurrency(user.real_balance)}</Text>
                     <Text style={styles.balanceDemo}>Demo: {formatCurrency(user.demo_balance)}</Text>
+                    <Text style={styles.balanceBonus}>Bonus: {formatCurrency(user.bonus_balance)}</Text>
                   </View>
                   <View style={[styles.tableCell, { flex: 1 }]}>
                     <View style={[
@@ -452,39 +713,120 @@ export default function AdminDashboard() {
           </View>
         )}
 
-        {/* Deposits Tab */}
-        {activeTab === 'deposits' && (
-          <View style={styles.depositsContainer}>
+        {/* Withdrawals Tab */}
+        {activeTab === 'withdrawals' && (
+          <View style={styles.withdrawalsContainer}>
             <View style={styles.tableContainer}>
               <View style={styles.tableHeader}>
                 <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>User</Text>
                 <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Amount</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Status</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Action</Text>
+              </View>
+              {withdrawals.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Ionicons name="wallet-outline" size={40} color="#8898AA" />
+                  <Text style={styles.emptyStateText}>No withdrawal requests</Text>
+                </View>
+              ) : (
+                withdrawals.map((withdrawal, index) => (
+                  <View key={withdrawal.withdrawal_id || index} style={styles.tableRow}>
+                    <View style={[styles.tableCell, { flex: 1.5 }]}>
+                      <Text style={styles.userName}>{withdrawal.user_name}</Text>
+                      <Text style={styles.userEmail}>{withdrawal.user_email}</Text>
+                      <Text style={styles.walletAddress} numberOfLines={1}>
+                        {withdrawal.wallet_address?.slice(0, 15)}...
+                      </Text>
+                    </View>
+                    <Text style={[styles.tableCell, { flex: 1, fontWeight: '600', color: '#1A1F36' }]}>
+                      {formatCurrency(withdrawal.amount)}
+                    </Text>
+                    <View style={[styles.tableCell, { flex: 1 }]}>
+                      <View style={[
+                        styles.statusBadge,
+                        { backgroundColor: withdrawal.status === 'completed' ? '#E8F5E9' : withdrawal.status === 'rejected' ? '#FFEBEE' : '#FFF3E0' }
+                      ]}>
+                        <Text style={[
+                          styles.statusText,
+                          { color: withdrawal.status === 'completed' ? '#4CAF50' : withdrawal.status === 'rejected' ? '#F44336' : '#FF9800' }
+                        ]}>
+                          {withdrawal.status}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={[styles.tableCell, { flex: 1 }]}>
+                      {withdrawal.status === 'pending' && (
+                        <View style={styles.actionBtns}>
+                          <TouchableOpacity 
+                            style={styles.approveBtn}
+                            onPress={() => handleWithdrawalAction(withdrawal.withdrawal_id, 'approve')}
+                          >
+                            <Ionicons name="checkmark" size={16} color="#FFF" />
+                          </TouchableOpacity>
+                          <TouchableOpacity 
+                            style={styles.rejectBtn}
+                            onPress={() => handleWithdrawalAction(withdrawal.withdrawal_id, 'reject')}
+                          >
+                            <Ionicons name="close" size={16} color="#FFF" />
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                ))
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Assets Tab */}
+        {activeTab === 'assets' && (
+          <View style={styles.assetsContainer}>
+            <TouchableOpacity 
+              style={styles.addAssetBtn}
+              onPress={() => { setEditingAsset(null); setShowAssetModal(true); }}
+            >
+              <Ionicons name="add-circle" size={20} color="#FFF" />
+              <Text style={styles.addAssetBtnText}>Create New Asset</Text>
+            </TouchableOpacity>
+
+            <View style={styles.tableContainer}>
+              <View style={styles.tableHeader}>
+                <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Asset</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Payout</Text>
                 <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Type</Text>
                 <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Status</Text>
               </View>
-              {deposits.map((deposit, index) => (
-                <View key={deposit._id || index} style={styles.tableRow}>
-                  <Text style={[styles.tableCell, { flex: 1.5 }]} numberOfLines={1}>
-                    {deposit.user_id?.slice(0, 15)}...
-                  </Text>
-                  <Text style={[styles.tableCell, { flex: 1, fontWeight: '600' }]}>
-                    {formatCurrency(deposit.amount_usd)}
-                  </Text>
-                  <Text style={[styles.tableCell, { flex: 1 }]}>
-                    {deposit.payment_type || 'crypto'}
+              {assets.map((asset, index) => (
+                <View key={asset.asset_id || index} style={styles.tableRow}>
+                  <View style={[styles.tableCell, { flex: 1.5 }]}>
+                    <Text style={styles.assetSymbol}>{asset.symbol}</Text>
+                    <Text style={styles.assetName}>{asset.name}</Text>
+                    <Text style={styles.assetCategory}>{asset.category}</Text>
+                  </View>
+                  <Text style={[styles.tableCell, { flex: 1, fontWeight: '600', color: '#635BFF' }]}>
+                    {asset.payout_percentage}%
                   </Text>
                   <View style={[styles.tableCell, { flex: 1 }]}>
                     <View style={[
                       styles.statusBadge,
-                      { backgroundColor: deposit.status === 'completed' ? '#E8F5E9' : '#FFF3E0' }
+                      { backgroundColor: asset.is_otc ? '#E3F2FD' : '#F3E5F5' }
                     ]}>
                       <Text style={[
                         styles.statusText,
-                        { color: deposit.status === 'completed' ? '#4CAF50' : '#FF9800' }
+                        { color: asset.is_otc ? '#2196F3' : '#9C27B0' }
                       ]}>
-                        {deposit.status}
+                        {asset.is_otc ? 'OTC' : 'Regular'}
                       </Text>
                     </View>
+                  </View>
+                  <View style={[styles.tableCell, { flex: 1, alignItems: 'center' }]}>
+                    <Switch
+                      value={asset.is_active}
+                      onValueChange={() => handleToggleAsset(asset.asset_id)}
+                      trackColor={{ false: '#E0E0E0', true: '#C8E6C9' }}
+                      thumbColor={asset.is_active ? '#4CAF50' : '#9E9E9E'}
+                    />
                   </View>
                 </View>
               ))}
@@ -495,71 +837,235 @@ export default function AdminDashboard() {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* User Edit Modal */}
+      {/* Manual Deposit Modal */}
+      <Modal visible={showManualDepositModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Manual Deposit</Text>
+              <TouchableOpacity onPress={() => setShowManualDepositModal(false)}>
+                <Ionicons name="close" size={24} color="#1A1F36" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalBody}>
+              <Text style={styles.inputLabel}>User ID *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={manualDeposit.userId}
+                onChangeText={(text) => setManualDeposit(prev => ({ ...prev, userId: text }))}
+                placeholder="Enter user ID"
+                placeholderTextColor="#8898AA"
+              />
+              
+              <Text style={styles.inputLabel}>Amount *</Text>
+              <View style={styles.amountInputRow}>
+                <Text style={styles.currencyPrefix}>$</Text>
+                <TextInput
+                  style={styles.amountInput}
+                  value={manualDeposit.amount}
+                  onChangeText={(text) => setManualDeposit(prev => ({ ...prev, amount: text }))}
+                  placeholder="0.00"
+                  keyboardType="numeric"
+                  placeholderTextColor="#8898AA"
+                />
+              </View>
+              
+              <Text style={styles.inputLabel}>Balance Type</Text>
+              <View style={styles.balanceTypeRow}>
+                {['real', 'demo', 'bonus'].map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={[styles.balanceTypeBtn, manualDeposit.balanceType === type && styles.balanceTypeBtnActive]}
+                    onPress={() => setManualDeposit(prev => ({ ...prev, balanceType: type }))}
+                  >
+                    <Text style={[styles.balanceTypeBtnText, manualDeposit.balanceType === type && styles.balanceTypeBtnTextActive]}>
+                      {type.charAt(0).toUpperCase() + type.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              
+              <Text style={styles.inputLabel}>Note</Text>
+              <TextInput
+                style={[styles.textInput, { height: 80 }]}
+                value={manualDeposit.note}
+                onChangeText={(text) => setManualDeposit(prev => ({ ...prev, note: text }))}
+                placeholder="Reason for deposit..."
+                placeholderTextColor="#8898AA"
+                multiline
+              />
+              
+              <TouchableOpacity style={styles.submitBtn} onPress={handleManualDeposit}>
+                <Text style={styles.submitBtnText}>Add Deposit</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Asset Modal */}
+      <Modal visible={showAssetModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{editingAsset ? 'Edit Asset' : 'Create Asset'}</Text>
+              <TouchableOpacity onPress={() => setShowAssetModal(false)}>
+                <Ionicons name="close" size={24} color="#1A1F36" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalBody}>
+              <Text style={styles.inputLabel}>Symbol *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={newAsset.symbol}
+                onChangeText={(text) => setNewAsset(prev => ({ ...prev, symbol: text.toUpperCase() }))}
+                placeholder="e.g., BTC/USD"
+                placeholderTextColor="#8898AA"
+                autoCapitalize="characters"
+              />
+              
+              <Text style={styles.inputLabel}>Name</Text>
+              <TextInput
+                style={styles.textInput}
+                value={newAsset.name}
+                onChangeText={(text) => setNewAsset(prev => ({ ...prev, name: text }))}
+                placeholder="e.g., Bitcoin"
+                placeholderTextColor="#8898AA"
+              />
+              
+              <Text style={styles.inputLabel}>Category</Text>
+              <View style={styles.categoryRow}>
+                {['forex', 'crypto', 'stocks', 'otc'].map((cat) => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[styles.categoryBtn, newAsset.category === cat && styles.categoryBtnActive]}
+                    onPress={() => setNewAsset(prev => ({ ...prev, category: cat, isOtc: cat === 'otc' }))}
+                  >
+                    <Text style={[styles.categoryBtnText, newAsset.category === cat && styles.categoryBtnTextActive]}>
+                      {cat.toUpperCase()}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              
+              <Text style={styles.inputLabel}>Payout Percentage</Text>
+              <View style={styles.amountInputRow}>
+                <TextInput
+                  style={styles.amountInput}
+                  value={newAsset.payout}
+                  onChangeText={(text) => setNewAsset(prev => ({ ...prev, payout: text }))}
+                  placeholder="80"
+                  keyboardType="numeric"
+                  placeholderTextColor="#8898AA"
+                />
+                <Text style={styles.currencySuffix}>%</Text>
+              </View>
+              
+              <View style={styles.rowInputs}>
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Text style={styles.inputLabel}>Min Amount</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={newAsset.minAmount}
+                    onChangeText={(text) => setNewAsset(prev => ({ ...prev, minAmount: text }))}
+                    placeholder="1"
+                    keyboardType="numeric"
+                    placeholderTextColor="#8898AA"
+                  />
+                </View>
+                <View style={{ flex: 1, marginLeft: 8 }}>
+                  <Text style={styles.inputLabel}>Max Amount</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={newAsset.maxAmount}
+                    onChangeText={(text) => setNewAsset(prev => ({ ...prev, maxAmount: text }))}
+                    placeholder="10000"
+                    keyboardType="numeric"
+                    placeholderTextColor="#8898AA"
+                  />
+                </View>
+              </View>
+              
+              <View style={styles.otcToggleRow}>
+                <Text style={styles.inputLabel}>OTC Asset</Text>
+                <Switch
+                  value={newAsset.isOtc}
+                  onValueChange={(value) => setNewAsset(prev => ({ ...prev, isOtc: value }))}
+                  trackColor={{ false: '#E0E0E0', true: '#C8E6C9' }}
+                  thumbColor={newAsset.isOtc ? '#4CAF50' : '#9E9E9E'}
+                />
+              </View>
+              
+              <TouchableOpacity style={styles.submitBtn} onPress={handleCreateAsset}>
+                <Text style={styles.submitBtnText}>{editingAsset ? 'Update Asset' : 'Create Asset'}</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* User Detail Modal */}
       <Modal visible={showUserModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit User</Text>
+              <Text style={styles.modalTitle}>User Details</Text>
               <TouchableOpacity onPress={() => setShowUserModal(false)}>
                 <Ionicons name="close" size={24} color="#1A1F36" />
               </TouchableOpacity>
             </View>
-
             {selectedUser && (
               <ScrollView style={styles.modalBody}>
-                <View style={styles.userInfoSection}>
-                  <Text style={styles.userInfoLabel}>Email</Text>
-                  <Text style={styles.userInfoValue}>{selectedUser.email}</Text>
-                </View>
-                <View style={styles.userInfoSection}>
-                  <Text style={styles.userInfoLabel}>Account ID</Text>
-                  <Text style={styles.userInfoValue}>{selectedUser.account_id}</Text>
-                </View>
-                <View style={styles.userInfoSection}>
-                  <Text style={styles.userInfoLabel}>Current Balances</Text>
-                  <Text style={styles.userInfoValue}>
-                    Real: {formatCurrency(selectedUser.real_balance)}{'\n'}
-                    Demo: {formatCurrency(selectedUser.demo_balance)}{'\n'}
-                    Bonus: {formatCurrency(selectedUser.bonus_balance)}
-                  </Text>
-                </View>
-
-                <View style={styles.editSection}>
-                  <Text style={styles.editLabel}>Update Balance</Text>
-                  <View style={styles.balanceTypeRow}>
-                    {['real', 'demo', 'bonus'].map((type) => (
-                      <TouchableOpacity
-                        key={type}
-                        style={[
-                          styles.balanceTypeBtn,
-                          editBalanceType === type && styles.balanceTypeBtnActive
-                        ]}
-                        onPress={() => setEditBalanceType(type as any)}
-                      >
-                        <Text style={[
-                          styles.balanceTypeBtnText,
-                          editBalanceType === type && styles.balanceTypeBtnTextActive
-                        ]}>
-                          {type.charAt(0).toUpperCase() + type.slice(1)}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+                <View style={styles.userDetailCard}>
+                  <View style={styles.userDetailRow}>
+                    <Text style={styles.userDetailLabel}>Email</Text>
+                    <Text style={styles.userDetailValue}>{selectedUser.email}</Text>
                   </View>
-                  <View style={styles.inputRow}>
-                    <Text style={styles.inputPrefix}>$</Text>
-                    <TextInput
-                      style={styles.balanceInput}
-                      value={editBalance}
-                      onChangeText={setEditBalance}
-                      keyboardType="numeric"
-                      placeholder="Enter new balance"
-                    />
+                  <View style={styles.userDetailRow}>
+                    <Text style={styles.userDetailLabel}>Account ID</Text>
+                    <Text style={styles.userDetailValue}>{selectedUser.account_id}</Text>
                   </View>
-                  <TouchableOpacity style={styles.updateBtn} onPress={updateUserBalance}>
-                    <Text style={styles.updateBtnText}>Update Balance</Text>
-                  </TouchableOpacity>
+                  <View style={styles.userDetailRow}>
+                    <Text style={styles.userDetailLabel}>User ID</Text>
+                    <Text style={styles.userDetailValue} selectable>{selectedUser.user_id}</Text>
+                  </View>
                 </View>
+                
+                <View style={styles.balanceSection}>
+                  <Text style={styles.sectionTitle}>Balances</Text>
+                  <View style={styles.balanceCards}>
+                    <View style={[styles.balanceCard, { backgroundColor: '#E8F5E9' }]}>
+                      <Text style={styles.balanceCardLabel}>Real</Text>
+                      <Text style={[styles.balanceCardValue, { color: '#4CAF50' }]}>
+                        {formatCurrency(selectedUser.real_balance)}
+                      </Text>
+                    </View>
+                    <View style={[styles.balanceCard, { backgroundColor: '#E3F2FD' }]}>
+                      <Text style={styles.balanceCardLabel}>Demo</Text>
+                      <Text style={[styles.balanceCardValue, { color: '#2196F3' }]}>
+                        {formatCurrency(selectedUser.demo_balance)}
+                      </Text>
+                    </View>
+                    <View style={[styles.balanceCard, { backgroundColor: '#FFF3E0' }]}>
+                      <Text style={styles.balanceCardLabel}>Bonus</Text>
+                      <Text style={[styles.balanceCardValue, { color: '#FF9800' }]}>
+                        {formatCurrency(selectedUser.bonus_balance)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                
+                <TouchableOpacity 
+                  style={styles.addDepositToUserBtn}
+                  onPress={() => {
+                    setShowUserModal(false);
+                    setManualDeposit(prev => ({ ...prev, userId: selectedUser.user_id }));
+                    setShowManualDepositModal(true);
+                  }}
+                >
+                  <Ionicons name="add-circle" size={20} color="#FFF" />
+                  <Text style={styles.addDepositToUserBtnText}>Add Manual Deposit</Text>
+                </TouchableOpacity>
               </ScrollView>
             )}
           </View>
@@ -615,13 +1121,15 @@ const styles = StyleSheet.create({
   refreshBtn: {
     padding: 8,
   },
-  tabContainer: {
-    flexDirection: 'row',
+  tabScrollContainer: {
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E6EBF1',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   tab: {
     paddingVertical: 8,
@@ -645,6 +1153,106 @@ const styles = StyleSheet.create({
   },
   overviewContainer: {
     padding: 16,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#635BFF',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  actionBtnText: {
+    color: '#FFF',
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  periodSelector: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 4,
+    marginBottom: 16,
+  },
+  periodBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 6,
+  },
+  periodBtnActive: {
+    backgroundColor: '#635BFF',
+  },
+  periodBtnText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#8898AA',
+  },
+  periodBtnTextActive: {
+    color: '#FFFFFF',
+  },
+  summaryCards: {
+    marginBottom: 16,
+  },
+  summaryCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 8,
+    borderLeftWidth: 4,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  summaryLabel: {
+    fontSize: 14,
+    color: '#8898AA',
+  },
+  summaryValue: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  chartsSection: {
+    marginBottom: 16,
+  },
+  chartContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  chartTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1A1F36',
+    marginBottom: 12,
+  },
+  chartBars: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-around',
+    height: 100,
+  },
+  barContainer: {
+    alignItems: 'center',
+  },
+  bar: {
+    borderRadius: 4,
+    minHeight: 4,
+  },
+  barLabel: {
+    fontSize: 10,
+    color: '#8898AA',
+    marginTop: 4,
+  },
+  noDataText: {
+    color: '#8898AA',
+    fontSize: 12,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -678,78 +1286,6 @@ const styles = StyleSheet.create({
     color: '#8898AA',
     marginTop: 4,
   },
-  sectionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1A1F36',
-    marginBottom: 16,
-  },
-  pendingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  pendingItem: {
-    alignItems: 'center',
-  },
-  pendingBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  pendingCount: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  pendingLabel: {
-    fontSize: 12,
-    color: '#8898AA',
-    marginTop: 8,
-  },
-  activityItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F3F7',
-  },
-  activityIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  activityInfo: {
-    flex: 1,
-  },
-  activityTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1A1F36',
-  },
-  activitySubtitle: {
-    fontSize: 12,
-    color: '#8898AA',
-    marginTop: 2,
-  },
-  activityAmount: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
   usersContainer: {
     padding: 16,
   },
@@ -759,7 +1295,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 8,
     paddingHorizontal: 12,
-    marginBottom: 16,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#E6EBF1',
   },
@@ -769,6 +1305,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     fontSize: 14,
     color: '#1A1F36',
+  },
+  addDepositBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#635BFF',
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  addDepositBtnText: {
+    color: '#FFF',
+    fontWeight: '600',
+    marginLeft: 6,
   },
   tableContainer: {
     backgroundColor: '#FFFFFF',
@@ -831,6 +1381,11 @@ const styles = StyleSheet.create({
     color: '#8898AA',
     marginTop: 2,
   },
+  balanceBonus: {
+    fontSize: 11,
+    color: '#FF9800',
+    marginTop: 2,
+  },
   statusBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -854,8 +1409,68 @@ const styles = StyleSheet.create({
     color: '#8898AA',
     marginTop: 2,
   },
-  depositsContainer: {
+  withdrawalsContainer: {
     padding: 16,
+  },
+  walletAddress: {
+    fontSize: 10,
+    color: '#A3ACB9',
+    marginTop: 2,
+  },
+  actionBtns: {
+    flexDirection: 'row',
+  },
+  approveBtn: {
+    backgroundColor: '#4CAF50',
+    padding: 8,
+    borderRadius: 4,
+    marginRight: 4,
+  },
+  rejectBtn: {
+    backgroundColor: '#F44336',
+    padding: 8,
+    borderRadius: 4,
+  },
+  emptyState: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    color: '#8898AA',
+    marginTop: 8,
+  },
+  assetsContainer: {
+    padding: 16,
+  },
+  addAssetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#00D4AA',
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  addAssetBtnText: {
+    color: '#FFF',
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  assetSymbol: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1A1F36',
+  },
+  assetName: {
+    fontSize: 12,
+    color: '#8898AA',
+    marginTop: 2,
+  },
+  assetCategory: {
+    fontSize: 11,
+    color: '#A3ACB9',
+    marginTop: 2,
+    textTransform: 'uppercase',
   },
   modalOverlay: {
     flex: 1,
@@ -868,7 +1483,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     width: '90%',
     maxWidth: 400,
-    maxHeight: '80%',
+    maxHeight: '85%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -886,35 +1501,48 @@ const styles = StyleSheet.create({
   modalBody: {
     padding: 16,
   },
-  userInfoSection: {
-    marginBottom: 16,
-  },
-  userInfoLabel: {
-    fontSize: 12,
+  inputLabel: {
+    fontSize: 14,
     fontWeight: '600',
+    color: '#1A1F36',
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: '#E6EBF1',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    fontSize: 14,
+    color: '#1A1F36',
+  },
+  amountInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E6EBF1',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+  },
+  currencyPrefix: {
+    fontSize: 16,
     color: '#8898AA',
-    marginBottom: 4,
-    textTransform: 'uppercase',
+    marginRight: 4,
   },
-  userInfoValue: {
-    fontSize: 14,
+  currencySuffix: {
+    fontSize: 16,
+    color: '#8898AA',
+    marginLeft: 4,
+  },
+  amountInput: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 16,
     color: '#1A1F36',
-  },
-  editSection: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E6EBF1',
-  },
-  editLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1A1F36',
-    marginBottom: 12,
   },
   balanceTypeRow: {
     flexDirection: 'row',
-    marginBottom: 12,
   },
   balanceTypeBtn: {
     paddingVertical: 8,
@@ -934,35 +1562,112 @@ const styles = StyleSheet.create({
   balanceTypeBtnTextActive: {
     color: '#FFFFFF',
   },
-  inputRow: {
+  categoryRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E6EBF1',
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    flexWrap: 'wrap',
   },
-  inputPrefix: {
-    fontSize: 16,
+  categoryBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: '#F6F9FC',
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  categoryBtnActive: {
+    backgroundColor: '#635BFF',
+  },
+  categoryBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
     color: '#8898AA',
   },
-  balanceInput: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    fontSize: 16,
-    color: '#1A1F36',
+  categoryBtnTextActive: {
+    color: '#FFFFFF',
   },
-  updateBtn: {
+  rowInputs: {
+    flexDirection: 'row',
+  },
+  otcToggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E6EBF1',
+  },
+  submitBtn: {
     backgroundColor: '#635BFF',
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 20,
   },
-  updateBtnText: {
+  submitBtnText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  userDetailCard: {
+    backgroundColor: '#F6F9FC',
+    borderRadius: 8,
+    padding: 16,
+  },
+  userDetailRow: {
+    marginBottom: 12,
+  },
+  userDetailLabel: {
+    fontSize: 12,
+    color: '#8898AA',
+    marginBottom: 4,
+  },
+  userDetailValue: {
+    fontSize: 14,
+    color: '#1A1F36',
+    fontWeight: '500',
+  },
+  balanceSection: {
+    marginTop: 20,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1F36',
+    marginBottom: 12,
+  },
+  balanceCards: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  balanceCard: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    marginHorizontal: 4,
+    alignItems: 'center',
+  },
+  balanceCardLabel: {
+    fontSize: 12,
+    color: '#8898AA',
+  },
+  balanceCardValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  addDepositToUserBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#635BFF',
+    paddingVertical: 14,
+    borderRadius: 8,
+    marginTop: 20,
+  },
+  addDepositToUserBtnText: {
+    color: '#FFF',
+    fontWeight: '600',
+    marginLeft: 6,
   },
 });

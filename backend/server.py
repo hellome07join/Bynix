@@ -2065,83 +2065,8 @@ async def get_kyc_status(authorization: Optional[str] = Header(None), request: R
         "remaining_seconds": remaining_seconds
     }
 
-# ============= Admin Routes =============
-
-@api_router.get("/admin/users")
-async def get_all_users(authorization: Optional[str] = Header(None), request: Request = None):
-    """Get all users (admin only)"""
-    user = await get_current_user(authorization, request)
-    if not user.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    users = await db.users.find({}, {"_id": 0, "password": 0}).to_list(1000)
-    return users
-
-@api_router.get("/admin/trades")
-async def get_all_trades(authorization: Optional[str] = Header(None), request: Request = None):
-    """Get all trades (admin only)"""
-    user = await get_current_user(authorization, request)
-    if not user.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    trades = await db.trades.find({}, {"_id": 0}).sort("created_at", -1).limit(100).to_list(100)
-    return trades
-
-@api_router.post("/admin/transactions/{transaction_id}/approve")
-async def approve_transaction(transaction_id: str, authorization: Optional[str] = Header(None), request: Request = None):
-    """Approve withdrawal (admin only)"""
-    user = await get_current_user(authorization, request)
-    if not user.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    transaction = await db.transactions.find_one({"transaction_id": transaction_id})
-    if not transaction:
-        raise HTTPException(status_code=404, detail="Transaction not found")
-    
-    if transaction["type"] == "deposit":
-        # Approve deposit - add to user balance
-        await db.users.update_one(
-            {"user_id": transaction["user_id"]},
-            {"$inc": {"real_balance": transaction["amount"]}}
-        )
-    
-    # Mark as completed
-    await db.transactions.update_one(
-        {"transaction_id": transaction_id},
-        {"$set": {
-            "status": "completed",
-            "txn_hash": f"0x{uuid.uuid4().hex}",
-            "completed_at": datetime.now(timezone.utc)
-        }}
-    )
-    
-    return {"message": "Transaction approved"}
-
-@api_router.post("/admin/transactions/{transaction_id}/reject")
-async def reject_transaction(transaction_id: str, authorization: Optional[str] = Header(None), request: Request = None):
-    """Reject withdrawal (admin only)"""
-    user = await get_current_user(authorization, request)
-    if not user.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    transaction = await db.transactions.find_one({"transaction_id": transaction_id})
-    if not transaction:
-        raise HTTPException(status_code=404, detail="Transaction not found")
-    
-    # If withdrawal, refund to user
-    if transaction["type"] == "withdrawal":
-        await db.users.update_one(
-            {"user_id": transaction["user_id"]},
-            {"$inc": {"real_balance": transaction["amount"]}}
-        )
-    
-    # Mark as rejected
-    await db.transactions.update_one(
-        {"transaction_id": transaction_id},
-        {"$set": {"status": "rejected"}}
-    )
-    
-    return {"message": "Transaction rejected"}
+# ============= Old Admin Routes (Legacy - Kept for compatibility) =============
+# Note: New admin routes are at the end of this file
 
 # ============= WebSocket Events =============
 
@@ -3288,7 +3213,7 @@ async def shutdown_db_client():
 # ============= ADMIN API ENDPOINTS =============
 
 @api_router.get("/admin/stats")
-async def get_admin_stats(authorization: Optional[str] = Header(None), request: Request = None):
+async def admin_get_stats(authorization: Optional[str] = Header(None), request: Request = None):
     """Get admin dashboard statistics"""
     user = await get_current_user(authorization, request)
     
@@ -3333,7 +3258,7 @@ async def get_admin_stats(authorization: Optional[str] = Header(None), request: 
     }
 
 @api_router.get("/admin/users")
-async def get_admin_users(authorization: Optional[str] = Header(None), request: Request = None):
+async def admin_get_users(authorization: Optional[str] = Header(None), request: Request = None):
     """Get all users for admin"""
     user = await get_current_user(authorization, request)
     
@@ -3360,7 +3285,7 @@ async def get_admin_users(authorization: Optional[str] = Header(None), request: 
     }
 
 @api_router.get("/admin/trades")
-async def get_admin_trades(
+async def admin_get_trades(
     limit: int = 50,
     authorization: Optional[str] = Header(None),
     request: Request = None
@@ -3389,7 +3314,7 @@ async def get_admin_trades(
     }
 
 @api_router.get("/admin/deposits")
-async def get_admin_deposits(authorization: Optional[str] = Header(None), request: Request = None):
+async def admin_get_deposits(authorization: Optional[str] = Header(None), request: Request = None):
     """Get all deposits for admin"""
     user = await get_current_user(authorization, request)
     
@@ -3410,7 +3335,7 @@ async def get_admin_deposits(authorization: Optional[str] = Header(None), reques
     }
 
 @api_router.post("/admin/users/{user_id}/balance")
-async def update_user_balance(
+async def admin_update_user_balance(
     user_id: str,
     balance_type: str = "real",
     amount: float = 0,
@@ -3446,4 +3371,417 @@ async def update_user_balance(
         return {"success": True, "message": f"Updated {balance_type} balance to ${amount}"}
     else:
         raise HTTPException(status_code=404, detail="User not found")
+
+
+
+# ============= ADVANCED ADMIN ANALYTICS =============
+
+@api_router.get("/admin/analytics")
+async def get_admin_analytics(
+    period: str = "week",  # week, month, year
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get analytics data with time filters"""
+    user = await get_current_user(authorization, request)
+    
+    now = datetime.now(timezone.utc)
+    
+    # Calculate date range based on period
+    if period == "week":
+        start_date = now - timedelta(days=7)
+        group_format = "%Y-%m-%d"
+        labels = [(now - timedelta(days=i)).strftime("%a") for i in range(6, -1, -1)]
+    elif period == "month":
+        start_date = now - timedelta(days=30)
+        group_format = "%Y-%m-%d"
+        labels = [(now - timedelta(days=i)).strftime("%d %b") for i in range(29, -1, -3)][::-1]
+    else:  # year
+        start_date = now - timedelta(days=365)
+        group_format = "%Y-%m"
+        labels = [(now - timedelta(days=i*30)).strftime("%b") for i in range(11, -1, -1)]
+    
+    # Get deposits by date
+    deposits_pipeline = [
+        {"$match": {"created_at": {"$gte": start_date}, "status": "completed"}},
+        {"$group": {
+            "_id": {"$dateToString": {"format": group_format, "date": "$created_at"}},
+            "total": {"$sum": "$amount_usd"}
+        }},
+        {"$sort": {"_id": 1}}
+    ]
+    deposits_data = await db.deposits.aggregate(deposits_pipeline).to_list(100)
+    
+    # Get withdrawals by date
+    withdrawals_pipeline = [
+        {"$match": {"created_at": {"$gte": start_date}, "status": "completed"}},
+        {"$group": {
+            "_id": {"$dateToString": {"format": group_format, "date": "$created_at"}},
+            "total": {"$sum": "$amount"}
+        }},
+        {"$sort": {"_id": 1}}
+    ]
+    withdrawals_data = await db.withdrawals.aggregate(withdrawals_pipeline).to_list(100)
+    
+    # Get profit/loss by date (platform profit = user losses)
+    trades_pipeline = [
+        {"$match": {"created_at": {"$gte": start_date}, "status": {"$in": ["won", "lost"]}}},
+        {"$group": {
+            "_id": {"$dateToString": {"format": group_format, "date": "$created_at"}},
+            "platform_profit": {"$sum": {"$cond": [{"$eq": ["$status", "lost"]}, "$amount", {"$multiply": ["$profit_loss", -1]}]}}
+        }},
+        {"$sort": {"_id": 1}}
+    ]
+    profit_data = await db.trades.aggregate(trades_pipeline).to_list(100)
+    
+    # Calculate totals
+    total_deposits = sum(d["total"] for d in deposits_data) if deposits_data else 0
+    total_withdrawals = sum(w["total"] for w in withdrawals_data) if withdrawals_data else 0
+    total_profit = sum(p["platform_profit"] for p in profit_data) if profit_data else 0
+    
+    return {
+        "period": period,
+        "labels": labels,
+        "deposits": {
+            "data": [d["total"] for d in deposits_data],
+            "dates": [d["_id"] for d in deposits_data],
+            "total": total_deposits
+        },
+        "withdrawals": {
+            "data": [w["total"] for w in withdrawals_data],
+            "dates": [w["_id"] for w in withdrawals_data],
+            "total": total_withdrawals
+        },
+        "profit_loss": {
+            "data": [p["platform_profit"] for p in profit_data],
+            "dates": [p["_id"] for p in profit_data],
+            "total": total_profit
+        },
+        "summary": {
+            "net_revenue": total_deposits - total_withdrawals,
+            "total_deposits": total_deposits,
+            "total_withdrawals": total_withdrawals,
+            "platform_profit": total_profit
+        }
+    }
+
+# ============= MANUAL DEPOSIT SYSTEM =============
+
+@api_router.post("/admin/manual-deposit")
+async def create_manual_deposit(
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Admin manually adds deposit to user account"""
+    admin = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    user_id = body.get("user_id")
+    amount = float(body.get("amount", 0))
+    balance_type = body.get("balance_type", "real")  # real, demo, bonus
+    note = body.get("note", "Manual deposit by admin")
+    
+    if not user_id or amount <= 0:
+        raise HTTPException(status_code=400, detail="Invalid user_id or amount")
+    
+    # Find user
+    user = await db.users.find_one({"user_id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Map balance type to field
+    field_map = {
+        "real": "real_balance",
+        "demo": "demo_balance",
+        "bonus": "bonus_balance"
+    }
+    field = field_map.get(balance_type, "real_balance")
+    current_balance = user.get(field, 0)
+    new_balance = current_balance + amount
+    
+    # Update user balance
+    await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {field: new_balance}}
+    )
+    
+    # Create deposit record
+    deposit_id = f"manual_{uuid.uuid4().hex[:12]}"
+    await db.deposits.insert_one({
+        "deposit_id": deposit_id,
+        "user_id": user_id,
+        "amount_usd": amount,
+        "balance_type": balance_type,
+        "status": "completed",
+        "payment_type": "manual",
+        "note": note,
+        "admin_id": admin.user_id,
+        "created_at": datetime.now(timezone.utc)
+    })
+    
+    return {
+        "success": True,
+        "message": f"Added ${amount} to {balance_type} balance",
+        "deposit_id": deposit_id,
+        "new_balance": new_balance
+    }
+
+# ============= ASSET MANAGEMENT =============
+
+@api_router.get("/admin/assets")
+async def get_admin_assets(authorization: Optional[str] = Header(None), request: Request = None):
+    """Get all assets for admin management"""
+    user = await get_current_user(authorization, request)
+    
+    assets = await db.assets.find({}).to_list(100)
+    
+    return {
+        "assets": [
+            {
+                "asset_id": a.get("asset_id"),
+                "symbol": a.get("symbol"),
+                "name": a.get("name"),
+                "category": a.get("category"),
+                "payout_percentage": a.get("payout_percentage", 80),
+                "is_active": a.get("is_active", True),
+                "is_otc": a.get("is_otc", False),
+                "min_amount": a.get("min_amount", 1),
+                "max_amount": a.get("max_amount", 10000),
+                "created_at": str(a.get("created_at", ""))
+            }
+            for a in assets
+        ]
+    }
+
+@api_router.post("/admin/assets")
+async def create_asset(authorization: Optional[str] = Header(None), request: Request = None):
+    """Create new trading asset (including OTC)"""
+    user = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    
+    asset_id = f"asset_{uuid.uuid4().hex[:8]}"
+    symbol = body.get("symbol", "").upper()
+    name = body.get("name", symbol)
+    category = body.get("category", "forex")  # forex, crypto, stocks, otc
+    payout_percentage = float(body.get("payout_percentage", 80))
+    is_otc = body.get("is_otc", False)
+    min_amount = float(body.get("min_amount", 1))
+    max_amount = float(body.get("max_amount", 10000))
+    
+    if not symbol:
+        raise HTTPException(status_code=400, detail="Symbol is required")
+    
+    # Check if asset already exists
+    existing = await db.assets.find_one({"symbol": symbol})
+    if existing:
+        raise HTTPException(status_code=400, detail="Asset with this symbol already exists")
+    
+    asset = {
+        "asset_id": asset_id,
+        "symbol": symbol,
+        "name": name,
+        "category": category,
+        "payout_percentage": payout_percentage,
+        "is_active": True,
+        "is_otc": is_otc,
+        "min_amount": min_amount,
+        "max_amount": max_amount,
+        "created_at": datetime.now(timezone.utc)
+    }
+    
+    await db.assets.insert_one(asset)
+    
+    return {"success": True, "asset": asset}
+
+@api_router.put("/admin/assets/{asset_id}")
+async def update_asset(
+    asset_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Update asset settings"""
+    user = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    
+    update_fields = {}
+    if "name" in body:
+        update_fields["name"] = body["name"]
+    if "payout_percentage" in body:
+        update_fields["payout_percentage"] = float(body["payout_percentage"])
+    if "is_active" in body:
+        update_fields["is_active"] = bool(body["is_active"])
+    if "is_otc" in body:
+        update_fields["is_otc"] = bool(body["is_otc"])
+    if "min_amount" in body:
+        update_fields["min_amount"] = float(body["min_amount"])
+    if "max_amount" in body:
+        update_fields["max_amount"] = float(body["max_amount"])
+    if "category" in body:
+        update_fields["category"] = body["category"]
+    
+    result = await db.assets.update_one(
+        {"asset_id": asset_id},
+        {"$set": update_fields}
+    )
+    
+    if result.modified_count > 0:
+        return {"success": True, "message": "Asset updated"}
+    else:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+@api_router.post("/admin/assets/{asset_id}/toggle")
+async def toggle_asset(
+    asset_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Toggle asset on/off"""
+    user = await get_current_user(authorization, request)
+    
+    asset = await db.assets.find_one({"asset_id": asset_id})
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    
+    new_status = not asset.get("is_active", True)
+    
+    await db.assets.update_one(
+        {"asset_id": asset_id},
+        {"$set": {"is_active": new_status}}
+    )
+    
+    return {"success": True, "is_active": new_status}
+
+@api_router.delete("/admin/assets/{asset_id}")
+async def delete_asset(
+    asset_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Delete an asset"""
+    user = await get_current_user(authorization, request)
+    
+    result = await db.assets.delete_one({"asset_id": asset_id})
+    
+    if result.deleted_count > 0:
+        return {"success": True, "message": "Asset deleted"}
+    else:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+# ============= WITHDRAWAL MANAGEMENT =============
+
+@api_router.get("/admin/withdrawals")
+async def get_admin_withdrawals(
+    status: str = None,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get all withdrawals for admin"""
+    user = await get_current_user(authorization, request)
+    
+    query = {}
+    if status:
+        query["status"] = status
+    
+    withdrawals = await db.withdrawals.find(query).sort("created_at", -1).limit(100).to_list(100)
+    
+    # Get user info for each withdrawal
+    result = []
+    for w in withdrawals:
+        user_info = await db.users.find_one({"user_id": w.get("user_id")})
+        result.append({
+            "withdrawal_id": w.get("withdrawal_id") or str(w.get("_id")),
+            "user_id": w.get("user_id"),
+            "user_email": user_info.get("email") if user_info else "Unknown",
+            "user_name": user_info.get("name") or user_info.get("full_name") if user_info else "Unknown",
+            "amount": w.get("amount", 0),
+            "method": w.get("method", "crypto"),
+            "wallet_address": w.get("wallet_address", ""),
+            "status": w.get("status", "pending"),
+            "created_at": str(w.get("created_at", ""))
+        })
+    
+    return {"withdrawals": result}
+
+@api_router.post("/admin/withdrawals/{withdrawal_id}/approve")
+async def approve_withdrawal(
+    withdrawal_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Approve a withdrawal request"""
+    admin = await get_current_user(authorization, request)
+    
+    withdrawal = await db.withdrawals.find_one({
+        "$or": [
+            {"withdrawal_id": withdrawal_id},
+            {"_id": withdrawal_id}
+        ]
+    })
+    
+    if not withdrawal:
+        raise HTTPException(status_code=404, detail="Withdrawal not found")
+    
+    if withdrawal.get("status") != "pending":
+        raise HTTPException(status_code=400, detail="Withdrawal is not pending")
+    
+    await db.withdrawals.update_one(
+        {"_id": withdrawal["_id"]},
+        {
+            "$set": {
+                "status": "completed",
+                "approved_by": admin.user_id,
+                "approved_at": datetime.now(timezone.utc)
+            }
+        }
+    )
+    
+    return {"success": True, "message": "Withdrawal approved"}
+
+@api_router.post("/admin/withdrawals/{withdrawal_id}/reject")
+async def reject_withdrawal(
+    withdrawal_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Reject a withdrawal request and refund balance"""
+    admin = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    reason = body.get("reason", "Rejected by admin")
+    
+    withdrawal = await db.withdrawals.find_one({
+        "$or": [
+            {"withdrawal_id": withdrawal_id},
+            {"_id": withdrawal_id}
+        ]
+    })
+    
+    if not withdrawal:
+        raise HTTPException(status_code=404, detail="Withdrawal not found")
+    
+    if withdrawal.get("status") != "pending":
+        raise HTTPException(status_code=400, detail="Withdrawal is not pending")
+    
+    # Refund the amount to user
+    await db.users.update_one(
+        {"user_id": withdrawal["user_id"]},
+        {"$inc": {"real_balance": withdrawal.get("amount", 0)}}
+    )
+    
+    await db.withdrawals.update_one(
+        {"_id": withdrawal["_id"]},
+        {
+            "$set": {
+                "status": "rejected",
+                "rejected_by": admin.user_id,
+                "rejected_at": datetime.now(timezone.utc),
+                "rejection_reason": reason
+            }
+        }
+    )
+    
+    return {"success": True, "message": "Withdrawal rejected and balance refunded"}
+
 
