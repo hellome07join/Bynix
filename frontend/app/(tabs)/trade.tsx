@@ -90,6 +90,7 @@ export default function Trade() {
   const [showAssetPicker, setShowAssetPicker] = useState(false);
   const [trendingAssets, setTrendingAssets] = useState<any[]>([]);
   const [apiPayouts, setApiPayouts] = useState<Record<string, number>>({});
+  const [inactiveAssets, setInactiveAssets] = useState<Set<string>>(new Set());
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showToolsModal, setShowToolsModal] = useState(false);
@@ -592,7 +593,20 @@ export default function Trade() {
       if (response.ok) {
         const assets = await response.json();
         const payoutMap: Record<string, number> = {};
+        const inactiveSet = new Set<string>();
+        
         assets.forEach((asset: any) => {
+          // Track inactive assets
+          if (asset.is_active === false) {
+            if (asset.symbol) {
+              inactiveSet.add(asset.symbol);
+              inactiveSet.add(asset.symbol + ' OTC');
+            }
+            if (asset.name) {
+              inactiveSet.add(asset.name);
+            }
+          }
+          
           if (asset.payout_percentage) {
             // Map by multiple formats to ensure matching
             // Database symbol: "NZD/USD", Frontend: "NZD/USD OTC"
@@ -605,8 +619,11 @@ export default function Trade() {
             }
           }
         });
+        
         setApiPayouts(payoutMap);
+        setInactiveAssets(inactiveSet);
         console.log('Loaded payouts from API:', Object.keys(payoutMap).length, 'mappings');
+        console.log('Inactive assets:', inactiveSet.size);
       }
     } catch (error) {
       console.error('Error fetching asset payouts:', error);
@@ -1826,7 +1843,10 @@ export default function Trade() {
             
             {/* Asset List */}
             <ScrollView style={styles.assetList} showsVerticalScrollIndicator={false}>
-              {currentAssets.filter(asset => asset.category === selectedCategory).map((asset) => (
+              {currentAssets
+                .filter(asset => asset.category === selectedCategory)
+                .filter(asset => !inactiveAssets.has(asset.value) && !inactiveAssets.has(asset.label))
+                .map((asset) => (
                 <TouchableOpacity
                   key={asset.value}
                   style={[

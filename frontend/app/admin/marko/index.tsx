@@ -1060,6 +1060,17 @@ export default function AdminDashboard() {
     const [showPayoutModal, setShowPayoutModal] = useState(false);
     const [editingAsset, setEditingAsset] = useState(null);
     const [newPayout, setNewPayout] = useState('');
+    const [assetSearchQuery, setAssetSearchQuery] = useState('');
+    const [selectedAssetCategory, setSelectedAssetCategory] = useState('all');
+
+    // Filter assets based on search and category
+    const filteredAssets = tradingAssets.filter(asset => {
+      const matchesSearch = assetSearchQuery === '' || 
+        (asset.symbol || '').toLowerCase().includes(assetSearchQuery.toLowerCase()) ||
+        (asset.name || '').toLowerCase().includes(assetSearchQuery.toLowerCase());
+      const matchesCategory = selectedAssetCategory === 'all' || asset.category === selectedAssetCategory;
+      return matchesSearch && matchesCategory;
+    });
 
     // Toggle Global Trading
     const handleToggleTrading = async (enabled) => {
@@ -1244,14 +1255,56 @@ export default function AdminDashboard() {
         {/* Trading Assets - Now from API */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Trading Assets ({tradingAssets.length})</Text>
+            <Text style={styles.sectionTitle}>Trading Assets ({filteredAssets.length}/{tradingAssets.length})</Text>
             <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh}>
               <Ionicons name="refresh" size={18} color={COLORS.primary} />
             </TouchableOpacity>
           </View>
 
-          {tradingAssets.slice(0, 20).map((asset, index) => (
-            <View key={asset.asset_id || asset.symbol || index} style={styles.assetRow}>
+          {/* Search Bar */}
+          <View style={styles.assetSearchContainer}>
+            <Ionicons name="search" size={18} color={COLORS.textMuted} style={{marginRight: 8}} />
+            <TextInput
+              style={styles.assetSearchInput}
+              placeholder="Search assets..."
+              placeholderTextColor={COLORS.textMuted}
+              value={assetSearchQuery}
+              onChangeText={setAssetSearchQuery}
+            />
+            {assetSearchQuery !== '' && (
+              <TouchableOpacity onPress={() => setAssetSearchQuery('')}>
+                <Ionicons name="close-circle" size={18} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Category Filter */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.assetCategoryFilter}>
+            {['all', 'forex', 'crypto', 'stocks', 'commodities'].map(cat => (
+              <TouchableOpacity
+                key={cat}
+                style={[
+                  styles.assetCategoryBtn,
+                  selectedAssetCategory === cat && styles.assetCategoryBtnActive
+                ]}
+                onPress={() => setSelectedAssetCategory(cat)}
+              >
+                <Text style={[
+                  styles.assetCategoryBtnText,
+                  selectedAssetCategory === cat && styles.assetCategoryBtnTextActive
+                ]}>
+                  {cat === 'all' ? 'All' : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          {/* Assets List - Show ALL filtered assets */}
+          {filteredAssets.map((asset, index) => (
+            <View key={asset.asset_id || asset.symbol || index} style={[
+              styles.assetRow,
+              !asset.is_active && styles.assetRowDisabled
+            ]}>
               <View style={styles.assetLeft}>
                 <View style={[styles.assetIcon, { backgroundColor: asset.is_active ? COLORS.primaryLight : COLORS.cardHover }]}>
                   <Text style={[styles.assetIconText, { color: asset.is_active ? COLORS.primary : COLORS.textMuted }]}>
@@ -1259,7 +1312,7 @@ export default function AdminDashboard() {
                   </Text>
                 </View>
                 <View>
-                  <Text style={styles.assetSymbol}>{asset.symbol}</Text>
+                  <Text style={[styles.assetSymbol, !asset.is_active && {color: COLORS.textMuted}]}>{asset.symbol}</Text>
                   <Text style={styles.assetName}>{asset.name}</Text>
                 </View>
               </View>
@@ -1271,11 +1324,11 @@ export default function AdminDashboard() {
                   setShowPayoutModal(true);
                 }}
               >
-                <Text style={styles.assetPayout}>{asset.payout_percentage || 85}%</Text>
+                <Text style={[styles.assetPayout, !asset.is_active && {color: COLORS.textMuted}]}>{asset.payout_percentage || 85}%</Text>
                 <Text style={styles.assetPayoutLabel}>Tap to Edit</Text>
               </TouchableOpacity>
-              <View style={styles.assetCategory}>
-                <Text style={styles.assetCategoryText}>{asset.category || 'Other'}</Text>
+              <View style={[styles.assetCategory, !asset.is_active && {backgroundColor: COLORS.cardHover}]}>
+                <Text style={[styles.assetCategoryText, !asset.is_active && {color: COLORS.textMuted}]}>{asset.category || 'Other'}</Text>
               </View>
               <Switch
                 value={asset.is_active !== false}
@@ -1287,8 +1340,11 @@ export default function AdminDashboard() {
             </View>
           ))}
           
-          {tradingAssets.length > 20 && (
-            <Text style={styles.moreAssetsText}>+ {tradingAssets.length - 20} more assets</Text>
+          {filteredAssets.length === 0 && (
+            <View style={styles.noAssetsFound}>
+              <Ionicons name="search-outline" size={40} color={COLORS.textMuted} />
+              <Text style={styles.noAssetsText}>No assets found</Text>
+            </View>
           )}
         </View>
 
@@ -4173,5 +4229,63 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#FFF',
+  },
+
+  // Asset Search & Filter Styles
+  assetSearchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.bgSecondary,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  assetSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: COLORS.text,
+    padding: 0,
+  },
+  assetCategoryFilter: {
+    marginBottom: 16,
+    flexGrow: 0,
+  },
+  assetCategoryBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: COLORS.bgSecondary,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  assetCategoryBtnActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  assetCategoryBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  assetCategoryBtnTextActive: {
+    color: '#FFF',
+  },
+  assetRowDisabled: {
+    opacity: 0.6,
+    backgroundColor: COLORS.cardHover,
+  },
+  noAssetsFound: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  noAssetsText: {
+    fontSize: 14,
+    color: COLORS.textMuted,
+    marginTop: 12,
   },
 });

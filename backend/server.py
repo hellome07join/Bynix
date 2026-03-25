@@ -4131,6 +4131,7 @@ async def toggle_asset_status(asset_id: str, authorization: Optional[str] = Head
     body = await request.json()
     is_active = body.get("is_active", True)
     
+    # Try to update by asset_id first
     result = await db.assets.update_one(
         {"asset_id": asset_id},
         {"$set": {"is_active": is_active}}
@@ -4142,6 +4143,18 @@ async def toggle_asset_status(asset_id: str, authorization: Optional[str] = Head
             {"symbol": asset_id},
             {"$set": {"is_active": is_active}}
         )
+        
+        if result.modified_count == 0:
+            # Asset doesn't exist, create it with is_active status
+            # This handles hardcoded frontend assets
+            await db.assets.insert_one({
+                "asset_id": asset_id,
+                "symbol": asset_id,
+                "name": asset_id + " OTC",
+                "category": "forex",
+                "payout_percentage": 85.0,
+                "is_active": is_active
+            })
     
     return {"success": True, "is_active": is_active}
 
