@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, Dimensions, ActivityIndicator, RefreshControl, TextInput, Modal } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, Dimensions, ActivityIndicator, RefreshControl, TextInput, Modal, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,24 +10,29 @@ import { API_URL } from '../../utils/api';
 const { width } = Dimensions.get('window');
 const BYNIX_LOGO = 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/lgz5jvli_IMG_3255.png';
 
-// Bynix Unique Color Palette
+// Light Theme Color Palette
 const COLORS = {
-  bg: '#0B0F1A',
-  card: '#141B2D',
-  cardLight: '#1A2235',
-  border: '#243049',
-  primary: '#00E55A',
-  primaryGlow: 'rgba(0, 229, 90, 0.15)',
-  accent: '#00D4FF',
-  accentGlow: 'rgba(0, 212, 255, 0.15)',
-  gold: '#FFD700',
-  goldGlow: 'rgba(255, 215, 0, 0.15)',
-  danger: '#FF4757',
-  warning: '#FFA502',
-  purple: '#8B5CF6',
-  text: '#FFFFFF',
-  textSecondary: '#8892A8',
-  textMuted: '#505A6E',
+  bg: '#F5F7FA',
+  card: '#FFFFFF',
+  cardLight: '#F8FAFC',
+  border: '#E2E8F0',
+  primary: '#00C853',
+  primaryLight: '#E8F5E9',
+  primaryDark: '#00A843',
+  accent: '#2196F3',
+  accentLight: '#E3F2FD',
+  gold: '#FFC107',
+  goldLight: '#FFF8E1',
+  danger: '#F44336',
+  dangerLight: '#FFEBEE',
+  warning: '#FF9800',
+  warningLight: '#FFF3E0',
+  purple: '#7C3AED',
+  purpleLight: '#EDE9FE',
+  text: '#1A202C',
+  textSecondary: '#64748B',
+  textMuted: '#94A3B8',
+  white: '#FFFFFF',
 };
 
 // Affiliate Levels
@@ -180,45 +185,82 @@ export default function AffiliateDashboard() {
       
       <View style={styles.headerRight}>
         {/* Level Badge */}
-        <TouchableOpacity style={[styles.levelBadge, { backgroundColor: currentLevel.color + '20', borderColor: currentLevel.color }]} onPress={() => setShowLevelsModal(true)}>
+        <TouchableOpacity style={[styles.levelBadge, { backgroundColor: currentLevel.color + '15', borderColor: currentLevel.color }]} onPress={() => setShowLevelsModal(true)}>
           <Ionicons name={currentLevel.icon as any} size={14} color={currentLevel.color} />
           <Text style={[styles.levelBadgeText, { color: currentLevel.color }]}>{currentLevel.name}</Text>
         </TouchableOpacity>
         
-        {/* Profile */}
-        <TouchableOpacity style={styles.profileBtn} onPress={() => setShowProfileMenu(!showProfileMenu)}>
-          <LinearGradient colors={[COLORS.primary, '#00B847']} style={styles.profileAvatar}>
+        {/* Profile Button */}
+        <TouchableOpacity 
+          style={styles.profileBtn} 
+          onPress={() => setShowProfileMenu(!showProfileMenu)}
+          activeOpacity={0.7}
+        >
+          <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={styles.profileAvatar}>
             <Text style={styles.profileInitial}>{affiliate?.name?.charAt(0) || 'A'}</Text>
           </LinearGradient>
           <Ionicons name={showProfileMenu ? 'chevron-up' : 'chevron-down'} size={16} color={COLORS.textSecondary} />
         </TouchableOpacity>
       </View>
-      
-      {/* Profile Dropdown */}
-      {showProfileMenu && (
+    </View>
+  );
+
+  // Profile Dropdown Component (Separate for better z-index handling)
+  const ProfileDropdown = () => {
+    if (!showProfileMenu) return null;
+    
+    return (
+      <Pressable style={styles.dropdownOverlay} onPress={() => setShowProfileMenu(false)}>
         <View style={styles.profileDropdown}>
           <View style={styles.profileDropdownHeader}>
+            <View style={styles.profileDropdownAvatarWrap}>
+              <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={styles.profileDropdownAvatar}>
+                <Text style={styles.profileDropdownInitial}>{affiliate?.name?.charAt(0) || 'A'}</Text>
+              </LinearGradient>
+            </View>
             <Text style={styles.profileName}>{affiliate?.name}</Text>
             <Text style={styles.profileEmail}>{affiliate?.email}</Text>
-            <Text style={styles.profileId}>ID: {affiliate?.ref_code}</Text>
+            <View style={styles.profileIdBadge}>
+              <Text style={styles.profileId}>ID: {affiliate?.ref_code}</Text>
+            </View>
           </View>
-          <TouchableOpacity style={styles.profileMenuItem}>
-            <Ionicons name="person-outline" size={18} color={COLORS.textSecondary} />
+          
+          <TouchableOpacity style={styles.profileMenuItem} onPress={() => setShowProfileMenu(false)}>
+            <View style={[styles.profileMenuIconWrap, { backgroundColor: COLORS.accentLight }]}>
+              <Ionicons name="person-outline" size={16} color={COLORS.accent} />
+            </View>
             <Text style={styles.profileMenuText}>My Account</Text>
+            <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.profileMenuItem}>
-            <Ionicons name="settings-outline" size={18} color={COLORS.textSecondary} />
+          
+          <TouchableOpacity style={styles.profileMenuItem} onPress={() => setShowProfileMenu(false)}>
+            <View style={[styles.profileMenuIconWrap, { backgroundColor: COLORS.purpleLight }]}>
+              <Ionicons name="settings-outline" size={16} color={COLORS.purple} />
+            </View>
             <Text style={styles.profileMenuText}>Settings</Text>
+            <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
           </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.profileMenuItem} onPress={() => setShowProfileMenu(false)}>
+            <View style={[styles.profileMenuIconWrap, { backgroundColor: COLORS.warningLight }]}>
+              <Ionicons name="help-circle-outline" size={16} color={COLORS.warning} />
+            </View>
+            <Text style={styles.profileMenuText}>Help Center</Text>
+            <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+          </TouchableOpacity>
+          
           <View style={styles.profileDivider} />
+          
           <TouchableOpacity style={styles.profileMenuItem} onPress={handleLogout}>
-            <Ionicons name="log-out-outline" size={18} color={COLORS.danger} />
+            <View style={[styles.profileMenuIconWrap, { backgroundColor: COLORS.dangerLight }]}>
+              <Ionicons name="log-out-outline" size={16} color={COLORS.danger} />
+            </View>
             <Text style={[styles.profileMenuText, { color: COLORS.danger }]}>Sign Out</Text>
           </TouchableOpacity>
         </View>
-      )}
-    </View>
-  );
+      </Pressable>
+    );
+  };
 
   // Bottom Navigation
   const BottomNav = () => (
@@ -586,6 +628,7 @@ export default function AffiliateDashboard() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <Header />
+      <ProfileDropdown />
       
       <ScrollView
         style={styles.scrollView}
@@ -603,34 +646,42 @@ export default function AffiliateDashboard() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
-  loadingContainer: { flex: 1, backgroundColor: COLORS.bg, justifyContent: 'center', alignItems: 'center' },
+  loadingContainer: { flex: 1, backgroundColor: COLORS.white, justifyContent: 'center', alignItems: 'center' },
   loadingLogo: { width: 160, height: 80 },
   loadingText: { color: COLORS.textSecondary, marginTop: 16, fontSize: 14 },
   
   // Header
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: COLORS.card, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   headerLogo: { width: 100, height: 40 },
   headerRight: { flexDirection: 'row', alignItems: 'center' },
-  levelBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, marginRight: 12 },
+  levelBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1.5, marginRight: 12 },
   levelBadgeText: { fontSize: 11, fontWeight: '700', marginLeft: 4 },
-  profileBtn: { flexDirection: 'row', alignItems: 'center' },
-  profileAvatar: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  profileBtn: { flexDirection: 'row', alignItems: 'center', paddingLeft: 8 },
+  profileAvatar: { width: 38, height: 38, borderRadius: 19, justifyContent: 'center', alignItems: 'center' },
   profileInitial: { color: '#FFF', fontSize: 16, fontWeight: '700' },
-  profileDropdown: { position: 'absolute', top: 70, right: 20, backgroundColor: COLORS.card, borderRadius: 16, padding: 16, width: 220, zIndex: 100, borderWidth: 1, borderColor: COLORS.border, elevation: 10 },
-  profileDropdownHeader: { paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border, marginBottom: 8 },
-  profileName: { color: COLORS.text, fontSize: 15, fontWeight: '700' },
-  profileEmail: { color: COLORS.textSecondary, fontSize: 12, marginTop: 2 },
-  profileId: { color: COLORS.textMuted, fontSize: 10, marginTop: 4 },
+  
+  // Profile Dropdown - Fixed positioning
+  dropdownOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000 },
+  profileDropdown: { position: 'absolute', top: 70, right: 16, backgroundColor: COLORS.white, borderRadius: 20, padding: 20, width: 260, zIndex: 1001, borderWidth: 1, borderColor: COLORS.border, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 24, elevation: 20 },
+  profileDropdownHeader: { alignItems: 'center', paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border, marginBottom: 12 },
+  profileDropdownAvatarWrap: { marginBottom: 12 },
+  profileDropdownAvatar: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center' },
+  profileDropdownInitial: { color: '#FFF', fontSize: 22, fontWeight: '700' },
+  profileName: { color: COLORS.text, fontSize: 16, fontWeight: '700' },
+  profileEmail: { color: COLORS.textSecondary, fontSize: 13, marginTop: 4 },
+  profileIdBadge: { backgroundColor: COLORS.primaryLight, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, marginTop: 8 },
+  profileId: { color: COLORS.primary, fontSize: 11, fontWeight: '600' },
   profileMenuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
-  profileMenuText: { color: COLORS.textSecondary, fontSize: 14, marginLeft: 12 },
-  profileDivider: { height: 1, backgroundColor: COLORS.border, marginVertical: 4 },
+  profileMenuIconWrap: { width: 36, height: 36, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  profileMenuText: { color: COLORS.text, fontSize: 14, fontWeight: '500', marginLeft: 12, flex: 1 },
+  profileDivider: { height: 1, backgroundColor: COLORS.border, marginVertical: 8 },
   
   // Bottom Nav
-  bottomNav: { flexDirection: 'row', backgroundColor: COLORS.card, borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 8 },
+  bottomNav: { flexDirection: 'row', backgroundColor: COLORS.white, borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 8 },
   navItem: { flex: 1, alignItems: 'center', paddingVertical: 8 },
   navItemActive: {},
   navIconWrap: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
-  navIconWrapActive: { backgroundColor: COLORS.primaryGlow },
+  navIconWrapActive: { backgroundColor: COLORS.primaryLight },
   navLabel: { color: COLORS.textMuted, fontSize: 10, marginTop: 4, fontWeight: '500' },
   navLabelActive: { color: COLORS.primary, fontWeight: '600' },
   
@@ -641,10 +692,10 @@ const styles = StyleSheet.create({
   sectionSubtitle: { color: COLORS.textSecondary, fontSize: 13, marginTop: -12, marginBottom: 16 },
   
   // Balance Card
-  balanceCard: { borderRadius: 20, padding: 24, marginBottom: 20, borderWidth: 1, borderColor: COLORS.border },
+  balanceCard: { borderRadius: 20, padding: 24, marginBottom: 20, backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.border, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 3 },
   balanceHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   balanceLabel: { color: COLORS.textSecondary, fontSize: 13 },
-  withdrawBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primaryGlow, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
+  withdrawBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primaryLight, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
   withdrawBtnText: { color: COLORS.primary, fontSize: 12, fontWeight: '600', marginLeft: 6 },
   balanceAmount: { color: COLORS.text, fontSize: 36, fontWeight: '800' },
   balanceFooter: { flexDirection: 'row', marginTop: 20, paddingTop: 20, borderTopWidth: 1, borderTopColor: COLORS.border },
@@ -654,7 +705,7 @@ const styles = StyleSheet.create({
   balanceStatDivider: { width: 1, backgroundColor: COLORS.border, marginHorizontal: 16 },
   
   // Level Progress
-  levelProgressCard: { backgroundColor: COLORS.card, borderRadius: 16, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: COLORS.border },
+  levelProgressCard: { backgroundColor: COLORS.white, borderRadius: 16, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: COLORS.border },
   levelProgressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   levelProgressTitle: { color: COLORS.text, fontSize: 14, fontWeight: '600' },
   levelProgressCurrent: { color: COLORS.textSecondary, fontSize: 12 },
@@ -664,39 +715,39 @@ const styles = StyleSheet.create({
   
   // Stats Grid
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6, marginBottom: 20 },
-  statCard: { width: '48%', backgroundColor: COLORS.card, borderRadius: 16, padding: 16, margin: '1%', borderLeftWidth: 3, borderWidth: 1, borderColor: COLORS.border },
+  statCard: { width: '48%', backgroundColor: COLORS.white, borderRadius: 16, padding: 16, margin: '1%', borderLeftWidth: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
   statValue: { color: COLORS.text, fontSize: 20, fontWeight: '800', marginTop: 12 },
   statLabel: { color: COLORS.textSecondary, fontSize: 11, marginTop: 4 },
   
   // Quick Actions
   quickActionsGrid: { flexDirection: 'row', marginBottom: 20 },
-  quickActionCard: { flex: 1, backgroundColor: COLORS.card, borderRadius: 16, padding: 16, marginHorizontal: 4, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
+  quickActionCard: { flex: 1, backgroundColor: COLORS.white, borderRadius: 16, padding: 16, marginHorizontal: 4, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
   quickActionGradient: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
   quickActionLabel: { color: COLORS.textSecondary, fontSize: 11, fontWeight: '600' },
   
   // Ref Link
-  refLinkCard: { backgroundColor: COLORS.card, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: COLORS.border },
+  refLinkCard: { backgroundColor: COLORS.white, borderRadius: 16, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
   refLinkLabel: { color: COLORS.textSecondary, fontSize: 12, marginBottom: 12 },
   refLinkBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.cardLight, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14 },
   refLinkText: { flex: 1, color: COLORS.text, fontSize: 14, fontWeight: '500' },
   copyBtn: { padding: 4 },
   
   // Period Selector
-  periodSelector: { flexDirection: 'row', backgroundColor: COLORS.card, borderRadius: 12, padding: 4, marginBottom: 20 },
+  periodSelector: { flexDirection: 'row', backgroundColor: COLORS.white, borderRadius: 12, padding: 4, marginBottom: 20, borderWidth: 1, borderColor: COLORS.border },
   periodBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
   periodBtnActive: { backgroundColor: COLORS.primary },
   periodBtnText: { color: COLORS.textSecondary, fontSize: 12, fontWeight: '600' },
   periodBtnTextActive: { color: '#FFF' },
   
   // Stats Overview
-  statsOverviewCard: { flexDirection: 'row', backgroundColor: COLORS.card, borderRadius: 16, padding: 24, marginBottom: 20, borderWidth: 1, borderColor: COLORS.border },
+  statsOverviewCard: { flexDirection: 'row', backgroundColor: COLORS.white, borderRadius: 16, padding: 24, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
   statsOverviewItem: { flex: 1, alignItems: 'center' },
   statsOverviewValue: { color: COLORS.text, fontSize: 24, fontWeight: '800' },
   statsOverviewLabel: { color: COLORS.textSecondary, fontSize: 12, marginTop: 4 },
   statsOverviewDivider: { width: 1, backgroundColor: COLORS.border },
   
   // Chart
-  chartCard: { backgroundColor: COLORS.card, borderRadius: 16, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: COLORS.border },
+  chartCard: { backgroundColor: COLORS.white, borderRadius: 16, padding: 20, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
   chartTitle: { color: COLORS.text, fontSize: 14, fontWeight: '600', marginBottom: 20 },
   chartContainer: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end', height: 120 },
   chartColumn: { alignItems: 'center' },
@@ -710,7 +761,7 @@ const styles = StyleSheet.create({
   
   // Detailed Stats
   detailedStatsGrid: { flexDirection: 'row' },
-  detailedStatCard: { flex: 1, backgroundColor: COLORS.card, borderRadius: 12, padding: 16, marginHorizontal: 4, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
+  detailedStatCard: { flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 16, marginHorizontal: 4, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
   detailedStatValue: { color: COLORS.text, fontSize: 18, fontWeight: '700', marginTop: 8 },
   detailedStatLabel: { color: COLORS.textSecondary, fontSize: 10, marginTop: 4 },
   
@@ -721,7 +772,7 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: 'center', paddingVertical: 48 },
   emptyStateTitle: { color: COLORS.text, fontSize: 16, fontWeight: '600', marginTop: 16 },
   emptyStateText: { color: COLORS.textSecondary, fontSize: 13, marginTop: 4 },
-  linkCard: { backgroundColor: COLORS.card, borderRadius: 16, padding: 20, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
+  linkCard: { backgroundColor: COLORS.white, borderRadius: 16, padding: 20, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
   linkHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   linkName: { color: COLORS.text, fontSize: 15, fontWeight: '700' },
   linkUrl: { color: COLORS.primary, fontSize: 13, marginTop: 8, marginBottom: 16 },
@@ -731,7 +782,7 @@ const styles = StyleSheet.create({
   linkStatLabel: { color: COLORS.textMuted, fontSize: 10, marginTop: 2 },
   
   // Promo
-  promoCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.card, borderRadius: 12, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
+  promoCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: 12, padding: 12, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
   promoPreview: { width: 80, height: 50, borderRadius: 8, overflow: 'hidden', backgroundColor: COLORS.cardLight },
   promoImage: { width: '100%', height: '100%' },
   promoInfo: { flex: 1, marginLeft: 16 },
@@ -740,8 +791,8 @@ const styles = StyleSheet.create({
   promoDownloadBtn: { padding: 8 },
   
   // Top 10
-  top10Card: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.card, borderRadius: 12, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: COLORS.border },
-  top10CardTop: { borderColor: COLORS.gold + '50' },
+  top10Card: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: 12, padding: 16, marginBottom: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
+  top10CardTop: { borderWidth: 1, borderColor: COLORS.gold },
   top10Rank: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
   top10RankText: { color: COLORS.textSecondary, fontSize: 14, fontWeight: '700' },
   top10Info: { flex: 1, marginLeft: 16 },
@@ -752,7 +803,7 @@ const styles = StyleSheet.create({
   top10Ftds: { color: COLORS.textMuted, fontSize: 11, marginTop: 2 },
   
   // Support
-  supportCard: { backgroundColor: COLORS.card, borderRadius: 20, padding: 40, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
+  supportCard: { backgroundColor: COLORS.white, borderRadius: 20, padding: 40, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
   supportTitle: { color: COLORS.text, fontSize: 22, fontWeight: '700', marginTop: 20 },
   supportText: { color: COLORS.textSecondary, fontSize: 14, marginTop: 8, marginBottom: 32 },
   telegramBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0088CC', paddingHorizontal: 32, paddingVertical: 16, borderRadius: 16 },
@@ -760,14 +811,14 @@ const styles = StyleSheet.create({
   supportEmail: { color: COLORS.textMuted, fontSize: 13, marginTop: 20 },
   
   // Modals
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
-  levelsModalContent: { backgroundColor: COLORS.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '80%' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  levelsModalContent: { backgroundColor: COLORS.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '80%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   modalTitle: { color: COLORS.text, fontSize: 18, fontWeight: '700' },
   modalBody: { padding: 20 },
   levelsSubtitle: { color: COLORS.textSecondary, fontSize: 13, marginBottom: 20 },
   levelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border, position: 'relative' },
-  levelRowActive: { backgroundColor: COLORS.primaryGlow, marginHorizontal: -20, paddingHorizontal: 20, borderRadius: 12 },
+  levelRowActive: { backgroundColor: COLORS.primaryLight, marginHorizontal: -20, paddingHorizontal: 20, borderRadius: 12 },
   levelRowBadge: { position: 'absolute', top: 4, right: 0, color: COLORS.primary, fontSize: 9, fontWeight: '700' },
   levelRowLeft: { flexDirection: 'row', alignItems: 'center' },
   levelIcon: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
