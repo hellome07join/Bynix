@@ -2342,110 +2342,154 @@ export default function Profile() {
         </View>
       </Modal>
 
-      {/* Withdraw Funds Modal */}
+      {/* Withdraw Funds Modal - Modern Design */}
       <Modal visible={showWithdrawModal} transparent animationType="slide">
         <View style={styles.withdrawModalOverlay}>
           <View style={styles.withdrawModalContent}>
             {/* Header */}
             <View style={styles.withdrawModalHeader}>
-              <Text style={styles.withdrawModalTitle}>Withdraw</Text>
               <TouchableOpacity onPress={() => {
                 setShowWithdrawModal(false);
-                setWithdrawAmount('10');
+                setWithdrawAmount('');
                 setWithdrawAddress('');
-              }}>
-                <Ionicons name="close" size={24} color="#FFFFFF" />
+              }} style={styles.withdrawBackBtn}>
+                <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
               </TouchableOpacity>
+              <Text style={styles.withdrawModalTitle}>Withdraw Funds</Text>
+              <View style={{ width: 24 }} />
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Account Section */}
-              <Text style={styles.withdrawSectionTitle}>Account:</Text>
-              
-              {/* In the account */}
-              <View style={styles.withdrawAccountRow}>
-                <Text style={styles.withdrawAccountLabel}>In the account:</Text>
-                <Text style={styles.withdrawAccountValue}>
-                  {(user?.total_balance || user?.real_balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.withdrawScrollView}>
+              {/* Balance Card */}
+              <View style={styles.withdrawBalanceCardNew}>
+                <View style={styles.withdrawBalanceIconWrap}>
+                  <Ionicons name="wallet" size={28} color="#00E55A" />
+                </View>
+                <Text style={styles.withdrawBalanceLabelNew}>Available Balance</Text>
+                <Text style={styles.withdrawBalanceValueNew}>
+                  ${(user?.withdrawable_balance || user?.real_balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </Text>
-              </View>
-              
-              {/* Divider */}
-              <View style={styles.withdrawDivider} />
-              
-              {/* Available for withdrawal */}
-              <View style={styles.withdrawAccountRow}>
-                <Text style={styles.withdrawAccountLabel}>Available for withdrawal:</Text>
-                <Text style={styles.withdrawAccountValueBold}>
-                  {(user?.withdrawable_balance || user?.real_balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $
-                </Text>
+                <Text style={styles.withdrawMinText}>Minimum withdrawal: $10</Text>
               </View>
 
               {/* Bonus Warning */}
               {(user?.bonus_balance || 0) > 0 && (
-                <View style={styles.withdrawBonusWarning}>
-                  <Ionicons name="warning" size={16} color="#FFB800" />
-                  <Text style={styles.withdrawBonusWarningText}>
-                    Bonus balance (${user?.bonus_balance?.toFixed(2)}) is not withdrawable. Withdrawing will forfeit your bonus.
+                <View style={styles.withdrawBonusCard}>
+                  <Ionicons name="alert-circle" size={20} color="#FFB800" />
+                  <Text style={styles.withdrawBonusText}>
+                    Bonus (${user?.bonus_balance?.toFixed(2)}) cannot be withdrawn
                   </Text>
                 </View>
               )}
 
-              {/* Withdrawal Section */}
-              <Text style={[styles.withdrawSectionTitle, { marginTop: 24 }]}>Withdrawal:</Text>
-              
-              {/* Amount Input */}
-              <View style={styles.withdrawInputGroup}>
-                <Text style={styles.withdrawInputLabel}>Amount</Text>
-                <View style={styles.withdrawAmountRow}>
+              {/* Amount Section */}
+              <View style={styles.withdrawFormCard}>
+                <Text style={styles.withdrawFormLabel}>Withdrawal Amount</Text>
+                <View style={styles.withdrawAmountInputWrap}>
+                  <Text style={styles.withdrawCurrencySign}>$</Text>
                   <TextInput
-                    style={styles.withdrawAmountInputNew}
+                    style={styles.withdrawAmountInputField}
                     value={withdrawAmount}
                     onChangeText={setWithdrawAmount}
-                    keyboardType="numeric"
-                    placeholder="10"
-                    placeholderTextColor="#666"
+                    keyboardType="decimal-pad"
+                    placeholder="0.00"
+                    placeholderTextColor="#555"
                   />
-                  <Text style={styles.withdrawAmountCurrency}>USD</Text>
+                </View>
+
+                {/* Quick Amount Buttons */}
+                <View style={styles.withdrawQuickRow}>
+                  {['50', '100', '250', '500', 'MAX'].map((amt) => (
+                    <TouchableOpacity
+                      key={amt}
+                      style={[
+                        styles.withdrawQuickBtnNew,
+                        withdrawAmount === (amt === 'MAX' ? String(user?.withdrawable_balance || 0) : amt) && styles.withdrawQuickBtnNewActive
+                      ]}
+                      onPress={() => {
+                        if (amt === 'MAX') {
+                          setWithdrawAmount(String(user?.withdrawable_balance || user?.real_balance || 0));
+                        } else {
+                          setWithdrawAmount(amt);
+                        }
+                      }}
+                    >
+                      <Text style={[
+                        styles.withdrawQuickBtnNewText,
+                        withdrawAmount === (amt === 'MAX' ? String(user?.withdrawable_balance || 0) : amt) && styles.withdrawQuickBtnNewTextActive
+                      ]}>
+                        {amt === 'MAX' ? 'MAX' : `$${amt}`}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
               </View>
 
-              {/* Payment Method */}
-              <View style={styles.withdrawInputGroup}>
-                <Text style={styles.withdrawInputLabel}>Payment method</Text>
-                <TouchableOpacity style={styles.withdrawPaymentSelect}>
-                  <View style={styles.withdrawPaymentLeft}>
-                    <Text style={styles.withdrawUsdtIcon}>₮</Text>
-                    <Text style={styles.withdrawPaymentText}>USDT</Text>
+              {/* Payment Method Card */}
+              <View style={styles.withdrawFormCard}>
+                <Text style={styles.withdrawFormLabel}>Payment Method</Text>
+                <View style={styles.withdrawPaymentCard}>
+                  <View style={styles.withdrawPaymentIcon}>
+                    <Text style={styles.withdrawUsdtSymbol}>₮</Text>
                   </View>
-                  <Ionicons name="chevron-down" size={20} color="#888" />
-                </TouchableOpacity>
+                  <View style={styles.withdrawPaymentInfo}>
+                    <Text style={styles.withdrawPaymentTitle}>USDT TRC20</Text>
+                    <Text style={styles.withdrawPaymentSubtitle}>Tether on TRON Network</Text>
+                  </View>
+                  <View style={styles.withdrawPaymentCheck}>
+                    <Ionicons name="checkmark-circle" size={24} color="#00E55A" />
+                  </View>
+                </View>
               </View>
 
-              {/* Purse (Wallet Address) */}
-              <View style={styles.withdrawInputGroup}>
-                <Text style={styles.withdrawInputLabel}>Purse</Text>
-                <TextInput
-                  style={styles.withdrawPurseInput}
-                  placeholder="Enter your wallet address"
-                  placeholderTextColor="#666"
-                  value={withdrawAddress}
-                  onChangeText={setWithdrawAddress}
-                />
+              {/* Wallet Address Card */}
+              <View style={styles.withdrawFormCard}>
+                <Text style={styles.withdrawFormLabel}>USDT TRC20 Wallet Address</Text>
+                <View style={styles.withdrawAddressInputWrap}>
+                  <Ionicons name="wallet-outline" size={20} color="#888" style={{ marginRight: 12 }} />
+                  <TextInput
+                    style={styles.withdrawAddressInputField}
+                    placeholder="Enter your TRC20 address (starts with T)"
+                    placeholderTextColor="#555"
+                    value={withdrawAddress}
+                    onChangeText={setWithdrawAddress}
+                    autoCapitalize="none"
+                  />
+                </View>
+                <Text style={styles.withdrawAddressNote}>
+                  <Ionicons name="information-circle-outline" size={14} color="#888" /> Double-check your address. Wrong address = lost funds.
+                </Text>
               </View>
 
-              {/* Network */}
-              <View style={styles.withdrawInputGroup}>
-                <Text style={styles.withdrawInputLabel}>Network</Text>
-                <TouchableOpacity style={styles.withdrawNetworkSelect}>
-                  <Text style={styles.withdrawNetworkText}>TRC20</Text>
-                  <Ionicons name="chevron-down" size={20} color="#888" />
-                </TouchableOpacity>
+              {/* Fee Summary */}
+              <View style={styles.withdrawSummaryCard}>
+                <View style={styles.withdrawSummaryRow}>
+                  <Text style={styles.withdrawSummaryLabel}>Network Fee</Text>
+                  <Text style={styles.withdrawSummaryValue}>$1.00</Text>
+                </View>
+                <View style={styles.withdrawSummaryDivider} />
+                <View style={styles.withdrawSummaryRow}>
+                  <Text style={styles.withdrawSummaryLabel}>You'll Receive</Text>
+                  <Text style={styles.withdrawSummaryValueBig}>
+                    ${Math.max(0, (parseFloat(withdrawAmount) || 0) - 1).toFixed(2)} USDT
+                  </Text>
+                </View>
               </View>
 
-              {/* Confirm Button */}
-              <TouchableOpacity 
-                style={styles.withdrawConfirmBtn}
+              {/* Warning Box */}
+              <View style={styles.withdrawWarningBox}>
+                <Ionicons name="time-outline" size={18} color="#FFB800" />
+                <Text style={styles.withdrawWarningText}>
+                  Processing time: 1-24 hours. Large withdrawals may require additional verification.
+                </Text>
+              </View>
+
+              {/* Submit Button */}
+              <TouchableOpacity
+                style={[
+                  styles.withdrawSubmitBtnNew,
+                  (!withdrawAmount || !withdrawAddress || parseFloat(withdrawAmount) < 10 || isProcessingWithdraw) && styles.withdrawSubmitBtnDisabled
+                ]}
                 onPress={() => {
                   const amount = parseFloat(withdrawAmount);
                   const withdrawable = user?.withdrawable_balance || user?.real_balance || 0;
@@ -2454,8 +2498,8 @@ export default function Profile() {
                     Alert.alert('Invalid Amount', 'Minimum withdrawal is $10');
                     return;
                   }
-                  if (!withdrawAddress || withdrawAddress.length < 20) {
-                    Alert.alert('Invalid Address', 'Please enter a valid wallet address');
+                  if (!withdrawAddress || withdrawAddress.length < 20 || !withdrawAddress.startsWith('T')) {
+                    Alert.alert('Invalid Address', 'Please enter a valid TRC20 wallet address (starts with T)');
                     return;
                   }
                   if (amount > withdrawable) {
@@ -2465,7 +2509,6 @@ export default function Profile() {
                   
                   setIsProcessingWithdraw(true);
                   
-                  // Submit withdrawal request to backend
                   (async () => {
                     try {
                       const response = await fetch(`${API_URL}/wallet/withdraw`, {
@@ -2484,17 +2527,16 @@ export default function Profile() {
                       
                       if (response.ok) {
                         setShowWithdrawModal(false);
-                        setWithdrawAmount('10');
+                        setWithdrawAmount('');
                         setWithdrawAddress('');
                         
-                        // Refresh user data to update balance
                         const { refreshUser } = useAuthStore.getState();
                         if (refreshUser) refreshUser();
                         fetchTransactions();
                         
                         Alert.alert(
-                          'Withdrawal Request Submitted',
-                          `Your withdrawal of $${amount.toFixed(2)} is being processed.\n\nTransaction ID: ${data.transaction_id}\n\nProcessing time: 24-72 hours.\n\nYou can track the status in your transaction history.`,
+                          'Withdrawal Submitted!',
+                          `Amount: $${amount.toFixed(2)}\nYou'll receive: $${(amount - 1).toFixed(2)} USDT\n\nTransaction ID: ${data.transaction_id}\n\nCheck your transaction history for status updates.`,
                           [{ text: 'OK' }]
                         );
                       } else {
@@ -2508,14 +2550,14 @@ export default function Profile() {
                     }
                   })();
                 }}
-                disabled={isProcessingWithdraw}
+                disabled={!withdrawAmount || !withdrawAddress || parseFloat(withdrawAmount) < 10 || isProcessingWithdraw}
               >
                 {isProcessingWithdraw ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <>
-                    <Text style={styles.withdrawConfirmBtnText}>Confirm</Text>
-                    <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+                    <Ionicons name="arrow-up-circle" size={22} color="#FFFFFF" />
+                    <Text style={styles.withdrawSubmitBtnText}>Withdraw Now</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -4524,128 +4566,280 @@ const styles = StyleSheet.create({
   // Withdraw Modal Styles
   withdrawModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
     justifyContent: 'flex-end',
   },
   withdrawModalContent: {
-    backgroundColor: '#0F1428',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    backgroundColor: '#0A0F1C',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 16,
     paddingBottom: 40,
-    maxHeight: '90%',
+    maxHeight: '95%',
   },
   withdrawModalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  withdrawBackBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   withdrawModalTitle: {
     color: '#FFFFFF',
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700',
   },
-  withdrawBalanceCard: {
-    backgroundColor: 'rgba(0, 229, 90, 0.1)',
-    borderRadius: 12,
-    padding: 20,
-    alignItems: 'center',
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 229, 90, 0.3)',
+  withdrawScrollView: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
-  withdrawBalanceLabel: {
+  withdrawBalanceCardNew: {
+    backgroundColor: 'linear-gradient(135deg, rgba(0,229,90,0.15) 0%, rgba(0,229,90,0.05) 100%)',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0,229,90,0.25)',
+  },
+  withdrawBalanceIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(0,229,90,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  withdrawBalanceLabelNew: {
     color: '#888',
     fontSize: 14,
-    marginBottom: 8,
+    marginBottom: 6,
   },
-  withdrawBalanceValue: {
+  withdrawBalanceValueNew: {
     color: '#00E55A',
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: '800',
   },
-  withdrawLabel: {
-    color: '#888',
-    fontSize: 14,
-    marginBottom: 10,
-    marginTop: 16,
+  withdrawMinText: {
+    color: '#666',
+    fontSize: 12,
+    marginTop: 8,
   },
-  withdrawAmountBox: {
+  withdrawBonusCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 59, 59, 0.1)',
+    backgroundColor: 'rgba(255,184,0,0.1)',
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    padding: 14,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 59, 59, 0.3)',
+    borderColor: 'rgba(255,184,0,0.25)',
   },
-  withdrawAmountPrefix: {
-    color: '#FF3B3B',
+  withdrawBonusText: {
+    color: '#FFB800',
+    fontSize: 13,
+    marginLeft: 10,
+    flex: 1,
+  },
+  withdrawFormCard: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  withdrawFormLabel: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 14,
+  },
+  withdrawAmountInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 14,
+    paddingHorizontal: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  withdrawCurrencySign: {
+    color: '#00E55A',
     fontSize: 28,
     fontWeight: '700',
-    marginRight: 8,
+    marginRight: 10,
   },
-  withdrawAmountInput: {
+  withdrawAmountInputField: {
     flex: 1,
     color: '#FFFFFF',
     fontSize: 28,
     fontWeight: '700',
-    padding: 0,
+    paddingVertical: 16,
   },
-  withdrawQuickAmounts: {
+  withdrawQuickRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
     marginTop: 16,
   },
-  withdrawQuickBtn: {
-    paddingHorizontal: 18,
-    paddingVertical: 12,
+  withdrawQuickBtnNew: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    backgroundColor: 'transparent',
+    borderColor: 'rgba(255,255,255,0.1)',
   },
-  withdrawQuickBtnActive: {
-    backgroundColor: 'rgba(255, 59, 59, 0.2)',
-    borderColor: '#FF3B3B',
+  withdrawQuickBtnNewActive: {
+    backgroundColor: 'rgba(0,229,90,0.15)',
+    borderColor: '#00E55A',
   },
-  withdrawQuickBtnText: {
+  withdrawQuickBtnNewText: {
     color: '#888',
     fontSize: 14,
     fontWeight: '600',
   },
-  withdrawQuickBtnTextActive: {
-    color: '#FF3B3B',
+  withdrawQuickBtnNewTextActive: {
+    color: '#00E55A',
   },
-  withdrawAddressInput: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 12,
+  withdrawPaymentCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,229,90,0.08)',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0,229,90,0.2)',
+  },
+  withdrawPaymentIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#26A17B',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  withdrawUsdtSymbol: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  withdrawPaymentInfo: {
+    flex: 1,
+    marginLeft: 14,
+  },
+  withdrawPaymentTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  withdrawPaymentSubtitle: {
+    color: '#888',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  withdrawPaymentCheck: {
+    marginLeft: 10,
+  },
+  withdrawAddressInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  withdrawAddressInputField: {
+    flex: 1,
     color: '#FFFFFF',
     fontSize: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  withdrawFeeRow: {
+  withdrawAddressNote: {
+    color: '#888',
+    fontSize: 12,
+    marginTop: 10,
+    lineHeight: 18,
+  },
+  withdrawSummaryCard: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  withdrawSummaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 16,
-    paddingHorizontal: 4,
   },
-  withdrawFeeLabel: {
+  withdrawSummaryLabel: {
     color: '#888',
     fontSize: 14,
   },
-  withdrawFeeValue: {
-    color: '#00E55A',
+  withdrawSummaryValue: {
+    color: '#FFFFFF',
     fontSize: 14,
+    fontWeight: '600',
+  },
+  withdrawSummaryDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginVertical: 14,
+  },
+  withdrawSummaryValueBig: {
+    color: '#00E55A',
+    fontSize: 18,
     fontWeight: '700',
+  },
+  withdrawWarningBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(255,184,0,0.08)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,184,0,0.2)',
+  },
+  withdrawWarningText: {
+    color: '#FFB800',
+    fontSize: 12,
+    marginLeft: 10,
+    flex: 1,
+    lineHeight: 18,
+  },
+  withdrawSubmitBtnNew: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#00E55A',
+    borderRadius: 16,
+    paddingVertical: 18,
+    marginBottom: 20,
+  },
+  withdrawSubmitBtnDisabled: {
+    opacity: 0.4,
+  },
+  withdrawSubmitBtnText: {
+    color: '#000000',
+    fontSize: 17,
+    fontWeight: '700',
+    marginLeft: 10,
   },
   withdrawReceiveValue: {
     color: '#FFFFFF',
