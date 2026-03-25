@@ -478,7 +478,8 @@ async def login(credentials: UserLogin):
             "email": user_doc["email"],
             "name": user_doc["name"],
             "demo_balance": user_doc["demo_balance"],
-            "real_balance": user_doc["real_balance"]
+            "real_balance": user_doc["real_balance"],
+            "is_admin": user_doc.get("is_admin", False)
         }
     }
 
