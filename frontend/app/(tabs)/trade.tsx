@@ -87,6 +87,35 @@ export default function Trade() {
   const [amount, setAmount] = useState('100');
   const [timeframe, setTimeframe] = useState('1m');
   const [duration, setDuration] = useState(60);
+  
+  // Load persisted timeframe on mount and save on change
+  useEffect(() => {
+    const loadTimeframe = async () => {
+      try {
+        const savedTimeframe = await AsyncStorage.getItem('chart_timeframe');
+        if (savedTimeframe && ['1s', '5s', '15s', '1m', '5m'].includes(savedTimeframe)) {
+          console.log('[TIMEFRAME] Loaded from storage:', savedTimeframe);
+          setTimeframe(savedTimeframe);
+        }
+      } catch (error) {
+        console.error('Error loading timeframe:', error);
+      }
+    };
+    loadTimeframe();
+  }, []);
+  
+  // Save timeframe when changed
+  useEffect(() => {
+    const saveTimeframe = async () => {
+      try {
+        await AsyncStorage.setItem('chart_timeframe', timeframe);
+        console.log('[TIMEFRAME] Saved to storage:', timeframe);
+      } catch (error) {
+        console.error('Error saving timeframe:', error);
+      }
+    };
+    saveTimeframe();
+  }, [timeframe]);
   const [showAssetPicker, setShowAssetPicker] = useState(false);
   const [assetSearchQuery, setAssetSearchQuery] = useState('');
   const [trendingAssets, setTrendingAssets] = useState<any[]>([]);
