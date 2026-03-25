@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, Dimensions, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, Dimensions, ActivityIndicator, RefreshControl, TextInput, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,40 +8,47 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../utils/api';
 
 const { width } = Dimensions.get('window');
-const BYNIX_LOGO_URL = 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/lgz5jvli_IMG_3255.png';
+const BYNIX_LOGO = 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/lgz5jvli_IMG_3255.png';
 
-// Sidebar Menu Items
-const MENU_ITEMS = [
-  { id: 'dashboard', icon: 'grid', label: 'Dashboard' },
-  { id: 'statistics', icon: 'stats-chart', label: 'Statistics' },
+// Bynix Unique Color Palette
+const COLORS = {
+  bg: '#0B0F1A',
+  card: '#141B2D',
+  cardLight: '#1A2235',
+  border: '#243049',
+  primary: '#00E55A',
+  primaryGlow: 'rgba(0, 229, 90, 0.15)',
+  accent: '#00D4FF',
+  accentGlow: 'rgba(0, 212, 255, 0.15)',
+  gold: '#FFD700',
+  goldGlow: 'rgba(255, 215, 0, 0.15)',
+  danger: '#FF4757',
+  warning: '#FFA502',
+  purple: '#8B5CF6',
+  text: '#FFFFFF',
+  textSecondary: '#8892A8',
+  textMuted: '#505A6E',
+};
+
+// Affiliate Levels
+const LEVELS = [
+  { level: 1, name: 'Starter', minFtds: 0, revenue: 50, turnover: 2.0, color: '#6B7280', icon: 'star-outline' },
+  { level: 2, name: 'Advanced', minFtds: 15, revenue: 55, turnover: 2.5, color: '#3B82F6', icon: 'star-half' },
+  { level: 3, name: 'Professional', minFtds: 50, revenue: 60, turnover: 3.0, color: '#8B5CF6', icon: 'star' },
+  { level: 4, name: 'Expert', minFtds: 100, revenue: 65, turnover: 3.5, color: '#EC4899', icon: 'diamond-outline' },
+  { level: 5, name: 'Master', minFtds: 200, revenue: 70, turnover: 4.0, color: '#F59E0B', icon: 'diamond' },
+  { level: 6, name: 'Guru', minFtds: 400, revenue: 75, turnover: 4.5, color: '#EF4444', icon: 'trophy-outline' },
+  { level: 7, name: 'Legend', minFtds: 700, revenue: 85, turnover: 5.5, color: '#FFD700', icon: 'trophy' },
+];
+
+// Navigation Items
+const NAV_ITEMS = [
+  { id: 'home', icon: 'home', label: 'Dashboard' },
+  { id: 'stats', icon: 'bar-chart', label: 'Statistics' },
   { id: 'links', icon: 'link', label: 'Links' },
-  { id: 'promo', icon: 'flag', label: 'Promo materials' },
-  { id: 'promocodes', icon: 'pricetag', label: 'Promocodes' },
-  { id: 'postback', icon: 'code-slash', label: 'Postback' },
-  { id: 'top10', icon: 'trending-up', label: 'TOP10 Partners' },
-  { id: 'telegram', icon: 'chatbubbles', label: 'Telegram bot', badge: 'NEW' },
+  { id: 'promo', icon: 'image', label: 'Promo' },
+  { id: 'top10', icon: 'podium', label: 'TOP 10' },
   { id: 'support', icon: 'headset', label: 'Support' },
-  { id: 'programs', icon: 'briefcase', label: 'Affiliate programs' },
-  { id: 'subaffiliate', icon: 'people', label: 'Sub-Affiliate' },
-];
-
-// Affiliate Levels Data
-const AFFILIATE_LEVELS = [
-  { level: 1, name: 'Starter', min_ftds: 0, max_ftds: 14, revenue: 50, turnover: 2.0 },
-  { level: 2, name: 'Advanced', min_ftds: 15, max_ftds: 49, revenue: 55, turnover: 2.5 },
-  { level: 3, name: 'Professional', min_ftds: 50, max_ftds: 99, revenue: 60, turnover: 3.0 },
-  { level: 4, name: 'Expert', min_ftds: 100, max_ftds: 199, revenue: 65, turnover: 3.5 },
-  { level: 5, name: 'Master', min_ftds: 200, max_ftds: 399, revenue: 70, turnover: 4.0 },
-  { level: 6, name: 'Guru', min_ftds: 400, max_ftds: 699, revenue: 75, turnover: 4.5 },
-  { level: 7, name: 'Legend', min_ftds: 700, max_ftds: 999999, revenue: 85, turnover: 5.5 },
-];
-
-// Fast Links
-const FAST_LINKS = [
-  { id: 'promo', icon: 'flag', label: 'Promo Materials', color: '#FEF3C7', iconColor: '#F59E0B' },
-  { id: 'links', icon: 'link', label: 'Links', color: '#EDE9FE', iconColor: '#8B5CF6' },
-  { id: 'faq', icon: 'help-circle', label: 'FAQ', color: '#FEE2E2', iconColor: '#EF4444' },
-  { id: 'telegram', icon: 'chatbubbles', label: 'Telegram bot', color: '#DBEAFE', iconColor: '#3B82F6' },
 ];
 
 export default function AffiliateDashboard() {
@@ -49,455 +56,374 @@ export default function AffiliateDashboard() {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [showProfile, setShowProfile] = useState(false);
-  const [showLevels, setShowLevels] = useState(false);
+  const [activeTab, setActiveTab] = useState('home');
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showLevelsModal, setShowLevelsModal] = useState(false);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   
-  // Data states
+  // Data
   const [affiliate, setAffiliate] = useState<any>(null);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [statisticsData, setStatisticsData] = useState<any>(null);
   const [links, setLinks] = useState<any[]>([]);
   const [top10, setTop10] = useState<any[]>([]);
   const [promoMaterials, setPromoMaterials] = useState<any[]>([]);
+  const [statsPeriod, setStatsPeriod] = useState(7);
   
-  // Date range for statistics
-  const [statsDays, setStatsDays] = useState(7);
+  // Forms
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawAddress, setWithdrawAddress] = useState('');
 
-  const getToken = async () => {
-    return await AsyncStorage.getItem('affiliate_token');
-  };
+  const getToken = async () => await AsyncStorage.getItem('affiliate_token');
 
   const fetchDashboard = async () => {
     try {
       const token = await getToken();
-      if (!token) {
-        router.replace('/affiliate/login');
-        return;
-      }
+      if (!token) { router.replace('/affiliate/login'); return; }
       
-      const response = await fetch(`${API_URL}/affiliate/dashboard?days=${statsDays}`, {
+      const res = await fetch(`${API_URL}/affiliate/dashboard?days=${statsPeriod}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      
-      if (response.status === 401) {
-        await AsyncStorage.removeItem('affiliate_token');
-        router.replace('/affiliate/login');
-        return;
-      }
-      
-      const data = await response.json();
+      if (res.status === 401) { await AsyncStorage.removeItem('affiliate_token'); router.replace('/affiliate/login'); return; }
+      const data = await res.json();
       setDashboardData(data);
       setAffiliate(data.affiliate);
-    } catch (err) {
-      console.error('Failed to fetch dashboard:', err);
-    }
+    } catch (e) { console.error(e); }
   };
 
   const fetchStatistics = async () => {
     try {
       const token = await getToken();
-      const response = await fetch(`${API_URL}/affiliate/statistics?days=${statsDays}`, {
+      const res = await fetch(`${API_URL}/affiliate/statistics?days=${statsPeriod}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      const data = await response.json();
+      const data = await res.json();
       setStatisticsData(data);
-    } catch (err) {
-      console.error('Failed to fetch statistics:', err);
-    }
+    } catch (e) { console.error(e); }
   };
 
   const fetchLinks = async () => {
     try {
       const token = await getToken();
-      const response = await fetch(`${API_URL}/affiliate/links`, {
+      const res = await fetch(`${API_URL}/affiliate/links`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      const data = await response.json();
+      const data = await res.json();
       setLinks(data.links || []);
-    } catch (err) {
-      console.error('Failed to fetch links:', err);
-    }
+    } catch (e) { console.error(e); }
   };
 
   const fetchTop10 = async () => {
     try {
-      const response = await fetch(`${API_URL}/affiliate/top10`);
-      const data = await response.json();
+      const res = await fetch(`${API_URL}/affiliate/top10`);
+      const data = await res.json();
       setTop10(data.top_affiliates || []);
-    } catch (err) {
-      console.error('Failed to fetch top10:', err);
-    }
+    } catch (e) { console.error(e); }
   };
 
-  const fetchPromoMaterials = async () => {
+  const fetchPromo = async () => {
     try {
-      const response = await fetch(`${API_URL}/affiliate/promo-materials`);
-      const data = await response.json();
+      const res = await fetch(`${API_URL}/affiliate/promo-materials`);
+      const data = await res.json();
       setPromoMaterials(data.materials || []);
-    } catch (err) {
-      console.error('Failed to fetch promo materials:', err);
-    }
+    } catch (e) { console.error(e); }
   };
 
-  const loadData = async () => {
+  const loadAll = async () => {
     setLoading(true);
-    await Promise.all([
-      fetchDashboard(),
-      fetchStatistics(),
-      fetchLinks(),
-      fetchTop10(),
-      fetchPromoMaterials()
-    ]);
+    await Promise.all([fetchDashboard(), fetchStatistics(), fetchLinks(), fetchTop10(), fetchPromo()]);
     setLoading(false);
   };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
-  };
+  useEffect(() => { loadAll(); }, [statsPeriod]);
 
-  useEffect(() => {
-    loadData();
-  }, [statsDays]);
+  const onRefresh = async () => { setRefreshing(true); await loadAll(); setRefreshing(false); };
 
   const handleLogout = async () => {
     await AsyncStorage.removeItem('affiliate_token');
-    await AsyncStorage.removeItem('affiliate_data');
     router.replace('/affiliate/login');
   };
 
-  const formatMoney = (amount: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
-  };
+  const formatMoney = (n: number) => `$${(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const getCurrentLevel = () => {
-    if (!affiliate) return AFFILIATE_LEVELS[0];
-    const ftds = affiliate.total_ftds || 0;
-    return AFFILIATE_LEVELS.find(l => ftds >= l.min_ftds && ftds <= l.max_ftds) || AFFILIATE_LEVELS[0];
+    const ftds = affiliate?.total_ftds || 0;
+    for (let i = LEVELS.length - 1; i >= 0; i--) {
+      if (ftds >= LEVELS[i].minFtds) return LEVELS[i];
+    }
+    return LEVELS[0];
+  };
+
+  const getNextLevel = () => {
+    const current = getCurrentLevel();
+    const idx = LEVELS.findIndex(l => l.level === current.level);
+    return idx < LEVELS.length - 1 ? LEVELS[idx + 1] : null;
   };
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color="#00E55A" />
-        <Text style={styles.loadingText}>Loading dashboard...</Text>
+      <View style={[styles.loadingContainer, { paddingTop: insets.top }]}>
+        <Image source={{ uri: BYNIX_LOGO }} style={styles.loadingLogo} resizeMode="contain" />
+        <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 24 }} />
+        <Text style={styles.loadingText}>Loading Dashboard...</Text>
       </View>
     );
   }
 
-  // Sidebar Component
-  const Sidebar = () => (
-    <View style={[styles.sidebar, { paddingTop: insets.top + 10 }]}>
-      {/* Logo */}
-      <View style={styles.sidebarLogo}>
-        <Image source={{ uri: BYNIX_LOGO_URL }} style={styles.sidebarLogoImage} resizeMode="contain" />
-      </View>
-      
-      {/* Menu Items */}
-      <ScrollView style={styles.sidebarMenu} showsVerticalScrollIndicator={false}>
-        {MENU_ITEMS.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            style={[styles.menuItem, activeTab === item.id && styles.menuItemActive]}
-            onPress={() => { setActiveTab(item.id); setSidebarOpen(false); }}
-          >
-            <Ionicons name={item.icon as any} size={22} color={activeTab === item.id ? '#00E55A' : '#8898AA'} />
-            <Text style={[styles.menuLabel, activeTab === item.id && styles.menuLabelActive]}>{item.label}</Text>
-            {item.badge && (
-              <View style={styles.menuBadge}>
-                <Text style={styles.menuBadgeText}>{item.badge}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-      
-      {/* Bottom Links */}
-      <View style={styles.sidebarBottom}>
-        <TouchableOpacity style={styles.sidebarBottomItem}>
-          <Text style={styles.sidebarBottomText}>Affiliate agreement</Text>
-        </TouchableOpacity>
-        <View style={styles.languageSelector}>
-          <Ionicons name="globe-outline" size={18} color="#8898AA" />
-          <Text style={styles.languageText}>EN</Text>
-          <Ionicons name="chevron-down" size={16} color="#8898AA" />
-        </View>
-      </View>
-    </View>
-  );
+  const currentLevel = getCurrentLevel();
+  const nextLevel = getNextLevel();
 
   // Header Component
   const Header = () => (
-    <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-      <View style={styles.headerLeft}>
-        <Image source={{ uri: BYNIX_LOGO_URL }} style={styles.headerLogo} resizeMode="contain" />
-      </View>
+    <View style={styles.header}>
+      <Image source={{ uri: BYNIX_LOGO }} style={styles.headerLogo} resizeMode="contain" />
       
       <View style={styles.headerRight}>
-        {/* Tier Badge */}
-        <TouchableOpacity style={styles.tierBadge} onPress={() => setShowLevels(!showLevels)}>
-          <Ionicons name="flash" size={14} color="#00E55A" />
-          <Text style={styles.tierBadgeText}>{affiliate?.level || 1}</Text>
+        {/* Level Badge */}
+        <TouchableOpacity style={[styles.levelBadge, { backgroundColor: currentLevel.color + '20', borderColor: currentLevel.color }]} onPress={() => setShowLevelsModal(true)}>
+          <Ionicons name={currentLevel.icon as any} size={14} color={currentLevel.color} />
+          <Text style={[styles.levelBadgeText, { color: currentLevel.color }]}>{currentLevel.name}</Text>
         </TouchableOpacity>
         
-        {/* Profile Dropdown */}
-        <TouchableOpacity style={styles.profileBtn} onPress={() => setShowProfile(!showProfile)}>
-          <Text style={styles.profileInitials}>
-            {affiliate?.name?.split(' ').map((n: string) => n[0]).join('').substring(0, 2) || 'AF'}
-          </Text>
-          <Ionicons name={showProfile ? "chevron-up" : "chevron-down"} size={16} color="#3B82F6" />
+        {/* Profile */}
+        <TouchableOpacity style={styles.profileBtn} onPress={() => setShowProfileMenu(!showProfileMenu)}>
+          <LinearGradient colors={[COLORS.primary, '#00B847']} style={styles.profileAvatar}>
+            <Text style={styles.profileInitial}>{affiliate?.name?.charAt(0) || 'A'}</Text>
+          </LinearGradient>
+          <Ionicons name={showProfileMenu ? 'chevron-up' : 'chevron-down'} size={16} color={COLORS.textSecondary} />
         </TouchableOpacity>
       </View>
       
-      {/* Mobile Menu Button */}
-      <TouchableOpacity style={styles.menuBtn} onPress={() => setSidebarOpen(true)}>
-        <Ionicons name="menu" size={24} color="#FFF" />
-      </TouchableOpacity>
+      {/* Profile Dropdown */}
+      {showProfileMenu && (
+        <View style={styles.profileDropdown}>
+          <View style={styles.profileDropdownHeader}>
+            <Text style={styles.profileName}>{affiliate?.name}</Text>
+            <Text style={styles.profileEmail}>{affiliate?.email}</Text>
+            <Text style={styles.profileId}>ID: {affiliate?.ref_code}</Text>
+          </View>
+          <TouchableOpacity style={styles.profileMenuItem}>
+            <Ionicons name="person-outline" size={18} color={COLORS.textSecondary} />
+            <Text style={styles.profileMenuText}>My Account</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.profileMenuItem}>
+            <Ionicons name="settings-outline" size={18} color={COLORS.textSecondary} />
+            <Text style={styles.profileMenuText}>Settings</Text>
+          </TouchableOpacity>
+          <View style={styles.profileDivider} />
+          <TouchableOpacity style={styles.profileMenuItem} onPress={handleLogout}>
+            <Ionicons name="log-out-outline" size={18} color={COLORS.danger} />
+            <Text style={[styles.profileMenuText, { color: COLORS.danger }]}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 
-  // Profile Dropdown
-  const ProfileDropdown = () => (
-    <View style={styles.profileDropdown}>
-      <View style={styles.profileDropdownHeader}>
-        <Text style={styles.profileEmail}>{affiliate?.email}</Text>
-        <Text style={styles.profileId}>ID: {affiliate?.affiliate_id?.slice(0, 8)}</Text>
-      </View>
-      <TouchableOpacity style={styles.profileDropdownItem}>
-        <Ionicons name="person-outline" size={18} color="#6B7280" />
-        <Text style={styles.profileDropdownText}>My Account</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.profileDropdownItem} onPress={handleLogout}>
-        <Ionicons name="log-out-outline" size={18} color="#6B7280" />
-        <Text style={styles.profileDropdownText}>Sign Out</Text>
-      </TouchableOpacity>
-      <View style={styles.profileDropdownDivider} />
-      <TouchableOpacity style={styles.profileDropdownItem}>
-        <Ionicons name="logo-telegram" size={18} color="#0088CC" />
-        <Text style={[styles.profileDropdownText, { color: '#0088CC' }]}>@bynix_support</Text>
-      </TouchableOpacity>
+  // Bottom Navigation
+  const BottomNav = () => (
+    <View style={[styles.bottomNav, { paddingBottom: insets.bottom + 8 }]}>
+      {NAV_ITEMS.map((item) => (
+        <TouchableOpacity 
+          key={item.id} 
+          style={[styles.navItem, activeTab === item.id && styles.navItemActive]}
+          onPress={() => setActiveTab(item.id)}
+        >
+          <View style={[styles.navIconWrap, activeTab === item.id && styles.navIconWrapActive]}>
+            <Ionicons name={item.icon as any} size={22} color={activeTab === item.id ? COLORS.primary : COLORS.textMuted} />
+          </View>
+          <Text style={[styles.navLabel, activeTab === item.id && styles.navLabelActive]}>{item.label}</Text>
+        </TouchableOpacity>
+      ))}
     </View>
   );
 
-  // Levels Modal
-  const LevelsModal = () => {
-    const currentLevel = getCurrentLevel();
-    return (
-      <View style={styles.levelsModal}>
-        <View style={styles.levelsModalHeader}>
-          <Text style={styles.levelsModalTitle}>Affiliate Levels</Text>
-          <Text style={styles.levelsModalSubtitle}>Increase the number of deposits and get more profit with us!</Text>
-        </View>
-        
-        <View style={styles.levelsTable}>
-          <View style={styles.levelsTableHeader}>
-            <Text style={[styles.levelsTableCell, styles.levelsTableHeaderText, { flex: 1.5 }]}>Name</Text>
-            <Text style={[styles.levelsTableCell, styles.levelsTableHeaderText]}>Revenue</Text>
-            <Text style={[styles.levelsTableCell, styles.levelsTableHeaderText]}>Turnover</Text>
-            <Text style={[styles.levelsTableCell, styles.levelsTableHeaderText]}>Deposits</Text>
-          </View>
-          
-          {AFFILIATE_LEVELS.map((level) => (
-            <View 
-              key={level.level} 
-              style={[
-                styles.levelsTableRow,
-                level.level === currentLevel.level && styles.levelsTableRowActive
-              ]}
-            >
-              {level.level === currentLevel.level && (
-                <Text style={styles.yourPositionLabel}>YOUR POSITION:</Text>
-              )}
-              <Text style={[styles.levelsTableCell, { flex: 1.5, color: level.level === currentLevel.level ? '#3B82F6' : '#1F2937' }]}>
-                Level {level.level}
-              </Text>
-              <Text style={[styles.levelsTableCell, { color: '#1F2937' }]}>{level.revenue}</Text>
-              <Text style={[styles.levelsTableCell, { color: '#1F2937' }]}>{level.turnover}</Text>
-              <Text style={[styles.levelsTableCell, { color: '#9CA3AF' }]}>
-                {level.min_ftds}-{level.max_ftds > 999 ? level.min_ftds + '+' : level.max_ftds}
-              </Text>
-            </View>
-          ))}
-        </View>
-        
-        {affiliate && (
-          <View style={styles.depositsProgress}>
-            <LinearGradient colors={['#00E55A', '#00C94D']} style={[styles.depositsProgressBar, { width: `${Math.min((affiliate.total_ftds / 700) * 100, 100)}%` }]} />
-            <Text style={styles.depositsProgressText}>{affiliate.total_ftds} DEPOSITS</Text>
-          </View>
-        )}
-      </View>
-    );
-  };
-
-  // Dashboard Content
-  const DashboardContent = () => (
+  // Dashboard Home Content
+  const HomeContent = () => (
     <View style={styles.content}>
       {/* Balance Card */}
-      <View style={styles.balanceCard}>
-        <Text style={styles.balanceLabel}>Your balance</Text>
+      <LinearGradient colors={['#1A2235', '#141B2D']} style={styles.balanceCard}>
+        <View style={styles.balanceHeader}>
+          <Text style={styles.balanceLabel}>Available Balance</Text>
+          <TouchableOpacity onPress={() => setShowWithdrawModal(true)}>
+            <View style={styles.withdrawBtn}>
+              <Ionicons name="wallet-outline" size={16} color={COLORS.primary} />
+              <Text style={styles.withdrawBtnText}>Withdraw</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
         <Text style={styles.balanceAmount}>{formatMoney(affiliate?.balance || 0)}</Text>
         
-        <TouchableOpacity style={styles.withdrawBtn}>
-          <LinearGradient colors={['#00E55A', '#00C94D']} style={styles.withdrawBtnGradient}>
-            <Text style={styles.withdrawBtnText}>Go to Withdrawal</Text>
-            <Ionicons name="arrow-forward" size={18} color="#000" />
+        <View style={styles.balanceFooter}>
+          <View style={styles.balanceStat}>
+            <Text style={styles.balanceStatLabel}>All Time Earnings</Text>
+            <Text style={styles.balanceStatValue}>{formatMoney(affiliate?.total_earnings || 0)}</Text>
+          </View>
+          <View style={styles.balanceStatDivider} />
+          <View style={styles.balanceStat}>
+            <Text style={styles.balanceStatLabel}>Commission Rate</Text>
+            <Text style={[styles.balanceStatValue, { color: COLORS.primary }]}>{currentLevel.revenue}%</Text>
+          </View>
+        </View>
+      </LinearGradient>
+      
+      {/* Level Progress */}
+      {nextLevel && (
+        <View style={styles.levelProgressCard}>
+          <View style={styles.levelProgressHeader}>
+            <Text style={styles.levelProgressTitle}>Level Progress</Text>
+            <Text style={styles.levelProgressCurrent}>{currentLevel.name} → {nextLevel.name}</Text>
+          </View>
+          <View style={styles.levelProgressBar}>
+            <LinearGradient 
+              colors={[currentLevel.color, nextLevel.color]} 
+              start={{ x: 0, y: 0 }} 
+              end={{ x: 1, y: 0 }}
+              style={[styles.levelProgressFill, { width: `${Math.min(((affiliate?.total_ftds || 0) / nextLevel.minFtds) * 100, 100)}%` }]} 
+            />
+          </View>
+          <Text style={styles.levelProgressText}>
+            {affiliate?.total_ftds || 0} / {nextLevel.minFtds} FTDs to unlock {nextLevel.revenue}% commission
+          </Text>
+        </View>
+      )}
+      
+      {/* Quick Stats */}
+      <Text style={styles.sectionTitle}>Performance ({statsPeriod} Days)</Text>
+      <View style={styles.statsGrid}>
+        <View style={[styles.statCard, { borderLeftColor: COLORS.primary }]}>
+          <Ionicons name="card-outline" size={24} color={COLORS.primary} />
+          <Text style={styles.statValue}>{formatMoney(dashboardData?.period_stats?.deposits || 0)}</Text>
+          <Text style={styles.statLabel}>Deposits</Text>
+        </View>
+        <View style={[styles.statCard, { borderLeftColor: COLORS.accent }]}>
+          <Ionicons name="people-outline" size={24} color={COLORS.accent} />
+          <Text style={styles.statValue}>{dashboardData?.period_stats?.ftds || 0}</Text>
+          <Text style={styles.statLabel}>FTDs</Text>
+        </View>
+        <View style={[styles.statCard, { borderLeftColor: COLORS.warning }]}>
+          <Ionicons name="hand-left-outline" size={24} color={COLORS.warning} />
+          <Text style={styles.statValue}>{dashboardData?.period_stats?.clicks || 0}</Text>
+          <Text style={styles.statLabel}>Clicks</Text>
+        </View>
+        <View style={[styles.statCard, { borderLeftColor: COLORS.purple }]}>
+          <Ionicons name="person-add-outline" size={24} color={COLORS.purple} />
+          <Text style={styles.statValue}>{dashboardData?.period_stats?.registrations || 0}</Text>
+          <Text style={styles.statLabel}>Registrations</Text>
+        </View>
+      </View>
+      
+      {/* Quick Actions */}
+      <Text style={styles.sectionTitle}>Quick Actions</Text>
+      <View style={styles.quickActionsGrid}>
+        <TouchableOpacity style={styles.quickActionCard} onPress={() => setActiveTab('links')}>
+          <LinearGradient colors={[COLORS.primary + '20', 'transparent']} style={styles.quickActionGradient}>
+            <Ionicons name="link" size={28} color={COLORS.primary} />
           </LinearGradient>
+          <Text style={styles.quickActionLabel}>Get Links</Text>
         </TouchableOpacity>
-        
-        <View style={styles.totalEarnings}>
-          <Text style={styles.totalEarningsLabel}>Earnings for all time</Text>
-          <Text style={styles.totalEarningsAmount}>{formatMoney(affiliate?.total_earnings || 0)}</Text>
-        </View>
+        <TouchableOpacity style={styles.quickActionCard} onPress={() => setActiveTab('promo')}>
+          <LinearGradient colors={[COLORS.accent + '20', 'transparent']} style={styles.quickActionGradient}>
+            <Ionicons name="image" size={28} color={COLORS.accent} />
+          </LinearGradient>
+          <Text style={styles.quickActionLabel}>Promo</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.quickActionCard} onPress={() => setActiveTab('stats')}>
+          <LinearGradient colors={[COLORS.purple + '20', 'transparent']} style={styles.quickActionGradient}>
+            <Ionicons name="stats-chart" size={28} color={COLORS.purple} />
+          </LinearGradient>
+          <Text style={styles.quickActionLabel}>Reports</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.quickActionCard}>
+          <LinearGradient colors={[COLORS.warning + '20', 'transparent']} style={styles.quickActionGradient}>
+            <Ionicons name="chatbubbles" size={28} color={COLORS.warning} />
+          </LinearGradient>
+          <Text style={styles.quickActionLabel}>Telegram</Text>
+        </TouchableOpacity>
       </View>
       
-      {/* Fast Links */}
-      <View style={styles.fastLinksSection}>
-        <Text style={styles.sectionTitle}>Fast Links</Text>
-        <View style={styles.fastLinksGrid}>
-          {FAST_LINKS.map((link) => (
-            <TouchableOpacity 
-              key={link.id} 
-              style={[styles.fastLinkCard, { backgroundColor: link.color }]}
-              onPress={() => setActiveTab(link.id)}
-            >
-              <Ionicons name={link.icon as any} size={28} color={link.iconColor} />
-              <Text style={[styles.fastLinkLabel, { color: link.iconColor }]}>{link.label}</Text>
-            </TouchableOpacity>
-          ))}
+      {/* Referral Link */}
+      <View style={styles.refLinkCard}>
+        <Text style={styles.refLinkLabel}>Your Referral Link</Text>
+        <View style={styles.refLinkBox}>
+          <Text style={styles.refLinkText} numberOfLines={1}>bynix.com/r/{affiliate?.ref_code}</Text>
+          <TouchableOpacity style={styles.copyBtn}>
+            <Ionicons name="copy-outline" size={20} color={COLORS.primary} />
+          </TouchableOpacity>
         </View>
-      </View>
-      
-      {/* Stats Summary */}
-      <View style={styles.statsSection}>
-        <Text style={styles.sectionTitle}>Period Statistics ({statsDays} days)</Text>
-        
-        <View style={styles.statCardsRow}>
-          <View style={[styles.statCard, styles.statCardDark]}>
-            <Ionicons name="card-outline" size={24} color="#FFF" />
-            <Text style={styles.statCardValue}>{formatMoney(dashboardData?.period_stats?.deposits || 0)}</Text>
-            <Text style={styles.statCardLabel}>{dashboardData?.period_stats?.ftds || 0} deposits</Text>
-          </View>
-        </View>
-        
-        <View style={styles.statCardsGrid}>
-          <View style={styles.statCardLight}>
-            <Ionicons name="wallet-outline" size={24} color="#8B5CF6" />
-            <Text style={styles.statCardLightValue}>{formatMoney(dashboardData?.period_stats?.earnings || 0)}</Text>
-            <Text style={styles.statCardLightLabel}>{dashboardData?.period_stats?.ftds || 0} FTD's</Text>
-          </View>
-          
-          <View style={styles.statCardLight}>
-            <Ionicons name="hand-left-outline" size={24} color="#F59E0B" />
-            <Text style={styles.statCardLightValue}>{dashboardData?.period_stats?.clicks || 0}</Text>
-            <Text style={styles.statCardLightLabel}>Clicks</Text>
-          </View>
-          
-          <View style={styles.statCardLight}>
-            <Ionicons name="people-outline" size={24} color="#3B82F6" />
-            <Text style={styles.statCardLightValue}>{dashboardData?.period_stats?.registrations || 0}</Text>
-            <Text style={styles.statCardLightLabel}>Registrations</Text>
-          </View>
-        </View>
-        
-        <TouchableOpacity style={styles.viewAllStats} onPress={() => setActiveTab('statistics')}>
-          <Text style={styles.viewAllStatsText}>View all statistics</Text>
-          <Ionicons name="arrow-forward" size={16} color="#3B82F6" />
-        </TouchableOpacity>
       </View>
     </View>
   );
 
   // Statistics Content
-  const StatisticsContent = () => (
+  const StatsContent = () => (
     <View style={styles.content}>
-      <View style={styles.statsHeader}>
-        <Text style={styles.pageTitle}>Statistics</Text>
-        
-        {/* Date Range Selector */}
-        <View style={styles.dateRangeSelector}>
-          {[7, 14, 30].map((days) => (
-            <TouchableOpacity
-              key={days}
-              style={[styles.dateRangeBtn, statsDays === days && styles.dateRangeBtnActive]}
-              onPress={() => setStatsDays(days)}
-            >
-              <Text style={[styles.dateRangeBtnText, statsDays === days && styles.dateRangeBtnTextActive]}>
-                {days === 7 ? 'Week' : days === 14 ? '2 Weeks' : 'Month'}
-              </Text>
-            </TouchableOpacity>
-          ))}
+      {/* Period Selector */}
+      <View style={styles.periodSelector}>
+        {[7, 14, 30].map((days) => (
+          <TouchableOpacity
+            key={days}
+            style={[styles.periodBtn, statsPeriod === days && styles.periodBtnActive]}
+            onPress={() => setStatsPeriod(days)}
+          >
+            <Text style={[styles.periodBtnText, statsPeriod === days && styles.periodBtnTextActive]}>
+              {days === 7 ? 'Week' : days === 14 ? '2 Weeks' : 'Month'}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      
+      {/* Stats Overview */}
+      <View style={styles.statsOverviewCard}>
+        <View style={styles.statsOverviewItem}>
+          <Text style={styles.statsOverviewValue}>{formatMoney(statisticsData?.totals?.deposits || 0)}</Text>
+          <Text style={styles.statsOverviewLabel}>Total Deposits</Text>
+        </View>
+        <View style={styles.statsOverviewDivider} />
+        <View style={styles.statsOverviewItem}>
+          <Text style={styles.statsOverviewValue}>{statisticsData?.totals?.ftds || 0}</Text>
+          <Text style={styles.statsOverviewLabel}>Total FTDs</Text>
         </View>
       </View>
       
-      {/* Stats Cards */}
-      <View style={styles.statsGridFull}>
-        <View style={[styles.statCardFull, styles.statCardDark]}>
-          <Ionicons name="card-outline" size={28} color="#FFF" />
-          <View>
-            <Text style={styles.statCardFullValue}>{formatMoney(statisticsData?.totals?.deposits || 0)}</Text>
-            <Text style={styles.statCardFullLabel}>{statisticsData?.totals?.ftds || 0} deposits</Text>
-          </View>
-        </View>
-        
-        <View style={styles.statCardFull}>
-          <Ionicons name="wallet-outline" size={28} color="#8B5CF6" />
-          <View>
-            <Text style={[styles.statCardFullValue, { color: '#1F2937' }]}>{formatMoney((statisticsData?.totals?.ftds || 0) * 50)}</Text>
-            <Text style={[styles.statCardFullLabel, { color: '#8B5CF6' }]}>{statisticsData?.totals?.ftds || 0} FTD's</Text>
-          </View>
-        </View>
-        
-        <View style={styles.statCardFull}>
-          <Ionicons name="hand-left-outline" size={28} color="#F59E0B" />
-          <View>
-            <Text style={[styles.statCardFullValue, { color: '#1F2937' }]}>{statisticsData?.totals?.clicks || 0}</Text>
-            <Text style={[styles.statCardFullLabel, { color: '#F59E0B' }]}>Clicks</Text>
-          </View>
-        </View>
-        
-        <View style={styles.statCardFull}>
-          <Ionicons name="people-outline" size={28} color="#3B82F6" />
-          <View>
-            <Text style={[styles.statCardFullValue, { color: '#1F2937' }]}>{statisticsData?.totals?.registrations || 0}</Text>
-            <Text style={[styles.statCardFullLabel, { color: '#3B82F6' }]}>Registrations</Text>
-          </View>
-        </View>
-      </View>
-      
-      {/* Chart Section */}
-      <View style={styles.chartSection}>
-        <Text style={styles.chartTitle}>Clicks / Registrations / FTD Chart</Text>
-        <Text style={styles.chartSubtitle}>For all links</Text>
-        
-        {/* Simple bar representation */}
+      {/* Chart */}
+      <View style={styles.chartCard}>
+        <Text style={styles.chartTitle}>Activity Chart</Text>
         <View style={styles.chartContainer}>
-          {statisticsData?.daily_stats?.map((day: any, index: number) => (
-            <View key={index} style={styles.chartBar}>
-              <View style={[styles.chartBarInner, { height: Math.max(day.clicks * 2, 5), backgroundColor: '#F59E0B' }]} />
-              <View style={[styles.chartBarInner, { height: Math.max(day.registrations * 5, 3), backgroundColor: '#3B82F6' }]} />
-              <View style={[styles.chartBarInner, { height: Math.max(day.ftds * 10, 2), backgroundColor: '#00E55A' }]} />
-              <Text style={styles.chartBarLabel}>{day.date.slice(5)}</Text>
+          {statisticsData?.daily_stats?.slice(-7).map((day: any, i: number) => (
+            <View key={i} style={styles.chartColumn}>
+              <View style={styles.chartBars}>
+                <View style={[styles.chartBar, { height: Math.max(day.clicks * 1.5, 4), backgroundColor: COLORS.warning }]} />
+                <View style={[styles.chartBar, { height: Math.max(day.registrations * 3, 4), backgroundColor: COLORS.accent }]} />
+                <View style={[styles.chartBar, { height: Math.max(day.ftds * 6, 4), backgroundColor: COLORS.primary }]} />
+              </View>
+              <Text style={styles.chartLabel}>{day.date?.slice(5)}</Text>
             </View>
           ))}
         </View>
-        
         <View style={styles.chartLegend}>
-          <View style={styles.chartLegendItem}>
-            <View style={[styles.chartLegendDot, { backgroundColor: '#F59E0B' }]} />
-            <Text style={styles.chartLegendText}>Clicks</Text>
-          </View>
-          <View style={styles.chartLegendItem}>
-            <View style={[styles.chartLegendDot, { backgroundColor: '#3B82F6' }]} />
-            <Text style={styles.chartLegendText}>Registrations</Text>
-          </View>
-          <View style={styles.chartLegendItem}>
-            <View style={[styles.chartLegendDot, { backgroundColor: '#00E55A' }]} />
-            <Text style={styles.chartLegendText}>FTDs</Text>
-          </View>
+          <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: COLORS.warning }]} /><Text style={styles.legendText}>Clicks</Text></View>
+          <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: COLORS.accent }]} /><Text style={styles.legendText}>Regs</Text></View>
+          <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: COLORS.primary }]} /><Text style={styles.legendText}>FTDs</Text></View>
+        </View>
+      </View>
+      
+      {/* Detailed Stats */}
+      <View style={styles.detailedStatsGrid}>
+        <View style={styles.detailedStatCard}>
+          <Ionicons name="hand-left" size={20} color={COLORS.warning} />
+          <Text style={styles.detailedStatValue}>{statisticsData?.totals?.clicks || 0}</Text>
+          <Text style={styles.detailedStatLabel}>Clicks</Text>
+        </View>
+        <View style={styles.detailedStatCard}>
+          <Ionicons name="person-add" size={20} color={COLORS.accent} />
+          <Text style={styles.detailedStatValue}>{statisticsData?.totals?.registrations || 0}</Text>
+          <Text style={styles.detailedStatLabel}>Registrations</Text>
+        </View>
+        <View style={styles.detailedStatCard}>
+          <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
+          <Text style={styles.detailedStatValue}>{statisticsData?.totals?.ftds || 0}</Text>
+          <Text style={styles.detailedStatLabel}>FTDs</Text>
         </View>
       </View>
     </View>
@@ -507,46 +433,32 @@ export default function AffiliateDashboard() {
   const LinksContent = () => (
     <View style={styles.content}>
       <View style={styles.linksHeader}>
-        <Text style={styles.pageTitle}>Your Links</Text>
-        <TouchableOpacity style={styles.addLinkBtn}>
+        <Text style={styles.sectionTitle}>Your Links</Text>
+        <TouchableOpacity style={styles.createLinkBtn}>
           <Ionicons name="add" size={20} color="#FFF" />
-          <Text style={styles.addLinkBtnText}>Create Link</Text>
+          <Text style={styles.createLinkBtnText}>Create</Text>
         </TouchableOpacity>
       </View>
       
       {links.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="link-outline" size={48} color="#8898AA" />
-          <Text style={styles.emptyStateText}>No links yet</Text>
-          <Text style={styles.emptyStateSubtext}>Create your first affiliate link to start tracking</Text>
+          <Ionicons name="link-outline" size={48} color={COLORS.textMuted} />
+          <Text style={styles.emptyStateTitle}>No Links Yet</Text>
+          <Text style={styles.emptyStateText}>Create your first link to start tracking</Text>
         </View>
       ) : (
-        links.map((link) => (
-          <View key={link.link_id} style={styles.linkCard}>
-            <View style={styles.linkCardHeader}>
+        links.map((link, i) => (
+          <View key={i} style={styles.linkCard}>
+            <View style={styles.linkHeader}>
               <Text style={styles.linkName}>{link.name}</Text>
-              <TouchableOpacity style={styles.copyBtn}>
-                <Ionicons name="copy-outline" size={18} color="#3B82F6" />
-              </TouchableOpacity>
+              <TouchableOpacity><Ionicons name="copy-outline" size={20} color={COLORS.primary} /></TouchableOpacity>
             </View>
-            <Text style={styles.linkCode}>bynix.com/r/{link.code}</Text>
+            <Text style={styles.linkUrl}>bynix.com/r/{link.code}</Text>
             <View style={styles.linkStats}>
-              <View style={styles.linkStat}>
-                <Text style={styles.linkStatValue}>{link.clicks || 0}</Text>
-                <Text style={styles.linkStatLabel}>Clicks</Text>
-              </View>
-              <View style={styles.linkStat}>
-                <Text style={styles.linkStatValue}>{link.registrations || 0}</Text>
-                <Text style={styles.linkStatLabel}>Regs</Text>
-              </View>
-              <View style={styles.linkStat}>
-                <Text style={styles.linkStatValue}>{link.ftds || 0}</Text>
-                <Text style={styles.linkStatLabel}>FTDs</Text>
-              </View>
-              <View style={styles.linkStat}>
-                <Text style={styles.linkStatValue}>{formatMoney(link.deposits || 0)}</Text>
-                <Text style={styles.linkStatLabel}>Deposits</Text>
-              </View>
+              <View style={styles.linkStatItem}><Text style={styles.linkStatValue}>{link.clicks || 0}</Text><Text style={styles.linkStatLabel}>Clicks</Text></View>
+              <View style={styles.linkStatItem}><Text style={styles.linkStatValue}>{link.registrations || 0}</Text><Text style={styles.linkStatLabel}>Regs</Text></View>
+              <View style={styles.linkStatItem}><Text style={styles.linkStatValue}>{link.ftds || 0}</Text><Text style={styles.linkStatLabel}>FTDs</Text></View>
+              <View style={styles.linkStatItem}><Text style={styles.linkStatValue}>{formatMoney(link.deposits || 0)}</Text><Text style={styles.linkStatLabel}>Deposits</Text></View>
             </View>
           </View>
         ))
@@ -554,52 +466,48 @@ export default function AffiliateDashboard() {
     </View>
   );
 
-  // TOP 10 Content
-  const Top10Content = () => (
-    <View style={styles.content}>
-      <Text style={styles.pageTitle}>TOP 10 Partners</Text>
-      <Text style={styles.pageSubtitle}>Monthly leaderboard</Text>
-      
-      {top10.map((partner, index) => (
-        <View key={index} style={[styles.top10Card, index < 3 && styles.top10CardTop]}>
-          <View style={styles.top10Rank}>
-            {index < 3 ? (
-              <Ionicons name="trophy" size={24} color={index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : '#CD7F32'} />
-            ) : (
-              <Text style={styles.top10RankText}>{partner.rank}</Text>
-            )}
-          </View>
-          <View style={styles.top10Info}>
-            <Text style={styles.top10Name}>{partner.name}</Text>
-            <Text style={styles.top10Level}>Level {partner.level}</Text>
-          </View>
-          <View style={styles.top10Earnings}>
-            <Text style={styles.top10EarningsValue}>{formatMoney(partner.total_earnings)}</Text>
-            <Text style={styles.top10EarningsLabel}>{partner.total_ftds} FTDs</Text>
-          </View>
-        </View>
-      ))}
-    </View>
-  );
-
-  // Promo Materials Content
+  // Promo Content
   const PromoContent = () => (
     <View style={styles.content}>
-      <Text style={styles.pageTitle}>Promo Materials</Text>
-      <Text style={styles.pageSubtitle}>Banners and landing pages for your campaigns</Text>
+      <Text style={styles.sectionTitle}>Promo Materials</Text>
+      <Text style={styles.sectionSubtitle}>Download banners and landing pages</Text>
       
-      {promoMaterials.map((material) => (
-        <View key={material.material_id} style={styles.promoCard}>
+      {promoMaterials.map((material, i) => (
+        <View key={i} style={styles.promoCard}>
           <View style={styles.promoPreview}>
-            <Image source={{ uri: material.preview_url }} style={styles.promoImage} resizeMode="contain" />
+            <Image source={{ uri: material.preview_url }} style={styles.promoImage} resizeMode="cover" />
           </View>
           <View style={styles.promoInfo}>
             <Text style={styles.promoName}>{material.name}</Text>
             <Text style={styles.promoSize}>{material.size || material.type}</Text>
           </View>
           <TouchableOpacity style={styles.promoDownloadBtn}>
-            <Ionicons name="download-outline" size={20} color="#3B82F6" />
+            <Ionicons name="download-outline" size={22} color={COLORS.primary} />
           </TouchableOpacity>
+        </View>
+      ))}
+    </View>
+  );
+
+  // Top 10 Content
+  const Top10Content = () => (
+    <View style={styles.content}>
+      <Text style={styles.sectionTitle}>TOP 10 Partners</Text>
+      <Text style={styles.sectionSubtitle}>Monthly leaderboard</Text>
+      
+      {top10.map((partner, i) => (
+        <View key={i} style={[styles.top10Card, i < 3 && styles.top10CardTop]}>
+          <View style={[styles.top10Rank, { backgroundColor: i === 0 ? COLORS.gold : i === 1 ? '#C0C0C0' : i === 2 ? '#CD7F32' : COLORS.cardLight }]}>
+            {i < 3 ? <Ionicons name="trophy" size={16} color="#FFF" /> : <Text style={styles.top10RankText}>{i + 1}</Text>}
+          </View>
+          <View style={styles.top10Info}>
+            <Text style={styles.top10Name}>{partner.name}</Text>
+            <Text style={styles.top10Level}>Level {partner.level}</Text>
+          </View>
+          <View style={styles.top10Stats}>
+            <Text style={styles.top10Earnings}>{formatMoney(partner.total_earnings)}</Text>
+            <Text style={styles.top10Ftds}>{partner.total_ftds} FTDs</Text>
+          </View>
         </View>
       ))}
     </View>
@@ -608,253 +516,264 @@ export default function AffiliateDashboard() {
   // Support Content
   const SupportContent = () => (
     <View style={styles.content}>
-      <Text style={styles.pageTitle}>Support</Text>
-      
       <View style={styles.supportCard}>
-        <Ionicons name="chatbubbles-outline" size={48} color="#3B82F6" />
+        <Ionicons name="headset-outline" size={56} color={COLORS.primary} />
         <Text style={styles.supportTitle}>Need Help?</Text>
         <Text style={styles.supportText}>Our affiliate managers are available 24/7</Text>
         
-        <TouchableOpacity style={styles.telegramSupportBtn}>
+        <TouchableOpacity style={styles.telegramBtn}>
           <Ionicons name="logo-telegram" size={24} color="#FFF" />
-          <Text style={styles.telegramSupportText}>Contact via Telegram</Text>
+          <Text style={styles.telegramBtnText}>Contact via Telegram</Text>
         </TouchableOpacity>
         
-        <Text style={styles.supportEmail}>or email: affiliate@bynix.com</Text>
+        <Text style={styles.supportEmail}>affiliate@bynix.com</Text>
       </View>
     </View>
   );
 
-  // Render active tab content
+  // Levels Modal
+  const LevelsModal = () => (
+    <Modal visible={showLevelsModal} transparent animationType="slide">
+      <View style={styles.modalOverlay}>
+        <View style={styles.levelsModalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Affiliate Levels</Text>
+            <TouchableOpacity onPress={() => setShowLevelsModal(false)}>
+              <Ionicons name="close" size={24} color={COLORS.text} />
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.modalBody}>
+            <Text style={styles.levelsSubtitle}>Get more FTDs to unlock higher commission rates!</Text>
+            
+            {LEVELS.map((level, i) => (
+              <View key={i} style={[styles.levelRow, currentLevel.level === level.level && styles.levelRowActive]}>
+                {currentLevel.level === level.level && <Text style={styles.levelRowBadge}>CURRENT</Text>}
+                <View style={styles.levelRowLeft}>
+                  <View style={[styles.levelIcon, { backgroundColor: level.color + '20' }]}>
+                    <Ionicons name={level.icon as any} size={20} color={level.color} />
+                  </View>
+                  <View>
+                    <Text style={styles.levelName}>{level.name}</Text>
+                    <Text style={styles.levelFtds}>{level.minFtds}+ FTDs</Text>
+                  </View>
+                </View>
+                <View style={styles.levelRowRight}>
+                  <Text style={[styles.levelRevenue, { color: level.color }]}>{level.revenue}%</Text>
+                  <Text style={styles.levelTurnover}>{level.turnover}% TO</Text>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  // Render content
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard': return <DashboardContent />;
-      case 'statistics': return <StatisticsContent />;
+      case 'home': return <HomeContent />;
+      case 'stats': return <StatsContent />;
       case 'links': return <LinksContent />;
-      case 'top10': return <Top10Content />;
       case 'promo': return <PromoContent />;
+      case 'top10': return <Top10Content />;
       case 'support': return <SupportContent />;
-      default: return <DashboardContent />;
+      default: return <HomeContent />;
     }
   };
 
   return (
-    <View style={styles.container}>
-      {/* Sidebar Overlay */}
-      {sidebarOpen && (
-        <TouchableOpacity 
-          style={styles.sidebarOverlay} 
-          activeOpacity={1}
-          onPress={() => setSidebarOpen(false)}
-        />
-      )}
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <Header />
       
-      {/* Sidebar */}
-      {sidebarOpen && <Sidebar />}
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+      >
+        {renderContent()}
+      </ScrollView>
       
-      {/* Main Content */}
-      <View style={styles.main}>
-        <Header />
-        
-        {/* Sub Header with balance */}
-        <View style={styles.subHeader}>
-          <View>
-            <Text style={styles.balanceSmall}>{formatMoney(affiliate?.balance || 0)}</Text>
-            <Text style={styles.volRevText}>
-              Vol: {formatMoney(dashboardData?.period_stats?.deposits || 0)} / Rev: {formatMoney(dashboardData?.period_stats?.earnings || 0)}
-            </Text>
-          </View>
-        </View>
-        
-        {/* Profile Dropdown */}
-        {showProfile && <ProfileDropdown />}
-        
-        {/* Levels Modal */}
-        {showLevels && <LevelsModal />}
-        
-        <ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00E55A" />}
-        >
-          {renderContent()}
-        </ScrollView>
-      </View>
+      <BottomNav />
+      <LevelsModal />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F3F4F6' },
-  loadingContainer: { justifyContent: 'center', alignItems: 'center' },
-  loadingText: { color: '#8898AA', marginTop: 12 },
-  
-  // Sidebar
-  sidebar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 280, backgroundColor: '#1A1F36', zIndex: 100, paddingHorizontal: 16 },
-  sidebarOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 99 },
-  sidebarLogo: { paddingVertical: 20, alignItems: 'center' },
-  sidebarLogoImage: { width: 140, height: 60 },
-  sidebarMenu: { flex: 1 },
-  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 12, borderRadius: 8, marginBottom: 4 },
-  menuItemActive: { backgroundColor: 'rgba(0, 229, 90, 0.1)' },
-  menuLabel: { color: '#8898AA', fontSize: 15, marginLeft: 14, flex: 1 },
-  menuLabelActive: { color: '#00E55A' },
-  menuBadge: { backgroundColor: '#00E55A', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
-  menuBadgeText: { color: '#000', fontSize: 10, fontWeight: '700' },
-  sidebarBottom: { paddingVertical: 20, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
-  sidebarBottomItem: { paddingVertical: 10 },
-  sidebarBottomText: { color: '#8898AA', fontSize: 13 },
-  languageSelector: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
-  languageText: { color: '#8898AA', marginLeft: 8, marginRight: 4 },
+  container: { flex: 1, backgroundColor: COLORS.bg },
+  loadingContainer: { flex: 1, backgroundColor: COLORS.bg, justifyContent: 'center', alignItems: 'center' },
+  loadingLogo: { width: 160, height: 80 },
+  loadingText: { color: COLORS.textSecondary, marginTop: 16, fontSize: 14 },
   
   // Header
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 10, backgroundColor: '#1A1F36' },
-  headerLeft: { flexDirection: 'row', alignItems: 'center' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: COLORS.card, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   headerLogo: { width: 100, height: 40 },
   headerRight: { flexDirection: 'row', alignItems: 'center' },
-  tierBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0, 229, 90, 0.1)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, marginRight: 10 },
-  tierBadgeText: { color: '#00E55A', fontWeight: '700', marginLeft: 4 },
-  profileBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E0E7FF', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
-  profileInitials: { color: '#3B82F6', fontWeight: '700', marginRight: 4 },
-  menuBtn: { padding: 8 },
+  levelBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, marginRight: 12 },
+  levelBadgeText: { fontSize: 11, fontWeight: '700', marginLeft: 4 },
+  profileBtn: { flexDirection: 'row', alignItems: 'center' },
+  profileAvatar: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  profileInitial: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+  profileDropdown: { position: 'absolute', top: 70, right: 20, backgroundColor: COLORS.card, borderRadius: 16, padding: 16, width: 220, zIndex: 100, borderWidth: 1, borderColor: COLORS.border, elevation: 10 },
+  profileDropdownHeader: { paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border, marginBottom: 8 },
+  profileName: { color: COLORS.text, fontSize: 15, fontWeight: '700' },
+  profileEmail: { color: COLORS.textSecondary, fontSize: 12, marginTop: 2 },
+  profileId: { color: COLORS.textMuted, fontSize: 10, marginTop: 4 },
+  profileMenuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
+  profileMenuText: { color: COLORS.textSecondary, fontSize: 14, marginLeft: 12 },
+  profileDivider: { height: 1, backgroundColor: COLORS.border, marginVertical: 4 },
   
-  // Sub Header
-  subHeader: { backgroundColor: '#FFF', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  balanceSmall: { fontSize: 24, fontWeight: '800', color: '#1F2937' },
-  volRevText: { fontSize: 12, color: '#00E55A', marginTop: 2 },
+  // Bottom Nav
+  bottomNav: { flexDirection: 'row', backgroundColor: COLORS.card, borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 8 },
+  navItem: { flex: 1, alignItems: 'center', paddingVertical: 8 },
+  navItemActive: {},
+  navIconWrap: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+  navIconWrapActive: { backgroundColor: COLORS.primaryGlow },
+  navLabel: { color: COLORS.textMuted, fontSize: 10, marginTop: 4, fontWeight: '500' },
+  navLabelActive: { color: COLORS.primary, fontWeight: '600' },
   
-  // Profile Dropdown
-  profileDropdown: { position: 'absolute', top: 120, right: 16, backgroundColor: '#FFF', borderRadius: 12, padding: 16, width: 250, zIndex: 50, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12 },
-  profileDropdownHeader: { paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB', marginBottom: 8 },
-  profileEmail: { fontSize: 14, fontWeight: '600', color: '#1F2937' },
-  profileId: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
-  profileDropdownItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
-  profileDropdownText: { fontSize: 14, color: '#6B7280', marginLeft: 10 },
-  profileDropdownDivider: { height: 1, backgroundColor: '#E5E7EB', marginVertical: 8 },
-  
-  // Levels Modal
-  levelsModal: { position: 'absolute', top: 120, left: 16, right: 16, backgroundColor: '#FFF', borderRadius: 16, padding: 20, zIndex: 50, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12 },
-  levelsModalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  levelsModalTitle: { fontSize: 18, fontWeight: '700', color: '#1F2937' },
-  levelsModalSubtitle: { fontSize: 13, color: '#6B7280', marginLeft: 12, flex: 1 },
-  levelsTable: { marginBottom: 16 },
-  levelsTableHeader: { flexDirection: 'row', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  levelsTableHeaderText: { color: '#9CA3AF', fontSize: 12, fontWeight: '600' },
-  levelsTableRow: { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  levelsTableRowActive: { backgroundColor: 'rgba(59, 130, 246, 0.05)', borderRadius: 8, position: 'relative', paddingTop: 24 },
-  levelsTableCell: { flex: 1, fontSize: 14 },
-  yourPositionLabel: { position: 'absolute', top: 4, left: 8, fontSize: 10, color: '#9CA3AF', fontWeight: '600' },
-  depositsProgress: { height: 32, backgroundColor: '#E5E7EB', borderRadius: 16, overflow: 'hidden', justifyContent: 'center' },
-  depositsProgressBar: { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: 16 },
-  depositsProgressText: { textAlign: 'center', fontSize: 12, fontWeight: '700', color: '#1F2937' },
-  
-  // Main Content
-  main: { flex: 1 },
+  // Content
   scrollView: { flex: 1 },
-  content: { padding: 16 },
+  content: { padding: 20 },
+  sectionTitle: { color: COLORS.text, fontSize: 18, fontWeight: '700', marginBottom: 16 },
+  sectionSubtitle: { color: COLORS.textSecondary, fontSize: 13, marginTop: -12, marginBottom: 16 },
   
   // Balance Card
-  balanceCard: { backgroundColor: '#1A1F36', borderRadius: 16, padding: 20, marginBottom: 20 },
-  balanceLabel: { color: '#8898AA', fontSize: 14, marginBottom: 4 },
-  balanceAmount: { color: '#FFF', fontSize: 32, fontWeight: '800', marginBottom: 16 },
-  withdrawBtn: { borderRadius: 12, overflow: 'hidden', marginBottom: 16 },
-  withdrawBtnGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14 },
-  withdrawBtnText: { color: '#000', fontSize: 16, fontWeight: '700', marginRight: 8 },
-  totalEarnings: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: 14 },
-  totalEarningsLabel: { color: '#8898AA', fontSize: 12 },
-  totalEarningsAmount: { color: '#FFF', fontSize: 20, fontWeight: '700', marginTop: 4 },
+  balanceCard: { borderRadius: 20, padding: 24, marginBottom: 20, borderWidth: 1, borderColor: COLORS.border },
+  balanceHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  balanceLabel: { color: COLORS.textSecondary, fontSize: 13 },
+  withdrawBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primaryGlow, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
+  withdrawBtnText: { color: COLORS.primary, fontSize: 12, fontWeight: '600', marginLeft: 6 },
+  balanceAmount: { color: COLORS.text, fontSize: 36, fontWeight: '800' },
+  balanceFooter: { flexDirection: 'row', marginTop: 20, paddingTop: 20, borderTopWidth: 1, borderTopColor: COLORS.border },
+  balanceStat: { flex: 1 },
+  balanceStatLabel: { color: COLORS.textMuted, fontSize: 11 },
+  balanceStatValue: { color: COLORS.text, fontSize: 16, fontWeight: '700', marginTop: 4 },
+  balanceStatDivider: { width: 1, backgroundColor: COLORS.border, marginHorizontal: 16 },
   
-  // Fast Links
-  fastLinksSection: { marginBottom: 20 },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1F2937', marginBottom: 12 },
-  fastLinksGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  fastLinkCard: { width: (width - 44) / 2, padding: 16, borderRadius: 16, alignItems: 'center' },
-  fastLinkLabel: { fontSize: 14, fontWeight: '600', marginTop: 8 },
+  // Level Progress
+  levelProgressCard: { backgroundColor: COLORS.card, borderRadius: 16, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: COLORS.border },
+  levelProgressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  levelProgressTitle: { color: COLORS.text, fontSize: 14, fontWeight: '600' },
+  levelProgressCurrent: { color: COLORS.textSecondary, fontSize: 12 },
+  levelProgressBar: { height: 8, backgroundColor: COLORS.cardLight, borderRadius: 4, overflow: 'hidden' },
+  levelProgressFill: { height: 8, borderRadius: 4 },
+  levelProgressText: { color: COLORS.textMuted, fontSize: 11, marginTop: 8 },
   
-  // Stats Section
-  statsSection: { marginBottom: 20 },
-  statCardsRow: { marginBottom: 12 },
-  statCard: { borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center' },
-  statCardDark: { backgroundColor: '#1A1F36' },
-  statCardValue: { color: '#FFF', fontSize: 24, fontWeight: '800', marginLeft: 12 },
-  statCardLabel: { color: '#8898AA', fontSize: 12, marginLeft: 12 },
-  statCardsGrid: { flexDirection: 'row', gap: 12 },
-  statCardLight: { flex: 1, backgroundColor: '#FFF', borderRadius: 16, padding: 14, alignItems: 'center' },
-  statCardLightValue: { fontSize: 20, fontWeight: '800', color: '#1F2937', marginTop: 8 },
-  statCardLightLabel: { fontSize: 12, color: '#9CA3AF', marginTop: 4 },
-  viewAllStats: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 16 },
-  viewAllStatsText: { color: '#3B82F6', fontWeight: '600', marginRight: 4 },
+  // Stats Grid
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6, marginBottom: 20 },
+  statCard: { width: '48%', backgroundColor: COLORS.card, borderRadius: 16, padding: 16, margin: '1%', borderLeftWidth: 3, borderWidth: 1, borderColor: COLORS.border },
+  statValue: { color: COLORS.text, fontSize: 20, fontWeight: '800', marginTop: 12 },
+  statLabel: { color: COLORS.textSecondary, fontSize: 11, marginTop: 4 },
   
-  // Statistics Page
-  statsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  pageTitle: { fontSize: 24, fontWeight: '800', color: '#1F2937' },
-  pageSubtitle: { fontSize: 14, color: '#6B7280', marginBottom: 16 },
-  dateRangeSelector: { flexDirection: 'row', backgroundColor: '#E5E7EB', borderRadius: 8, padding: 4 },
-  dateRangeBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
-  dateRangeBtnActive: { backgroundColor: '#1F2937' },
-  dateRangeBtnText: { color: '#6B7280', fontSize: 12, fontWeight: '600' },
-  dateRangeBtnTextActive: { color: '#FFF' },
-  statsGridFull: { gap: 12 },
-  statCardFull: { backgroundColor: '#FFF', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center' },
-  statCardFullValue: { fontSize: 24, fontWeight: '800', color: '#FFF', marginLeft: 12 },
-  statCardFullLabel: { fontSize: 12, color: '#8898AA', marginLeft: 12 },
+  // Quick Actions
+  quickActionsGrid: { flexDirection: 'row', marginBottom: 20 },
+  quickActionCard: { flex: 1, backgroundColor: COLORS.card, borderRadius: 16, padding: 16, marginHorizontal: 4, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
+  quickActionGradient: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+  quickActionLabel: { color: COLORS.textSecondary, fontSize: 11, fontWeight: '600' },
+  
+  // Ref Link
+  refLinkCard: { backgroundColor: COLORS.card, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: COLORS.border },
+  refLinkLabel: { color: COLORS.textSecondary, fontSize: 12, marginBottom: 12 },
+  refLinkBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.cardLight, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14 },
+  refLinkText: { flex: 1, color: COLORS.text, fontSize: 14, fontWeight: '500' },
+  copyBtn: { padding: 4 },
+  
+  // Period Selector
+  periodSelector: { flexDirection: 'row', backgroundColor: COLORS.card, borderRadius: 12, padding: 4, marginBottom: 20 },
+  periodBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
+  periodBtnActive: { backgroundColor: COLORS.primary },
+  periodBtnText: { color: COLORS.textSecondary, fontSize: 12, fontWeight: '600' },
+  periodBtnTextActive: { color: '#FFF' },
+  
+  // Stats Overview
+  statsOverviewCard: { flexDirection: 'row', backgroundColor: COLORS.card, borderRadius: 16, padding: 24, marginBottom: 20, borderWidth: 1, borderColor: COLORS.border },
+  statsOverviewItem: { flex: 1, alignItems: 'center' },
+  statsOverviewValue: { color: COLORS.text, fontSize: 24, fontWeight: '800' },
+  statsOverviewLabel: { color: COLORS.textSecondary, fontSize: 12, marginTop: 4 },
+  statsOverviewDivider: { width: 1, backgroundColor: COLORS.border },
   
   // Chart
-  chartSection: { backgroundColor: '#FFF', borderRadius: 16, padding: 16, marginTop: 16 },
-  chartTitle: { fontSize: 16, fontWeight: '700', color: '#1F2937' },
-  chartSubtitle: { fontSize: 12, color: '#9CA3AF', marginBottom: 16 },
-  chartContainer: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end', height: 120, marginBottom: 16 },
-  chartBar: { alignItems: 'center', width: 30 },
-  chartBarInner: { width: 8, borderRadius: 4, marginBottom: 2 },
-  chartBarLabel: { fontSize: 10, color: '#9CA3AF', marginTop: 4 },
-  chartLegend: { flexDirection: 'row', justifyContent: 'center', gap: 16 },
-  chartLegendItem: { flexDirection: 'row', alignItems: 'center' },
-  chartLegendDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
-  chartLegendText: { fontSize: 12, color: '#6B7280' },
+  chartCard: { backgroundColor: COLORS.card, borderRadius: 16, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: COLORS.border },
+  chartTitle: { color: COLORS.text, fontSize: 14, fontWeight: '600', marginBottom: 20 },
+  chartContainer: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end', height: 120 },
+  chartColumn: { alignItems: 'center' },
+  chartBars: { flexDirection: 'row', alignItems: 'flex-end' },
+  chartBar: { width: 8, borderRadius: 4, marginHorizontal: 1 },
+  chartLabel: { color: COLORS.textMuted, fontSize: 9, marginTop: 8 },
+  chartLegend: { flexDirection: 'row', justifyContent: 'center', marginTop: 16 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 12 },
+  legendDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
+  legendText: { color: COLORS.textSecondary, fontSize: 11 },
   
-  // Links Page
+  // Detailed Stats
+  detailedStatsGrid: { flexDirection: 'row' },
+  detailedStatCard: { flex: 1, backgroundColor: COLORS.card, borderRadius: 12, padding: 16, marginHorizontal: 4, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
+  detailedStatValue: { color: COLORS.text, fontSize: 18, fontWeight: '700', marginTop: 8 },
+  detailedStatLabel: { color: COLORS.textSecondary, fontSize: 10, marginTop: 4 },
+  
+  // Links
   linksHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  addLinkBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#00E55A', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
-  addLinkBtnText: { color: '#000', fontWeight: '600', marginLeft: 4 },
-  emptyState: { alignItems: 'center', paddingVertical: 40 },
-  emptyStateText: { fontSize: 18, fontWeight: '600', color: '#1F2937', marginTop: 16 },
-  emptyStateSubtext: { fontSize: 14, color: '#6B7280', marginTop: 4 },
-  linkCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 16, marginBottom: 12 },
-  linkCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  linkName: { fontSize: 16, fontWeight: '700', color: '#1F2937' },
-  copyBtn: { padding: 4 },
-  linkCode: { fontSize: 14, color: '#3B82F6', marginTop: 4, marginBottom: 12 },
-  linkStats: { flexDirection: 'row', justifyContent: 'space-between' },
-  linkStat: { alignItems: 'center' },
-  linkStatValue: { fontSize: 16, fontWeight: '700', color: '#1F2937' },
-  linkStatLabel: { fontSize: 11, color: '#9CA3AF' },
+  createLinkBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primary, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12 },
+  createLinkBtnText: { color: '#FFF', fontSize: 13, fontWeight: '600', marginLeft: 6 },
+  emptyState: { alignItems: 'center', paddingVertical: 48 },
+  emptyStateTitle: { color: COLORS.text, fontSize: 16, fontWeight: '600', marginTop: 16 },
+  emptyStateText: { color: COLORS.textSecondary, fontSize: 13, marginTop: 4 },
+  linkCard: { backgroundColor: COLORS.card, borderRadius: 16, padding: 20, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
+  linkHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  linkName: { color: COLORS.text, fontSize: 15, fontWeight: '700' },
+  linkUrl: { color: COLORS.primary, fontSize: 13, marginTop: 8, marginBottom: 16 },
+  linkStats: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 16, borderTopWidth: 1, borderTopColor: COLORS.border },
+  linkStatItem: { alignItems: 'center' },
+  linkStatValue: { color: COLORS.text, fontSize: 16, fontWeight: '700' },
+  linkStatLabel: { color: COLORS.textMuted, fontSize: 10, marginTop: 2 },
   
-  // TOP 10
-  top10Card: { backgroundColor: '#FFF', borderRadius: 12, padding: 14, marginBottom: 10, flexDirection: 'row', alignItems: 'center' },
-  top10CardTop: { borderWidth: 1, borderColor: '#FFD700' },
-  top10Rank: { width: 40, alignItems: 'center' },
-  top10RankText: { fontSize: 16, fontWeight: '700', color: '#9CA3AF' },
-  top10Info: { flex: 1, marginLeft: 12 },
-  top10Name: { fontSize: 15, fontWeight: '600', color: '#1F2937' },
-  top10Level: { fontSize: 12, color: '#9CA3AF' },
-  top10Earnings: { alignItems: 'flex-end' },
-  top10EarningsValue: { fontSize: 16, fontWeight: '700', color: '#00E55A' },
-  top10EarningsLabel: { fontSize: 11, color: '#9CA3AF' },
-  
-  // Promo Materials
-  promoCard: { backgroundColor: '#FFF', borderRadius: 12, padding: 14, marginBottom: 10, flexDirection: 'row', alignItems: 'center' },
-  promoPreview: { width: 80, height: 50, backgroundColor: '#F3F4F6', borderRadius: 8, overflow: 'hidden' },
+  // Promo
+  promoCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.card, borderRadius: 12, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
+  promoPreview: { width: 80, height: 50, borderRadius: 8, overflow: 'hidden', backgroundColor: COLORS.cardLight },
   promoImage: { width: '100%', height: '100%' },
-  promoInfo: { flex: 1, marginLeft: 12 },
-  promoName: { fontSize: 14, fontWeight: '600', color: '#1F2937' },
-  promoSize: { fontSize: 12, color: '#9CA3AF' },
+  promoInfo: { flex: 1, marginLeft: 16 },
+  promoName: { color: COLORS.text, fontSize: 14, fontWeight: '600' },
+  promoSize: { color: COLORS.textMuted, fontSize: 11, marginTop: 2 },
   promoDownloadBtn: { padding: 8 },
   
+  // Top 10
+  top10Card: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.card, borderRadius: 12, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: COLORS.border },
+  top10CardTop: { borderColor: COLORS.gold + '50' },
+  top10Rank: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  top10RankText: { color: COLORS.textSecondary, fontSize: 14, fontWeight: '700' },
+  top10Info: { flex: 1, marginLeft: 16 },
+  top10Name: { color: COLORS.text, fontSize: 14, fontWeight: '600' },
+  top10Level: { color: COLORS.textMuted, fontSize: 11, marginTop: 2 },
+  top10Stats: { alignItems: 'flex-end' },
+  top10Earnings: { color: COLORS.primary, fontSize: 15, fontWeight: '700' },
+  top10Ftds: { color: COLORS.textMuted, fontSize: 11, marginTop: 2 },
+  
   // Support
-  supportCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 30, alignItems: 'center' },
-  supportTitle: { fontSize: 20, fontWeight: '700', color: '#1F2937', marginTop: 16 },
-  supportText: { fontSize: 14, color: '#6B7280', marginTop: 8, marginBottom: 24 },
-  telegramSupportBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0088CC', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
-  telegramSupportText: { color: '#FFF', fontSize: 16, fontWeight: '600', marginLeft: 10 },
-  supportEmail: { fontSize: 13, color: '#9CA3AF', marginTop: 16 },
+  supportCard: { backgroundColor: COLORS.card, borderRadius: 20, padding: 40, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
+  supportTitle: { color: COLORS.text, fontSize: 22, fontWeight: '700', marginTop: 20 },
+  supportText: { color: COLORS.textSecondary, fontSize: 14, marginTop: 8, marginBottom: 32 },
+  telegramBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0088CC', paddingHorizontal: 32, paddingVertical: 16, borderRadius: 16 },
+  telegramBtnText: { color: '#FFF', fontSize: 16, fontWeight: '600', marginLeft: 12 },
+  supportEmail: { color: COLORS.textMuted, fontSize: 13, marginTop: 20 },
+  
+  // Modals
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
+  levelsModalContent: { backgroundColor: COLORS.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '80%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  modalTitle: { color: COLORS.text, fontSize: 18, fontWeight: '700' },
+  modalBody: { padding: 20 },
+  levelsSubtitle: { color: COLORS.textSecondary, fontSize: 13, marginBottom: 20 },
+  levelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border, position: 'relative' },
+  levelRowActive: { backgroundColor: COLORS.primaryGlow, marginHorizontal: -20, paddingHorizontal: 20, borderRadius: 12 },
+  levelRowBadge: { position: 'absolute', top: 4, right: 0, color: COLORS.primary, fontSize: 9, fontWeight: '700' },
+  levelRowLeft: { flexDirection: 'row', alignItems: 'center' },
+  levelIcon: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  levelName: { color: COLORS.text, fontSize: 14, fontWeight: '600' },
+  levelFtds: { color: COLORS.textMuted, fontSize: 11, marginTop: 2 },
+  levelRowRight: { alignItems: 'flex-end' },
+  levelRevenue: { fontSize: 18, fontWeight: '800' },
+  levelTurnover: { color: COLORS.textMuted, fontSize: 10, marginTop: 2 },
 });
