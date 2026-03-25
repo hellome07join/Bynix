@@ -6907,7 +6907,7 @@ async def affiliate_login(credentials: AffiliateLogin):
     if not affiliate:
         raise HTTPException(status_code=401, detail="Invalid email or password")
     
-    if not verify_password(credentials.password, affiliate["password_hash"]):
+    if not verify_password(credentials.password, affiliate.get("password_hash", "")):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     
     if not affiliate.get("is_active", True):
