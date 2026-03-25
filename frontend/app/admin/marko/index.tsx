@@ -262,6 +262,99 @@ export default function AdminDashboard() {
     fetchDashboardData();
   };
 
+  // Trade Action Handlers
+  const handleForceWin = async (tradeId: string) => {
+    if (!token) return;
+    
+    try {
+      const response = await fetch(`${API_URL}/admin/trades/${tradeId}/override`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ result: 'win' })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        Alert.alert('Success', `Trade forced to WIN. Profit: $${data.profit_loss?.toFixed(2) || 0}`);
+        fetchDashboardData(); // Refresh trades list
+      } else {
+        const error = await response.json();
+        Alert.alert('Error', error.detail || 'Failed to force win');
+      }
+    } catch (error) {
+      console.error('Force win error:', error);
+      Alert.alert('Error', 'Failed to force win');
+    }
+  };
+
+  const handleForceLoss = async (tradeId: string) => {
+    if (!token) return;
+    
+    try {
+      const response = await fetch(`${API_URL}/admin/trades/${tradeId}/override`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ result: 'lose' })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        Alert.alert('Success', `Trade forced to LOSS. Loss: $${Math.abs(data.profit_loss || 0).toFixed(2)}`);
+        fetchDashboardData(); // Refresh trades list
+      } else {
+        const error = await response.json();
+        Alert.alert('Error', error.detail || 'Failed to force loss');
+      }
+    } catch (error) {
+      console.error('Force loss error:', error);
+      Alert.alert('Error', 'Failed to force loss');
+    }
+  };
+
+  const handleCloseTrade = async (tradeId: string) => {
+    if (!token) return;
+    
+    Alert.alert(
+      'Confirm Close',
+      'Are you sure you want to cancel this trade and refund the user?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Close Trade',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await fetch(`${API_URL}/admin/trades/${tradeId}/cancel`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                }
+              });
+              
+              if (response.ok) {
+                Alert.alert('Success', 'Trade cancelled and user refunded');
+                fetchDashboardData(); // Refresh trades list
+              } else {
+                const error = await response.json();
+                Alert.alert('Error', error.detail || 'Failed to close trade');
+              }
+            } catch (error) {
+              console.error('Close trade error:', error);
+              Alert.alert('Error', 'Failed to close trade');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   // Format currency
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
@@ -1675,15 +1768,24 @@ export default function AdminDashboard() {
             </View>
 
             <View style={styles.liveTradeActions}>
-              <TouchableOpacity style={[styles.forceResultBtn, { backgroundColor: COLORS.successLight }]}>
+              <TouchableOpacity 
+                style={[styles.forceResultBtn, { backgroundColor: COLORS.successLight }]}
+                onPress={() => handleForceWin(trade.trade_id)}
+              >
                 <Ionicons name="checkmark" size={16} color={COLORS.success} />
                 <Text style={[styles.forceResultText, { color: COLORS.success }]}>Force Win</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.forceResultBtn, { backgroundColor: COLORS.dangerLight }]}>
+              <TouchableOpacity 
+                style={[styles.forceResultBtn, { backgroundColor: COLORS.dangerLight }]}
+                onPress={() => handleForceLoss(trade.trade_id)}
+              >
                 <Ionicons name="close" size={16} color={COLORS.danger} />
                 <Text style={[styles.forceResultText, { color: COLORS.danger }]}>Force Loss</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.forceResultBtn, { backgroundColor: COLORS.warningLight }]}>
+              <TouchableOpacity 
+                style={[styles.forceResultBtn, { backgroundColor: COLORS.warningLight }]}
+                onPress={() => handleCloseTrade(trade.trade_id)}
+              >
                 <Ionicons name="stop" size={16} color={COLORS.warning} />
                 <Text style={[styles.forceResultText, { color: COLORS.warning }]}>Close</Text>
               </TouchableOpacity>
