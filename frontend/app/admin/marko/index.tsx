@@ -1299,10 +1299,522 @@ export default function AdminDashboard() {
         return <TradingControlContent />;
       case 'live-trades':
         return <LiveTradesContent />;
+      case 'analytics':
+        return <AnalyticsContent />;
+      case 'deposits':
+        return <DepositsContent />;
+      case 'affiliates':
+        return <AffiliatesContent />;
+      case 'staff':
+        return <StaffContent />;
+      case 'settings':
+        return <SettingsContent />;
       default:
         return <PlaceholderContent title={MENU_ITEMS.find(m => m.id === activeMenu)?.label || 'Section'} />;
     }
   };
+
+  // Analytics Dashboard Content
+  const AnalyticsContent = () => (
+    <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
+      <View style={styles.pageHeader}>
+        <Text style={styles.pageTitle}>Analytics Dashboard</Text>
+        <Text style={styles.pageSubtitle}>Platform performance and insights</Text>
+      </View>
+
+      {/* Time Range Selector */}
+      <View style={styles.timeRangeSelector}>
+        {['24H', '7D', '30D', '90D', 'ALL'].map(range => (
+          <TouchableOpacity 
+            key={range}
+            style={[styles.timeRangeBtn, range === '7D' && styles.timeRangeBtnActive]}
+          >
+            <Text style={[styles.timeRangeBtnText, range === '7D' && styles.timeRangeBtnTextActive]}>
+              {range}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Revenue Overview */}
+      <View style={styles.analyticsGrid}>
+        <View style={[styles.analyticsCard, { backgroundColor: COLORS.successLight }]}>
+          <View style={styles.analyticsCardHeader}>
+            <Ionicons name="arrow-down-circle" size={24} color={COLORS.success} />
+            <View style={styles.analyticsTrend}>
+              <Ionicons name="trending-up" size={14} color={COLORS.success} />
+              <Text style={[styles.analyticsTrendText, { color: COLORS.success }]}>+18%</Text>
+            </View>
+          </View>
+          <Text style={[styles.analyticsValue, { color: COLORS.success }]}>
+            ${formatNumber(stats.totalDeposits)}
+          </Text>
+          <Text style={styles.analyticsLabel}>Total Deposits</Text>
+        </View>
+
+        <View style={[styles.analyticsCard, { backgroundColor: COLORS.dangerLight }]}>
+          <View style={styles.analyticsCardHeader}>
+            <Ionicons name="arrow-up-circle" size={24} color={COLORS.danger} />
+            <View style={styles.analyticsTrend}>
+              <Ionicons name="trending-down" size={14} color={COLORS.danger} />
+              <Text style={[styles.analyticsTrendText, { color: COLORS.danger }]}>-5%</Text>
+            </View>
+          </View>
+          <Text style={[styles.analyticsValue, { color: COLORS.danger }]}>
+            ${formatNumber(stats.totalWithdrawals)}
+          </Text>
+          <Text style={styles.analyticsLabel}>Total Withdrawals</Text>
+        </View>
+      </View>
+
+      <View style={styles.analyticsGrid}>
+        <View style={[styles.analyticsCard, { backgroundColor: COLORS.primaryLight }]}>
+          <View style={styles.analyticsCardHeader}>
+            <Ionicons name="cash" size={24} color={COLORS.primary} />
+            <View style={styles.analyticsTrend}>
+              <Ionicons name="trending-up" size={14} color={COLORS.success} />
+              <Text style={[styles.analyticsTrendText, { color: COLORS.success }]}>+32%</Text>
+            </View>
+          </View>
+          <Text style={[styles.analyticsValue, { color: COLORS.primary }]}>
+            ${formatNumber(stats.platformProfit)}
+          </Text>
+          <Text style={styles.analyticsLabel}>Net Profit</Text>
+        </View>
+
+        <View style={[styles.analyticsCard, { backgroundColor: COLORS.purpleLight }]}>
+          <View style={styles.analyticsCardHeader}>
+            <Ionicons name="people" size={24} color={COLORS.purple} />
+            <View style={styles.analyticsTrend}>
+              <Ionicons name="trending-up" size={14} color={COLORS.success} />
+              <Text style={[styles.analyticsTrendText, { color: COLORS.success }]}>+12%</Text>
+            </View>
+          </View>
+          <Text style={[styles.analyticsValue, { color: COLORS.purple }]}>
+            {stats.totalUsers}
+          </Text>
+          <Text style={styles.analyticsLabel}>Total Users</Text>
+        </View>
+      </View>
+
+      {/* Chart Placeholder */}
+      <View style={styles.chartCard}>
+        <View style={styles.chartHeader}>
+          <Text style={styles.chartTitle}>Revenue Overview</Text>
+          <View style={styles.chartLegend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: COLORS.success }]} />
+              <Text style={styles.legendText}>Deposits</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: COLORS.danger }]} />
+              <Text style={styles.legendText}>Withdrawals</Text>
+            </View>
+          </View>
+        </View>
+        <View style={styles.chartPlaceholder}>
+          <View style={styles.chartBars}>
+            {[65, 45, 80, 55, 70, 90, 75].map((height, index) => (
+              <View key={index} style={styles.chartBarGroup}>
+                <View style={[styles.chartBar, { height: height, backgroundColor: COLORS.success }]} />
+                <View style={[styles.chartBar, { height: height * 0.6, backgroundColor: COLORS.danger, marginLeft: 4 }]} />
+              </View>
+            ))}
+          </View>
+          <View style={styles.chartLabels}>
+            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+              <Text key={day} style={styles.chartLabel}>{day}</Text>
+            ))}
+          </View>
+        </View>
+      </View>
+
+      {/* Trading Stats */}
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Trading Statistics</Text>
+        <View style={styles.tradingStatsGrid}>
+          <View style={styles.tradingStatItem}>
+            <Text style={styles.tradingStatValue}>{stats.activeTrades}</Text>
+            <Text style={styles.tradingStatLabel}>Total Trades</Text>
+          </View>
+          <View style={styles.tradingStatItem}>
+            <Text style={[styles.tradingStatValue, { color: COLORS.success }]}>52%</Text>
+            <Text style={styles.tradingStatLabel}>Win Rate</Text>
+          </View>
+          <View style={styles.tradingStatItem}>
+            <Text style={[styles.tradingStatValue, { color: COLORS.primary }]}>$25.50</Text>
+            <Text style={styles.tradingStatLabel}>Avg Trade</Text>
+          </View>
+          <View style={styles.tradingStatItem}>
+            <Text style={[styles.tradingStatValue, { color: COLORS.danger }]}>$12.5K</Text>
+            <Text style={styles.tradingStatLabel}>Users P&L</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Top Users */}
+      <View style={[styles.sectionCard, { marginBottom: 40 }]}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Top Traders</Text>
+          <TouchableOpacity>
+            <Text style={styles.viewAllText}>View All</Text>
+          </TouchableOpacity>
+        </View>
+        
+        {recentUsers.slice(0, 5).map((user, index) => (
+          <View key={user.user_id || index} style={styles.topUserRow}>
+            <View style={styles.topUserRank}>
+              <Text style={[styles.topUserRankText, index < 3 && { color: COLORS.warning }]}>
+                #{index + 1}
+              </Text>
+            </View>
+            <View style={[styles.userAvatar, { width: 36, height: 36, borderRadius: 18 }]}>
+              <Text style={[styles.userAvatarText, { fontSize: 14 }]}>
+                {(user.name || user.email || 'U')[0].toUpperCase()}
+              </Text>
+            </View>
+            <View style={styles.topUserInfo}>
+              <Text style={styles.topUserName}>{user.name || 'Unnamed'}</Text>
+              <Text style={styles.topUserEmail}>{user.email}</Text>
+            </View>
+            <View style={styles.topUserStats}>
+              <Text style={styles.topUserVolume}>${(user.real_balance || 0).toFixed(0)}</Text>
+              <Text style={styles.topUserLabel}>Volume</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    </ScrollView>
+  );
+
+  // Deposits Content
+  const DepositsContent = () => (
+    <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
+      <View style={styles.pageHeader}>
+        <Text style={styles.pageTitle}>Deposit Management</Text>
+        <Text style={styles.pageSubtitle}>Monitor and manage user deposits</Text>
+      </View>
+
+      {/* Deposit Stats */}
+      <View style={styles.depositStatsRow}>
+        <View style={[styles.depositStatCard, { backgroundColor: COLORS.successLight }]}>
+          <Ionicons name="checkmark-circle" size={28} color={COLORS.success} />
+          <Text style={[styles.depositStatValue, { color: COLORS.success }]}>
+            ${formatNumber(stats.totalDeposits)}
+          </Text>
+          <Text style={styles.depositStatLabel}>Total Deposits</Text>
+        </View>
+        <View style={[styles.depositStatCard, { backgroundColor: COLORS.warningLight }]}>
+          <Ionicons name="time" size={28} color={COLORS.warning} />
+          <Text style={[styles.depositStatValue, { color: COLORS.warning }]}>0</Text>
+          <Text style={styles.depositStatLabel}>Pending</Text>
+        </View>
+        <View style={[styles.depositStatCard, { backgroundColor: COLORS.primaryLight }]}>
+          <Ionicons name="today" size={28} color={COLORS.primary} />
+          <Text style={[styles.depositStatValue, { color: COLORS.primary }]}>$0</Text>
+          <Text style={styles.depositStatLabel}>Today</Text>
+        </View>
+      </View>
+
+      {/* Deposit Methods */}
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Payment Methods</Text>
+        {[
+          { name: 'USDT TRC20', icon: '₮', color: '#26A17B', enabled: true, deposits: 45 },
+          { name: 'Bitcoin', icon: '₿', color: '#F7931A', enabled: true, deposits: 23 },
+          { name: 'Ethereum', icon: 'Ξ', color: '#627EEA', enabled: false, deposits: 12 },
+        ].map((method, index) => (
+          <View key={method.name} style={styles.paymentMethodRow}>
+            <View style={styles.paymentMethodLeft}>
+              <View style={[styles.paymentMethodIcon, { backgroundColor: method.color + '20' }]}>
+                <Text style={[styles.paymentMethodIconText, { color: method.color }]}>{method.icon}</Text>
+              </View>
+              <View>
+                <Text style={styles.paymentMethodName}>{method.name}</Text>
+                <Text style={styles.paymentMethodDeposits}>{method.deposits} deposits</Text>
+              </View>
+            </View>
+            <Switch
+              value={method.enabled}
+              trackColor={{ false: COLORS.border, true: COLORS.success }}
+              thumbColor="#FFF"
+            />
+          </View>
+        ))}
+      </View>
+
+      {/* Recent Deposits */}
+      <View style={[styles.sectionCard, { marginBottom: 40 }]}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Recent Deposits</Text>
+          <TouchableOpacity>
+            <Text style={styles.viewAllText}>View All</Text>
+          </TouchableOpacity>
+        </View>
+        
+        <View style={styles.emptyState}>
+          <Ionicons name="wallet" size={48} color={COLORS.textMuted} />
+          <Text style={styles.emptyStateText}>No recent deposits</Text>
+        </View>
+      </View>
+    </ScrollView>
+  );
+
+  // Affiliates Content
+  const AffiliatesContent = () => (
+    <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
+      <View style={styles.pageHeader}>
+        <Text style={styles.pageTitle}>Affiliate Management</Text>
+        <Text style={styles.pageSubtitle}>Manage affiliate partners and commissions</Text>
+      </View>
+
+      {/* Affiliate Stats */}
+      <View style={styles.affiliateStatsGrid}>
+        <View style={[styles.affiliateStatCard, { borderLeftColor: COLORS.primary }]}>
+          <Text style={styles.affiliateStatValue}>0</Text>
+          <Text style={styles.affiliateStatLabel}>Total Affiliates</Text>
+        </View>
+        <View style={[styles.affiliateStatCard, { borderLeftColor: COLORS.success }]}>
+          <Text style={styles.affiliateStatValue}>0</Text>
+          <Text style={styles.affiliateStatLabel}>Active</Text>
+        </View>
+        <View style={[styles.affiliateStatCard, { borderLeftColor: COLORS.warning }]}>
+          <Text style={styles.affiliateStatValue}>$0</Text>
+          <Text style={styles.affiliateStatLabel}>Total Paid</Text>
+        </View>
+        <View style={[styles.affiliateStatCard, { borderLeftColor: COLORS.danger }]}>
+          <Text style={styles.affiliateStatValue}>$0</Text>
+          <Text style={styles.affiliateStatLabel}>Pending Payouts</Text>
+        </View>
+      </View>
+
+      {/* Commission Settings */}
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Commission Settings</Text>
+        <View style={styles.commissionRow}>
+          <View style={styles.commissionInfo}>
+            <Text style={styles.commissionLabel}>Revenue Share</Text>
+            <Text style={styles.commissionDesc}>Percentage of trading losses</Text>
+          </View>
+          <View style={styles.commissionValue}>
+            <Text style={styles.commissionValueText}>50%</Text>
+          </View>
+        </View>
+        <View style={styles.commissionRow}>
+          <View style={styles.commissionInfo}>
+            <Text style={styles.commissionLabel}>Turnover Commission</Text>
+            <Text style={styles.commissionDesc}>Percentage of trade volume</Text>
+          </View>
+          <View style={styles.commissionValue}>
+            <Text style={styles.commissionValueText}>2%</Text>
+          </View>
+        </View>
+        <View style={styles.commissionRow}>
+          <View style={styles.commissionInfo}>
+            <Text style={styles.commissionLabel}>CPA (Per FTD)</Text>
+            <Text style={styles.commissionDesc}>Fixed amount per first deposit</Text>
+          </View>
+          <View style={styles.commissionValue}>
+            <Text style={styles.commissionValueText}>$50</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Create Affiliate Button */}
+      <TouchableOpacity style={styles.createAffiliateBtn}>
+        <Ionicons name="add-circle" size={22} color="#FFF" />
+        <Text style={styles.createAffiliateBtnText}>Create New Affiliate</Text>
+      </TouchableOpacity>
+
+      {/* Affiliates List */}
+      <View style={[styles.sectionCard, { marginBottom: 40 }]}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Affiliate Partners</Text>
+        </View>
+        
+        <View style={styles.emptyState}>
+          <Ionicons name="git-network" size={48} color={COLORS.textMuted} />
+          <Text style={styles.emptyStateText}>No affiliates yet</Text>
+          <Text style={styles.emptyStateSubtext}>Create your first affiliate partner</Text>
+        </View>
+      </View>
+    </ScrollView>
+  );
+
+  // Staff Content
+  const StaffContent = () => (
+    <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
+      <View style={styles.pageHeader}>
+        <Text style={styles.pageTitle}>Staff Management</Text>
+        <Text style={styles.pageSubtitle}>Manage admin roles and permissions</Text>
+      </View>
+
+      {/* Staff Stats */}
+      <View style={styles.staffStatsRow}>
+        <View style={[styles.staffStatCard, { backgroundColor: COLORS.primaryLight }]}>
+          <Ionicons name="shield" size={24} color={COLORS.primary} />
+          <Text style={[styles.staffStatValue, { color: COLORS.primary }]}>1</Text>
+          <Text style={styles.staffStatLabel}>Super Admins</Text>
+        </View>
+        <View style={[styles.staffStatCard, { backgroundColor: COLORS.successLight }]}>
+          <Ionicons name="people" size={24} color={COLORS.success} />
+          <Text style={[styles.staffStatValue, { color: COLORS.success }]}>0</Text>
+          <Text style={styles.staffStatLabel}>Managers</Text>
+        </View>
+        <View style={[styles.staffStatCard, { backgroundColor: COLORS.warningLight }]}>
+          <Ionicons name="headset" size={24} color={COLORS.warning} />
+          <Text style={[styles.staffStatValue, { color: COLORS.warning }]}>0</Text>
+          <Text style={styles.staffStatLabel}>Support</Text>
+        </View>
+      </View>
+
+      {/* Roles */}
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Role Permissions</Text>
+        {[
+          { role: 'Super Admin', permissions: 'Full Access', color: COLORS.primary },
+          { role: 'Manager', permissions: 'User & Trading Control', color: COLORS.success },
+          { role: 'Support', permissions: 'User Support Only', color: COLORS.warning },
+          { role: 'Finance', permissions: 'Payments Only', color: COLORS.purple },
+        ].map(item => (
+          <View key={item.role} style={styles.roleRow}>
+            <View style={[styles.roleDot, { backgroundColor: item.color }]} />
+            <View style={styles.roleInfo}>
+              <Text style={styles.roleName}>{item.role}</Text>
+              <Text style={styles.rolePermissions}>{item.permissions}</Text>
+            </View>
+            <TouchableOpacity style={styles.editRoleBtn}>
+              <Ionicons name="create-outline" size={18} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        ))}
+      </View>
+
+      {/* Add Staff Button */}
+      <TouchableOpacity style={styles.addStaffBtn}>
+        <Ionicons name="person-add" size={20} color="#FFF" />
+        <Text style={styles.addStaffBtnText}>Add Staff Member</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+
+  // Settings Content
+  const SettingsContent = () => (
+    <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
+      <View style={styles.pageHeader}>
+        <Text style={styles.pageTitle}>Settings</Text>
+        <Text style={styles.pageSubtitle}>Platform configuration</Text>
+      </View>
+
+      {/* General Settings */}
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>General</Text>
+        
+        <View style={styles.settingRow}>
+          <View style={styles.settingInfo}>
+            <Ionicons name="globe-outline" size={22} color={COLORS.primary} />
+            <Text style={styles.settingLabel}>Platform Name</Text>
+          </View>
+          <Text style={styles.settingValue}>Bynix</Text>
+        </View>
+        
+        <View style={styles.settingRow}>
+          <View style={styles.settingInfo}>
+            <Ionicons name="mail-outline" size={22} color={COLORS.primary} />
+            <Text style={styles.settingLabel}>Support Email</Text>
+          </View>
+          <Text style={styles.settingValue}>support@bynix.io</Text>
+        </View>
+        
+        <View style={styles.settingRow}>
+          <View style={styles.settingInfo}>
+            <Ionicons name="time-outline" size={22} color={COLORS.primary} />
+            <Text style={styles.settingLabel}>Timezone</Text>
+          </View>
+          <Text style={styles.settingValue}>UTC+0</Text>
+        </View>
+      </View>
+
+      {/* Security Settings */}
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Security</Text>
+        
+        <View style={styles.settingToggleRow}>
+          <View style={styles.settingInfo}>
+            <Ionicons name="finger-print-outline" size={22} color={COLORS.success} />
+            <View style={styles.settingTextWrap}>
+              <Text style={styles.settingLabel}>2FA Required</Text>
+              <Text style={styles.settingDesc}>Require 2FA for all admin logins</Text>
+            </View>
+          </View>
+          <Switch
+            value={true}
+            trackColor={{ false: COLORS.border, true: COLORS.success }}
+            thumbColor="#FFF"
+          />
+        </View>
+        
+        <View style={styles.settingToggleRow}>
+          <View style={styles.settingInfo}>
+            <Ionicons name="location-outline" size={22} color={COLORS.warning} />
+            <View style={styles.settingTextWrap}>
+              <Text style={styles.settingLabel}>IP Whitelist</Text>
+              <Text style={styles.settingDesc}>Only allow specific IPs</Text>
+            </View>
+          </View>
+          <Switch
+            value={false}
+            trackColor={{ false: COLORS.border, true: COLORS.success }}
+            thumbColor="#FFF"
+          />
+        </View>
+        
+        <View style={styles.settingToggleRow}>
+          <View style={styles.settingInfo}>
+            <Ionicons name="document-text-outline" size={22} color={COLORS.info} />
+            <View style={styles.settingTextWrap}>
+              <Text style={styles.settingLabel}>Audit Logs</Text>
+              <Text style={styles.settingDesc}>Track all admin activities</Text>
+            </View>
+          </View>
+          <Switch
+            value={true}
+            trackColor={{ false: COLORS.border, true: COLORS.success }}
+            thumbColor="#FFF"
+          />
+        </View>
+      </View>
+
+      {/* Trading Settings */}
+      <View style={[styles.sectionCard, { marginBottom: 40 }]}>
+        <Text style={styles.sectionTitle}>Trading</Text>
+        
+        <View style={styles.settingRow}>
+          <View style={styles.settingInfo}>
+            <Ionicons name="cash-outline" size={22} color={COLORS.success} />
+            <Text style={styles.settingLabel}>Min Trade Amount</Text>
+          </View>
+          <Text style={styles.settingValue}>$1</Text>
+        </View>
+        
+        <View style={styles.settingRow}>
+          <View style={styles.settingInfo}>
+            <Ionicons name="trending-up-outline" size={22} color={COLORS.danger} />
+            <Text style={styles.settingLabel}>Max Trade Amount</Text>
+          </View>
+          <Text style={styles.settingValue}>$10,000</Text>
+        </View>
+        
+        <View style={styles.settingRow}>
+          <View style={styles.settingInfo}>
+            <Ionicons name="timer-outline" size={22} color={COLORS.warning} />
+            <Text style={styles.settingLabel}>Min Duration</Text>
+          </View>
+          <Text style={styles.settingValue}>30 seconds</Text>
+        </View>
+      </View>
+    </ScrollView>
+  );
 
   // Render sidebar menu items grouped by section
   const renderMenuItems = () => {
@@ -2884,5 +3396,440 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     marginLeft: 4,
+  },
+
+  // Phase 3 - Analytics Styles
+  timeRangeSelector: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  timeRangeBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  timeRangeBtnActive: {
+    backgroundColor: COLORS.primary,
+  },
+  timeRangeBtnText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  timeRangeBtnTextActive: {
+    color: '#FFF',
+  },
+  analyticsGrid: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  analyticsCard: {
+    flex: 1,
+    padding: 18,
+    borderRadius: 16,
+    marginHorizontal: 6,
+  },
+  analyticsCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  analyticsTrend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  analyticsTrendText: {
+    fontSize: 11,
+    fontWeight: '700',
+    marginLeft: 2,
+  },
+  analyticsValue: {
+    fontSize: 26,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  analyticsLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  chartCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  chartHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  chartTitle: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  chartLegend: {
+    flexDirection: 'row',
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 16,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  legendText: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+  },
+  chartPlaceholder: {
+    height: 160,
+  },
+  chartBars: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    height: 130,
+  },
+  chartBarGroup: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+  chartBar: {
+    width: 16,
+    borderRadius: 4,
+  },
+  chartLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 10,
+  },
+  chartLabel: {
+    color: COLORS.textMuted,
+    fontSize: 10,
+  },
+  tradingStatsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  tradingStatItem: {
+    width: '25%',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  tradingStatValue: {
+    color: COLORS.text,
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  tradingStatLabel: {
+    color: COLORS.textMuted,
+    fontSize: 10,
+    marginTop: 4,
+  },
+  topUserRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  topUserRank: {
+    width: 30,
+  },
+  topUserRankText: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  topUserInfo: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  topUserName: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  topUserEmail: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  topUserStats: {
+    alignItems: 'flex-end',
+  },
+  topUserVolume: {
+    color: COLORS.success,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  topUserLabel: {
+    color: COLORS.textMuted,
+    fontSize: 10,
+    marginTop: 2,
+  },
+
+  // Deposits Styles
+  depositStatsRow: {
+    flexDirection: 'row',
+    marginBottom: 20,
+  },
+  depositStatCard: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 14,
+    marginHorizontal: 6,
+    alignItems: 'center',
+  },
+  depositStatValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    marginTop: 8,
+  },
+  depositStatLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    marginTop: 4,
+  },
+  paymentMethodRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  paymentMethodLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  paymentMethodIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  paymentMethodIconText: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  paymentMethodName: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  paymentMethodDeposits: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    marginTop: 2,
+  },
+
+  // Affiliates Styles
+  affiliateStatsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 20,
+  },
+  affiliateStatCard: {
+    width: '48%',
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    marginHorizontal: '1%',
+    borderLeftWidth: 4,
+  },
+  affiliateStatValue: {
+    color: COLORS.text,
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  affiliateStatLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    marginTop: 4,
+  },
+  commissionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  commissionInfo: {
+    flex: 1,
+  },
+  commissionLabel: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  commissionDesc: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  commissionValue: {
+    backgroundColor: COLORS.primaryLight,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  commissionValueText: {
+    color: COLORS.primary,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  createAffiliateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primary,
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  createAffiliateBtnText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+  emptyStateSubtext: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    marginTop: 4,
+  },
+
+  // Staff Styles
+  staffStatsRow: {
+    flexDirection: 'row',
+    marginBottom: 20,
+  },
+  staffStatCard: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 12,
+    marginHorizontal: 6,
+    alignItems: 'center',
+  },
+  staffStatValue: {
+    fontSize: 24,
+    fontWeight: '800',
+    marginTop: 8,
+  },
+  staffStatLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    marginTop: 4,
+  },
+  roleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  roleDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 12,
+  },
+  roleInfo: {
+    flex: 1,
+  },
+  roleName: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  rolePermissions: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  editRoleBtn: {
+    padding: 8,
+  },
+  addStaffBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primary,
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginTop: 20,
+    marginBottom: 40,
+  },
+  addStaffBtnText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+
+  // Settings Styles
+  settingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  settingInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  settingLabel: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 12,
+  },
+  settingValue: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+  },
+  settingToggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  settingTextWrap: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  settingDesc: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    marginTop: 2,
   },
 });
