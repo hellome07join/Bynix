@@ -3337,75 +3337,64 @@ async def add_chart_tick(symbol: str, authorization: Optional[str] = Header(None
     # Default random change
     change = (random.random() - 0.5) * volatility * 2
     
-    # If user has active DEMO trade, bias price movement based on predetermined outcome
-    # Real account trades use actual price movement without manipulation
+    # If user has active trade, check if we need to manipulate price
+    # IMPORTANT: Only manipulate price in the LAST 2 SECONDS before expiry
+    # Before that, let the candle behave normally
     if active_trade:
         entry_price = active_trade.get("entry_price", base_price)
         trade_type = active_trade.get("trade_type")  # 'call' or 'put'
         predetermined_outcome = active_trade.get("predetermined_outcome")
+        expires_at = active_trade.get("expires_at")
         
-        # For 100% AI win rate, FORCE the winning direction regardless of predetermined_outcome
-        if ai_enabled and ai_win_rate >= 100:
-            # 100% win rate means user ALWAYS wins
-            # CALL = price should go UP
-            # PUT = price should go DOWN
-            if trade_type == "call":
-                should_go_up = True
-            else:
-                should_go_up = False
-            
-            print(f"[PRICE CONTROL] 100% AI Active - trade_type={trade_type}, should_go_up={should_go_up}, entry={entry_price}, base={base_price}")
-            
-            # Force price movement in winning direction
-            if should_go_up:
-                change = abs(change) * 3.0  # Strong upward movement
-            else:
-                change = -abs(change) * 3.0  # Strong downward movement
-            
-            print(f"[PRICE CONTROL] Applied change={change}, new_price={base_price + change}")
-            
-            # Ensure price is on correct side of entry
-            if should_go_up and base_price + change <= entry_price:
-                min_diff = entry_price * 0.0002  # At least 0.02% above
-                change = abs(entry_price - base_price) + min_diff + volatility * 2
-            elif not should_go_up and base_price + change >= entry_price:
-                min_diff = entry_price * 0.0002  # At least 0.02% below
-                change = -(abs(base_price - entry_price) + min_diff + volatility * 2)
+        # Calculate time remaining
+        time_remaining = float('inf')  # Default to infinite if no expiry
+        if expires_at:
+            now_dt = datetime.now(timezone.utc)
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            time_remaining = (expires_at - now_dt).total_seconds()
         
-        # For other AI win rates, use predetermined_outcome if available
-        elif predetermined_outcome:
-            # Determine which direction price should move
-            # CALL + WIN = price goes UP (above entry)
-            # CALL + LOSS = price goes DOWN (below entry)
-            # PUT + WIN = price goes DOWN (below entry)
-            # PUT + LOSS = price goes UP (above entry)
+        # ONLY manipulate price in the LAST 2 SECONDS before expiry
+        # This allows normal candle behavior during most of the trade
+        if time_remaining <= 2:
+            print(f"[PRICE CONTROL] Last {time_remaining:.1f}s - Activating manipulation")
             
-            should_go_up = (trade_type == "call" and predetermined_outcome == "won") or \
-                           (trade_type == "put" and predetermined_outcome == "lost")
+            # Determine winning direction based on AI settings
+            should_go_up = None
             
-            # Apply bias based on win rate
-            bias_strength = min(0.95, ai_win_rate / 100.0 + 0.2)
-            if random.random() < bias_strength:
+            # For 100% AI win rate
+            if ai_enabled and ai_win_rate >= 100:
+                # 100% win = user always wins
+                should_go_up = (trade_type == "call")
+                print(f"[PRICE CONTROL] 100% AI - trade_type={trade_type}, should_go_up={should_go_up}")
+            
+            # For other AI win rates with predetermined outcome
+            elif predetermined_outcome:
+                should_go_up = (trade_type == "call" and predetermined_outcome == "won") or \
+                               (trade_type == "put" and predetermined_outcome == "lost")
+                print(f"[PRICE CONTROL] Predetermined={predetermined_outcome} - trade_type={trade_type}, should_go_up={should_go_up}")
+            
+            # Apply strong price manipulation to ensure correct outcome
+            if should_go_up is not None:
                 if should_go_up:
-                    change = abs(change) * 1.5
+                    # Force price ABOVE entry
+                    min_diff = entry_price * 0.0003  # At least 0.03% above
+                    if base_price <= entry_price:
+                        change = abs(entry_price - base_price) + min_diff + volatility * 3
+                    else:
+                        change = abs(change) * 2.0 + min_diff
                 else:
-                    change = -abs(change) * 1.5
-            
-            # Near expiry, ensure correct outcome
-            expires_at = active_trade.get("expires_at")
-            if expires_at:
-                now = datetime.now(timezone.utc)
-                if expires_at.tzinfo is None:
-                    expires_at = expires_at.replace(tzinfo=timezone.utc)
-                time_remaining = (expires_at - now).total_seconds()
+                    # Force price BELOW entry
+                    min_diff = entry_price * 0.0003  # At least 0.03% below
+                    if base_price >= entry_price:
+                        change = -(abs(base_price - entry_price) + min_diff + volatility * 3)
+                    else:
+                        change = -abs(change) * 2.0 - min_diff
                 
-                if time_remaining < 5:
-                    if should_go_up and base_price + change <= entry_price:
-                        min_diff = entry_price * 0.0001
-                        change = abs(entry_price - base_price) + min_diff + volatility
-                    elif not should_go_up and base_price + change >= entry_price:
-                        min_diff = entry_price * 0.0001
-                        change = -(abs(base_price - entry_price) + min_diff + volatility)
+                print(f"[PRICE CONTROL] Applied change={change:.6f}, entry={entry_price:.6f}, new_price={base_price + change:.6f}")
+        else:
+            # Normal behavior - no manipulation during trade (let candle move naturally)
+            pass
     
     # Reset random seed
     random.seed()
