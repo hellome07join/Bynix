@@ -129,6 +129,28 @@ export default function AdminDashboard() {
   const [recentUsers, setRecentUsers] = useState([]);
   const [recentTrades, setRecentTrades] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
+  
+  // Phase 2 States
+  const [allUsers, setAllUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [userFilter, setUserFilter] = useState('all'); // all, verified, unverified, banned
+  
+  // Trading Control States
+  const [tradingAssets, setTradingAssets] = useState([]);
+  const [selectedAsset, setSelectedAsset] = useState(null);
+  const [globalWinRate, setGlobalWinRate] = useState(45);
+  const [tradingEnabled, setTradingEnabled] = useState(true);
+  const [godModeStatus, setGodModeStatus] = useState(null);
+  
+  // User Edit States
+  const [editBalance, setEditBalance] = useState('');
+  const [balanceOperation, setBalanceOperation] = useState('add'); // add, subtract, set
+  const [balanceType, setBalanceType] = useState('real'); // real, demo, bonus
+  
+  // Live Trades
+  const [liveTrades, setLiveTrades] = useState([]);
 
   // Auth check
   useEffect(() => {
@@ -187,6 +209,35 @@ export default function AdminDashboard() {
       if (wdRes.ok) {
         const data = await wdRes.json();
         setWithdrawals(data.withdrawals || []);
+      }
+      
+      // Fetch all users for User Management
+      const allUsersRes = await fetch(`${API_URL}/admin/users?limit=100`, { headers });
+      if (allUsersRes.ok) {
+        const data = await allUsersRes.json();
+        setAllUsers(data.users || []);
+      }
+      
+      // Fetch assets
+      const assetsRes = await fetch(`${API_URL}/assets`, { headers });
+      if (assetsRes.ok) {
+        const data = await assetsRes.json();
+        setTradingAssets(data.assets || data || []);
+      }
+      
+      // Fetch God Mode status
+      const godModeRes = await fetch(`${API_URL}/admin/god-mode/status`, { headers });
+      if (godModeRes.ok) {
+        const data = await godModeRes.json();
+        setGodModeStatus(data);
+        if (data.global_win_rate) setGlobalWinRate(data.global_win_rate);
+      }
+      
+      // Fetch live trades
+      const liveTradesRes = await fetch(`${API_URL}/admin/trades?limit=50&status=active`, { headers });
+      if (liveTradesRes.ok) {
+        const data = await liveTradesRes.json();
+        setLiveTrades(data.trades || []);
       }
       
     } catch (error) {
@@ -457,79 +508,370 @@ export default function AdminDashboard() {
     </ScrollView>
   );
 
-  // User Management Content
-  const UsersContent = () => (
-    <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
-      <View style={styles.pageHeader}>
-        <Text style={styles.pageTitle}>User Management</Text>
-        <Text style={styles.pageSubtitle}>Manage all platform users</Text>
-      </View>
+  // User Management Content - Enhanced
+  const UsersContent = () => {
+    // Filter users based on search and filter
+    const filteredUsers = allUsers.filter(user => {
+      const matchesSearch = !userSearchQuery || 
+        user.email?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+        user.name?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+        user.user_id?.includes(userSearchQuery);
       
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color={COLORS.textMuted} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search users by email, name, or ID..."
-            placeholderTextColor={COLORS.textMuted}
-          />
-        </View>
-        <TouchableOpacity style={styles.filterBtn}>
-          <Ionicons name="filter" size={20} color={COLORS.primary} />
-        </TouchableOpacity>
-      </View>
+      const matchesFilter = userFilter === 'all' ||
+        (userFilter === 'verified' && user.is_verified) ||
+        (userFilter === 'unverified' && !user.is_verified) ||
+        (userFilter === 'banned' && user.is_banned);
+      
+      return matchesSearch && matchesFilter;
+    });
 
-      {/* User Stats */}
-      <View style={styles.miniStatsRow}>
-        <View style={styles.miniStat}>
-          <Text style={styles.miniStatValue}>{stats.totalUsers}</Text>
-          <Text style={styles.miniStatLabel}>Total</Text>
-        </View>
-        <View style={styles.miniStat}>
-          <Text style={[styles.miniStatValue, { color: COLORS.success }]}>{stats.activeUsers}</Text>
-          <Text style={styles.miniStatLabel}>Active</Text>
-        </View>
-        <View style={styles.miniStat}>
-          <Text style={[styles.miniStatValue, { color: COLORS.warning }]}>{stats.pendingKYC}</Text>
-          <Text style={styles.miniStatLabel}>Pending KYC</Text>
-        </View>
-        <View style={styles.miniStat}>
-          <Text style={[styles.miniStatValue, { color: COLORS.danger }]}>0</Text>
-          <Text style={styles.miniStatLabel}>Banned</Text>
-        </View>
-      </View>
+    const handleUserPress = (user) => {
+      setSelectedUser(user);
+      setEditBalance('');
+      setBalanceOperation('add');
+      setBalanceType('real');
+      setShowUserModal(true);
+    };
 
-      {/* Users List */}
-      <View style={styles.sectionCard}>
-        {recentUsers.map((user, index) => (
-          <TouchableOpacity key={user.user_id || index} style={styles.userCard}>
-            <View style={styles.userCardLeft}>
-              <View style={[styles.userAvatar, { backgroundColor: COLORS.primary }]}>
-                <Text style={styles.userAvatarText}>{(user.name || user.email || 'U')[0].toUpperCase()}</Text>
+    const handleBalanceUpdate = async () => {
+      if (!selectedUser || !editBalance) return;
+      
+      try {
+        const amount = parseFloat(editBalance);
+        const response = await fetch(`${API_URL}/admin/users/${selectedUser.user_id}/balance`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            operation: balanceOperation,
+            balance_type: balanceType,
+            amount: amount
+          })
+        });
+        
+        if (response.ok) {
+          fetchDashboardData();
+          setShowUserModal(false);
+          alert('Balance updated successfully!');
+        } else {
+          alert('Failed to update balance');
+        }
+      } catch (error) {
+        console.error('Balance update error:', error);
+        alert('Error updating balance');
+      }
+    };
+
+    const handleBanUser = async (userId, shouldBan) => {
+      try {
+        const response = await fetch(`${API_URL}/admin/users/${userId}/ban`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ banned: shouldBan })
+        });
+        
+        if (response.ok) {
+          fetchDashboardData();
+          setShowUserModal(false);
+        }
+      } catch (error) {
+        console.error('Ban user error:', error);
+      }
+    };
+
+    return (
+      <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.pageHeader}>
+          <Text style={styles.pageTitle}>User Management</Text>
+          <Text style={styles.pageSubtitle}>Manage all platform users, KYC, and balances</Text>
+        </View>
+        
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <View style={styles.searchBar}>
+            <Ionicons name="search" size={20} color={COLORS.textMuted} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search users by email, name, or ID..."
+              placeholderTextColor={COLORS.textMuted}
+              value={userSearchQuery}
+              onChangeText={setUserSearchQuery}
+            />
+            {userSearchQuery ? (
+              <TouchableOpacity onPress={() => setUserSearchQuery('')}>
+                <Ionicons name="close-circle" size={20} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+
+        {/* Filter Tabs */}
+        <View style={styles.filterTabs}>
+          {[
+            { id: 'all', label: 'All Users', count: allUsers.length },
+            { id: 'verified', label: 'Verified', count: allUsers.filter(u => u.is_verified).length },
+            { id: 'unverified', label: 'Unverified', count: allUsers.filter(u => !u.is_verified).length },
+            { id: 'banned', label: 'Banned', count: allUsers.filter(u => u.is_banned).length },
+          ].map(tab => (
+            <TouchableOpacity
+              key={tab.id}
+              style={[styles.filterTab, userFilter === tab.id && styles.filterTabActive]}
+              onPress={() => setUserFilter(tab.id)}
+            >
+              <Text style={[styles.filterTabText, userFilter === tab.id && styles.filterTabTextActive]}>
+                {tab.label}
+              </Text>
+              <View style={[styles.filterTabBadge, userFilter === tab.id && styles.filterTabBadgeActive]}>
+                <Text style={[styles.filterTabBadgeText, userFilter === tab.id && styles.filterTabBadgeTextActive]}>
+                  {tab.count}
+                </Text>
               </View>
-              <View style={styles.userCardInfo}>
-                <Text style={styles.userCardName}>{user.name || 'Unnamed User'}</Text>
-                <Text style={styles.userCardEmail}>{user.email}</Text>
-                <View style={styles.userCardTags}>
-                  <View style={[styles.userTag, { backgroundColor: user.is_verified ? COLORS.successLight : COLORS.warningLight }]}>
-                    <Text style={[styles.userTagText, { color: user.is_verified ? COLORS.success : COLORS.warning }]}>
-                      {user.is_verified ? 'Verified' : 'Unverified'}
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* User Stats */}
+        <View style={styles.miniStatsRow}>
+          <View style={styles.miniStat}>
+            <Text style={styles.miniStatValue}>{stats.totalUsers}</Text>
+            <Text style={styles.miniStatLabel}>Total</Text>
+          </View>
+          <View style={styles.miniStat}>
+            <Text style={[styles.miniStatValue, { color: COLORS.success }]}>{stats.activeUsers}</Text>
+            <Text style={styles.miniStatLabel}>Active</Text>
+          </View>
+          <View style={styles.miniStat}>
+            <Text style={[styles.miniStatValue, { color: COLORS.warning }]}>{stats.pendingKYC}</Text>
+            <Text style={styles.miniStatLabel}>Pending KYC</Text>
+          </View>
+          <View style={styles.miniStat}>
+            <Text style={[styles.miniStatValue, { color: COLORS.danger }]}>
+              {allUsers.filter(u => u.is_banned).length}
+            </Text>
+            <Text style={styles.miniStatLabel}>Banned</Text>
+          </View>
+        </View>
+
+        {/* Users List */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Users ({filteredUsers.length})</Text>
+          </View>
+          
+          {filteredUsers.length > 0 ? (
+            filteredUsers.map((user, index) => (
+              <TouchableOpacity 
+                key={user.user_id || index} 
+                style={styles.userCard}
+                onPress={() => handleUserPress(user)}
+              >
+                <View style={styles.userCardLeft}>
+                  <View style={[styles.userAvatar, { backgroundColor: user.is_banned ? COLORS.danger : COLORS.primary }]}>
+                    <Text style={styles.userAvatarText}>{(user.name || user.email || 'U')[0].toUpperCase()}</Text>
+                  </View>
+                  <View style={styles.userCardInfo}>
+                    <Text style={styles.userCardName}>{user.name || 'Unnamed User'}</Text>
+                    <Text style={styles.userCardEmail}>{user.email}</Text>
+                    <View style={styles.userCardTags}>
+                      <View style={[styles.userTag, { backgroundColor: user.is_verified ? COLORS.successLight : COLORS.warningLight }]}>
+                        <Text style={[styles.userTagText, { color: user.is_verified ? COLORS.success : COLORS.warning }]}>
+                          {user.is_verified ? 'Verified' : 'Unverified'}
+                        </Text>
+                      </View>
+                      {user.is_banned && (
+                        <View style={[styles.userTag, { backgroundColor: COLORS.dangerLight, marginLeft: 6 }]}>
+                          <Text style={[styles.userTagText, { color: COLORS.danger }]}>Banned</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                </View>
+                <View style={styles.userCardRight}>
+                  <Text style={styles.userCardBalance}>${(user.real_balance || 0).toFixed(2)}</Text>
+                  <Text style={styles.userCardBalanceLabel}>Real Balance</Text>
+                  <Ionicons name="chevron-forward" size={20} color={COLORS.textMuted} style={{ marginTop: 8 }} />
+                </View>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons name="people" size={48} color={COLORS.textMuted} />
+              <Text style={styles.emptyStateText}>No users found</Text>
+            </View>
+          )}
+        </View>
+
+        {/* User Detail Modal */}
+        <Modal visible={showUserModal} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.userModalContent}>
+              {/* Modal Header */}
+              <View style={styles.modalHeader}>
+                <View style={styles.modalHeaderLeft}>
+                  <View style={[styles.modalAvatar, { backgroundColor: selectedUser?.is_banned ? COLORS.danger : COLORS.primary }]}>
+                    <Text style={styles.modalAvatarText}>
+                      {(selectedUser?.name || selectedUser?.email || 'U')[0].toUpperCase()}
+                    </Text>
+                  </View>
+                  <View>
+                    <Text style={styles.modalUserName}>{selectedUser?.name || 'Unnamed User'}</Text>
+                    <Text style={styles.modalUserEmail}>{selectedUser?.email}</Text>
+                  </View>
+                </View>
+                <TouchableOpacity onPress={() => setShowUserModal(false)}>
+                  <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+                {/* Balance Cards */}
+                <View style={styles.balanceCardsRow}>
+                  <View style={[styles.balanceCardModal, { backgroundColor: COLORS.successLight }]}>
+                    <Text style={styles.balanceCardLabel}>Real Balance</Text>
+                    <Text style={[styles.balanceCardValue, { color: COLORS.success }]}>
+                      ${(selectedUser?.real_balance || 0).toFixed(2)}
+                    </Text>
+                  </View>
+                  <View style={[styles.balanceCardModal, { backgroundColor: COLORS.primaryLight }]}>
+                    <Text style={styles.balanceCardLabel}>Demo Balance</Text>
+                    <Text style={[styles.balanceCardValue, { color: COLORS.primary }]}>
+                      ${(selectedUser?.demo_balance || 0).toFixed(2)}
                     </Text>
                   </View>
                 </View>
-              </View>
+
+                {/* User Info */}
+                <View style={styles.userInfoSection}>
+                  <Text style={styles.sectionTitleSmall}>User Information</Text>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>User ID</Text>
+                    <Text style={styles.infoValue}>{selectedUser?.user_id?.slice(0, 8)}...</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Status</Text>
+                    <View style={[styles.statusBadgeSmall, { backgroundColor: selectedUser?.is_verified ? COLORS.successLight : COLORS.warningLight }]}>
+                      <Text style={[styles.statusBadgeText, { color: selectedUser?.is_verified ? COLORS.success : COLORS.warning }]}>
+                        {selectedUser?.is_verified ? 'Verified' : 'Unverified'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>KYC Status</Text>
+                    <Text style={styles.infoValue}>{selectedUser?.kyc_status || 'Not Submitted'}</Text>
+                  </View>
+                </View>
+
+                {/* Balance Adjustment */}
+                <View style={styles.adjustBalanceSection}>
+                  <Text style={styles.sectionTitleSmall}>Adjust Balance</Text>
+                  
+                  {/* Balance Type Selection */}
+                  <View style={styles.optionRow}>
+                    {['real', 'demo', 'bonus'].map(type => (
+                      <TouchableOpacity
+                        key={type}
+                        style={[styles.optionBtn, balanceType === type && styles.optionBtnActive]}
+                        onPress={() => setBalanceType(type)}
+                      >
+                        <Text style={[styles.optionBtnText, balanceType === type && styles.optionBtnTextActive]}>
+                          {type.charAt(0).toUpperCase() + type.slice(1)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  {/* Operation Selection */}
+                  <View style={styles.optionRow}>
+                    {[
+                      { id: 'add', label: 'Add', icon: 'add-circle' },
+                      { id: 'subtract', label: 'Subtract', icon: 'remove-circle' },
+                      { id: 'set', label: 'Set', icon: 'create' }
+                    ].map(op => (
+                      <TouchableOpacity
+                        key={op.id}
+                        style={[styles.operationBtn, balanceOperation === op.id && styles.operationBtnActive]}
+                        onPress={() => setBalanceOperation(op.id)}
+                      >
+                        <Ionicons 
+                          name={op.icon} 
+                          size={18} 
+                          color={balanceOperation === op.id ? '#FFF' : COLORS.textSecondary} 
+                        />
+                        <Text style={[styles.operationBtnText, balanceOperation === op.id && styles.operationBtnTextActive]}>
+                          {op.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  {/* Amount Input */}
+                  <View style={styles.amountInputRow}>
+                    <View style={styles.amountInputWrapper}>
+                      <Text style={styles.currencyPrefix}>$</Text>
+                      <TextInput
+                        style={styles.amountInput}
+                        placeholder="0.00"
+                        placeholderTextColor={COLORS.textMuted}
+                        value={editBalance}
+                        onChangeText={setEditBalance}
+                        keyboardType="decimal-pad"
+                      />
+                    </View>
+                    <TouchableOpacity 
+                      style={[styles.applyBtn, !editBalance && styles.applyBtnDisabled]}
+                      onPress={handleBalanceUpdate}
+                      disabled={!editBalance}
+                    >
+                      <Text style={styles.applyBtnText}>Apply</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Action Buttons */}
+                <View style={styles.actionButtonsSection}>
+                  <Text style={styles.sectionTitleSmall}>Actions</Text>
+                  <View style={styles.actionButtonsRow}>
+                    <TouchableOpacity style={[styles.actionBtn, { backgroundColor: COLORS.warningLight }]}>
+                      <Ionicons name="document-text" size={20} color={COLORS.warning} />
+                      <Text style={[styles.actionBtnText, { color: COLORS.warning }]}>View KYC</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.actionBtn, { backgroundColor: COLORS.infoLight }]}>
+                      <Ionicons name="time" size={20} color={COLORS.info} />
+                      <Text style={[styles.actionBtnText, { color: COLORS.info }]}>Trade History</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.actionButtonsRow}>
+                    <TouchableOpacity 
+                      style={[styles.actionBtn, { backgroundColor: selectedUser?.is_banned ? COLORS.successLight : COLORS.dangerLight }]}
+                      onPress={() => handleBanUser(selectedUser?.user_id, !selectedUser?.is_banned)}
+                    >
+                      <Ionicons 
+                        name={selectedUser?.is_banned ? 'checkmark-circle' : 'ban'} 
+                        size={20} 
+                        color={selectedUser?.is_banned ? COLORS.success : COLORS.danger} 
+                      />
+                      <Text style={[styles.actionBtnText, { color: selectedUser?.is_banned ? COLORS.success : COLORS.danger }]}>
+                        {selectedUser?.is_banned ? 'Unban User' : 'Ban User'}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.actionBtn, { backgroundColor: COLORS.purpleLight }]}>
+                      <Ionicons name="mail" size={20} color={COLORS.purple} />
+                      <Text style={[styles.actionBtnText, { color: COLORS.purple }]}>Send Email</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </ScrollView>
             </View>
-            <View style={styles.userCardRight}>
-              <Text style={styles.userCardBalance}>${(user.real_balance || 0).toFixed(2)}</Text>
-              <Text style={styles.userCardBalanceLabel}>Real Balance</Text>
-              <Ionicons name="chevron-forward" size={20} color={COLORS.textMuted} style={{ marginTop: 8 }} />
-            </View>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </ScrollView>
-  );
+          </View>
+        </Modal>
+      </ScrollView>
+    );
+  };
 
   // Withdrawals Content
   const WithdrawalsContent = () => (
@@ -709,6 +1051,238 @@ export default function AdminDashboard() {
     </View>
   );
 
+  // Trading Control Content
+  const TradingControlContent = () => (
+    <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
+      <View style={styles.pageHeader}>
+        <Text style={styles.pageTitle}>Trading Control</Text>
+        <Text style={styles.pageSubtitle}>Manage trading assets and platform controls</Text>
+      </View>
+
+      {/* Global Trading Toggle */}
+      <View style={styles.globalToggleCard}>
+        <LinearGradient 
+          colors={tradingEnabled ? COLORS.gradient2 : COLORS.gradient4} 
+          style={styles.globalToggleGradient}
+        >
+          <View style={styles.globalToggleContent}>
+            <View style={styles.globalToggleLeft}>
+              <Ionicons name={tradingEnabled ? 'play-circle' : 'pause-circle'} size={40} color="#FFF" />
+              <View style={{marginLeft: 16}}>
+                <Text style={styles.globalToggleLabel}>Global Trading</Text>
+                <Text style={styles.globalToggleStatus}>{tradingEnabled ? 'ENABLED' : 'DISABLED'}</Text>
+              </View>
+            </View>
+            <Switch
+              value={tradingEnabled}
+              onValueChange={setTradingEnabled}
+              trackColor={{ false: 'rgba(255,255,255,0.3)', true: 'rgba(255,255,255,0.5)' }}
+              thumbColor="#FFF"
+            />
+          </View>
+        </LinearGradient>
+      </View>
+
+      {/* Quick Controls */}
+      <View style={styles.quickControlsGrid}>
+        <View style={[styles.quickControlCard, { backgroundColor: COLORS.primaryLight }]}>
+          <Ionicons name="flash" size={24} color={COLORS.primary} />
+          <Text style={styles.quickControlValue}>50ms</Text>
+          <Text style={styles.quickControlLabel}>Execution Delay</Text>
+        </View>
+        <View style={[styles.quickControlCard, { backgroundColor: COLORS.warningLight }]}>
+          <Ionicons name="trending-up" size={24} color={COLORS.warning} />
+          <Text style={styles.quickControlValue}>{globalWinRate}%</Text>
+          <Text style={styles.quickControlLabel}>Global Win Rate</Text>
+        </View>
+        <View style={[styles.quickControlCard, { backgroundColor: COLORS.dangerLight }]}>
+          <Ionicons name="wallet" size={24} color={COLORS.danger} />
+          <Text style={styles.quickControlValue}>$10K</Text>
+          <Text style={styles.quickControlLabel}>Profit Cap</Text>
+        </View>
+      </View>
+
+      {/* Trading Assets */}
+      <View style={styles.sectionCard}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Trading Assets</Text>
+          <TouchableOpacity style={styles.addAssetBtn}>
+            <Ionicons name="add" size={18} color={COLORS.primary} />
+            <Text style={styles.addAssetBtnText}>Add Asset</Text>
+          </TouchableOpacity>
+        </View>
+
+        {[
+          { symbol: 'BTCUSDT', name: 'Bitcoin', payout: 95, enabled: true, category: 'Crypto' },
+          { symbol: 'ETHUSDT', name: 'Ethereum', payout: 92, enabled: true, category: 'Crypto' },
+          { symbol: 'EURUSD', name: 'Euro/Dollar', payout: 88, enabled: true, category: 'Forex' },
+          { symbol: 'GBPUSD', name: 'Pound/Dollar', payout: 85, enabled: false, category: 'Forex' },
+          { symbol: 'XAUUSD', name: 'Gold', payout: 90, enabled: true, category: 'Commodities' },
+        ].map((asset, index) => (
+          <View key={asset.symbol} style={styles.assetRow}>
+            <View style={styles.assetLeft}>
+              <View style={[styles.assetIcon, { backgroundColor: asset.enabled ? COLORS.primaryLight : COLORS.cardHover }]}>
+                <Text style={[styles.assetIconText, { color: asset.enabled ? COLORS.primary : COLORS.textMuted }]}>
+                  {asset.symbol.slice(0, 3)}
+                </Text>
+              </View>
+              <View>
+                <Text style={styles.assetSymbol}>{asset.symbol}</Text>
+                <Text style={styles.assetName}>{asset.name}</Text>
+              </View>
+            </View>
+            <View style={styles.assetMiddle}>
+              <Text style={styles.assetPayout}>{asset.payout}%</Text>
+              <Text style={styles.assetPayoutLabel}>Payout</Text>
+            </View>
+            <View style={styles.assetCategory}>
+              <Text style={styles.assetCategoryText}>{asset.category}</Text>
+            </View>
+            <Switch
+              value={asset.enabled}
+              trackColor={{ false: COLORS.border, true: COLORS.success }}
+              thumbColor="#FFF"
+            />
+          </View>
+        ))}
+      </View>
+
+      {/* Payout Control */}
+      <View style={[styles.sectionCard, { marginBottom: 40 }]}>
+        <Text style={styles.sectionTitle}>Dynamic Payout Control</Text>
+        <Text style={styles.payoutDesc}>Adjust global payout percentage for all assets</Text>
+        
+        <View style={styles.payoutSlider}>
+          <View style={styles.payoutSliderTrack}>
+            <View style={[styles.payoutSliderFill, { width: '85%' }]} />
+          </View>
+          <View style={styles.payoutSliderLabels}>
+            <Text style={styles.payoutSliderLabel}>50%</Text>
+            <Text style={styles.payoutSliderValue}>85%</Text>
+            <Text style={styles.payoutSliderLabel}>100%</Text>
+          </View>
+        </View>
+      </View>
+    </ScrollView>
+  );
+
+  // Live Trades Content
+  const LiveTradesContent = () => (
+    <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
+      <View style={styles.pageHeader}>
+        <View style={styles.pageHeaderLeft}>
+          <Text style={styles.pageTitle}>Live Trades</Text>
+          <View style={styles.liveBadgeLarge}>
+            <View style={styles.liveDotLarge} />
+            <Text style={styles.liveBadgeLargeText}>LIVE</Text>
+          </View>
+        </View>
+        <Text style={styles.pageSubtitle}>Monitor and control active trades in real-time</Text>
+      </View>
+
+      {/* Live Stats */}
+      <View style={styles.liveStatsRow}>
+        <View style={[styles.liveStatCard, { backgroundColor: COLORS.primaryLight }]}>
+          <Text style={[styles.liveStatValue, { color: COLORS.primary }]}>{liveTrades.length || recentTrades.length}</Text>
+          <Text style={styles.liveStatLabel}>Active Trades</Text>
+        </View>
+        <View style={[styles.liveStatCard, { backgroundColor: COLORS.successLight }]}>
+          <Text style={[styles.liveStatValue, { color: COLORS.success }]}>
+            ${recentTrades.filter(t => t.direction === 'call').reduce((sum, t) => sum + (t.amount || 0), 0).toFixed(0)}
+          </Text>
+          <Text style={styles.liveStatLabel}>Call Volume</Text>
+        </View>
+        <View style={[styles.liveStatCard, { backgroundColor: COLORS.dangerLight }]}>
+          <Text style={[styles.liveStatValue, { color: COLORS.danger }]}>
+            ${recentTrades.filter(t => t.direction === 'put').reduce((sum, t) => sum + (t.amount || 0), 0).toFixed(0)}
+          </Text>
+          <Text style={styles.liveStatLabel}>Put Volume</Text>
+        </View>
+      </View>
+
+      {/* Live Trades List */}
+      <View style={styles.sectionCard}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Active Trades</Text>
+          <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh}>
+            <Ionicons name="refresh" size={18} color={COLORS.primary} />
+          </TouchableOpacity>
+        </View>
+
+        {(liveTrades.length > 0 ? liveTrades : recentTrades).map((trade, index) => (
+          <View key={trade.trade_id || index} style={styles.liveTradeCard}>
+            <View style={styles.liveTradeHeader}>
+              <View style={styles.liveTradeUser}>
+                <View style={styles.liveTradeAvatar}>
+                  <Text style={styles.liveTradeAvatarText}>
+                    {(trade.user_email || 'U')[0].toUpperCase()}
+                  </Text>
+                </View>
+                <View>
+                  <Text style={styles.liveTradeEmail}>{trade.user_email || 'User'}</Text>
+                  <Text style={styles.liveTradeAsset}>{trade.asset || 'BTCUSDT'}</Text>
+                </View>
+              </View>
+              <View style={[
+                styles.liveTradeDirection,
+                { backgroundColor: trade.direction === 'call' ? COLORS.successLight : COLORS.dangerLight }
+              ]}>
+                <Ionicons 
+                  name={trade.direction === 'call' ? 'arrow-up' : 'arrow-down'} 
+                  size={16} 
+                  color={trade.direction === 'call' ? COLORS.success : COLORS.danger} 
+                />
+                <Text style={[
+                  styles.liveTradeDirectionText,
+                  { color: trade.direction === 'call' ? COLORS.success : COLORS.danger }
+                ]}>
+                  {trade.direction?.toUpperCase() || 'CALL'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.liveTradeBody}>
+              <View style={styles.liveTradeInfo}>
+                <Text style={styles.liveTradeLabel}>Amount</Text>
+                <Text style={styles.liveTradeValue}>${trade.amount || 0}</Text>
+              </View>
+              <View style={styles.liveTradeInfo}>
+                <Text style={styles.liveTradeLabel}>Duration</Text>
+                <Text style={styles.liveTradeValue}>{trade.duration || 60}s</Text>
+              </View>
+              <View style={styles.liveTradeInfo}>
+                <Text style={styles.liveTradeLabel}>Payout</Text>
+                <Text style={styles.liveTradeValue}>95%</Text>
+              </View>
+            </View>
+
+            <View style={styles.liveTradeActions}>
+              <TouchableOpacity style={[styles.forceResultBtn, { backgroundColor: COLORS.successLight }]}>
+                <Ionicons name="checkmark" size={16} color={COLORS.success} />
+                <Text style={[styles.forceResultText, { color: COLORS.success }]}>Force Win</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.forceResultBtn, { backgroundColor: COLORS.dangerLight }]}>
+                <Ionicons name="close" size={16} color={COLORS.danger} />
+                <Text style={[styles.forceResultText, { color: COLORS.danger }]}>Force Loss</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.forceResultBtn, { backgroundColor: COLORS.warningLight }]}>
+                <Ionicons name="stop" size={16} color={COLORS.warning} />
+                <Text style={[styles.forceResultText, { color: COLORS.warning }]}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))}
+
+        {(liveTrades.length === 0 && recentTrades.length === 0) && (
+          <View style={styles.emptyState}>
+            <Ionicons name="pulse" size={48} color={COLORS.textMuted} />
+            <Text style={styles.emptyStateText}>No active trades</Text>
+          </View>
+        )}
+      </View>
+    </ScrollView>
+  );
+
   // Render main content based on active menu
   const renderContent = () => {
     switch (activeMenu) {
@@ -721,6 +1295,10 @@ export default function AdminDashboard() {
         return <WithdrawalsContent />;
       case 'ai-control':
         return <AIControlContent />;
+      case 'trading':
+        return <TradingControlContent />;
+      case 'live-trades':
+        return <LiveTradesContent />;
       default:
         return <PlaceholderContent title={MENU_ITEMS.find(m => m.id === activeMenu)?.label || 'Section'} />;
     }
@@ -1722,5 +2300,589 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 14,
     marginTop: 8,
+  },
+
+  // Phase 2 Styles - User Management Enhanced
+  filterTabs: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  filterTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  filterTabActive: {
+    backgroundColor: COLORS.primary,
+  },
+  filterTabText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  filterTabTextActive: {
+    color: '#FFF',
+  },
+  filterTabBadge: {
+    backgroundColor: COLORS.cardHover,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 6,
+  },
+  filterTabBadgeActive: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  filterTabBadgeText: {
+    color: COLORS.textMuted,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  filterTabBadgeTextActive: {
+    color: '#FFF',
+  },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  userModalContent: {
+    backgroundColor: COLORS.card,
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '90%',
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  modalHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  modalAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  modalAvatarText: {
+    color: '#FFF',
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  modalUserName: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  modalUserEmail: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+  },
+  modalBody: {
+    padding: 20,
+  },
+  balanceCardsRow: {
+    flexDirection: 'row',
+    marginBottom: 20,
+  },
+  balanceCardModal: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 12,
+    marginHorizontal: 6,
+    alignItems: 'center',
+  },
+  balanceCardLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  balanceCardValue: {
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  userInfoSection: {
+    backgroundColor: COLORS.cardHover,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+  },
+  sectionTitleSmall: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  infoLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+  },
+  infoValue: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  statusBadgeSmall: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  adjustBalanceSection: {
+    backgroundColor: COLORS.cardHover,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+  },
+  optionRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  optionBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: COLORS.card,
+    marginHorizontal: 4,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  optionBtnActive: {
+    backgroundColor: COLORS.primaryLight,
+    borderColor: COLORS.primary,
+  },
+  optionBtnText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  optionBtnTextActive: {
+    color: COLORS.primary,
+  },
+  operationBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: COLORS.card,
+    marginHorizontal: 4,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  operationBtnActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  operationBtnText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  operationBtnTextActive: {
+    color: '#FFF',
+  },
+  amountInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  amountInputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.card,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginRight: 12,
+  },
+  currencyPrefix: {
+    color: COLORS.primary,
+    fontSize: 18,
+    fontWeight: '700',
+    marginRight: 8,
+  },
+  amountInput: {
+    flex: 1,
+    paddingVertical: 12,
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  applyBtn: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 10,
+  },
+  applyBtnDisabled: {
+    opacity: 0.5,
+  },
+  applyBtnText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  actionButtonsSection: {
+    marginBottom: 20,
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    marginBottom: 10,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 10,
+    marginHorizontal: 4,
+  },
+  actionBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+
+  // Trading Control Styles
+  globalToggleCard: {
+    marginBottom: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  globalToggleGradient: {
+    padding: 24,
+  },
+  globalToggleContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  globalToggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  globalToggleLabel: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 13,
+  },
+  globalToggleStatus: {
+    color: '#FFF',
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  quickControlsGrid: {
+    flexDirection: 'row',
+    marginBottom: 20,
+  },
+  quickControlCard: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 12,
+    marginHorizontal: 6,
+    alignItems: 'center',
+  },
+  quickControlValue: {
+    color: COLORS.text,
+    fontSize: 20,
+    fontWeight: '800',
+    marginTop: 8,
+  },
+  quickControlLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    marginTop: 4,
+  },
+  addAssetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primaryLight,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  addAssetBtnText: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  assetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  assetLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  assetIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  assetIconText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  assetSymbol: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  assetName: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  assetMiddle: {
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  assetPayout: {
+    color: COLORS.success,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  assetPayoutLabel: {
+    color: COLORS.textMuted,
+    fontSize: 10,
+    marginTop: 2,
+  },
+  assetCategory: {
+    backgroundColor: COLORS.cardHover,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginRight: 12,
+  },
+  assetCategoryText: {
+    color: COLORS.textSecondary,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  payoutDesc: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    marginBottom: 16,
+  },
+  payoutSlider: {
+    marginTop: 8,
+  },
+  payoutSliderTrack: {
+    height: 8,
+    backgroundColor: COLORS.divider,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  payoutSliderFill: {
+    height: 8,
+    backgroundColor: COLORS.success,
+    borderRadius: 4,
+  },
+  payoutSliderLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  payoutSliderLabel: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+  },
+  payoutSliderValue: {
+    color: COLORS.success,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+
+  // Live Trades Styles
+  pageHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  liveBadgeLarge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.successLight,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginLeft: 12,
+  },
+  liveDotLarge: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.success,
+    marginRight: 6,
+  },
+  liveBadgeLargeText: {
+    color: COLORS.success,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  liveStatsRow: {
+    flexDirection: 'row',
+    marginBottom: 20,
+  },
+  liveStatCard: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 12,
+    marginHorizontal: 6,
+    alignItems: 'center',
+  },
+  liveStatValue: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  liveStatLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    marginTop: 4,
+  },
+  refreshBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  liveTradeCard: {
+    backgroundColor: COLORS.cardHover,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  liveTradeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  liveTradeUser: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  liveTradeAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  liveTradeAvatarText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  liveTradeEmail: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  liveTradeAsset: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  liveTradeDirection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  liveTradeDirectionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginLeft: 4,
+  },
+  liveTradeBody: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 12,
+  },
+  liveTradeInfo: {
+    alignItems: 'center',
+  },
+  liveTradeLabel: {
+    color: COLORS.textMuted,
+    fontSize: 10,
+    marginBottom: 4,
+  },
+  liveTradeValue: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  liveTradeActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  forceResultBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginHorizontal: 4,
+  },
+  forceResultText: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginLeft: 4,
   },
 });
