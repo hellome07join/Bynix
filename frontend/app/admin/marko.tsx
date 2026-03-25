@@ -347,8 +347,17 @@ export default function AdminDashboard() {
       setLoading(false);
     };
     init();
-    const interval = setInterval(() => { fetchTrades(); fetchDashboardStats(); fetchTrendingAssets(); }, 10000);
-    return () => clearInterval(interval);
+    
+    // Dashboard stats & trades refresh every 10 seconds
+    const statsInterval = setInterval(() => { fetchTrades(); fetchDashboardStats(); }, 10000);
+    
+    // Trending assets refresh every 2 minutes (120000 ms)
+    const trendingInterval = setInterval(() => { fetchTrendingAssets(); }, 120000);
+    
+    return () => {
+      clearInterval(statsInterval);
+      clearInterval(trendingInterval);
+    };
   }, []);
 
   useEffect(() => { fetchUsers(); }, [searchQuery, userFilter]);
