@@ -20,7 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const BYNIX_LOGO = 'https://i.imgur.com/YmJwNPH.png';
+const BYNIX_LOGO = null; // Using text logo instead
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL 
   ? `${process.env.EXPO_PUBLIC_BACKEND_URL}/api`
@@ -281,7 +281,9 @@ export default function AdminDashboard() {
   if (!authChecked || loading) {
     return (
       <View style={[styles.loadingContainer, { paddingTop: insets.top }]}>
-        <Image source={{ uri: BYNIX_LOGO }} style={styles.loadingLogo} resizeMode="contain" />
+        <View style={styles.textLogoLarge}>
+          <Text style={styles.textLogoTextLarge}>BYNIX</Text>
+        </View>
         <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 24 }} />
         <Text style={styles.loadingText}>Loading Dashboard...</Text>
       </View>
@@ -1867,7 +1869,9 @@ export default function AdminDashboard() {
       <View style={[styles.sidebar, sidebarCollapsed && styles.sidebarCollapsed]}>
         {/* Logo */}
         <View style={styles.sidebarHeader}>
-          <Image source={{ uri: BYNIX_LOGO }} style={styles.sidebarLogo} resizeMode="contain" />
+          <View style={styles.textLogo}>
+            <Text style={styles.textLogoText}>BYNIX</Text>
+          </View>
           {!sidebarCollapsed && <Text style={styles.sidebarTitle}>ADMIN</Text>}
         </View>
 
@@ -2041,6 +2045,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     marginLeft: 12,
+  },
+
+  // Text Logo Styles
+  textLogo: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  textLogoText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 2,
+  },
+  textLogoLarge: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  textLogoTextLarge: {
+    color: '#FFF',
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: 3,
   },
 
   // Main Content

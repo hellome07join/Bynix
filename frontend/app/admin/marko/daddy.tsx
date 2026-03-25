@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../../utils/api';
 
-const BYNIX_LOGO = 'https://i.imgur.com/YmJwNPH.png';
+const BYNIX_LOGO = 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/f2jhd9vy_IMG_3258.png';
 
 const COLORS = {
   bg: '#0A0E17',
