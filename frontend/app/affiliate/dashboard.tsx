@@ -74,6 +74,19 @@ export default function AffiliateDashboard() {
   const [editedName, setEditedName] = useState('');
   const [isSavingName, setIsSavingName] = useState(false);
   
+  // Settings states
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [pushNotifications, setPushNotifications] = useState(true);
+  const [usdtAddress, setUsdtAddress] = useState('');
+  const [isEditingUsdtAddress, setIsEditingUsdtAddress] = useState(false);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [show2FAModal, setShow2FAModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  
   // Data
   const [affiliate, setAffiliate] = useState<any>(null);
   const [dashboardData, setDashboardData] = useState<any>(null);
@@ -242,6 +255,134 @@ export default function AffiliateDashboard() {
   const cancelEditingName = () => {
     setIsEditingName(false);
     setEditedName('');
+  };
+  
+  // Load affiliate settings when settings modal opens
+  const loadAffiliateSettings = async () => {
+    try {
+      const token = await AsyncStorage.getItem('affiliate_token');
+      const response = await fetch(`${API_URL}/affiliate/settings`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setEmailNotifications(data.settings.email_notifications ?? true);
+        setPushNotifications(data.settings.push_notifications ?? true);
+        setUsdtAddress(data.settings.usdt_trc20_address || '');
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    }
+  };
+  
+  // Toggle notification setting
+  const toggleNotificationSetting = async (type: 'email' | 'push') => {
+    const token = await AsyncStorage.getItem('affiliate_token');
+    const newValue = type === 'email' ? !emailNotifications : !pushNotifications;
+    
+    // Update UI immediately
+    if (type === 'email') setEmailNotifications(newValue);
+    else setPushNotifications(newValue);
+    
+    try {
+      const response = await fetch(`${API_URL}/affiliate/settings`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          [type === 'email' ? 'email_notifications' : 'push_notifications']: newValue
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        showToast(`${type === 'email' ? 'Email' : 'Push'} notifications ${newValue ? 'enabled' : 'disabled'}`);
+      }
+    } catch (error) {
+      // Revert on error
+      if (type === 'email') setEmailNotifications(!newValue);
+      else setPushNotifications(!newValue);
+      showToast('Failed to update setting');
+    }
+  };
+  
+  // Save USDT TRC20 address
+  const saveUsdtAddress = async () => {
+    if (usdtAddress && !usdtAddress.startsWith('T')) {
+      showToast('Invalid TRC20 address format (must start with T)');
+      return;
+    }
+    
+    setIsSavingSettings(true);
+    try {
+      const token = await AsyncStorage.getItem('affiliate_token');
+      const response = await fetch(`${API_URL}/affiliate/settings`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ usdt_trc20_address: usdtAddress })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setIsEditingUsdtAddress(false);
+        showToast('USDT TRC20 address saved successfully!');
+      } else {
+        showToast(data.detail || 'Failed to save address');
+      }
+    } catch (error) {
+      showToast('Failed to save address');
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+  
+  // Change password
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      showToast('Please fill all fields');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      showToast('New passwords do not match');
+      return;
+    }
+    if (newPassword.length < 6) {
+      showToast('Password must be at least 6 characters');
+      return;
+    }
+    
+    setIsChangingPassword(true);
+    try {
+      const token = await AsyncStorage.getItem('affiliate_token');
+      const response = await fetch(`${API_URL}/affiliate/change-password`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password: newPassword
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setShowChangePasswordModal(false);
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        showToast('Password changed successfully!');
+      } else {
+        showToast(data.detail || 'Failed to change password');
+      }
+    } catch (error) {
+      showToast('Failed to change password');
+    } finally {
+      setIsChangingPassword(false);
+    }
   };
 
   const formatMoney = (n: number) => `$${(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -2469,7 +2610,7 @@ export default function AffiliateDashboard() {
       </Modal>
       
       {/* Settings Modal */}
-      <Modal visible={showSettingsModal} transparent animationType="slide">
+      <Modal visible={showSettingsModal} transparent animationType="slide" onShow={loadAffiliateSettings}>
         <View style={styles.fullModalOverlay}>
           <View style={styles.fullModalContent}>
             <View style={styles.fullModalHeader}>
@@ -2485,7 +2626,7 @@ export default function AffiliateDashboard() {
               <View style={styles.settingsSection}>
                 <Text style={styles.settingsSectionTitle}>Notifications</Text>
                 
-                <View style={styles.settingsRow}>
+                <TouchableOpacity style={styles.settingsRow} onPress={() => toggleNotificationSetting('email')}>
                   <View style={styles.settingsRowLeft}>
                     <Ionicons name="mail-outline" size={20} color={COLORS.primary} />
                     <View style={styles.settingsRowText}>
@@ -2493,14 +2634,12 @@ export default function AffiliateDashboard() {
                       <Text style={styles.settingsRowDesc}>Receive updates via email</Text>
                     </View>
                   </View>
-                  <View style={styles.settingsToggle}>
-                    <View style={[styles.toggleTrack, { backgroundColor: COLORS.primary }]}>
-                      <View style={[styles.toggleThumb, { right: 2 }]} />
-                    </View>
+                  <View style={[styles.toggleTrack, { backgroundColor: emailNotifications ? COLORS.primary : COLORS.border }]}>
+                    <View style={[styles.toggleThumb, emailNotifications ? { right: 2 } : { left: 2 }]} />
                   </View>
-                </View>
+                </TouchableOpacity>
                 
-                <View style={styles.settingsRow}>
+                <TouchableOpacity style={styles.settingsRow} onPress={() => toggleNotificationSetting('push')}>
                   <View style={styles.settingsRowLeft}>
                     <Ionicons name="notifications-outline" size={20} color={COLORS.accent} />
                     <View style={styles.settingsRowText}>
@@ -2508,46 +2647,72 @@ export default function AffiliateDashboard() {
                       <Text style={styles.settingsRowDesc}>Get instant alerts</Text>
                     </View>
                   </View>
-                  <View style={styles.settingsToggle}>
-                    <View style={[styles.toggleTrack, { backgroundColor: COLORS.primary }]}>
-                      <View style={[styles.toggleThumb, { right: 2 }]} />
-                    </View>
+                  <View style={[styles.toggleTrack, { backgroundColor: pushNotifications ? COLORS.primary : COLORS.border }]}>
+                    <View style={[styles.toggleThumb, pushNotifications ? { right: 2 } : { left: 2 }]} />
                   </View>
-                </View>
+                </TouchableOpacity>
               </View>
               
-              {/* Payment Settings */}
+              {/* Withdrawal Settings */}
               <View style={styles.settingsSection}>
-                <Text style={styles.settingsSectionTitle}>Payment</Text>
+                <Text style={styles.settingsSectionTitle}>Withdrawal</Text>
                 
-                <TouchableOpacity style={styles.settingsRow}>
-                  <View style={styles.settingsRowLeft}>
-                    <Ionicons name="wallet-outline" size={20} color={COLORS.warning} />
-                    <View style={styles.settingsRowText}>
-                      <Text style={styles.settingsRowTitle}>Withdrawal Methods</Text>
-                      <Text style={styles.settingsRowDesc}>Manage payout options</Text>
-                    </View>
+                <View style={styles.withdrawalCard}>
+                  <View style={styles.withdrawalHeader}>
+                    <Ionicons name="logo-usd" size={24} color={COLORS.primary} />
+                    <Text style={styles.withdrawalTitle}>USDT TRC20 Address</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color={COLORS.textMuted} />
-                </TouchableOpacity>
-                
-                <TouchableOpacity style={styles.settingsRow}>
-                  <View style={styles.settingsRowLeft}>
-                    <Ionicons name="card-outline" size={20} color={COLORS.purple} />
-                    <View style={styles.settingsRowText}>
-                      <Text style={styles.settingsRowTitle}>Bank Details</Text>
-                      <Text style={styles.settingsRowDesc}>Add/Update bank information</Text>
+                  <Text style={styles.withdrawalDesc}>Enter your USDT TRC20 wallet address to receive commission withdrawals</Text>
+                  
+                  {isEditingUsdtAddress ? (
+                    <View style={styles.usdtEditContainer}>
+                      <TextInput
+                        style={styles.usdtInput}
+                        value={usdtAddress}
+                        onChangeText={setUsdtAddress}
+                        placeholder="TRC20 Address (starts with T)"
+                        placeholderTextColor={COLORS.textMuted}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                      <View style={styles.usdtEditButtons}>
+                        <TouchableOpacity 
+                          style={styles.usdtCancelBtn} 
+                          onPress={() => setIsEditingUsdtAddress(false)}
+                        >
+                          <Text style={styles.usdtCancelText}>Cancel</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={styles.usdtSaveBtn} 
+                          onPress={saveUsdtAddress}
+                          disabled={isSavingSettings}
+                        >
+                          {isSavingSettings ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                          ) : (
+                            <Text style={styles.usdtSaveText}>Save Address</Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color={COLORS.textMuted} />
-                </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity style={styles.usdtDisplayBox} onPress={() => setIsEditingUsdtAddress(true)}>
+                      {usdtAddress ? (
+                        <Text style={styles.usdtAddressText} numberOfLines={1}>{usdtAddress}</Text>
+                      ) : (
+                        <Text style={styles.usdtPlaceholder}>Tap to add USDT TRC20 address</Text>
+                      )}
+                      <Ionicons name="pencil" size={16} color={COLORS.primary} />
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
               
               {/* Security Settings */}
               <View style={styles.settingsSection}>
                 <Text style={styles.settingsSectionTitle}>Security</Text>
                 
-                <TouchableOpacity style={styles.settingsRow}>
+                <TouchableOpacity style={styles.settingsRow} onPress={() => setShowChangePasswordModal(true)}>
                   <View style={styles.settingsRowLeft}>
                     <Ionicons name="lock-closed-outline" size={20} color={COLORS.danger} />
                     <View style={styles.settingsRowText}>
@@ -2558,7 +2723,7 @@ export default function AffiliateDashboard() {
                   <Ionicons name="chevron-forward" size={20} color={COLORS.textMuted} />
                 </TouchableOpacity>
                 
-                <TouchableOpacity style={styles.settingsRow}>
+                <TouchableOpacity style={styles.settingsRow} onPress={() => setShow2FAModal(true)}>
                   <View style={styles.settingsRowLeft}>
                     <Ionicons name="shield-checkmark-outline" size={20} color={COLORS.primary} />
                     <View style={styles.settingsRowText}>
@@ -2570,6 +2735,113 @@ export default function AffiliateDashboard() {
                 </TouchableOpacity>
               </View>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+      
+      {/* Change Password Modal */}
+      <Modal visible={showChangePasswordModal} transparent animationType="slide">
+        <View style={styles.fullModalOverlay}>
+          <View style={styles.fullModalContent}>
+            <View style={styles.fullModalHeader}>
+              <TouchableOpacity onPress={() => {
+                setShowChangePasswordModal(false);
+                setCurrentPassword('');
+                setNewPassword('');
+                setConfirmPassword('');
+              }} style={styles.modalBackBtn}>
+                <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+              <Text style={styles.fullModalTitle}>Change Password</Text>
+              <View style={{ width: 24 }} />
+            </View>
+            
+            <View style={styles.fullModalBody}>
+              <View style={styles.passwordFormSection}>
+                <Text style={styles.passwordInputLabel}>Current Password</Text>
+                <TextInput
+                  style={styles.passwordInput}
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
+                  placeholder="Enter current password"
+                  placeholderTextColor={COLORS.textMuted}
+                  secureTextEntry
+                />
+                
+                <Text style={styles.passwordInputLabel}>New Password</Text>
+                <TextInput
+                  style={styles.passwordInput}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  placeholder="Enter new password"
+                  placeholderTextColor={COLORS.textMuted}
+                  secureTextEntry
+                />
+                
+                <Text style={styles.passwordInputLabel}>Confirm New Password</Text>
+                <TextInput
+                  style={styles.passwordInput}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder="Confirm new password"
+                  placeholderTextColor={COLORS.textMuted}
+                  secureTextEntry
+                />
+                
+                <TouchableOpacity 
+                  style={styles.changePasswordBtn} 
+                  onPress={handleChangePassword}
+                  disabled={isChangingPassword}
+                >
+                  {isChangingPassword ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.changePasswordBtnText}>Change Password</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      
+      {/* 2FA Modal */}
+      <Modal visible={show2FAModal} transparent animationType="slide">
+        <View style={styles.fullModalOverlay}>
+          <View style={styles.fullModalContent}>
+            <View style={styles.fullModalHeader}>
+              <TouchableOpacity onPress={() => setShow2FAModal(false)} style={styles.modalBackBtn}>
+                <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+              <Text style={styles.fullModalTitle}>Two-Factor Authentication</Text>
+              <View style={{ width: 24 }} />
+            </View>
+            
+            <View style={styles.fullModalBody}>
+              <View style={styles.twoFASection}>
+                <View style={styles.twoFAIconWrap}>
+                  <Ionicons name="shield-checkmark" size={64} color={COLORS.primary} />
+                </View>
+                <Text style={styles.twoFATitle}>Secure Your Account</Text>
+                <Text style={styles.twoFADesc}>
+                  Two-factor authentication adds an extra layer of security to your account by requiring a verification code in addition to your password.
+                </Text>
+                
+                <View style={styles.twoFAStatus}>
+                  <Ionicons name="close-circle" size={20} color={COLORS.danger} />
+                  <Text style={styles.twoFAStatusText}>2FA is currently disabled</Text>
+                </View>
+                
+                <TouchableOpacity style={styles.twoFAEnableBtn}>
+                  <Ionicons name="shield-checkmark-outline" size={20} color="#fff" />
+                  <Text style={styles.twoFAEnableBtnText}>Enable 2FA</Text>
+                </TouchableOpacity>
+                
+                <Text style={styles.twoFANote}>
+                  You'll need a 2FA app like Google Authenticator or Authy to enable this feature.
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
       </Modal>
@@ -3218,6 +3490,40 @@ const styles = StyleSheet.create({
   settingsToggle: { marginLeft: 8 },
   toggleTrack: { width: 44, height: 24, borderRadius: 12, justifyContent: 'center', position: 'relative' },
   toggleThumb: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff', position: 'absolute' },
+  
+  // Withdrawal/USDT Address Styles
+  withdrawalCard: { backgroundColor: COLORS.white, borderRadius: 16, padding: 20, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
+  withdrawalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  withdrawalTitle: { fontSize: 16, fontWeight: '700', color: COLORS.text, marginLeft: 10 },
+  withdrawalDesc: { fontSize: 12, color: COLORS.textMuted, lineHeight: 18, marginBottom: 16 },
+  usdtDisplayBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: COLORS.cardLight, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 14, borderWidth: 1, borderColor: COLORS.border },
+  usdtAddressText: { fontSize: 13, color: COLORS.text, fontFamily: 'monospace', flex: 1, marginRight: 10 },
+  usdtPlaceholder: { fontSize: 13, color: COLORS.textMuted, fontStyle: 'italic' },
+  usdtEditContainer: { marginTop: 4 },
+  usdtInput: { backgroundColor: COLORS.cardLight, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 13, color: COLORS.text, borderWidth: 1, borderColor: COLORS.primary, fontFamily: 'monospace' },
+  usdtEditButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 12 },
+  usdtCancelBtn: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border },
+  usdtCancelText: { fontSize: 14, color: COLORS.textMuted },
+  usdtSaveBtn: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, backgroundColor: COLORS.primary },
+  usdtSaveText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+  
+  // Password Change Styles
+  passwordFormSection: { paddingVertical: 20 },
+  passwordInputLabel: { fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 8, marginTop: 16 },
+  passwordInput: { backgroundColor: COLORS.cardLight, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 14, color: COLORS.text, borderWidth: 1, borderColor: COLORS.border },
+  changePasswordBtn: { backgroundColor: COLORS.primary, borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 32 },
+  changePasswordBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  
+  // 2FA Styles
+  twoFASection: { alignItems: 'center', paddingVertical: 24 },
+  twoFAIconWrap: { width: 100, height: 100, borderRadius: 50, backgroundColor: COLORS.primaryLight, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  twoFATitle: { fontSize: 22, fontWeight: '700', color: COLORS.text, marginBottom: 12 },
+  twoFADesc: { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22, paddingHorizontal: 20, marginBottom: 24 },
+  twoFAStatus: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.dangerLight, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 20, marginBottom: 24 },
+  twoFAStatusText: { fontSize: 13, color: COLORS.danger, marginLeft: 8, fontWeight: '500' },
+  twoFAEnableBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primary, paddingVertical: 14, paddingHorizontal: 28, borderRadius: 24 },
+  twoFAEnableBtnText: { fontSize: 16, fontWeight: '700', color: '#fff', marginLeft: 10 },
+  twoFANote: { fontSize: 12, color: COLORS.textMuted, textAlign: 'center', marginTop: 20, paddingHorizontal: 20 },
   
   // Help Center Styles
   helpSearchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.cardLight, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, marginBottom: 24 },

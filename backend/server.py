@@ -6976,6 +6976,127 @@ async def update_affiliate_profile(
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
+# Update Affiliate Settings (Notifications, Withdrawal Address)
+class AffiliateSettingsUpdate(BaseModel):
+    email_notifications: Optional[bool] = None
+    push_notifications: Optional[bool] = None
+    usdt_trc20_address: Optional[str] = None
+
+@api_router.put("/affiliate/settings")
+async def update_affiliate_settings(
+    settings: AffiliateSettingsUpdate,
+    authorization: str = Header(None)
+):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization.split(" ")[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        affiliate_id = payload.get("sub")
+        
+        # Build update object
+        update_data = {}
+        if settings.email_notifications is not None:
+            update_data["email_notifications"] = settings.email_notifications
+        if settings.push_notifications is not None:
+            update_data["push_notifications"] = settings.push_notifications
+        if settings.usdt_trc20_address is not None:
+            # Validate TRC20 address format (should start with T)
+            if settings.usdt_trc20_address and not settings.usdt_trc20_address.startswith('T'):
+                raise HTTPException(status_code=400, detail="Invalid TRC20 address format")
+            update_data["usdt_trc20_address"] = settings.usdt_trc20_address
+        
+        if update_data:
+            await db.affiliates.update_one(
+                {"affiliate_id": affiliate_id},
+                {"$set": update_data}
+            )
+        
+        # Get updated settings
+        affiliate = await db.affiliates.find_one({"affiliate_id": affiliate_id})
+        
+        return {
+            "success": True,
+            "message": "Settings updated successfully",
+            "settings": {
+                "email_notifications": affiliate.get("email_notifications", True),
+                "push_notifications": affiliate.get("push_notifications", True),
+                "usdt_trc20_address": affiliate.get("usdt_trc20_address", "")
+            }
+        }
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# Get Affiliate Settings
+@api_router.get("/affiliate/settings")
+async def get_affiliate_settings(authorization: str = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization.split(" ")[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        affiliate_id = payload.get("sub")
+        
+        affiliate = await db.affiliates.find_one({"affiliate_id": affiliate_id})
+        if not affiliate:
+            raise HTTPException(status_code=404, detail="Affiliate not found")
+        
+        return {
+            "success": True,
+            "settings": {
+                "email_notifications": affiliate.get("email_notifications", True),
+                "push_notifications": affiliate.get("push_notifications", True),
+                "usdt_trc20_address": affiliate.get("usdt_trc20_address", "")
+            }
+        }
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# Change Affiliate Password
+class AffiliateChangePassword(BaseModel):
+    current_password: str
+    new_password: str
+
+@api_router.put("/affiliate/change-password")
+async def change_affiliate_password(
+    data: AffiliateChangePassword,
+    authorization: str = Header(None)
+):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization.split(" ")[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        affiliate_id = payload.get("sub")
+        
+        affiliate = await db.affiliates.find_one({"affiliate_id": affiliate_id})
+        if not affiliate:
+            raise HTTPException(status_code=404, detail="Affiliate not found")
+        
+        # Verify current password
+        if not verify_password(data.current_password, affiliate.get("password_hash", "")):
+            raise HTTPException(status_code=400, detail="Current password is incorrect")
+        
+        # Hash and save new password
+        new_hash = get_password_hash(data.new_password)
+        await db.affiliates.update_one(
+            {"affiliate_id": affiliate_id},
+            {"$set": {"password_hash": new_hash}}
+        )
+        
+        return {"success": True, "message": "Password changed successfully"}
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
 # Get current affiliate
 @api_router.get("/affiliate/me")
 async def get_affiliate_me(authorization: str = Header(None)):
