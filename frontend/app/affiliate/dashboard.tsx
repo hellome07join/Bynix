@@ -599,35 +599,38 @@ export default function AffiliateDashboard() {
     };
     
     const deleteLink = async (linkCode: string) => {
-      Alert.alert(
-        'Delete Link',
-        `Are you sure you want to delete link #${linkCode}?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Delete', 
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                const token = await getToken();
-                const res = await fetch(`${API_URL}/affiliate/links/${linkCode}`, {
-                  method: 'DELETE',
-                  headers: { 'Authorization': `Bearer ${token}` },
-                });
-                if (res.ok) {
-                  showToast('Link deleted');
-                  fetchLinks();
-                } else {
-                  showToast('Failed to delete link');
-                }
-              } catch (e) {
-                console.error('Delete error:', e);
-                showToast('Error deleting link');
-              }
-            }
-          }
-        ]
-      );
+      // For web, use confirm dialog; for native, use Alert
+      const confirmDelete = Platform.OS === 'web' 
+        ? window.confirm(`Are you sure you want to delete link #${linkCode}?`)
+        : await new Promise<boolean>((resolve) => {
+            Alert.alert(
+              'Delete Link',
+              `Are you sure you want to delete link #${linkCode}?`,
+              [
+                { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+                { text: 'Delete', style: 'destructive', onPress: () => resolve(true) }
+              ]
+            );
+          });
+      
+      if (!confirmDelete) return;
+      
+      try {
+        const token = await getToken();
+        const res = await fetch(`${API_URL}/affiliate/links/${linkCode}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (res.ok) {
+          showToast('Link deleted');
+          fetchLinks();
+        } else {
+          showToast('Failed to delete link');
+        }
+      } catch (e) {
+        console.error('Delete error:', e);
+        showToast('Error deleting link');
+      }
     };
 
     const getProgramBadge = (program: string) => {

@@ -7246,7 +7246,7 @@ async def delete_affiliate_link(link_code: str, authorization: str = Header(None
     token = authorization.replace("Bearer ", "")
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        affiliate_id = payload.get("affiliate_id")
+        affiliate_id = payload.get("sub")  # Changed from affiliate_id to sub
         
         if not affiliate_id:
             raise HTTPException(status_code=401, detail="Invalid affiliate token")
