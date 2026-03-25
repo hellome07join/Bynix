@@ -332,6 +332,53 @@ export default function AffiliateDashboard() {
         </View>
       </LinearGradient>
       
+      {/* Commission Structure Info */}
+      <View style={styles.commissionInfoCard}>
+        <View style={styles.commissionHeader}>
+          <Ionicons name="information-circle" size={22} color={COLORS.primary} />
+          <Text style={styles.commissionTitle}>Your Commission Structure</Text>
+        </View>
+        
+        <View style={styles.commissionModels}>
+          {/* Revenue Share */}
+          <View style={styles.commissionModel}>
+            <View style={[styles.commissionModelIcon, { backgroundColor: COLORS.primaryLight }]}>
+              <Ionicons name="trending-down" size={18} color={COLORS.primary} />
+            </View>
+            <View style={styles.commissionModelInfo}>
+              <Text style={styles.commissionModelName}>Revenue Share</Text>
+              <Text style={styles.commissionModelDesc}>Earn {currentLevel.revenue}% when users lose trades</Text>
+            </View>
+            <Text style={styles.commissionModelRate}>{currentLevel.revenue}%</Text>
+          </View>
+          
+          {/* Turnover */}
+          <View style={styles.commissionModel}>
+            <View style={[styles.commissionModelIcon, { backgroundColor: COLORS.accentLight }]}>
+              <Ionicons name="repeat" size={18} color={COLORS.accent} />
+            </View>
+            <View style={styles.commissionModelInfo}>
+              <Text style={styles.commissionModelName}>Turnover Share</Text>
+              <Text style={styles.commissionModelDesc}>Earn {currentLevel.turnover}% on all trade volume</Text>
+            </View>
+            <Text style={styles.commissionModelRate}>{currentLevel.turnover}%</Text>
+          </View>
+        </View>
+        
+        {/* Example Box */}
+        <View style={styles.exampleBox}>
+          <Text style={styles.exampleTitle}>Example at Level {currentLevel.level} ({currentLevel.name})</Text>
+          <View style={styles.exampleRow}>
+            <Text style={styles.exampleLabel}>User loses $100 trade:</Text>
+            <Text style={styles.exampleValue}>You earn ${(100 * currentLevel.revenue / 100).toFixed(2)} (RevShare)</Text>
+          </View>
+          <View style={styles.exampleRow}>
+            <Text style={styles.exampleLabel}>User trades $100 (any result):</Text>
+            <Text style={styles.exampleValue}>You earn ${(100 * currentLevel.turnover / 100).toFixed(2)} (Turnover)</Text>
+          </View>
+        </View>
+      </View>
+      
       {/* Level Progress */}
       {nextLevel && (
         <View style={styles.levelProgressCard}>
@@ -882,6 +929,23 @@ const styles = StyleSheet.create({
   levelProgressBar: { height: 8, backgroundColor: COLORS.cardLight, borderRadius: 4, overflow: 'hidden' },
   levelProgressFill: { height: 8, borderRadius: 4 },
   levelProgressText: { color: COLORS.textMuted, fontSize: 11, marginTop: 8 },
+  
+  // Commission Info Card
+  commissionInfoCard: { backgroundColor: COLORS.white, borderRadius: 16, padding: 20, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
+  commissionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  commissionTitle: { color: COLORS.text, fontSize: 16, fontWeight: '700', marginLeft: 10 },
+  commissionModels: { marginBottom: 16 },
+  commissionModel: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  commissionModelIcon: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  commissionModelInfo: { flex: 1, marginLeft: 14 },
+  commissionModelName: { color: COLORS.text, fontSize: 14, fontWeight: '600' },
+  commissionModelDesc: { color: COLORS.textSecondary, fontSize: 12, marginTop: 2 },
+  commissionModelRate: { color: COLORS.primary, fontSize: 18, fontWeight: '800' },
+  exampleBox: { backgroundColor: COLORS.cardLight, borderRadius: 12, padding: 16 },
+  exampleTitle: { color: COLORS.text, fontSize: 13, fontWeight: '600', marginBottom: 12 },
+  exampleRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  exampleLabel: { color: COLORS.textSecondary, fontSize: 12 },
+  exampleValue: { color: COLORS.primary, fontSize: 12, fontWeight: '600' },
   
   // Stats Grid
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6, marginBottom: 20 },

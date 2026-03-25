@@ -995,6 +995,64 @@ async def settle_trade(trade_id: str, settle_data: TradeSettle, authorization: O
                 {"$inc": {"real_balance": payout}}
             )
         # If lost, the amount was already deducted when trade was placed
+        
+        # ============= AFFILIATE COMMISSION CALCULATION =============
+        # Check if user was referred by an affiliate
+        user_data = await db.users.find_one({"user_id": user.user_id})
+        referred_by = user_data.get("referred_by") if user_data else None
+        
+        if referred_by:
+            # Find the affiliate
+            affiliate = await db.affiliates.find_one({"ref_code": referred_by})
+            if affiliate:
+                # Get affiliate's level based on FTDs
+                total_ftds = affiliate.get("total_ftds", 0)
+                level_info = get_affiliate_level(total_ftds)
+                
+                # Get referral info to determine commission program type
+                referral = await db.affiliate_referrals.find_one({
+                    "user_id": user.user_id,
+                    "affiliate_id": affiliate["affiliate_id"]
+                })
+                program_type = referral.get("program", "revenue_sharing") if referral else "revenue_sharing"
+                
+                # Calculate commission based on program type
+                commission = calculate_commission(
+                    affiliate["affiliate_id"],
+                    level_info,
+                    trade["amount"],
+                    status,
+                    program_type
+                )
+                
+                if commission > 0:
+                    # Credit commission to affiliate
+                    await db.affiliates.update_one(
+                        {"affiliate_id": affiliate["affiliate_id"]},
+                        {"$inc": {"balance": commission, "total_earnings": commission}}
+                    )
+                    
+                    # Update referral commission earned
+                    if referral:
+                        await db.affiliate_referrals.update_one(
+                            {"user_id": user.user_id, "affiliate_id": affiliate["affiliate_id"]},
+                            {"$inc": {"commission_earned": commission, "total_volume": trade["amount"]}}
+                        )
+                    
+                    # Log commission transaction
+                    await db.affiliate_commissions.insert_one({
+                        "commission_id": str(uuid.uuid4()),
+                        "affiliate_id": affiliate["affiliate_id"],
+                        "user_id": user.user_id,
+                        "trade_id": trade_id,
+                        "trade_amount": trade["amount"],
+                        "trade_result": status,
+                        "program_type": program_type,
+                        "affiliate_level": level_info["level"],
+                        "commission_rate": level_info["revenue_share"] if program_type == "revenue_sharing" else level_info["turnover_share"],
+                        "commission_amount": commission,
+                        "created_at": datetime.now(timezone.utc)
+                    })
     
     return {"message": "Trade settled", "status": status, "profit_loss": profit_loss, "exit_price": exit_price, "entry_price": entry_price}
 
@@ -6716,6 +6774,54 @@ class AffiliateWithdrawalRequest(BaseModel):
 class AffiliateLinkCreate(BaseModel):
     name: str
     campaign: Optional[str] = None
+    program: Optional[str] = "revenue_sharing"  # revenue_sharing or turnover_sharing
+    comment: Optional[str] = None
+
+# ============= COMMISSION STRUCTURE =============
+# Revenue Share: Affiliate earns % of user's trading LOSSES
+# Turnover: Affiliate earns % of user's total trading VOLUME (win or lose)
+
+AFFILIATE_LEVELS = {
+    1: {"name": "Starter", "min_ftds": 0, "revenue_share": 50, "turnover_share": 2.0},
+    2: {"name": "Advanced", "min_ftds": 15, "revenue_share": 55, "turnover_share": 2.5},
+    3: {"name": "Professional", "min_ftds": 50, "revenue_share": 60, "turnover_share": 3.0},
+    4: {"name": "Expert", "min_ftds": 100, "revenue_share": 65, "turnover_share": 3.5},
+    5: {"name": "Master", "min_ftds": 200, "revenue_share": 70, "turnover_share": 4.0},
+    6: {"name": "Guru", "min_ftds": 400, "revenue_share": 75, "turnover_share": 4.5},
+    7: {"name": "Legend", "min_ftds": 700, "revenue_share": 85, "turnover_share": 5.5},
+}
+
+def get_affiliate_level(total_ftds: int) -> dict:
+    """Get affiliate level based on FTD count"""
+    level = 1
+    for lvl, data in AFFILIATE_LEVELS.items():
+        if total_ftds >= data["min_ftds"]:
+            level = lvl
+    return {"level": level, **AFFILIATE_LEVELS[level]}
+
+def calculate_commission(affiliate_id: str, affiliate_level: dict, trade_amount: float, trade_result: str, program_type: str = "revenue_sharing") -> float:
+    """
+    Calculate commission based on trade
+    
+    Revenue Share Model:
+    - Affiliate earns commission ONLY when referred user LOSES
+    - Commission = User's Loss × (Revenue Share % / 100)
+    - Example: Level 1 (50%) - User loses $100 → Affiliate earns $50
+    
+    Turnover Model:
+    - Affiliate earns commission on EVERY trade regardless of win/loss
+    - Commission = Trade Volume × (Turnover % / 100)
+    - Example: Level 1 (2%) - User trades $100 → Affiliate earns $2
+    """
+    if program_type == "revenue_sharing":
+        # Revenue Share: Only earn on user LOSSES
+        if trade_result == "lost":
+            return trade_amount * (affiliate_level["revenue_share"] / 100)
+        return 0.0
+    else:
+        # Turnover: Earn on ALL trades
+        return trade_amount * (affiliate_level["turnover_share"] / 100)
+
 
 # Affiliate Registration
 @api_router.post("/affiliate/register")
@@ -7098,6 +7204,8 @@ async def create_affiliate_link(link: AffiliateLinkCreate, authorization: str = 
             "affiliate_id": affiliate_id,
             "name": link.name,
             "campaign": link.campaign,
+            "program": link.program or "revenue_sharing",
+            "comment": link.comment,
             "code": code,
             "clicks": 0,
             "registrations": 0,
@@ -7108,7 +7216,22 @@ async def create_affiliate_link(link: AffiliateLinkCreate, authorization: str = 
         
         await db.affiliate_links.insert_one(link_doc)
         
-        return {"success": True, "link": link_doc}
+        # Return serializable response
+        return {
+            "success": True, 
+            "link": {
+                "link_id": link_doc["link_id"],
+                "affiliate_id": link_doc["affiliate_id"],
+                "name": link_doc["name"],
+                "code": link_doc["code"],
+                "campaign": link_doc["campaign"],
+                "program": link_doc["program"],
+                "clicks": 0,
+                "registrations": 0,
+                "ftds": 0,
+                "deposits": 0.0
+            }
+        }
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
