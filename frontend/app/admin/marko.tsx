@@ -1282,8 +1282,8 @@ const styles = StyleSheet.create({
   adminBadgeText: { color: COLORS.primary, fontSize: 12, fontWeight: '600', marginLeft: 6 },
   
   // Main Content
-  mainContent: { flex: 1, marginLeft: 220 },
-  mainContentExpanded: { marginLeft: 70 },
+  mainContent: { flex: 1 },
+  mainContentExpanded: { marginLeft: 0 },
   scrollView: { flex: 1 },
   contentPadding: { padding: 20 },
   
