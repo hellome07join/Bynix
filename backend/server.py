@@ -6927,6 +6927,55 @@ async def affiliate_login(credentials: AffiliateLogin):
         }
     }
 
+# Update Affiliate Profile (Name)
+class AffiliateUpdateProfile(BaseModel):
+    name: str
+
+@api_router.put("/affiliate/profile")
+async def update_affiliate_profile(
+    update_data: AffiliateUpdateProfile,
+    authorization: str = Header(None)
+):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization.split(" ")[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        affiliate_id = payload.get("sub")
+        token_type = payload.get("type")
+        
+        if token_type != "affiliate":
+            raise HTTPException(status_code=403, detail="Invalid token type")
+        
+        # Update affiliate name in database
+        result = await db.affiliates.update_one(
+            {"affiliate_id": affiliate_id},
+            {"$set": {"name": update_data.name}}
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(status_code=404, detail="Affiliate not found")
+        
+        # Get updated affiliate
+        affiliate = await db.affiliates.find_one({"affiliate_id": affiliate_id})
+        
+        return {
+            "success": True,
+            "message": "Profile updated successfully",
+            "affiliate": {
+                "affiliate_id": affiliate["affiliate_id"],
+                "email": affiliate["email"],
+                "name": affiliate["name"],
+                "ref_code": affiliate.get("ref_code"),
+                "level": affiliate.get("level", 1)
+            }
+        }
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
 # Get current affiliate
 @api_router.get("/affiliate/me")
 async def get_affiliate_me(authorization: str = Header(None)):

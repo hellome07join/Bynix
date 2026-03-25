@@ -70,6 +70,9 @@ export default function AffiliateDashboard() {
   const [showMyAccountModal, setShowMyAccountModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showHelpCenterModal, setShowHelpCenterModal] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState('');
+  const [isSavingName, setIsSavingName] = useState(false);
   
   // Data
   const [affiliate, setAffiliate] = useState<any>(null);
@@ -183,6 +186,62 @@ export default function AffiliateDashboard() {
   const handleLogout = async () => {
     await AsyncStorage.removeItem('affiliate_token');
     router.replace('/affiliate/login');
+  };
+  
+  // Handle name update
+  const handleSaveName = async () => {
+    if (!editedName.trim()) {
+      showToast('Name cannot be empty');
+      return;
+    }
+    
+    setIsSavingName(true);
+    try {
+      const token = await AsyncStorage.getItem('affiliate_token');
+      const response = await fetch(`${API_URL}/affiliate/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ name: editedName.trim() })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Update local affiliate state
+        setAffiliate((prev: any) => ({ ...prev, name: editedName.trim() }));
+        setIsEditingName(false);
+        showToast('Name updated successfully!');
+        
+        // Refresh TOP 10 leaderboard to show new name
+        const top10Res = await fetch(`${API_URL}/affiliate/top10`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const top10Data = await top10Res.json();
+        if (top10Data.top10) setTop10(top10Data.top10);
+      } else {
+        showToast(data.detail || 'Failed to update name');
+      }
+    } catch (error) {
+      console.error('Error updating name:', error);
+      showToast('Failed to update name');
+    } finally {
+      setIsSavingName(false);
+    }
+  };
+  
+  // Start editing name
+  const startEditingName = () => {
+    setEditedName(affiliate?.name || '');
+    setIsEditingName(true);
+  };
+  
+  // Cancel editing name
+  const cancelEditingName = () => {
+    setIsEditingName(false);
+    setEditedName('');
   };
 
   const formatMoney = (n: number) => `$${(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -2307,9 +2366,53 @@ export default function AffiliateDashboard() {
               <View style={styles.accountInfoCard}>
                 <Text style={styles.accountInfoTitle}>Account Information</Text>
                 
-                <View style={styles.accountInfoRow}>
+                {/* Editable Full Name Row */}
+                <View style={styles.accountInfoRowEditable}>
                   <Text style={styles.accountInfoLabel}>Full Name</Text>
-                  <Text style={styles.accountInfoValue}>{affiliate?.name || 'N/A'}</Text>
+                  {isEditingName ? (
+                    <View style={styles.nameEditContainer}>
+                      <TextInput
+                        style={styles.nameEditInput}
+                        value={editedName}
+                        onChangeText={setEditedName}
+                        placeholder="Enter your name"
+                        placeholderTextColor={COLORS.textMuted}
+                        autoFocus
+                      />
+                      <View style={styles.nameEditButtons}>
+                        <TouchableOpacity 
+                          style={styles.nameEditCancelBtn} 
+                          onPress={cancelEditingName}
+                          disabled={isSavingName}
+                        >
+                          <Ionicons name="close" size={18} color={COLORS.danger} />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={styles.nameEditSaveBtn} 
+                          onPress={handleSaveName}
+                          disabled={isSavingName}
+                        >
+                          {isSavingName ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                          ) : (
+                            <Ionicons name="checkmark" size={18} color="#fff" />
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.nameDisplayContainer}>
+                      <Text style={styles.accountInfoValue}>{affiliate?.name || 'N/A'}</Text>
+                      <TouchableOpacity style={styles.nameEditBtn} onPress={startEditingName}>
+                        <Ionicons name="pencil" size={16} color={COLORS.primary} />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+                
+                <View style={styles.nameEditHint}>
+                  <Ionicons name="information-circle-outline" size={14} color={COLORS.textMuted} />
+                  <Text style={styles.nameEditHintText}>This name will appear on the TOP 10 Leaderboard</Text>
                 </View>
                 
                 <View style={styles.accountInfoRow}>
@@ -3084,8 +3187,20 @@ const styles = StyleSheet.create({
   accountInfoCard: { backgroundColor: COLORS.white, borderRadius: 16, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: COLORS.border },
   accountInfoTitle: { fontSize: 16, fontWeight: '700', color: COLORS.text, marginBottom: 16 },
   accountInfoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  accountInfoRowEditable: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   accountInfoLabel: { fontSize: 14, color: COLORS.textMuted },
   accountInfoValue: { fontSize: 14, fontWeight: '600', color: COLORS.text },
+  
+  // Name Edit Styles
+  nameDisplayContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
+  nameEditBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.primaryLight, justifyContent: 'center', alignItems: 'center' },
+  nameEditContainer: { marginTop: 8 },
+  nameEditInput: { backgroundColor: COLORS.cardLight, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, color: COLORS.text, borderWidth: 1, borderColor: COLORS.primary },
+  nameEditButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 10 },
+  nameEditCancelBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.dangerLight, justifyContent: 'center', alignItems: 'center' },
+  nameEditSaveBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
+  nameEditHint: { flexDirection: 'row', alignItems: 'center', marginTop: 8, marginBottom: 8, paddingHorizontal: 8, gap: 6 },
+  nameEditHintText: { fontSize: 11, color: COLORS.textMuted, fontStyle: 'italic' },
   accountStatsCard: { backgroundColor: COLORS.primaryLight, borderRadius: 16, padding: 20 },
   accountStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
   accountStatItem: { width: '50%', paddingVertical: 12 },
