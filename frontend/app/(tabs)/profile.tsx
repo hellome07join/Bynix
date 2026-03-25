@@ -2465,19 +2465,48 @@ export default function Profile() {
                   
                   setIsProcessingWithdraw(true);
                   
-                  // Show processing popup
-                  setTimeout(() => {
-                    setIsProcessingWithdraw(false);
-                    setShowWithdrawModal(false);
-                    setWithdrawAmount('10');
-                    setWithdrawAddress('');
-                    
-                    Alert.alert(
-                      'Withdrawal Request Submitted',
-                      'Your withdrawal request is being processed.\n\nProcessing time: 24-72 hours.\n\nYou can track the status in your transaction history.',
-                      [{ text: 'OK' }]
-                    );
-                  }, 1500);
+                  // Submit withdrawal request to backend
+                  (async () => {
+                    try {
+                      const response = await fetch(`${API_URL}/wallet/withdraw`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                          amount: amount,
+                          crypto_address: withdrawAddress
+                        })
+                      });
+                      
+                      const data = await response.json();
+                      
+                      if (response.ok) {
+                        setShowWithdrawModal(false);
+                        setWithdrawAmount('10');
+                        setWithdrawAddress('');
+                        
+                        // Refresh user data to update balance
+                        const { refreshUser } = useAuthStore.getState();
+                        if (refreshUser) refreshUser();
+                        fetchTransactions();
+                        
+                        Alert.alert(
+                          'Withdrawal Request Submitted',
+                          `Your withdrawal of $${amount.toFixed(2)} is being processed.\n\nTransaction ID: ${data.transaction_id}\n\nProcessing time: 24-72 hours.\n\nYou can track the status in your transaction history.`,
+                          [{ text: 'OK' }]
+                        );
+                      } else {
+                        Alert.alert('Withdrawal Failed', data.detail || 'Unable to process withdrawal');
+                      }
+                    } catch (error) {
+                      console.error('Withdrawal error:', error);
+                      Alert.alert('Error', 'Failed to submit withdrawal request. Please try again.');
+                    } finally {
+                      setIsProcessingWithdraw(false);
+                    }
+                  })();
                 }}
                 disabled={isProcessingWithdraw}
               >
