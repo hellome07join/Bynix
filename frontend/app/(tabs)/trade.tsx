@@ -59,7 +59,7 @@ const { width, height } = Dimensions.get('window');
 
 export default function Trade() {
   const router = useRouter();
-  const { user, token, accountType, setAccountType, updateBalance } = useAuthStore();
+  const { user, token, accountType, setAccountType, updateBalance, chartTimeframe, setChartTimeframe } = useAuthStore();
   
   // Local demo balance (for when user is not logged in)
   const [localDemoBalance, setLocalDemoBalance] = useState(10000);
@@ -83,48 +83,11 @@ export default function Trade() {
   const [loading, setLoading] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState<'live' | 'reconnecting'>('live');
   
-  // Trading
+  // Trading - use chartTimeframe from global store instead of local state
   const [amount, setAmount] = useState('100');
-  const [timeframe, setTimeframe] = useState('1m');
+  const timeframe = chartTimeframe; // Use global store value
+  const setTimeframe = setChartTimeframe; // Use global store setter
   const [duration, setDuration] = useState(60);
-  
-  // Ref to track if timeframe has been loaded from storage (prevents race condition)
-  const timeframeInitialized = useRef(false);
-  
-  // Load persisted timeframe on mount
-  useEffect(() => {
-    const loadTimeframe = async () => {
-      try {
-        const savedTimeframe = await AsyncStorage.getItem('chart_timeframe');
-        if (savedTimeframe && ['1s', '5s', '15s', '1m', '5m'].includes(savedTimeframe)) {
-          setTimeframe(savedTimeframe);
-        }
-        // Mark as initialized AFTER loading (or if no saved value)
-        timeframeInitialized.current = true;
-      } catch (error) {
-        console.error('Error loading timeframe:', error);
-        timeframeInitialized.current = true;
-      }
-    };
-    loadTimeframe();
-  }, []);
-  
-  // Save timeframe when changed (but skip initial mount to prevent race condition)
-  useEffect(() => {
-    // Skip saving on initial mount - wait for load to complete first
-    if (!timeframeInitialized.current) {
-      return;
-    }
-    
-    const saveTimeframe = async () => {
-      try {
-        await AsyncStorage.setItem('chart_timeframe', timeframe);
-      } catch (error) {
-        console.error('Error saving timeframe:', error);
-      }
-    };
-    saveTimeframe();
-  }, [timeframe]);
   
   const [showAssetPicker, setShowAssetPicker] = useState(false);
   const [assetSearchQuery, setAssetSearchQuery] = useState('');

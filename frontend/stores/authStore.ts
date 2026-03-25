@@ -21,9 +21,11 @@ interface AuthState {
   token: string | null;
   accountType: 'demo' | 'real';
   isLoading: boolean;
+  chartTimeframe: string;
   setUser: (user: User | null) => void;
   setToken: (token: string | null) => void;
   setAccountType: (type: 'demo' | 'real') => void;
+  setChartTimeframe: (timeframe: string) => void;
   login: (token: string, user: User) => Promise<void>;
   logout: () => Promise<void>;
   loadAuth: () => Promise<void>;
@@ -36,10 +38,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   token: null,
   accountType: 'real',
   isLoading: true,
+  chartTimeframe: '1m',
 
   setUser: (user) => set({ user }),
   setToken: (token) => set({ token }),
   setAccountType: (type) => set({ accountType: type }),
+  setChartTimeframe: (timeframe) => {
+    set({ chartTimeframe: timeframe });
+    // Also save to AsyncStorage
+    AsyncStorage.setItem('chart_timeframe', timeframe).catch(console.error);
+  },
 
   login: async (token, user) => {
     await AsyncStorage.setItem('token', token);
@@ -57,16 +65,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const token = await AsyncStorage.getItem('token');
       const userStr = await AsyncStorage.getItem('user');
+      const savedTimeframe = await AsyncStorage.getItem('chart_timeframe');
       
       if (token && userStr) {
         const user = JSON.parse(userStr);
-        set({ token, user, isLoading: false, accountType: 'real' });
+        set({ 
+          token, 
+          user, 
+          isLoading: false, 
+          accountType: 'real',
+          chartTimeframe: savedTimeframe || '1m'
+        });
         
         // Also refresh from server to get latest balance
         const { refreshUser } = get();
         await refreshUser();
       } else {
-        set({ isLoading: false, accountType: 'real' });
+        set({ 
+          isLoading: false, 
+          accountType: 'real',
+          chartTimeframe: savedTimeframe || '1m'
+        });
       }
     } catch (error) {
       console.error('Failed to load auth:', error);

@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TIMEFRAMES } from '../../constants/tradeConfig';
 
 interface ToolsModalProps {
@@ -102,15 +101,9 @@ export default function ToolsModal({
                 <TouchableOpacity
                   key={tf.value}
                   style={[styles.candleTimeItem, timeframe === tf.value && styles.candleTimeItemActive]}
-                  onPress={async () => {
+                  onPress={() => {
                     setTimeframe(tf.value);
-                    // Save to AsyncStorage immediately on user selection
-                    try {
-                      await AsyncStorage.setItem('chart_timeframe', tf.value);
-                      console.log('[TIMEFRAME] User selected and saved:', tf.value);
-                    } catch (error) {
-                      console.error('Error saving timeframe:', error);
-                    }
+                    // setTimeframe is now connected to global store which auto-saves to AsyncStorage
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   }}
                 >
