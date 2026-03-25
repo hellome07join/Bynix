@@ -717,31 +717,29 @@ export default function AffiliateDashboard() {
         <Modal 
           visible={showNewLinkModal} 
           transparent 
-          animationType="slide" 
+          animationType="none"
+          statusBarTranslucent
           onRequestClose={() => { setShowNewLinkModal(false); }}
         >
-          <KeyboardAvoidingView 
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.modalKeyboardView}
-          >
+          <View style={styles.modalKeyboardView}>
             <Pressable 
               style={styles.modalBackdrop} 
               onPress={() => { Keyboard.dismiss(); setShowNewLinkModal(false); }} 
             />
-            <View style={styles.newLinkModalContent}>
-              {/* Modal Header */}
-              <View style={styles.modalHeaderRow}>
-                <Text style={styles.newLinkModalTitle}>New Link</Text>
-                <Pressable onPress={() => setShowNewLinkModal(false)} style={styles.modalCloseBtn}>
-                  <Ionicons name="close" size={24} color={COLORS.textSecondary} />
-                </Pressable>
-              </View>
-              
-              <ScrollView 
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={styles.modalScrollContent}
-              >
+            <KeyboardAvoidingView 
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              style={styles.modalContentWrapper}
+              keyboardVerticalOffset={0}
+            >
+              <View style={styles.newLinkModalContent}>
+                {/* Modal Header */}
+                <View style={styles.modalHeaderRow}>
+                  <Text style={styles.newLinkModalTitle}>New Link</Text>
+                  <Pressable onPress={() => setShowNewLinkModal(false)} style={styles.modalCloseBtn}>
+                    <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+                  </Pressable>
+                </View>
+                
                 {/* Link Type - Radio Style */}
                 <Text style={styles.inputLabel}>Link Type</Text>
                 <View style={styles.radioGroup}>
@@ -791,7 +789,7 @@ export default function AffiliateDashboard() {
                   value={newLinkForm.comment}
                   onChangeText={(text) => setNewLinkForm({...newLinkForm, comment: text})}
                   multiline
-                  numberOfLines={3}
+                  numberOfLines={2}
                   blurOnSubmit={true}
                   returnKeyType="done"
                 />
@@ -806,9 +804,9 @@ export default function AffiliateDashboard() {
                     <Text style={styles.saveBtnText}>Create Link</Text>
                   </Pressable>
                 </View>
-              </ScrollView>
-            </View>
-          </KeyboardAvoidingView>
+              </View>
+            </KeyboardAvoidingView>
+          </View>
         </Modal>
       </View>
     );
@@ -1182,7 +1180,8 @@ const styles = StyleSheet.create({
   
   // New Link Modal
   modalKeyboardView: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  newLinkModalContent: { backgroundColor: COLORS.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 24, paddingHorizontal: 24, maxHeight: '85%' },
+  modalContentWrapper: { width: '100%' },
+  newLinkModalContent: { backgroundColor: COLORS.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24 },
   modalScrollContent: { paddingBottom: 24 },
   modalHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
   newLinkModalTitle: { fontSize: 22, fontWeight: '800', color: COLORS.text },
