@@ -152,6 +152,14 @@ export default function AdminDashboard() {
   
   // Live Trades
   const [liveTrades, setLiveTrades] = useState([]);
+  
+  // Deposits
+  const [deposits, setDeposits] = useState<any[]>([]);
+  const [depositsStats, setDepositsStats] = useState({
+    totalAmount: 0,
+    pendingCount: 0,
+    todayAmount: 0
+  });
 
   // Auth check
   useEffect(() => {
@@ -239,6 +247,39 @@ export default function AdminDashboard() {
       if (liveTradesRes.ok) {
         const data = await liveTradesRes.json();
         setLiveTrades(data.trades || []);
+      }
+      
+      // Fetch deposits
+      const depositsRes = await fetch(`${API_URL}/admin/deposits`, { headers });
+      if (depositsRes.ok) {
+        const data = await depositsRes.json();
+        const depositsList = data.deposits || [];
+        setDeposits(depositsList);
+        
+        // Calculate deposits stats
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const totalAmount = depositsList
+          .filter((d: any) => d.status === 'completed' || d.status === 'confirmed')
+          .reduce((sum: number, d: any) => sum + (d.amount_usd || 0), 0);
+        
+        const pendingCount = depositsList
+          .filter((d: any) => d.status === 'pending' || d.status === 'waiting')
+          .length;
+        
+        const todayAmount = depositsList
+          .filter((d: any) => {
+            const createdAt = new Date(d.created_at);
+            return createdAt >= today && (d.status === 'completed' || d.status === 'confirmed');
+          })
+          .reduce((sum: number, d: any) => sum + (d.amount_usd || 0), 0);
+        
+        setDepositsStats({
+          totalAmount,
+          pendingCount,
+          todayAmount
+        });
       }
       
     } catch (error) {
@@ -2020,18 +2061,18 @@ export default function AdminDashboard() {
         <View style={[styles.depositStatCard, { backgroundColor: COLORS.successLight }]}>
           <Ionicons name="checkmark-circle" size={28} color={COLORS.success} />
           <Text style={[styles.depositStatValue, { color: COLORS.success }]}>
-            ${formatNumber(stats.totalDeposits)}
+            ${formatNumber(depositsStats.totalAmount)}
           </Text>
           <Text style={styles.depositStatLabel}>Total Deposits</Text>
         </View>
         <View style={[styles.depositStatCard, { backgroundColor: COLORS.warningLight }]}>
           <Ionicons name="time" size={28} color={COLORS.warning} />
-          <Text style={[styles.depositStatValue, { color: COLORS.warning }]}>0</Text>
+          <Text style={[styles.depositStatValue, { color: COLORS.warning }]}>{depositsStats.pendingCount}</Text>
           <Text style={styles.depositStatLabel}>Pending</Text>
         </View>
         <View style={[styles.depositStatCard, { backgroundColor: COLORS.primaryLight }]}>
           <Ionicons name="today" size={28} color={COLORS.primary} />
-          <Text style={[styles.depositStatValue, { color: COLORS.primary }]}>$0</Text>
+          <Text style={[styles.depositStatValue, { color: COLORS.primary }]}>${formatNumber(depositsStats.todayAmount)}</Text>
           <Text style={styles.depositStatLabel}>Today</Text>
         </View>
       </View>
@@ -2040,9 +2081,9 @@ export default function AdminDashboard() {
       <View style={styles.sectionCard}>
         <Text style={styles.sectionTitle}>Payment Methods</Text>
         {[
-          { name: 'USDT TRC20', icon: '₮', color: '#26A17B', enabled: true, deposits: 45 },
-          { name: 'Bitcoin', icon: '₿', color: '#F7931A', enabled: true, deposits: 23 },
-          { name: 'Ethereum', icon: 'Ξ', color: '#627EEA', enabled: false, deposits: 12 },
+          { name: 'USDT TRC20', icon: '₮', color: '#26A17B', enabled: true, deposits: deposits.filter(d => d.payment_type === 'usdt' || d.payment_type === 'crypto').length },
+          { name: 'Bitcoin', icon: '₿', color: '#F7931A', enabled: true, deposits: deposits.filter(d => d.payment_type === 'btc' || d.payment_type === 'bitcoin').length },
+          { name: 'Ethereum', icon: 'Ξ', color: '#627EEA', enabled: false, deposits: deposits.filter(d => d.payment_type === 'eth' || d.payment_type === 'ethereum').length },
         ].map((method, index) => (
           <View key={method.name} style={styles.paymentMethodRow}>
             <View style={styles.paymentMethodLeft}>
@@ -2067,15 +2108,69 @@ export default function AdminDashboard() {
       <View style={[styles.sectionCard, { marginBottom: 40 }]}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recent Deposits</Text>
-          <TouchableOpacity>
-            <Text style={styles.viewAllText}>View All</Text>
+          <TouchableOpacity onPress={onRefresh}>
+            <Text style={styles.viewAllText}>Refresh</Text>
           </TouchableOpacity>
         </View>
         
-        <View style={styles.emptyState}>
-          <Ionicons name="wallet" size={48} color={COLORS.textMuted} />
-          <Text style={styles.emptyStateText}>No recent deposits</Text>
-        </View>
+        {deposits.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="wallet" size={48} color={COLORS.textMuted} />
+            <Text style={styles.emptyStateText}>No recent deposits</Text>
+          </View>
+        ) : (
+          deposits.slice(0, 10).map((deposit, index) => (
+            <View key={deposit._id || index} style={styles.depositRow}>
+              <View style={styles.depositLeft}>
+                <View style={[styles.depositIcon, { 
+                  backgroundColor: deposit.status === 'completed' || deposit.status === 'confirmed' 
+                    ? COLORS.successLight 
+                    : deposit.status === 'pending' || deposit.status === 'waiting'
+                    ? COLORS.warningLight
+                    : COLORS.dangerLight
+                }]}>
+                  <Ionicons 
+                    name={
+                      deposit.status === 'completed' || deposit.status === 'confirmed' 
+                        ? 'checkmark-circle' 
+                        : deposit.status === 'pending' || deposit.status === 'waiting'
+                        ? 'time'
+                        : 'close-circle'
+                    } 
+                    size={20} 
+                    color={
+                      deposit.status === 'completed' || deposit.status === 'confirmed' 
+                        ? COLORS.success 
+                        : deposit.status === 'pending' || deposit.status === 'waiting'
+                        ? COLORS.warning
+                        : COLORS.danger
+                    } 
+                  />
+                </View>
+                <View>
+                  <Text style={styles.depositUser}>{deposit.user_id?.substring(0, 15) || 'Unknown'}...</Text>
+                  <Text style={styles.depositDate}>
+                    {deposit.created_at ? new Date(deposit.created_at).toLocaleDateString() : 'N/A'}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.depositRight}>
+                <Text style={[styles.depositAmount, { color: COLORS.success }]}>
+                  +${(deposit.amount_usd || 0).toFixed(2)}
+                </Text>
+                <Text style={[styles.depositStatus, { 
+                  color: deposit.status === 'completed' || deposit.status === 'confirmed' 
+                    ? COLORS.success 
+                    : deposit.status === 'pending' || deposit.status === 'waiting'
+                    ? COLORS.warning
+                    : COLORS.danger
+                }]}>
+                  {deposit.status?.toUpperCase() || 'UNKNOWN'}
+                </Text>
+              </View>
+            </View>
+          ))
+        )}
       </View>
     </ScrollView>
   );
@@ -4191,6 +4286,50 @@ const styles = StyleSheet.create({
   paymentMethodDeposits: {
     color: COLORS.textMuted,
     fontSize: 11,
+    marginTop: 2,
+  },
+  
+  // Deposit Row Styles
+  depositRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  depositLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  depositIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  depositUser: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  depositDate: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  depositRight: {
+    alignItems: 'flex-end',
+  },
+  depositAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  depositStatus: {
+    fontSize: 11,
+    fontWeight: '600',
     marginTop: 2,
   },
 
