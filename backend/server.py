@@ -4540,5 +4540,642 @@ async def get_live_platform_stats(authorization: Optional[str] = Header(None), r
 
 
 
+# ============= ROLE HIERARCHY SYSTEM =============
+
+ROLE_PERMISSIONS = {
+    "super_admin": ["*"],  # Full access
+    "financial_admin": ["deposits", "withdrawals", "transactions", "manual_deposit", "payouts"],
+    "risk_manager": ["users", "risk_controls", "trades", "fraud_detection"],
+    "support_agent": ["users_view", "tickets", "basic_info"],
+    "auditor": ["view_only", "logs", "reports"],
+    "affiliate_manager": ["affiliates", "commissions", "payouts"]
+}
+
+@api_router.get("/admin/roles")
+async def get_roles(authorization: Optional[str] = Header(None), request: Request = None):
+    """Get all available roles and permissions"""
+    user = await get_current_user(authorization, request)
+    return {"roles": ROLE_PERMISSIONS}
+
+@api_router.post("/admin/users/{user_id}/role")
+async def set_user_role(
+    user_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Assign role to user"""
+    admin = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    role = body.get("role", "user")
+    
+    if role not in ROLE_PERMISSIONS and role != "user":
+        raise HTTPException(status_code=400, detail="Invalid role")
+    
+    await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {"role": role, "is_admin": role != "user"}}
+    )
+    
+    await db.admin_logs.insert_one({
+        "action": "role_assigned",
+        "admin_id": admin.user_id,
+        "target_user_id": user_id,
+        "details": {"role": role},
+        "timestamp": datetime.now(timezone.utc)
+    })
+    
+    return {"success": True, "role": role}
+
+# ============= AFFILIATE MANAGEMENT SYSTEM =============
+
+def generate_affiliate_code():
+    """Generate unique affiliate code"""
+    chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    return ''.join(random.choices(chars, k=8))
+
+def generate_referral_link(affiliate_code: str):
+    """Generate referral link"""
+    base_url = "https://bynix.com"
+    return f"{base_url}/ref/{affiliate_code}"
+
+@api_router.post("/affiliates/register")
+async def register_affiliate(authorization: Optional[str] = Header(None), request: Request = None):
+    """Register as affiliate"""
+    user = await get_current_user(authorization, request)
+    
+    # Check if already affiliate
+    existing = await db.affiliates.find_one({"user_id": user.user_id})
+    if existing:
+        raise HTTPException(status_code=400, detail="Already registered as affiliate")
+    
+    body = await request.json()
+    
+    affiliate_code = generate_affiliate_code()
+    while await db.affiliates.find_one({"affiliate_code": affiliate_code}):
+        affiliate_code = generate_affiliate_code()
+    
+    affiliate = {
+        "affiliate_id": f"aff_{uuid.uuid4().hex[:12]}",
+        "user_id": user.user_id,
+        "email": user.email,
+        "affiliate_code": affiliate_code,
+        "referral_link": generate_referral_link(affiliate_code),
+        "status": "pending",  # pending, active, suspended
+        "commission_type": "revenue_share",  # cpa, revenue_share, hybrid
+        "commission_rate": 25,  # percentage
+        "cpa_amount": 10,  # fixed CPA amount
+        "tier": 1,  # affiliate tier level
+        "payment_info": {
+            "method": body.get("payment_method", "crypto"),
+            "wallet_address": body.get("wallet_address", ""),
+            "bank_details": body.get("bank_details", {})
+        },
+        "stats": {
+            "total_clicks": 0,
+            "total_signups": 0,
+            "total_deposits": 0,
+            "total_traders": 0,
+            "total_volume": 0,
+            "total_earnings": 0,
+            "pending_earnings": 0,
+            "paid_earnings": 0
+        },
+        "created_at": datetime.now(timezone.utc),
+        "approved_at": None,
+        "manager_id": None
+    }
+    
+    await db.affiliates.insert_one(affiliate)
+    
+    return {
+        "success": True,
+        "affiliate_code": affiliate_code,
+        "referral_link": affiliate["referral_link"],
+        "status": "pending"
+    }
+
+@api_router.get("/affiliates/me")
+async def get_my_affiliate_profile(authorization: Optional[str] = Header(None), request: Request = None):
+    """Get current user's affiliate profile"""
+    user = await get_current_user(authorization, request)
+    
+    affiliate = await db.affiliates.find_one({"user_id": user.user_id})
+    if not affiliate:
+        return {"is_affiliate": False}
+    
+    # Get referrals
+    referrals = await db.referrals.find({"affiliate_id": affiliate["affiliate_id"]}).to_list(1000)
+    
+    # Get commissions
+    commissions = await db.commissions.find({"affiliate_id": affiliate["affiliate_id"]}).sort("created_at", -1).limit(50).to_list(50)
+    
+    return {
+        "is_affiliate": True,
+        "affiliate_id": affiliate["affiliate_id"],
+        "affiliate_code": affiliate["affiliate_code"],
+        "referral_link": affiliate["referral_link"],
+        "status": affiliate["status"],
+        "commission_type": affiliate["commission_type"],
+        "commission_rate": affiliate["commission_rate"],
+        "cpa_amount": affiliate.get("cpa_amount", 10),
+        "tier": affiliate.get("tier", 1),
+        "stats": affiliate["stats"],
+        "payment_info": affiliate.get("payment_info", {}),
+        "referrals_count": len(referrals),
+        "recent_commissions": [
+            {
+                "commission_id": c.get("commission_id"),
+                "amount": c.get("amount"),
+                "type": c.get("type"),
+                "status": c.get("status"),
+                "created_at": str(c.get("created_at", ""))
+            }
+            for c in commissions
+        ]
+    }
+
+@api_router.get("/affiliates/referrals")
+async def get_affiliate_referrals(authorization: Optional[str] = Header(None), request: Request = None):
+    """Get affiliate's referrals"""
+    user = await get_current_user(authorization, request)
+    
+    affiliate = await db.affiliates.find_one({"user_id": user.user_id})
+    if not affiliate:
+        raise HTTPException(status_code=404, detail="Not an affiliate")
+    
+    referrals = await db.referrals.find({"affiliate_id": affiliate["affiliate_id"]}).sort("created_at", -1).to_list(100)
+    
+    result = []
+    for ref in referrals:
+        referred_user = await db.users.find_one({"user_id": ref.get("referred_user_id")})
+        if referred_user:
+            # Get user's trading stats
+            trades = await db.trades.find({"user_id": ref.get("referred_user_id"), "account_type": "real"}).to_list(1000)
+            total_volume = sum(t.get("amount", 0) for t in trades)
+            total_loss = sum(t.get("profit_loss", 0) for t in trades if t.get("status") == "lost")
+            
+            result.append({
+                "referral_id": ref.get("referral_id"),
+                "user_email": referred_user.get("email", "")[:3] + "***",  # Masked
+                "signup_date": str(ref.get("created_at", "")),
+                "first_deposit": ref.get("first_deposit", 0),
+                "total_deposits": ref.get("total_deposits", 0),
+                "total_volume": total_volume,
+                "total_commission": ref.get("total_commission", 0),
+                "status": "active" if trades else "inactive"
+            })
+    
+    return {"referrals": result}
+
+@api_router.post("/affiliates/track-click")
+async def track_affiliate_click(request: Request):
+    """Track affiliate link click (public endpoint)"""
+    body = await request.json()
+    affiliate_code = body.get("code")
+    
+    if not affiliate_code:
+        return {"success": False}
+    
+    affiliate = await db.affiliates.find_one({"affiliate_code": affiliate_code, "status": "active"})
+    if not affiliate:
+        return {"success": False}
+    
+    # Record click
+    await db.affiliate_clicks.insert_one({
+        "affiliate_id": affiliate["affiliate_id"],
+        "affiliate_code": affiliate_code,
+        "ip": request.client.host if request.client else "unknown",
+        "user_agent": request.headers.get("user-agent", ""),
+        "timestamp": datetime.now(timezone.utc)
+    })
+    
+    # Update stats
+    await db.affiliates.update_one(
+        {"affiliate_id": affiliate["affiliate_id"]},
+        {"$inc": {"stats.total_clicks": 1}}
+    )
+    
+    return {"success": True, "code": affiliate_code}
+
+@api_router.post("/affiliates/process-signup")
+async def process_affiliate_signup(
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Process signup from affiliate referral (internal use)"""
+    body = await request.json()
+    affiliate_code = body.get("affiliate_code")
+    new_user_id = body.get("user_id")
+    
+    if not affiliate_code or not new_user_id:
+        return {"success": False}
+    
+    affiliate = await db.affiliates.find_one({"affiliate_code": affiliate_code, "status": "active"})
+    if not affiliate:
+        return {"success": False}
+    
+    # Check if already referred
+    existing = await db.referrals.find_one({"referred_user_id": new_user_id})
+    if existing:
+        return {"success": False, "message": "User already referred"}
+    
+    # Create referral record
+    referral = {
+        "referral_id": f"ref_{uuid.uuid4().hex[:12]}",
+        "affiliate_id": affiliate["affiliate_id"],
+        "affiliate_code": affiliate_code,
+        "referred_user_id": new_user_id,
+        "first_deposit": 0,
+        "total_deposits": 0,
+        "total_commission": 0,
+        "created_at": datetime.now(timezone.utc)
+    }
+    
+    await db.referrals.insert_one(referral)
+    
+    # Update affiliate stats
+    await db.affiliates.update_one(
+        {"affiliate_id": affiliate["affiliate_id"]},
+        {"$inc": {"stats.total_signups": 1}}
+    )
+    
+    # Mark user as referred
+    await db.users.update_one(
+        {"user_id": new_user_id},
+        {"$set": {"referred_by": affiliate["affiliate_id"], "referral_code": affiliate_code}}
+    )
+    
+    return {"success": True}
+
+@api_router.post("/affiliates/process-deposit")
+async def process_affiliate_deposit(
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Process deposit commission for affiliate (called after deposit confirmed)"""
+    body = await request.json()
+    user_id = body.get("user_id")
+    deposit_amount = float(body.get("amount", 0))
+    
+    # Find referral
+    referral = await db.referrals.find_one({"referred_user_id": user_id})
+    if not referral:
+        return {"success": False, "message": "User not referred"}
+    
+    affiliate = await db.affiliates.find_one({"affiliate_id": referral["affiliate_id"]})
+    if not affiliate or affiliate["status"] != "active":
+        return {"success": False}
+    
+    commission_amount = 0
+    commission_type = ""
+    
+    # Calculate commission based on type
+    if affiliate["commission_type"] == "cpa":
+        # CPA: One-time payment on first deposit
+        if referral.get("first_deposit", 0) == 0:
+            commission_amount = affiliate.get("cpa_amount", 10)
+            commission_type = "cpa"
+    elif affiliate["commission_type"] == "revenue_share":
+        # Revenue share: percentage of deposit
+        commission_amount = deposit_amount * (affiliate["commission_rate"] / 100)
+        commission_type = "revenue_share"
+    else:  # hybrid
+        if referral.get("first_deposit", 0) == 0:
+            commission_amount = affiliate.get("cpa_amount", 10)
+            commission_type = "cpa"
+        commission_amount += deposit_amount * (affiliate["commission_rate"] / 100)
+        commission_type = "hybrid"
+    
+    if commission_amount > 0:
+        # Create commission record
+        commission = {
+            "commission_id": f"comm_{uuid.uuid4().hex[:12]}",
+            "affiliate_id": affiliate["affiliate_id"],
+            "referral_id": referral["referral_id"],
+            "referred_user_id": user_id,
+            "amount": commission_amount,
+            "type": commission_type,
+            "source_amount": deposit_amount,
+            "status": "pending",
+            "created_at": datetime.now(timezone.utc)
+        }
+        
+        await db.commissions.insert_one(commission)
+        
+        # Update affiliate stats
+        await db.affiliates.update_one(
+            {"affiliate_id": affiliate["affiliate_id"]},
+            {
+                "$inc": {
+                    "stats.total_deposits": deposit_amount,
+                    "stats.total_earnings": commission_amount,
+                    "stats.pending_earnings": commission_amount
+                }
+            }
+        )
+        
+        # Update referral
+        update_fields = {"$inc": {"total_deposits": deposit_amount, "total_commission": commission_amount}}
+        if referral.get("first_deposit", 0) == 0:
+            update_fields["$set"] = {"first_deposit": deposit_amount}
+        await db.referrals.update_one({"referral_id": referral["referral_id"]}, update_fields)
+    
+    return {"success": True, "commission": commission_amount}
+
+@api_router.post("/affiliates/withdraw")
+async def request_affiliate_withdrawal(
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Request withdrawal of affiliate earnings"""
+    user = await get_current_user(authorization, request)
+    
+    affiliate = await db.affiliates.find_one({"user_id": user.user_id})
+    if not affiliate:
+        raise HTTPException(status_code=404, detail="Not an affiliate")
+    
+    body = await request.json()
+    amount = float(body.get("amount", 0))
+    
+    pending = affiliate["stats"].get("pending_earnings", 0)
+    if amount > pending:
+        raise HTTPException(status_code=400, detail="Insufficient pending earnings")
+    
+    min_payout = 50  # Minimum payout threshold
+    if amount < min_payout:
+        raise HTTPException(status_code=400, detail=f"Minimum payout is ${min_payout}")
+    
+    # Create payout request
+    payout = {
+        "payout_id": f"payout_{uuid.uuid4().hex[:12]}",
+        "affiliate_id": affiliate["affiliate_id"],
+        "user_id": user.user_id,
+        "amount": amount,
+        "payment_method": affiliate.get("payment_info", {}).get("method", "crypto"),
+        "wallet_address": affiliate.get("payment_info", {}).get("wallet_address", ""),
+        "status": "pending",
+        "created_at": datetime.now(timezone.utc)
+    }
+    
+    await db.affiliate_payouts.insert_one(payout)
+    
+    # Move from pending to processing
+    await db.affiliates.update_one(
+        {"affiliate_id": affiliate["affiliate_id"]},
+        {"$inc": {"stats.pending_earnings": -amount}}
+    )
+    
+    return {"success": True, "payout_id": payout["payout_id"]}
+
+# ============= ADMIN AFFILIATE MANAGEMENT =============
+
+@api_router.get("/admin/affiliates")
+async def admin_get_affiliates(
+    status: str = None,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get all affiliates (admin)"""
+    user = await get_current_user(authorization, request)
+    
+    query = {}
+    if status:
+        query["status"] = status
+    
+    affiliates = await db.affiliates.find(query).sort("created_at", -1).to_list(500)
+    
+    return {
+        "affiliates": [
+            {
+                "affiliate_id": a.get("affiliate_id"),
+                "user_id": a.get("user_id"),
+                "email": a.get("email"),
+                "affiliate_code": a.get("affiliate_code"),
+                "referral_link": a.get("referral_link"),
+                "status": a.get("status"),
+                "commission_type": a.get("commission_type"),
+                "commission_rate": a.get("commission_rate"),
+                "cpa_amount": a.get("cpa_amount", 10),
+                "tier": a.get("tier", 1),
+                "stats": a.get("stats", {}),
+                "created_at": str(a.get("created_at", ""))
+            }
+            for a in affiliates
+        ]
+    }
+
+@api_router.post("/admin/affiliates/{affiliate_id}/approve")
+async def admin_approve_affiliate(
+    affiliate_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Approve affiliate application"""
+    admin = await get_current_user(authorization, request)
+    
+    result = await db.affiliates.update_one(
+        {"affiliate_id": affiliate_id},
+        {
+            "$set": {
+                "status": "active",
+                "approved_at": datetime.now(timezone.utc),
+                "approved_by": admin.user_id
+            }
+        }
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Affiliate not found")
+    
+    return {"success": True, "status": "active"}
+
+@api_router.post("/admin/affiliates/{affiliate_id}/suspend")
+async def admin_suspend_affiliate(
+    affiliate_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Suspend affiliate"""
+    admin = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    reason = body.get("reason", "")
+    
+    await db.affiliates.update_one(
+        {"affiliate_id": affiliate_id},
+        {
+            "$set": {
+                "status": "suspended",
+                "suspended_at": datetime.now(timezone.utc),
+                "suspended_by": admin.user_id,
+                "suspension_reason": reason
+            }
+        }
+    )
+    
+    return {"success": True, "status": "suspended"}
+
+@api_router.post("/admin/affiliates/{affiliate_id}/commission")
+async def admin_set_affiliate_commission(
+    affiliate_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Set affiliate commission settings"""
+    admin = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    
+    update = {}
+    if "commission_type" in body:
+        update["commission_type"] = body["commission_type"]
+    if "commission_rate" in body:
+        update["commission_rate"] = float(body["commission_rate"])
+    if "cpa_amount" in body:
+        update["cpa_amount"] = float(body["cpa_amount"])
+    if "tier" in body:
+        update["tier"] = int(body["tier"])
+    
+    if update:
+        await db.affiliates.update_one(
+            {"affiliate_id": affiliate_id},
+            {"$set": update}
+        )
+    
+    return {"success": True}
+
+@api_router.get("/admin/affiliates/payouts")
+async def admin_get_affiliate_payouts(
+    status: str = None,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get affiliate payout requests"""
+    user = await get_current_user(authorization, request)
+    
+    query = {}
+    if status:
+        query["status"] = status
+    
+    payouts = await db.affiliate_payouts.find(query).sort("created_at", -1).to_list(200)
+    
+    result = []
+    for p in payouts:
+        affiliate = await db.affiliates.find_one({"affiliate_id": p.get("affiliate_id")})
+        result.append({
+            "payout_id": p.get("payout_id"),
+            "affiliate_id": p.get("affiliate_id"),
+            "affiliate_email": affiliate.get("email") if affiliate else "Unknown",
+            "amount": p.get("amount"),
+            "payment_method": p.get("payment_method"),
+            "wallet_address": p.get("wallet_address"),
+            "status": p.get("status"),
+            "created_at": str(p.get("created_at", ""))
+        })
+    
+    return {"payouts": result}
+
+@api_router.post("/admin/affiliates/payouts/{payout_id}/approve")
+async def admin_approve_payout(
+    payout_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Approve affiliate payout"""
+    admin = await get_current_user(authorization, request)
+    
+    payout = await db.affiliate_payouts.find_one({"payout_id": payout_id})
+    if not payout:
+        raise HTTPException(status_code=404, detail="Payout not found")
+    
+    if payout["status"] != "pending":
+        raise HTTPException(status_code=400, detail="Payout not pending")
+    
+    await db.affiliate_payouts.update_one(
+        {"payout_id": payout_id},
+        {
+            "$set": {
+                "status": "completed",
+                "approved_by": admin.user_id,
+                "approved_at": datetime.now(timezone.utc)
+            }
+        }
+    )
+    
+    # Update affiliate stats
+    await db.affiliates.update_one(
+        {"affiliate_id": payout["affiliate_id"]},
+        {"$inc": {"stats.paid_earnings": payout["amount"]}}
+    )
+    
+    return {"success": True}
+
+@api_router.post("/admin/affiliates/payouts/{payout_id}/reject")
+async def admin_reject_payout(
+    payout_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Reject affiliate payout"""
+    admin = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    reason = body.get("reason", "")
+    
+    payout = await db.affiliate_payouts.find_one({"payout_id": payout_id})
+    if not payout:
+        raise HTTPException(status_code=404, detail="Payout not found")
+    
+    await db.affiliate_payouts.update_one(
+        {"payout_id": payout_id},
+        {
+            "$set": {
+                "status": "rejected",
+                "rejected_by": admin.user_id,
+                "rejected_at": datetime.now(timezone.utc),
+                "rejection_reason": reason
+            }
+        }
+    )
+    
+    # Return to pending earnings
+    await db.affiliates.update_one(
+        {"affiliate_id": payout["affiliate_id"]},
+        {"$inc": {"stats.pending_earnings": payout["amount"]}}
+    )
+    
+    return {"success": True}
+
+@api_router.get("/admin/affiliates/stats")
+async def admin_get_affiliate_stats(authorization: Optional[str] = Header(None), request: Request = None):
+    """Get overall affiliate program stats"""
+    user = await get_current_user(authorization, request)
+    
+    total_affiliates = await db.affiliates.count_documents({})
+    active_affiliates = await db.affiliates.count_documents({"status": "active"})
+    pending_affiliates = await db.affiliates.count_documents({"status": "pending"})
+    
+    total_referrals = await db.referrals.count_documents({})
+    
+    # Calculate total commissions
+    pipeline = [
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]
+    comm_result = await db.commissions.aggregate(pipeline).to_list(1)
+    total_commissions = comm_result[0]["total"] if comm_result else 0
+    
+    # Pending payouts
+    pending_payouts = await db.affiliate_payouts.count_documents({"status": "pending"})
+    
+    return {
+        "total_affiliates": total_affiliates,
+        "active_affiliates": active_affiliates,
+        "pending_affiliates": pending_affiliates,
+        "total_referrals": total_referrals,
+        "total_commissions_paid": total_commissions,
+        "pending_payouts": pending_payouts
+    }
+
 # Include router - MUST be at the end of file after ALL route definitions
 app.include_router(api_router)
