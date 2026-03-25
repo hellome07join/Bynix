@@ -640,9 +640,9 @@ async def logout(request: Request):
 @api_router.get("/assets")
 async def get_assets():
     """Get all tradeable assets"""
-    # Create default assets if fewer than 10 exist (to add all new assets)
+    # Create default assets if fewer than 60 exist (to add all new assets)
     count = await db.assets.count_documents({})
-    if count < 10:
+    if count < 60:
         # Clear old assets and add complete list
         await db.assets.delete_many({})
         default_assets = [
@@ -686,6 +686,9 @@ async def get_assets():
             {"asset_id": str(uuid.uuid4()), "symbol": "FIL/USD", "name": "FIL/USD OTC", "category": "crypto", "payout_percentage": 76.0, "is_active": True},
             {"asset_id": str(uuid.uuid4()), "symbol": "DOGE/USD", "name": "DOGE/USD OTC", "category": "crypto", "payout_percentage": 85.0, "is_active": True},
             {"asset_id": str(uuid.uuid4()), "symbol": "SHIB/USD", "name": "SHIB/USD OTC", "category": "crypto", "payout_percentage": 84.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "TRX/USD", "name": "TRX/USD OTC", "category": "crypto", "payout_percentage": 75.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "NEAR/USD", "name": "NEAR/USD OTC", "category": "crypto", "payout_percentage": 74.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "APT/USD", "name": "APT/USD OTC", "category": "crypto", "payout_percentage": 73.0, "is_active": True},
             
             # STOCKS
             {"asset_id": str(uuid.uuid4()), "symbol": "AAPL", "name": "Apple Inc.", "category": "stocks", "payout_percentage": 82.0, "is_active": True},
@@ -696,12 +699,23 @@ async def get_assets():
             {"asset_id": str(uuid.uuid4()), "symbol": "META", "name": "Meta Platforms", "category": "stocks", "payout_percentage": 78.0, "is_active": True},
             {"asset_id": str(uuid.uuid4()), "symbol": "NVDA", "name": "NVIDIA Corp.", "category": "stocks", "payout_percentage": 84.0, "is_active": True},
             {"asset_id": str(uuid.uuid4()), "symbol": "NFLX", "name": "Netflix Inc.", "category": "stocks", "payout_percentage": 77.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "SBUX", "name": "Starbucks OTC", "category": "stocks", "payout_percentage": 76.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "V", "name": "Visa OTC", "category": "stocks", "payout_percentage": 75.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "MA", "name": "Mastercard OTC", "category": "stocks", "payout_percentage": 74.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "PYPL", "name": "PayPal OTC", "category": "stocks", "payout_percentage": 73.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "WMT", "name": "Walmart OTC", "category": "stocks", "payout_percentage": 72.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "JPM", "name": "JPMorgan OTC", "category": "stocks", "payout_percentage": 71.0, "is_active": True},
             
             # COMMODITIES
             {"asset_id": str(uuid.uuid4()), "symbol": "GOLD", "name": "Gold", "category": "commodities", "payout_percentage": 88.0, "is_active": True},
             {"asset_id": str(uuid.uuid4()), "symbol": "SILVER", "name": "Silver", "category": "commodities", "payout_percentage": 86.0, "is_active": True},
             {"asset_id": str(uuid.uuid4()), "symbol": "OIL", "name": "Crude Oil", "category": "commodities", "payout_percentage": 85.0, "is_active": True},
-            {"asset_id": str(uuid.uuid4()), "symbol": "NATGAS", "name": "Natural Gas", "category": "commodities", "payout_percentage": 84.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "NATGAS", "name": "Natural Gas OTC", "category": "commodities", "payout_percentage": 78.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "PALLADIUM", "name": "Palladium OTC", "category": "commodities", "payout_percentage": 80.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "COPPER", "name": "Copper OTC", "category": "commodities", "payout_percentage": 76.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "WHEAT", "name": "Wheat OTC", "category": "commodities", "payout_percentage": 74.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "CORN", "name": "Corn OTC", "category": "commodities", "payout_percentage": 72.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "COFFEE", "name": "Coffee OTC", "category": "commodities", "payout_percentage": 70.0, "is_active": True},
         ]
         await db.assets.insert_many(default_assets)
     
