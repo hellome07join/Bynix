@@ -570,15 +570,18 @@ export default function AffiliateDashboard() {
             {tradersData.length === 0 ? (
               <>
                 {[
-                  { id: '10000001', date: '2026-03-20', type: 'Revenue', linkId: 'BYN001' },
-                  { id: '10000002', date: '2026-03-21', type: 'Turnover', linkId: 'BYN002' },
-                  { id: '10000003', date: '2026-03-22', type: 'Revenue', linkId: 'BYN001' },
-                  { id: '10000004', date: '2026-03-23', type: 'Turnover', linkId: 'BYN003' },
+                  { id: '10000001', date: '2026-03-20', type: 'Revenue', linkId: 'BYN001', flag: '🇧🇩' },
+                  { id: '10000002', date: '2026-03-21', type: 'Turnover', linkId: 'BYN002', flag: '🇮🇳' },
+                  { id: '10000003', date: '2026-03-22', type: 'Revenue', linkId: 'BYN001', flag: '🇵🇰' },
+                  { id: '10000004', date: '2026-03-23', type: 'Turnover', linkId: 'BYN003', flag: '🇺🇸' },
                 ].map((sample, i) => (
                   <View key={i} style={[styles.wideTableRow, i % 2 === 0 && styles.statsTableRowAlt]}>
-                    <Text style={[styles.statsTableCell, styles.colUserId, { color: COLORS.primary, fontWeight: '600' }]}>
-                      {sample.id}
-                    </Text>
+                    <View style={[styles.colUserId, { flexDirection: 'row', alignItems: 'center' }]}>
+                      <Text style={styles.traderFlag}>{sample.flag}</Text>
+                      <Text style={[styles.statsTableCell, { color: COLORS.primary, fontWeight: '600' }]}>
+                        {sample.id}
+                      </Text>
+                    </View>
                     <Text style={[styles.statsTableCell, styles.colDate]}>{sample.date}</Text>
                     <View style={styles.colLinkType}>
                       <View style={[
@@ -629,10 +632,13 @@ export default function AffiliateDashboard() {
                 
                 return (
                   <View key={i} style={[styles.wideTableRow, i % 2 === 0 && styles.statsTableRowAlt]}>
-                    {/* User ID */}
-                    <Text style={[styles.statsTableCell, styles.colUserId, { color: COLORS.primary, fontWeight: '600' }]}>
-                      {trader.user_id || `1000000${i + 1}`}
-                    </Text>
+                    {/* User ID with Country Flag */}
+                    <View style={[styles.colUserId, { flexDirection: 'row', alignItems: 'center' }]}>
+                      <Text style={styles.traderFlag}>{trader.country_flag || '🌍'}</Text>
+                      <Text style={[styles.statsTableCell, { color: COLORS.primary, fontWeight: '600' }]}>
+                        {trader.user_id || `1000000${i + 1}`}
+                      </Text>
+                    </View>
                     
                     {/* Registration Date */}
                     <Text style={[styles.statsTableCell, styles.colDate]}>
@@ -1815,11 +1821,14 @@ const styles = StyleSheet.create({
   colTurnover: { width: 130, textAlign: 'right' },
   
   // New columns for Traders tab
-  colUserId: { width: 100 },
+  colUserId: { width: 130 },
   colDate: { width: 90 },
   colLinkType: { width: 85, alignItems: 'center', justifyContent: 'center' },
   colSmallNum: { width: 65, textAlign: 'center' },
   colLinkId: { width: 80 },
+  
+  // Trader flag style
+  traderFlag: { fontSize: 16, marginRight: 6 },
   
   // Link Type Badge
   linkTypeBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
