@@ -536,43 +536,61 @@ export default function AffiliateDashboard() {
       </View>
     );
     
-    // Render Traders Tab
-    const renderTradersTab = () => (
-      <View style={styles.statsTableContainer}>
-        {/* Table Header */}
-        <View style={styles.statsTableHeader}>
-          <Text style={[styles.statsTableHeaderText, { flex: 1.5 }]}>TRADER</Text>
-          <Text style={[styles.statsTableHeaderText, { flex: 0.8 }]}>LINK</Text>
-          <Text style={[styles.statsTableHeaderText, { flex: 1 }]}>BALANCE</Text>
-          <Text style={[styles.statsTableHeaderText, { flex: 0.8 }]}>DEPS</Text>
-        </View>
-        
-        {/* Table Rows */}
-        {tradersData.length === 0 ? (
+    // Render Traders Tab - Horizontally Scrollable
+    const renderTradersTab = () => {
+      if (tradersData.length === 0) {
+        return (
           <View style={styles.statsEmptyRow}>
             <Ionicons name="people-outline" size={32} color={COLORS.textMuted} />
             <Text style={styles.statsEmptyText}>No traders yet</Text>
           </View>
-        ) : (
-          getPaginatedData(tradersData).map((trader: any, i: number) => (
-            <View key={i} style={[styles.statsTableRow, i % 2 === 0 && styles.statsTableRowAlt]}>
-              <View style={{ flex: 1.5 }}>
-                <View style={styles.traderInfo}>
-                  <Text style={styles.traderFlag}>{trader.country_flag || '🌍'}</Text>
-                  <View>
-                    <Text style={styles.traderIdText}>#{trader.user_id?.slice(-6) || 'N/A'}</Text>
-                    <Text style={styles.traderDateText}>{trader.created_at?.slice(0, 10) || '-'}</Text>
+        );
+      }
+      
+      return (
+        <ScrollView horizontal showsHorizontalScrollIndicator={true} style={styles.horizontalScroll}>
+          <View style={styles.wideTableWrapper}>
+            {/* Table Header */}
+            <View style={styles.wideTableHeader}>
+              <Text style={[styles.statsTableHeaderText, styles.colTrader]}>TRADER</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colSmall]}>LINK</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>BALANCE</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>DEPOSITS</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>WITHDRAW</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>TURNOVER</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>P/L ALL</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>VOL SHARE</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>REV SHARE</Text>
+            </View>
+            
+            {/* Table Rows */}
+            {getPaginatedData(tradersData).map((trader: any, i: number) => (
+              <View key={i} style={[styles.wideTableRow, i % 2 === 0 && styles.statsTableRowAlt]}>
+                <View style={styles.colTrader}>
+                  <View style={styles.traderInfo}>
+                    <Text style={styles.traderFlag}>{trader.country_flag || '🌍'}</Text>
+                    <View>
+                      <Text style={styles.traderIdText}>#{trader.user_id?.slice(-6) || 'N/A'}</Text>
+                      <Text style={styles.traderDateText}>{trader.created_at?.slice(0, 10) || '-'}</Text>
+                    </View>
                   </View>
                 </View>
+                <Text style={[styles.statsTableCell, styles.colSmall]}>{trader.link_code || '-'}</Text>
+                <Text style={[styles.statsTableCell, styles.colMoney, { color: COLORS.primary }]}>${(trader.balance || 0).toFixed(2)}</Text>
+                <Text style={[styles.statsTableCell, styles.colMoney]}>${(trader.deposits || 0).toFixed(2)}</Text>
+                <Text style={[styles.statsTableCell, styles.colMoney]}>${(trader.withdrawals || 0).toFixed(2)}</Text>
+                <Text style={[styles.statsTableCell, styles.colMoney]}>${(trader.turnover || 0).toFixed(2)}</Text>
+                <Text style={[styles.statsTableCell, styles.colMoney, { color: (trader.pnl || 0) >= 0 ? COLORS.primary : COLORS.danger }]}>
+                  ${(trader.pnl || 0).toFixed(2)}
+                </Text>
+                <Text style={[styles.statsTableCell, styles.colMoney]}>${(trader.vol_share || 0).toFixed(2)}</Text>
+                <Text style={[styles.statsTableCell, styles.colMoney, { color: COLORS.accent }]}>${(trader.rev_share || 0).toFixed(2)}</Text>
               </View>
-              <Text style={[styles.statsTableCell, { flex: 0.8, fontSize: 11 }]}>{trader.link_code || '-'}</Text>
-              <Text style={[styles.statsTableCell, { flex: 1, color: COLORS.primary }]}>${trader.balance?.toFixed(2) || '0.00'}</Text>
-              <Text style={[styles.statsTableCell, { flex: 0.8 }]}>${trader.deposits?.toFixed(0) || '0'}</Text>
-            </View>
-          ))
-        )}
-      </View>
-    );
+            ))}
+          </View>
+        </ScrollView>
+      );
+    };
     
     // Render Links Tab
     const renderLinksTab = () => (
@@ -617,38 +635,76 @@ export default function AffiliateDashboard() {
       </View>
     );
     
-    // Render Countries Tab
-    const renderCountriesTab = () => (
-      <View style={styles.statsTableContainer}>
-        {/* Table Header */}
-        <View style={styles.statsTableHeader}>
-          <Text style={[styles.statsTableHeaderText, { flex: 1.5 }]}>COUNTRY</Text>
-          <Text style={[styles.statsTableHeaderText, { flex: 0.8 }]}>CLICKS</Text>
-          <Text style={[styles.statsTableHeaderText, { flex: 0.8 }]}>REGS</Text>
-          <Text style={[styles.statsTableHeaderText, { flex: 0.8 }]}>FTD</Text>
-        </View>
-        
-        {/* Table Rows */}
-        {countriesData.length === 0 ? (
+    // Render Countries Tab - Horizontally Scrollable with All Columns
+    const renderCountriesTab = () => {
+      if (countriesData.length === 0) {
+        return (
           <View style={styles.statsEmptyRow}>
             <Ionicons name="globe-outline" size={32} color={COLORS.textMuted} />
             <Text style={styles.statsEmptyText}>No country data</Text>
           </View>
-        ) : (
-          getPaginatedData(countriesData).map((country: any, i: number) => (
-            <View key={i} style={[styles.statsTableRow, i % 2 === 0 && styles.statsTableRowAlt]}>
-              <View style={{ flex: 1.5, flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={styles.countryFlag}>{country.flag || '🌍'}</Text>
-                <Text style={styles.countryName}>{country.name || 'Unknown'}</Text>
-              </View>
-              <Text style={[styles.statsTableCell, { flex: 0.8 }]}>{country.clicks || 0}</Text>
-              <Text style={[styles.statsTableCell, { flex: 0.8 }]}>{country.registrations || 0}</Text>
-              <Text style={[styles.statsTableCell, { flex: 0.8, color: COLORS.primary }]}>{country.ftds || 0}</Text>
+        );
+      }
+      
+      return (
+        <ScrollView horizontal showsHorizontalScrollIndicator={true} style={styles.horizontalScroll}>
+          <View style={styles.wideTableWrapper}>
+            {/* Table Header */}
+            <View style={styles.wideTableHeader}>
+              <Text style={[styles.statsTableHeaderText, styles.colCountry]}>COUNTRY</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colSmall]}>CLICKS</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colMedium]}>REGS</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colSmall]}>FTD</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>FTD SUM</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colSmall]}>DEPS</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>DEPS SUM</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>BONUSES</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>WITHDRAW</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colSmall]}>TRADERS</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>TURNOVER</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>P/L ALL</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>VOL SHARE</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>REV SHARE</Text>
             </View>
-          ))
-        )}
-      </View>
-    );
+            
+            {/* Table Rows */}
+            {getPaginatedData(countriesData).map((country: any, i: number) => {
+              const regPercent = country.clicks > 0 ? ((country.registrations / country.clicks) * 100).toFixed(0) : '0';
+              const ftdPercent = country.registrations > 0 ? ((country.ftds / country.registrations) * 100).toFixed(2) : '0';
+              return (
+                <View key={i} style={[styles.wideTableRow, i % 2 === 0 && styles.statsTableRowAlt]}>
+                  <View style={[styles.colCountry, { flexDirection: 'row', alignItems: 'center' }]}>
+                    <Text style={styles.countryFlag}>{country.flag || '🌍'}</Text>
+                    <Text style={styles.countryName}>{country.name || 'Unknown'}</Text>
+                  </View>
+                  <Text style={[styles.statsTableCell, styles.colSmall]}>{country.clicks || 0}</Text>
+                  <View style={[styles.colMedium, { flexDirection: 'row', alignItems: 'center' }]}>
+                    <Text style={styles.statsTableCell}>{country.registrations || 0}</Text>
+                    <Text style={styles.statsTablePercent}> ({regPercent}%)</Text>
+                  </View>
+                  <View style={[styles.colSmall, { flexDirection: 'row', alignItems: 'center' }]}>
+                    <Text style={styles.statsTableCell}>{country.ftds || 0}</Text>
+                    <Text style={styles.statsTablePercent}> ({ftdPercent}%)</Text>
+                  </View>
+                  <Text style={[styles.statsTableCell, styles.colMoney]}>${(country.ftd_sum || 0).toFixed(2)}</Text>
+                  <Text style={[styles.statsTableCell, styles.colSmall]}>{country.deposits_count || 0}</Text>
+                  <Text style={[styles.statsTableCell, styles.colMoney]}>${(country.deposits_sum || 0).toFixed(2)}</Text>
+                  <Text style={[styles.statsTableCell, styles.colMoney]}>${(country.bonuses || 0).toFixed(2)}</Text>
+                  <Text style={[styles.statsTableCell, styles.colMoney]}>${(country.withdrawals || 0).toFixed(2)}</Text>
+                  <Text style={[styles.statsTableCell, styles.colSmall]}>{country.traders || 0}</Text>
+                  <Text style={[styles.statsTableCell, styles.colMoney]}>${(country.turnover || 0).toFixed(2)}</Text>
+                  <Text style={[styles.statsTableCell, styles.colMoney, { color: (country.pnl || 0) >= 0 ? COLORS.primary : COLORS.danger }]}>
+                    ${(country.pnl || 0).toFixed(2)}
+                  </Text>
+                  <Text style={[styles.statsTableCell, styles.colMoney]}>${(country.vol_share || 0).toFixed(2)}</Text>
+                  <Text style={[styles.statsTableCell, styles.colMoney, { color: COLORS.accent }]}>${(country.rev_share || 0).toFixed(2)}</Text>
+                </View>
+              );
+            })}
+          </View>
+        </ScrollView>
+      );
+    };
     
     // Get current data length for pagination
     const getCurrentDataLength = () => {
@@ -1567,4 +1623,17 @@ const styles = StyleSheet.create({
   paginationBtn: { width: 32, height: 32, borderRadius: 8, backgroundColor: COLORS.cardLight, justifyContent: 'center', alignItems: 'center' },
   paginationBtnDisabled: { opacity: 0.4 },
   paginationPage: { fontSize: 14, fontWeight: '600', color: COLORS.text, paddingHorizontal: 8 },
+  
+  // Wide Table Styles (Horizontal Scroll)
+  horizontalScroll: { marginHorizontal: -16 },
+  wideTableWrapper: { minWidth: 900, paddingHorizontal: 16 },
+  wideTableHeader: { flexDirection: 'row', backgroundColor: COLORS.cardLight, paddingVertical: 12, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  wideTableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 8 },
+  
+  // Column Widths
+  colTrader: { width: 130 },
+  colCountry: { width: 140 },
+  colSmall: { width: 60, textAlign: 'center' },
+  colMedium: { width: 80 },
+  colMoney: { width: 80, textAlign: 'right' },
 });
