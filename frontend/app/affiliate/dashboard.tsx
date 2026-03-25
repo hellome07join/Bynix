@@ -788,10 +788,8 @@ export default function AffiliateDashboard() {
                   placeholderTextColor={COLORS.textMuted}
                   value={newLinkForm.comment}
                   onChangeText={(text) => setNewLinkForm({...newLinkForm, comment: text})}
-                  multiline
-                  numberOfLines={2}
-                  blurOnSubmit={true}
-                  returnKeyType="done"
+                  multiline={true}
+                  textAlignVertical="top"
                 />
                 
                 {/* Buttons */}
