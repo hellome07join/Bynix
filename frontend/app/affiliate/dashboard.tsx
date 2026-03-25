@@ -713,98 +713,82 @@ export default function AffiliateDashboard() {
           </View>
         )}
         
-        {/* New Link Modal - Clean Design Without Dropdowns */}
+        {/* New Link Modal - Simple Fixed Design */}
         <Modal 
           visible={showNewLinkModal} 
           transparent 
-          animationType="none"
+          animationType="fade"
           statusBarTranslucent
           onRequestClose={() => { setShowNewLinkModal(false); }}
         >
-          <View style={styles.modalKeyboardView}>
-            <Pressable 
-              style={styles.modalBackdrop} 
-              onPress={() => { Keyboard.dismiss(); setShowNewLinkModal(false); }} 
-            />
-            <KeyboardAvoidingView 
-              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-              style={styles.modalContentWrapper}
-              keyboardVerticalOffset={0}
-            >
-              <View style={styles.newLinkModalContent}>
-                {/* Modal Header */}
-                <View style={styles.modalHeaderRow}>
-                  <Text style={styles.newLinkModalTitle}>New Link</Text>
-                  <Pressable onPress={() => setShowNewLinkModal(false)} style={styles.modalCloseBtn}>
-                    <Ionicons name="close" size={24} color={COLORS.textSecondary} />
-                  </Pressable>
-                </View>
-                
-                {/* Link Type - Radio Style */}
-                <Text style={styles.inputLabel}>Link Type</Text>
-                <View style={styles.radioGroup}>
+          <Pressable 
+            style={styles.modalOverlayFixed} 
+            onPress={() => { Keyboard.dismiss(); setShowNewLinkModal(false); }}
+          >
+            <Pressable style={styles.modalContentFixed} onPress={(e) => e.stopPropagation()}>
+              {/* Modal Header */}
+              <View style={styles.modalHeaderRow}>
+                <Text style={styles.newLinkModalTitle}>New Link</Text>
+                <Pressable onPress={() => setShowNewLinkModal(false)} style={styles.modalCloseBtn}>
+                  <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+                </Pressable>
+              </View>
+              
+              {/* Link Type - Horizontal Chips */}
+              <Text style={styles.inputLabel}>Link Type</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScrollView}>
+                <View style={styles.chipContainer}>
                   {LINK_TYPES.map((type) => (
                     <Pressable 
                       key={type.value} 
-                      style={[styles.radioOption, newLinkForm.linkType === type.value && styles.radioOptionActive]}
+                      style={[styles.chip, newLinkForm.linkType === type.value && styles.chipActive]}
                       onPress={() => setNewLinkForm({...newLinkForm, linkType: type.value})}
                     >
-                      <View style={[styles.radioCircle, newLinkForm.linkType === type.value && styles.radioCircleActive]}>
-                        {newLinkForm.linkType === type.value && <View style={styles.radioCircleInner} />}
-                      </View>
-                      <Text style={[styles.radioLabel, newLinkForm.linkType === type.value && styles.radioLabelActive]}>
+                      <Text style={[styles.chipText, newLinkForm.linkType === type.value && styles.chipTextActive]}>
                         {type.label}
                       </Text>
                     </Pressable>
                   ))}
                 </View>
-                
-                {/* Affiliate Program - Toggle Style */}
-                <Text style={[styles.inputLabel, { marginTop: 20 }]}>Affiliate Program</Text>
-                <View style={styles.programToggle}>
-                  {AFFILIATE_PROGRAMS.map((prog) => (
-                    <Pressable 
-                      key={prog.value} 
-                      style={[styles.programToggleBtn, newLinkForm.affiliateProgram === prog.value && styles.programToggleBtnActive]}
-                      onPress={() => setNewLinkForm({...newLinkForm, affiliateProgram: prog.value})}
-                    >
-                      <Ionicons 
-                        name={prog.value === 'revenue_sharing' ? 'trending-down' : 'repeat'} 
-                        size={18} 
-                        color={newLinkForm.affiliateProgram === prog.value ? COLORS.white : COLORS.textSecondary} 
-                      />
-                      <Text style={[styles.programToggleText, newLinkForm.affiliateProgram === prog.value && styles.programToggleTextActive]}>
-                        {prog.label}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-                
-                {/* Comment Input */}
-                <Text style={[styles.inputLabel, { marginTop: 20 }]}>Comment (Optional)</Text>
-                <TextInput
-                  style={styles.commentInputNew}
-                  placeholder="Add a note to identify this link..."
-                  placeholderTextColor={COLORS.textMuted}
-                  value={newLinkForm.comment}
-                  onChangeText={(text) => setNewLinkForm({...newLinkForm, comment: text})}
-                  multiline={true}
-                  textAlignVertical="top"
-                />
-                
-                {/* Buttons */}
-                <View style={styles.modalButtons}>
-                  <Pressable style={styles.cancelBtn} onPress={() => setShowNewLinkModal(false)}>
-                    <Text style={styles.cancelBtnText}>Cancel</Text>
+              </ScrollView>
+              
+              {/* Affiliate Program - Toggle Style */}
+              <Text style={[styles.inputLabel, { marginTop: 16 }]}>Affiliate Program</Text>
+              <View style={styles.programToggle}>
+                {AFFILIATE_PROGRAMS.map((prog) => (
+                  <Pressable 
+                    key={prog.value} 
+                    style={[styles.programToggleBtn, newLinkForm.affiliateProgram === prog.value && styles.programToggleBtnActive]}
+                    onPress={() => setNewLinkForm({...newLinkForm, affiliateProgram: prog.value})}
+                  >
+                    <Text style={[styles.programToggleText, newLinkForm.affiliateProgram === prog.value && styles.programToggleTextActive]}>
+                      {prog.label}
+                    </Text>
                   </Pressable>
-                  <Pressable style={styles.saveBtn} onPress={createNewLink}>
-                    <Ionicons name="add-circle" size={20} color={COLORS.white} />
-                    <Text style={styles.saveBtnText}>Create Link</Text>
-                  </Pressable>
-                </View>
+                ))}
               </View>
-            </KeyboardAvoidingView>
-          </View>
+              
+              {/* Comment Input */}
+              <Text style={[styles.inputLabel, { marginTop: 16 }]}>Comment</Text>
+              <TextInput
+                style={styles.commentInputSimple}
+                placeholder="Optional note..."
+                placeholderTextColor={COLORS.textMuted}
+                value={newLinkForm.comment}
+                onChangeText={(text) => setNewLinkForm({...newLinkForm, comment: text})}
+              />
+              
+              {/* Buttons */}
+              <View style={styles.modalButtons}>
+                <Pressable style={styles.cancelBtn} onPress={() => setShowNewLinkModal(false)}>
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </Pressable>
+                <Pressable style={styles.saveBtn} onPress={createNewLink}>
+                  <Text style={styles.saveBtnText}>Create</Text>
+                </Pressable>
+              </View>
+            </Pressable>
+          </Pressable>
         </Modal>
       </View>
     );
@@ -1176,41 +1160,38 @@ const styles = StyleSheet.create({
   miniStatValue: { fontSize: 16, fontWeight: '700', color: COLORS.text },
   miniStatLabel: { fontSize: 10, color: COLORS.textMuted },
   
-  // New Link Modal
-  modalKeyboardView: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContentWrapper: { width: '100%' },
-  newLinkModalContent: { backgroundColor: COLORS.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24 },
-  modalScrollContent: { paddingBottom: 24 },
-  modalHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-  newLinkModalTitle: { fontSize: 22, fontWeight: '800', color: COLORS.text },
+  // New Link Modal - Fixed Center
+  modalOverlayFixed: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContentFixed: { backgroundColor: COLORS.white, borderRadius: 20, padding: 20, width: '100%', maxWidth: 400 },
+  modalHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  newLinkModalTitle: { fontSize: 20, fontWeight: '700', color: COLORS.text },
   modalCloseBtn: { padding: 4 },
-  inputLabel: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 12 },
+  inputLabel: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 8 },
   
-  // Radio Group for Link Type
-  radioGroup: { backgroundColor: COLORS.cardLight, borderRadius: 12, padding: 4 },
-  radioOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, borderRadius: 10 },
-  radioOptionActive: { backgroundColor: COLORS.white },
-  radioCircle: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: COLORS.border, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  radioCircleActive: { borderColor: COLORS.primary },
-  radioCircleInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: COLORS.primary },
-  radioLabel: { fontSize: 14, color: COLORS.textSecondary, fontWeight: '500' },
-  radioLabelActive: { color: COLORS.text, fontWeight: '600' },
+  // Chip Style for Link Type
+  chipScrollView: { marginBottom: 4 },
+  chipContainer: { flexDirection: 'row', gap: 8 },
+  chip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20, backgroundColor: COLORS.cardLight, borderWidth: 1, borderColor: COLORS.border },
+  chipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  chipText: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '500' },
+  chipTextActive: { color: COLORS.white },
   
-  // Program Toggle Buttons
+  // Program Toggle
   programToggle: { flexDirection: 'row', gap: 10 },
-  programToggleBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, paddingHorizontal: 12, borderRadius: 12, backgroundColor: COLORS.cardLight, borderWidth: 2, borderColor: 'transparent' },
+  programToggleBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 10, backgroundColor: COLORS.cardLight, borderWidth: 1, borderColor: COLORS.border },
   programToggleBtnActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  programToggleText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary, marginLeft: 8 },
+  programToggleText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
   programToggleTextActive: { color: COLORS.white },
   
-  // Comment Input New
-  commentInputNew: { backgroundColor: COLORS.cardLight, borderRadius: 12, paddingVertical: 16, paddingHorizontal: 16, fontSize: 14, color: COLORS.text, borderWidth: 1, borderColor: COLORS.border, minHeight: 80, textAlignVertical: 'top' },
+  // Comment Input Simple
+  commentInputSimple: { backgroundColor: COLORS.cardLight, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 14, fontSize: 14, color: COLORS.text, borderWidth: 1, borderColor: COLORS.border },
   
-  modalButtons: { flexDirection: 'row', marginTop: 24, gap: 12 },
-  cancelBtn: { flex: 1, paddingVertical: 16, alignItems: 'center', borderRadius: 12, backgroundColor: COLORS.cardLight },
-  cancelBtnText: { fontSize: 15, fontWeight: '600', color: COLORS.textSecondary },
-  saveBtn: { flex: 1.5, flexDirection: 'row', paddingVertical: 16, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: COLORS.primary },
-  saveBtnText: { fontSize: 15, fontWeight: '700', color: '#FFF', marginLeft: 8 },
+  // Modal Buttons
+  modalButtons: { flexDirection: 'row', marginTop: 20, gap: 10 },
+  cancelBtn: { flex: 1, paddingVertical: 14, alignItems: 'center', borderRadius: 10, backgroundColor: COLORS.cardLight },
+  cancelBtnText: { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary },
+  saveBtn: { flex: 1.2, paddingVertical: 14, alignItems: 'center', borderRadius: 10, backgroundColor: COLORS.primary },
+  saveBtnText: { fontSize: 14, fontWeight: '700', color: '#FFF' },
   
   // Promo
   promoCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: 12, padding: 12, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
