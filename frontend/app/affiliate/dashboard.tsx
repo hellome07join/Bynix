@@ -105,10 +105,6 @@ export default function AffiliateDashboard() {
   const [statsPage, setStatsPage] = useState(1);
   const STATS_PER_PAGE = 10;
   
-  // Forms
-  const [withdrawAmount, setWithdrawAmount] = useState('');
-  const [withdrawAddress, setWithdrawAddress] = useState('');
-  
   // Links Page States
   const [showNewLinkModal, setShowNewLinkModal] = useState(false);
   const [newLinkForm, setNewLinkForm] = useState({
@@ -3800,4 +3796,47 @@ const styles = StyleSheet.create({
   helpContactMethods: { flexDirection: 'row', justifyContent: 'center', gap: 16 },
   helpContactMethod: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border },
   helpContactMethodText: { fontSize: 13, fontWeight: '600', color: COLORS.text, marginLeft: 8 },
+
+  // Withdraw Modal Styles
+  withdrawBalanceCard: { backgroundColor: COLORS.primaryLight, borderRadius: 16, padding: 20, marginBottom: 24, alignItems: 'center' },
+  withdrawBalanceLabel: { fontSize: 13, color: COLORS.textSecondary, marginBottom: 4 },
+  withdrawBalanceValue: { fontSize: 36, fontWeight: '700', color: COLORS.primary },
+  withdrawMinNote: { fontSize: 12, color: COLORS.textMuted, marginTop: 8 },
+  withdrawFormSection: { backgroundColor: COLORS.white, borderRadius: 16, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: COLORS.border },
+  withdrawFormTitle: { fontSize: 14, fontWeight: '700', color: COLORS.text, marginBottom: 12 },
+  withdrawAmountInputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.cardLight, borderRadius: 12, paddingHorizontal: 16, borderWidth: 1, borderColor: COLORS.border, marginBottom: 16 },
+  withdrawCurrency: { fontSize: 24, fontWeight: '700', color: COLORS.text, marginRight: 8 },
+  withdrawAmountInput: { flex: 1, fontSize: 28, fontWeight: '700', color: COLORS.text, paddingVertical: 16 },
+  withdrawQuickAmounts: { flexDirection: 'row', gap: 10, marginBottom: 24 },
+  withdrawQuickAmountBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: COLORS.cardLight, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
+  withdrawQuickAmountBtnActive: { backgroundColor: COLORS.primaryLight, borderColor: COLORS.primary },
+  withdrawQuickAmountText: { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary },
+  withdrawQuickAmountTextActive: { color: COLORS.primary },
+  withdrawWalletCard: { backgroundColor: COLORS.cardLight, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: COLORS.border, marginBottom: 24 },
+  withdrawWalletHeader: { flexDirection: 'row', alignItems: 'center' },
+  withdrawWalletInfo: { flex: 1, marginLeft: 12 },
+  withdrawWalletType: { fontSize: 14, fontWeight: '700', color: COLORS.text },
+  withdrawWalletAddress: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2, fontFamily: 'monospace' },
+  withdrawWalletNoAddress: { fontSize: 12, color: COLORS.danger, marginTop: 2 },
+  withdrawSetAddressBtn: { backgroundColor: COLORS.primary, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 8 },
+  withdrawSetAddressText: { fontSize: 12, fontWeight: '600', color: '#fff' },
+  withdrawWalletSelected: { flexDirection: 'row', alignItems: 'center', marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: COLORS.border },
+  withdrawWalletSelectedText: { fontSize: 12, color: COLORS.primary, marginLeft: 6, fontWeight: '500' },
+  withdrawSubmitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primary, paddingVertical: 18, borderRadius: 14 },
+  withdrawSubmitBtnDisabled: { opacity: 0.5 },
+  withdrawSubmitText: { fontSize: 16, fontWeight: '700', color: '#fff', marginLeft: 10 },
+  withdrawHistorySection: { backgroundColor: COLORS.white, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: COLORS.border },
+  withdrawHistoryTitle: { fontSize: 16, fontWeight: '700', color: COLORS.text, marginBottom: 16 },
+  withdrawHistoryEmpty: { alignItems: 'center', paddingVertical: 32 },
+  withdrawHistoryEmptyText: { fontSize: 14, color: COLORS.textMuted, marginTop: 12 },
+  withdrawHistoryItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  withdrawHistoryIcon: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  withdrawHistoryInfo: { flex: 1 },
+  withdrawHistoryAmount: { fontSize: 16, fontWeight: '700', color: COLORS.text },
+  withdrawHistoryDate: { fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
+  withdrawHistoryStatus: { fontSize: 12, fontWeight: '600', textTransform: 'capitalize', textAlign: 'right' },
+  withdrawHistoryStatusText: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase' },
+  withdrawHistoryLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  withdrawHistoryRight: { alignItems: 'flex-end' },
+  withdrawHistoryWallet: { fontSize: 11, color: COLORS.textMuted, marginTop: 2 },
 });
