@@ -115,11 +115,27 @@ const ROLES = [
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const { token } = useAuthStore();
+  const { token, user, loadAuth } = useAuthStore();
   
   const [activeMenu, setActiveMenu] = useState('dashboard');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+  
+  // Check authentication
+  useEffect(() => {
+    const checkAuth = async () => {
+      await loadAuth();
+      setAuthChecked(true);
+    };
+    checkAuth();
+  }, []);
+  
+  useEffect(() => {
+    if (authChecked && !token) {
+      router.replace('/');
+    }
+  }, [authChecked, token]);
   
   // Data
   const [dashboardStats, setDashboardStats] = useState<any>(null);
@@ -543,50 +559,60 @@ export default function AdminDashboard() {
           {activeMenu === 'users' && (
             <View style={styles.page}>
               {/* Segments */}
-              {userSegments && (
-                <View style={styles.segmentRow}>
-                  <TouchableOpacity style={[styles.segmentBtn, userFilter === 'all' && styles.segmentActive]} onPress={() => setUserFilter('all')}>
-                    <Text style={styles.segmentValue}>{userSegments.total}</Text><Text style={styles.segmentLabel}>All</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.segmentBtn, userFilter === 'vip' && styles.segmentActive]} onPress={() => setUserFilter('vip')}>
-                    <Text style={styles.segmentValue}>{userSegments.vip}</Text><Text style={styles.segmentLabel}>VIP</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.segmentBtn, userFilter === 'flagged' && styles.segmentActive]} onPress={() => setUserFilter('flagged')}>
-                    <Text style={styles.segmentValue}>{userSegments.flagged}</Text><Text style={styles.segmentLabel}>Flagged</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.segmentBtn, userFilter === 'suspended' && styles.segmentActive]} onPress={() => setUserFilter('suspended')}>
-                    <Text style={styles.segmentValue}>{userSegments.suspended}</Text><Text style={styles.segmentLabel}>Suspended</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+              <View style={styles.segmentRow}>
+                <TouchableOpacity style={[styles.segmentBtn, userFilter === 'all' && styles.segmentActive]} onPress={() => setUserFilter('all')}>
+                  <Text style={[styles.segmentValue, userFilter === 'all' && { color: '#FFF' }]}>{userSegments?.total || 0}</Text>
+                  <Text style={[styles.segmentLabel, userFilter === 'all' && { color: 'rgba(255,255,255,0.7)' }]}>All</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.segmentBtn, userFilter === 'vip' && styles.segmentActive]} onPress={() => setUserFilter('vip')}>
+                  <Text style={[styles.segmentValue, userFilter === 'vip' && { color: '#FFF' }]}>{userSegments?.vip || 0}</Text>
+                  <Text style={[styles.segmentLabel, userFilter === 'vip' && { color: 'rgba(255,255,255,0.7)' }]}>VIP</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.segmentBtn, userFilter === 'flagged' && styles.segmentActive]} onPress={() => setUserFilter('flagged')}>
+                  <Text style={[styles.segmentValue, userFilter === 'flagged' && { color: '#FFF' }]}>{userSegments?.flagged || 0}</Text>
+                  <Text style={[styles.segmentLabel, userFilter === 'flagged' && { color: 'rgba(255,255,255,0.7)' }]}>Flagged</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.segmentBtn, userFilter === 'suspended' && styles.segmentActive]} onPress={() => setUserFilter('suspended')}>
+                  <Text style={[styles.segmentValue, userFilter === 'suspended' && { color: '#FFF' }]}>{userSegments?.suspended || 0}</Text>
+                  <Text style={[styles.segmentLabel, userFilter === 'suspended' && { color: 'rgba(255,255,255,0.7)' }]}>Suspended</Text>
+                </TouchableOpacity>
+              </View>
               <View style={styles.searchBar}>
                 <Ionicons name="search" size={18} color="#8898AA" />
                 <TextInput style={styles.searchInput} placeholder="Search by email, name, ID..." placeholderTextColor="#8898AA" value={searchQuery} onChangeText={setSearchQuery} />
               </View>
-              {users.map((u) => (
-                <TouchableOpacity key={u.user_id} style={styles.userCard} onPress={() => fetchUserProfile(u.user_id)}>
-                  <View style={styles.userAvatar}><Text style={styles.avatarText}>{u.email?.[0]?.toUpperCase()}</Text></View>
-                  <View style={styles.userInfo}>
-                    <Text style={styles.userName}>{u.name || u.email?.split('@')[0]}</Text>
-                    <Text style={styles.userEmail}>{u.email}</Text>
-                    <View style={styles.userMeta}>
-                      <Text style={styles.userCountry}>{u.country_flag} {u.country}</Text>
-                      {u.is_flagged && <View style={styles.flagBadge}><Text style={styles.flagText}>⚠️</Text></View>}
-                      {u.is_shadow_banned && <View style={styles.shadowBadge}><Text style={styles.shadowText}>👻</Text></View>}
+              {users.length === 0 ? (
+                <View style={styles.empty}>
+                  <Ionicons name="people-outline" size={48} color="#8898AA" />
+                  <Text style={styles.emptyText}>No users found</Text>
+                  <Text style={styles.emptySubtext}>Try adjusting your search or filters</Text>
+                </View>
+              ) : (
+                users.map((u) => (
+                  <TouchableOpacity key={u.user_id} style={styles.userCard} onPress={() => fetchUserProfile(u.user_id)}>
+                    <View style={styles.userAvatar}><Text style={styles.avatarText}>{u.email?.[0]?.toUpperCase()}</Text></View>
+                    <View style={styles.userInfo}>
+                      <Text style={styles.userName}>{u.name || u.email?.split('@')[0]}</Text>
+                      <Text style={styles.userEmail}>{u.email}</Text>
+                      <View style={styles.userMeta}>
+                        <Text style={styles.userCountry}>{u.country_flag} {u.country}</Text>
+                        {u.is_flagged && <View style={styles.flagBadge}><Text style={styles.flagText}>⚠️</Text></View>}
+                        {u.is_shadow_banned && <View style={styles.shadowBadge}><Text style={styles.shadowText}>👻</Text></View>}
+                      </View>
                     </View>
-                  </View>
-                  <View style={styles.userStats}>
-                    <Text style={styles.userBalance}>{formatCurrency(u.balances.real)}</Text>
-                    <Text style={[styles.userPL, { color: u.trading_stats.net_profit >= 0 ? '#00D4AA' : '#FF3B30' }]}>
-                      {u.trading_stats.net_profit >= 0 ? '+' : ''}{formatCurrency(u.trading_stats.net_profit)}
-                    </Text>
-                    <Text style={styles.userWinRate}>{u.trading_stats.win_rate}% WR</Text>
-                  </View>
-                  <View style={[styles.tierBadge, { backgroundColor: TIERS.find(t => t.id === u.tier)?.color || '#8E8E93' }]}>
-                    <Text style={styles.tierText}>{u.tier}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
+                    <View style={styles.userStats}>
+                      <Text style={styles.userBalance}>{formatCurrency(u.balances?.real || 0)}</Text>
+                      <Text style={[styles.userPL, { color: (u.trading_stats?.net_profit || 0) >= 0 ? '#00D4AA' : '#FF3B30' }]}>
+                        {(u.trading_stats?.net_profit || 0) >= 0 ? '+' : ''}{formatCurrency(u.trading_stats?.net_profit || 0)}
+                      </Text>
+                      <Text style={styles.userWinRate}>{u.trading_stats?.win_rate || 0}% WR</Text>
+                    </View>
+                    <View style={[styles.tierBadge, { backgroundColor: TIERS.find(t => t.id === u.tier)?.color || '#8E8E93' }]}>
+                      <Text style={styles.tierText}>{u.tier || 'standard'}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))
+              )}
             </View>
           )}
 
@@ -902,7 +928,8 @@ const styles = StyleSheet.create({
   tierText: { color: '#FFF', fontSize: 9, fontWeight: '700', textTransform: 'uppercase' },
   sectionTitle: { fontSize: 14, fontWeight: '700', color: '#1A1F36', marginBottom: 12 },
   empty: { alignItems: 'center', padding: 32, backgroundColor: '#FFF', borderRadius: 12 },
-  emptyText: { color: '#8898AA', marginTop: 8 },
+  emptyText: { color: '#8898AA', marginTop: 8, fontSize: 14, fontWeight: '600' },
+  emptySubtext: { color: '#A3ACB9', marginTop: 4, fontSize: 12 },
   tradeCard: { backgroundColor: '#FFF', borderRadius: 12, padding: 14, marginBottom: 10 },
   tradeTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   tradeAsset: { fontSize: 16, fontWeight: '700', color: '#1A1F36' },
