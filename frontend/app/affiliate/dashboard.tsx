@@ -87,8 +87,6 @@ export default function AffiliateDashboard() {
     affiliateProgram: 'revenue_sharing',
     comment: '',
   });
-  const [showLinkTypeDropdown, setShowLinkTypeDropdown] = useState(false);
-  const [showProgramDropdown, setShowProgramDropdown] = useState(false);
 
   const LINK_TYPES = [
     { value: 'main_page', label: 'Main page' },
@@ -458,7 +456,7 @@ export default function AffiliateDashboard() {
       <View style={styles.refLinkCard}>
         <Text style={styles.refLinkLabel}>Your Referral Link</Text>
         <View style={styles.refLinkBox}>
-          <Text style={styles.refLinkText} numberOfLines={1}>bynix.com/r/{affiliate?.ref_code}</Text>
+          <Text style={styles.refLinkText} numberOfLines={1}>bynix.io/r/{affiliate?.ref_code}</Text>
           <TouchableOpacity style={styles.copyBtn}>
             <Ionicons name="copy-outline" size={20} color={COLORS.primary} />
           </TouchableOpacity>
@@ -543,6 +541,10 @@ export default function AffiliateDashboard() {
 
   // Links Content - Full Featured
   const LinksContent = () => {
+    // Local state for dropdown visibility to prevent conflicts
+    const [localLinkTypeOpen, setLocalLinkTypeOpen] = useState(false);
+    const [localProgramOpen, setLocalProgramOpen] = useState(false);
+    
     const createNewLink = async () => {
       try {
         const token = await getToken();
@@ -558,8 +560,8 @@ export default function AffiliateDashboard() {
         });
         if (res.ok) {
           setShowNewLinkModal(false);
-          setShowLinkTypeDropdown(false);
-          setShowProgramDropdown(false);
+          setLocalLinkTypeOpen(false);
+          setLocalProgramOpen(false);
           setNewLinkForm({ linkType: 'main_page', affiliateProgram: 'revenue_sharing', comment: '' });
           fetchLinks();
         }
@@ -567,12 +569,12 @@ export default function AffiliateDashboard() {
     };
 
     const closeAllDropdowns = () => {
-      setShowLinkTypeDropdown(false);
-      setShowProgramDropdown(false);
+      setLocalLinkTypeOpen(false);
+      setLocalProgramOpen(false);
     };
 
     const getProgramBadge = (program: string) => {
-      if (program === 'turnover_sharing') {
+      if (program === 'turnover_sharing' || program === 'turnover') {
         return { label: 'Turnover', color: COLORS.accent, bg: COLORS.accentLight };
       }
       return { label: 'RevShare', color: COLORS.primary, bg: COLORS.primaryLight };
@@ -586,7 +588,7 @@ export default function AffiliateDashboard() {
             <Text style={styles.linksPageTitle}>Your Links</Text>
             <Text style={styles.linksPageCount}>{links.length > 0 ? `1-${links.length} of ${links.length}` : '0 links'}</Text>
           </View>
-          <TouchableOpacity style={styles.newLinkBtn} onPress={() => setShowNewLinkModal(true)}>
+          <TouchableOpacity style={styles.newLinkBtn} onPress={() => { closeAllDropdowns(); setShowNewLinkModal(true); }}>
             <Ionicons name="add" size={18} color="#FFF" />
             <Text style={styles.newLinkBtnText}>Create</Text>
           </TouchableOpacity>
@@ -624,7 +626,7 @@ export default function AffiliateDashboard() {
               const programInfo = getProgramBadge(link.program || 'revenue_sharing');
               return (
                 <View key={i} style={styles.linkCardNew}>
-                  {/* Link Header */}
+                  {/* Link Header with Program Badge */}
                   <View style={styles.linkCardHeader}>
                     <View style={styles.linkCodeBadge}>
                       <Text style={styles.linkCodeText}>#{link.code}</Text>
@@ -634,7 +636,7 @@ export default function AffiliateDashboard() {
                     </View>
                   </View>
                   
-                  {/* Link URL */}
+                  {/* Link URL - Domain: bynix.io */}
                   <View style={styles.linkUrlContainer}>
                     <Text style={styles.linkUrlLabel}>Referral Link</Text>
                     <TouchableOpacity style={styles.linkUrlBoxNew}>
@@ -645,18 +647,20 @@ export default function AffiliateDashboard() {
                     </TouchableOpacity>
                   </View>
                   
-                  {/* Link Type & Comment */}
+                  {/* Link Type & Comment Row */}
                   <View style={styles.linkMetaRow}>
                     <View style={styles.linkMetaItem}>
                       <Ionicons name="pricetag-outline" size={14} color={COLORS.textMuted} />
                       <Text style={styles.linkMetaText}>{link.name || 'Default Link'}</Text>
                     </View>
-                    {link.comment && (
-                      <View style={styles.linkMetaItem}>
-                        <Ionicons name="chatbubble-outline" size={14} color={COLORS.textMuted} />
-                        <Text style={styles.linkMetaText} numberOfLines={1}>{link.comment}</Text>
-                      </View>
-                    )}
+                  </View>
+                  
+                  {/* Comment Section - Always Show */}
+                  <View style={styles.commentSection}>
+                    <Ionicons name="chatbubble-outline" size={14} color={COLORS.textMuted} />
+                    <Text style={styles.commentText} numberOfLines={2}>
+                      {link.comment || 'No comment added'}
+                    </Text>
                   </View>
                   
                   {/* Stats Row */}
@@ -684,31 +688,33 @@ export default function AffiliateDashboard() {
           </View>
         )}
         
-        {/* New Link Modal */}
-        <Modal visible={showNewLinkModal} transparent animationType="slide">
-          <Pressable style={styles.modalOverlay} onPress={() => { setShowNewLinkModal(false); closeAllDropdowns(); }}>
-            <Pressable style={styles.newLinkModalContent} onPress={closeAllDropdowns}>
+        {/* New Link Modal - Completely Separate */}
+        <Modal visible={showNewLinkModal} transparent animationType="slide" onRequestClose={() => { setShowNewLinkModal(false); closeAllDropdowns(); }}>
+          <View style={styles.modalOverlay}>
+            <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => { setShowNewLinkModal(false); closeAllDropdowns(); }} />
+            <View style={styles.newLinkModalContent}>
               <Text style={styles.newLinkModalTitle}>New Link</Text>
               
-              {/* Link Type */}
+              {/* Link Type Dropdown */}
               <Text style={styles.inputLabel}>Link Type</Text>
               <TouchableOpacity 
-                style={[styles.dropdownSelector, showLinkTypeDropdown && styles.dropdownSelectorActive]} 
-                onPress={(e) => { e.stopPropagation(); setShowLinkTypeDropdown(!showLinkTypeDropdown); setShowProgramDropdown(false); }}
+                style={[styles.dropdownSelector, localLinkTypeOpen && styles.dropdownSelectorActive]} 
+                onPress={() => { setLocalLinkTypeOpen(!localLinkTypeOpen); setLocalProgramOpen(false); }}
+                activeOpacity={0.7}
               >
                 <Text style={styles.dropdownText}>
                   {LINK_TYPES.find(t => t.value === newLinkForm.linkType)?.label}
                 </Text>
-                <Ionicons name={showLinkTypeDropdown ? "chevron-up" : "chevron-down"} size={20} color={COLORS.textSecondary} />
+                <Ionicons name={localLinkTypeOpen ? "chevron-up" : "chevron-down"} size={20} color={COLORS.textSecondary} />
               </TouchableOpacity>
               
-              {showLinkTypeDropdown && (
+              {localLinkTypeOpen && (
                 <View style={styles.dropdownMenu}>
                   {LINK_TYPES.map((type) => (
                     <TouchableOpacity 
                       key={type.value} 
                       style={[styles.dropdownItem, newLinkForm.linkType === type.value && styles.dropdownItemActive]}
-                      onPress={(e) => { e.stopPropagation(); setNewLinkForm({...newLinkForm, linkType: type.value}); setShowLinkTypeDropdown(false); }}
+                      onPress={() => { setNewLinkForm({...newLinkForm, linkType: type.value}); setLocalLinkTypeOpen(false); }}
                     >
                       {newLinkForm.linkType === type.value && <Ionicons name="checkmark" size={18} color={COLORS.primary} style={{marginRight: 8}} />}
                       <Text style={[styles.dropdownItemText, newLinkForm.linkType === type.value && styles.dropdownItemTextActive]}>{type.label}</Text>
@@ -717,25 +723,26 @@ export default function AffiliateDashboard() {
                 </View>
               )}
               
-              {/* Affiliate Program */}
+              {/* Affiliate Program Dropdown */}
               <Text style={[styles.inputLabel, { marginTop: 16 }]}>Affiliate Program</Text>
               <TouchableOpacity 
-                style={[styles.dropdownSelector, showProgramDropdown && styles.dropdownSelectorActive]} 
-                onPress={(e) => { e.stopPropagation(); setShowProgramDropdown(!showProgramDropdown); setShowLinkTypeDropdown(false); }}
+                style={[styles.dropdownSelector, localProgramOpen && styles.dropdownSelectorActive]} 
+                onPress={() => { setLocalProgramOpen(!localProgramOpen); setLocalLinkTypeOpen(false); }}
+                activeOpacity={0.7}
               >
                 <Text style={styles.dropdownText}>
                   {AFFILIATE_PROGRAMS.find(p => p.value === newLinkForm.affiliateProgram)?.label}
                 </Text>
-                <Ionicons name={showProgramDropdown ? "chevron-up" : "chevron-down"} size={20} color={COLORS.textSecondary} />
+                <Ionicons name={localProgramOpen ? "chevron-up" : "chevron-down"} size={20} color={COLORS.textSecondary} />
               </TouchableOpacity>
               
-              {showProgramDropdown && (
+              {localProgramOpen && (
                 <View style={styles.dropdownMenu}>
                   {AFFILIATE_PROGRAMS.map((prog) => (
                     <TouchableOpacity 
                       key={prog.value} 
                       style={[styles.dropdownItem, newLinkForm.affiliateProgram === prog.value && styles.dropdownItemActive]}
-                      onPress={(e) => { e.stopPropagation(); setNewLinkForm({...newLinkForm, affiliateProgram: prog.value}); setShowProgramDropdown(false); }}
+                      onPress={() => { setNewLinkForm({...newLinkForm, affiliateProgram: prog.value}); setLocalProgramOpen(false); }}
                     >
                       {newLinkForm.affiliateProgram === prog.value && <Ionicons name="checkmark" size={18} color={COLORS.primary} style={{marginRight: 8}} />}
                       <Text style={[styles.dropdownItemText, newLinkForm.affiliateProgram === prog.value && styles.dropdownItemTextActive]}>{prog.label}</Text>
@@ -744,20 +751,18 @@ export default function AffiliateDashboard() {
                 </View>
               )}
               
-              {/* Comment */}
+              {/* Comment Input */}
               <Text style={[styles.inputLabel, { marginTop: 16 }]}>Comment</Text>
-              <Pressable onPress={(e) => e.stopPropagation()}>
-                <TextInput
-                  style={styles.commentInput}
-                  placeholder="Please enter Comment (optional)"
-                  placeholderTextColor={COLORS.textMuted}
-                  value={newLinkForm.comment}
-                  onChangeText={(text) => setNewLinkForm({...newLinkForm, comment: text})}
-                  multiline
-                  numberOfLines={3}
-                  onFocus={closeAllDropdowns}
-                />
-              </Pressable>
+              <TextInput
+                style={styles.commentInput}
+                placeholder="Please enter Comment (optional)"
+                placeholderTextColor={COLORS.textMuted}
+                value={newLinkForm.comment}
+                onChangeText={(text) => setNewLinkForm({...newLinkForm, comment: text})}
+                multiline
+                numberOfLines={3}
+                onFocus={closeAllDropdowns}
+              />
               
               {/* Buttons */}
               <View style={styles.modalButtons}>
@@ -768,14 +773,8 @@ export default function AffiliateDashboard() {
                   <Text style={styles.saveBtnText}>Save</Text>
                 </TouchableOpacity>
               </View>
-            </Pressable>
-          </Pressable>
-        </Modal>
-      </View>
-    );
-  };
-            </Pressable>
-          </Pressable>
+            </View>
+          </View>
         </Modal>
       </View>
     );
@@ -1088,6 +1087,39 @@ const styles = StyleSheet.create({
   infoText: { fontSize: 13, color: COLORS.textSecondary, lineHeight: 20, marginBottom: 4 },
   infoHighlight: { color: COLORS.primary, fontWeight: '600' },
   
+  // Links List Container
+  linksListContainer: { marginTop: 8 },
+  
+  // Link Card New Design
+  linkCardNew: { backgroundColor: COLORS.white, borderRadius: 16, padding: 20, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
+  linkCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  linkCodeBadge: { backgroundColor: COLORS.cardLight, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  linkCodeText: { fontSize: 13, fontWeight: '700', color: COLORS.text },
+  programBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  programBadgeText: { fontSize: 12, fontWeight: '700' },
+  
+  // Link URL Container
+  linkUrlContainer: { marginBottom: 14 },
+  linkUrlLabel: { fontSize: 11, color: COLORS.textMuted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
+  linkUrlBoxNew: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.cardLight, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 10 },
+  linkUrlTextNew: { flex: 1, fontSize: 14, color: COLORS.primary, fontWeight: '500' },
+  copyBtnNew: { padding: 4 },
+  
+  // Link Meta Row
+  linkMetaRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 },
+  linkMetaItem: { flexDirection: 'row', alignItems: 'center', marginRight: 16, marginBottom: 4 },
+  linkMetaText: { fontSize: 12, color: COLORS.textSecondary, marginLeft: 6 },
+  
+  // Comment Section
+  commentSection: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: COLORS.cardLight, padding: 12, borderRadius: 10, marginBottom: 14 },
+  commentText: { flex: 1, fontSize: 12, color: COLORS.textSecondary, marginLeft: 8, fontStyle: 'italic' },
+  
+  // Link Stats Row
+  linkStatsRow: { flexDirection: 'row', paddingTop: 14, borderTopWidth: 1, borderTopColor: COLORS.border },
+  linkStatBox: { flex: 1, alignItems: 'center' },
+  linkStatNum: { fontSize: 16, fontWeight: '700', color: COLORS.text },
+  linkStatName: { fontSize: 10, color: COLORS.textMuted, marginTop: 2 },
+  
   // Links Table
   linksTable: { backgroundColor: COLORS.white, borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
   tableHeader: { flexDirection: 'row', backgroundColor: COLORS.cardLight, paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border },
@@ -1106,6 +1138,7 @@ const styles = StyleSheet.create({
   newLinkModalTitle: { fontSize: 22, fontWeight: '800', color: COLORS.text, marginBottom: 24, textAlign: 'center' },
   inputLabel: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 8 },
   dropdownSelector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: COLORS.cardLight, borderRadius: 12, paddingVertical: 16, paddingHorizontal: 16, borderWidth: 1, borderColor: COLORS.border },
+  dropdownSelectorActive: { borderColor: COLORS.primary, borderWidth: 2 },
   dropdownText: { fontSize: 15, color: COLORS.text, fontWeight: '500' },
   dropdownMenu: { backgroundColor: COLORS.white, borderRadius: 12, marginTop: 8, borderWidth: 1, borderColor: COLORS.border, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5 },
   dropdownItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border },
@@ -1150,6 +1183,7 @@ const styles = StyleSheet.create({
   
   // Modals
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalBackdrop: { flex: 1 },
   levelsModalContent: { backgroundColor: COLORS.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '80%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   modalTitle: { color: COLORS.text, fontSize: 18, fontWeight: '700' },
