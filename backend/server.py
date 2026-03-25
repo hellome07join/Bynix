@@ -7054,7 +7054,24 @@ async def get_affiliate_links(authorization: str = Header(None)):
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         affiliate_id = payload.get("sub")
         
-        links = await db.affiliate_links.find({"affiliate_id": affiliate_id}).to_list(100)
+        links_cursor = await db.affiliate_links.find({"affiliate_id": affiliate_id}).to_list(100)
+        
+        # Convert ObjectId to string for JSON serialization
+        links = []
+        for link in links_cursor:
+            link_dict = {
+                "link_id": str(link.get("link_id", "")),
+                "affiliate_id": str(link.get("affiliate_id", "")),
+                "name": link.get("name", "Default Link"),
+                "code": link.get("code", ""),
+                "campaign": link.get("campaign"),
+                "clicks": link.get("clicks", 0),
+                "registrations": link.get("registrations", 0),
+                "ftds": link.get("ftds", 0),
+                "deposits": link.get("deposits", 0.0),
+                "created_at": link.get("created_at")
+            }
+            links.append(link_dict)
         
         return {"links": links}
     except jwt.ExpiredSignatureError:

@@ -79,6 +79,28 @@ export default function AffiliateDashboard() {
   // Forms
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawAddress, setWithdrawAddress] = useState('');
+  
+  // Links Page States
+  const [showNewLinkModal, setShowNewLinkModal] = useState(false);
+  const [newLinkForm, setNewLinkForm] = useState({
+    linkType: 'main_page',
+    affiliateProgram: 'revenue_sharing',
+    comment: '',
+  });
+  const [showLinkTypeDropdown, setShowLinkTypeDropdown] = useState(false);
+  const [showProgramDropdown, setShowProgramDropdown] = useState(false);
+
+  const LINK_TYPES = [
+    { value: 'main_page', label: 'Main page' },
+    { value: 'register', label: 'Register link' },
+    { value: 'android', label: 'Android link' },
+    { value: 'quick_entry', label: 'Quick entry into the platform' },
+  ];
+
+  const AFFILIATE_PROGRAMS = [
+    { value: 'revenue_sharing', label: 'Revenue Sharing' },
+    { value: 'turnover_sharing', label: 'Turnover Sharing' },
+  ];
 
   const getToken = async () => await AsyncStorage.getItem('affiliate_token');
 
@@ -472,42 +494,189 @@ export default function AffiliateDashboard() {
     </View>
   );
 
-  // Links Content
-  const LinksContent = () => (
-    <View style={styles.content}>
-      <View style={styles.linksHeader}>
-        <Text style={styles.sectionTitle}>Your Links</Text>
-        <TouchableOpacity style={styles.createLinkBtn}>
-          <Ionicons name="add" size={20} color="#FFF" />
-          <Text style={styles.createLinkBtnText}>Create</Text>
-        </TouchableOpacity>
-      </View>
-      
-      {links.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Ionicons name="link-outline" size={48} color={COLORS.textMuted} />
-          <Text style={styles.emptyStateTitle}>No Links Yet</Text>
-          <Text style={styles.emptyStateText}>Create your first link to start tracking</Text>
-        </View>
-      ) : (
-        links.map((link, i) => (
-          <View key={i} style={styles.linkCard}>
-            <View style={styles.linkHeader}>
-              <Text style={styles.linkName}>{link.name}</Text>
-              <TouchableOpacity><Ionicons name="copy-outline" size={20} color={COLORS.primary} /></TouchableOpacity>
-            </View>
-            <Text style={styles.linkUrl}>bynix.com/r/{link.code}</Text>
-            <View style={styles.linkStats}>
-              <View style={styles.linkStatItem}><Text style={styles.linkStatValue}>{link.clicks || 0}</Text><Text style={styles.linkStatLabel}>Clicks</Text></View>
-              <View style={styles.linkStatItem}><Text style={styles.linkStatValue}>{link.registrations || 0}</Text><Text style={styles.linkStatLabel}>Regs</Text></View>
-              <View style={styles.linkStatItem}><Text style={styles.linkStatValue}>{link.ftds || 0}</Text><Text style={styles.linkStatLabel}>FTDs</Text></View>
-              <View style={styles.linkStatItem}><Text style={styles.linkStatValue}>{formatMoney(link.deposits || 0)}</Text><Text style={styles.linkStatLabel}>Deposits</Text></View>
-            </View>
+  // Links Content - Full Featured
+  const LinksContent = () => {
+    const createNewLink = async () => {
+      try {
+        const token = await getToken();
+        const res = await fetch(`${API_URL}/affiliate/links`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: `${LINK_TYPES.find(t => t.value === newLinkForm.linkType)?.label || 'New Link'}`,
+            campaign: newLinkForm.linkType,
+            program: newLinkForm.affiliateProgram,
+            comment: newLinkForm.comment,
+          })
+        });
+        if (res.ok) {
+          setShowNewLinkModal(false);
+          setNewLinkForm({ linkType: 'main_page', affiliateProgram: 'revenue_sharing', comment: '' });
+          fetchLinks();
+        }
+      } catch (e) { console.error(e); }
+    };
+
+    return (
+      <View style={styles.content}>
+        {/* Header */}
+        <View style={styles.linksPageHeader}>
+          <View>
+            <Text style={styles.linksPageTitle}>Your Links</Text>
+            <Text style={styles.linksPageCount}>{links.length > 0 ? `1-${links.length} of ${links.length}` : '0 links'}</Text>
           </View>
-        ))
-      )}
-    </View>
-  );
+          <TouchableOpacity style={styles.newLinkBtn} onPress={() => setShowNewLinkModal(true)}>
+            <Ionicons name="add" size={18} color="#FFF" />
+            <Text style={styles.newLinkBtnText}>Create</Text>
+          </TouchableOpacity>
+        </View>
+        
+        {/* Info Box */}
+        <View style={styles.linksInfoBox}>
+          <View style={styles.infoIconWrap}>
+            <Ionicons name="information-circle" size={24} color={COLORS.primary} />
+          </View>
+          <View style={styles.infoTextWrap}>
+            <Text style={styles.infoTitle}>About Your Affiliate Links</Text>
+            <Text style={styles.infoText}>
+              This section contains the links you can use to attract referrals. We provide links for two affiliate models – <Text style={styles.infoHighlight}>Revenue Share</Text> or <Text style={styles.infoHighlight}>Turnover Share</Text>.
+            </Text>
+            <Text style={styles.infoText}>
+              You can create additional links for different traffic sources to track activity in the <Text style={styles.infoHighlight}>Statistics</Text> section.
+            </Text>
+          </View>
+        </View>
+        
+        {/* Links List */}
+        {links.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="link-outline" size={56} color={COLORS.textMuted} />
+            <Text style={styles.emptyStateTitle}>No Links Yet</Text>
+            <Text style={styles.emptyStateText}>Create your first link to start tracking referrals</Text>
+            <TouchableOpacity style={styles.emptyCreateBtn} onPress={() => setShowNewLinkModal(true)}>
+              <Text style={styles.emptyCreateBtnText}>Create First Link</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.linksTable}>
+            {/* Table Header */}
+            <View style={styles.tableHeader}>
+              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>ID</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 2 }]}>LINK</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>STATS</Text>
+            </View>
+            
+            {/* Table Rows */}
+            {links.map((link, i) => (
+              <View key={i} style={styles.tableRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.linkIdText}>#{link.code}</Text>
+                </View>
+                <View style={{ flex: 2 }}>
+                  <TouchableOpacity style={styles.linkUrlBox}>
+                    <Text style={styles.linkUrlText} numberOfLines={1}>bynix.com/r/{link.code}</Text>
+                    <Ionicons name="copy-outline" size={16} color={COLORS.primary} />
+                  </TouchableOpacity>
+                  <Text style={styles.linkTypeLabel}>{link.name || 'Default Link'}</Text>
+                </View>
+                <View style={{ flex: 1, alignItems: 'center' }}>
+                  <View style={styles.miniStats}>
+                    <Text style={styles.miniStatValue}>{link.clicks || 0}</Text>
+                    <Text style={styles.miniStatLabel}>clicks</Text>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+        
+        {/* New Link Modal */}
+        <Modal visible={showNewLinkModal} transparent animationType="slide">
+          <Pressable style={styles.modalOverlay} onPress={() => setShowNewLinkModal(false)}>
+            <Pressable style={styles.newLinkModalContent} onPress={(e) => e.stopPropagation()}>
+              <Text style={styles.newLinkModalTitle}>New Link</Text>
+              
+              {/* Link Type */}
+              <Text style={styles.inputLabel}>Link Type</Text>
+              <TouchableOpacity 
+                style={styles.dropdownSelector} 
+                onPress={() => { setShowLinkTypeDropdown(!showLinkTypeDropdown); setShowProgramDropdown(false); }}
+              >
+                <Text style={styles.dropdownText}>
+                  {LINK_TYPES.find(t => t.value === newLinkForm.linkType)?.label}
+                </Text>
+                <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+              
+              {showLinkTypeDropdown && (
+                <View style={styles.dropdownMenu}>
+                  {LINK_TYPES.map((type) => (
+                    <TouchableOpacity 
+                      key={type.value} 
+                      style={[styles.dropdownItem, newLinkForm.linkType === type.value && styles.dropdownItemActive]}
+                      onPress={() => { setNewLinkForm({...newLinkForm, linkType: type.value}); setShowLinkTypeDropdown(false); }}
+                    >
+                      {newLinkForm.linkType === type.value && <Ionicons name="checkmark" size={18} color={COLORS.primary} style={{marginRight: 8}} />}
+                      <Text style={[styles.dropdownItemText, newLinkForm.linkType === type.value && styles.dropdownItemTextActive]}>{type.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+              
+              {/* Affiliate Program */}
+              <Text style={[styles.inputLabel, { marginTop: 16 }]}>Affiliate Program</Text>
+              <TouchableOpacity 
+                style={styles.dropdownSelector} 
+                onPress={() => { setShowProgramDropdown(!showProgramDropdown); setShowLinkTypeDropdown(false); }}
+              >
+                <Text style={styles.dropdownText}>
+                  {AFFILIATE_PROGRAMS.find(p => p.value === newLinkForm.affiliateProgram)?.label}
+                </Text>
+                <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+              
+              {showProgramDropdown && (
+                <View style={styles.dropdownMenu}>
+                  {AFFILIATE_PROGRAMS.map((prog) => (
+                    <TouchableOpacity 
+                      key={prog.value} 
+                      style={[styles.dropdownItem, newLinkForm.affiliateProgram === prog.value && styles.dropdownItemActive]}
+                      onPress={() => { setNewLinkForm({...newLinkForm, affiliateProgram: prog.value}); setShowProgramDropdown(false); }}
+                    >
+                      {newLinkForm.affiliateProgram === prog.value && <Ionicons name="checkmark" size={18} color={COLORS.primary} style={{marginRight: 8}} />}
+                      <Text style={[styles.dropdownItemText, newLinkForm.affiliateProgram === prog.value && styles.dropdownItemTextActive]}>{prog.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+              
+              {/* Comment */}
+              <Text style={[styles.inputLabel, { marginTop: 16 }]}>Comment</Text>
+              <TextInput
+                style={styles.commentInput}
+                placeholder="Please enter Comment (optional)"
+                placeholderTextColor={COLORS.textMuted}
+                value={newLinkForm.comment}
+                onChangeText={(text) => setNewLinkForm({...newLinkForm, comment: text})}
+                multiline
+                numberOfLines={3}
+              />
+              
+              {/* Buttons */}
+              <View style={styles.modalButtons}>
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowNewLinkModal(false)}>
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.saveBtn} onPress={createNewLink}>
+                  <Text style={styles.saveBtnText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      </View>
+    );
+  };
 
   // Promo Content
   const PromoContent = () => (
@@ -766,13 +935,15 @@ const styles = StyleSheet.create({
   detailedStatValue: { color: COLORS.text, fontSize: 18, fontWeight: '700', marginTop: 8 },
   detailedStatLabel: { color: COLORS.textSecondary, fontSize: 10, marginTop: 4 },
   
-  // Links
+  // Links - New Design
   linksHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   createLinkBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primary, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12 },
   createLinkBtnText: { color: '#FFF', fontSize: 13, fontWeight: '600', marginLeft: 6 },
-  emptyState: { alignItems: 'center', paddingVertical: 48 },
-  emptyStateTitle: { color: COLORS.text, fontSize: 16, fontWeight: '600', marginTop: 16 },
-  emptyStateText: { color: COLORS.textSecondary, fontSize: 13, marginTop: 4 },
+  emptyState: { alignItems: 'center', paddingVertical: 48, backgroundColor: COLORS.white, borderRadius: 16, marginTop: 16 },
+  emptyStateTitle: { color: COLORS.text, fontSize: 18, fontWeight: '700', marginTop: 16 },
+  emptyStateText: { color: COLORS.textSecondary, fontSize: 14, marginTop: 8, textAlign: 'center', paddingHorizontal: 32 },
+  emptyCreateBtn: { backgroundColor: COLORS.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, marginTop: 24 },
+  emptyCreateBtnText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
   linkCard: { backgroundColor: COLORS.white, borderRadius: 16, padding: 20, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
   linkHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   linkName: { color: COLORS.text, fontSize: 15, fontWeight: '700' },
@@ -781,6 +952,52 @@ const styles = StyleSheet.create({
   linkStatItem: { alignItems: 'center' },
   linkStatValue: { color: COLORS.text, fontSize: 16, fontWeight: '700' },
   linkStatLabel: { color: COLORS.textMuted, fontSize: 10, marginTop: 2 },
+  
+  // Links Page - Full Featured
+  linksPageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  linksPageTitle: { fontSize: 24, fontWeight: '800', color: COLORS.text },
+  linksPageCount: { fontSize: 12, color: COLORS.textSecondary, marginTop: 4 },
+  newLinkBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primary, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12 },
+  newLinkBtnText: { color: '#FFF', fontSize: 14, fontWeight: '700', marginLeft: 6 },
+  
+  // Info Box
+  linksInfoBox: { backgroundColor: COLORS.primaryLight, borderRadius: 16, padding: 20, marginBottom: 20, flexDirection: 'row', borderLeftWidth: 4, borderLeftColor: COLORS.primary },
+  infoIconWrap: { marginRight: 16 },
+  infoTextWrap: { flex: 1 },
+  infoTitle: { fontSize: 15, fontWeight: '700', color: COLORS.text, marginBottom: 8 },
+  infoText: { fontSize: 13, color: COLORS.textSecondary, lineHeight: 20, marginBottom: 4 },
+  infoHighlight: { color: COLORS.primary, fontWeight: '600' },
+  
+  // Links Table
+  linksTable: { backgroundColor: COLORS.white, borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
+  tableHeader: { flexDirection: 'row', backgroundColor: COLORS.cardLight, paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  tableHeaderCell: { fontSize: 11, fontWeight: '700', color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
+  tableRow: { flexDirection: 'row', paddingVertical: 16, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border, alignItems: 'center' },
+  linkIdText: { fontSize: 13, fontWeight: '600', color: COLORS.text },
+  linkUrlBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.cardLight, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
+  linkUrlText: { fontSize: 12, color: COLORS.primary, flex: 1, marginRight: 8 },
+  linkTypeLabel: { fontSize: 11, color: COLORS.textMuted, marginTop: 6 },
+  miniStats: { alignItems: 'center' },
+  miniStatValue: { fontSize: 16, fontWeight: '700', color: COLORS.text },
+  miniStatLabel: { fontSize: 10, color: COLORS.textMuted },
+  
+  // New Link Modal
+  newLinkModalContent: { backgroundColor: COLORS.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '85%' },
+  newLinkModalTitle: { fontSize: 22, fontWeight: '800', color: COLORS.text, marginBottom: 24, textAlign: 'center' },
+  inputLabel: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 8 },
+  dropdownSelector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: COLORS.cardLight, borderRadius: 12, paddingVertical: 16, paddingHorizontal: 16, borderWidth: 1, borderColor: COLORS.border },
+  dropdownText: { fontSize: 15, color: COLORS.text, fontWeight: '500' },
+  dropdownMenu: { backgroundColor: COLORS.white, borderRadius: 12, marginTop: 8, borderWidth: 1, borderColor: COLORS.border, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5 },
+  dropdownItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  dropdownItemActive: { backgroundColor: COLORS.primaryLight },
+  dropdownItemText: { fontSize: 14, color: COLORS.text },
+  dropdownItemTextActive: { color: COLORS.primary, fontWeight: '600' },
+  commentInput: { backgroundColor: COLORS.cardLight, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16, fontSize: 14, color: COLORS.text, borderWidth: 1, borderColor: COLORS.border, minHeight: 100, textAlignVertical: 'top' },
+  modalButtons: { flexDirection: 'row', marginTop: 24 },
+  cancelBtn: { flex: 1, paddingVertical: 16, alignItems: 'center', borderRadius: 12, backgroundColor: COLORS.cardLight, marginRight: 8 },
+  cancelBtnText: { fontSize: 15, fontWeight: '600', color: COLORS.textSecondary },
+  saveBtn: { flex: 1, paddingVertical: 16, alignItems: 'center', borderRadius: 12, backgroundColor: COLORS.primary, marginLeft: 8 },
+  saveBtnText: { fontSize: 15, fontWeight: '700', color: '#FFF' },
   
   // Promo
   promoCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: 12, padding: 12, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
