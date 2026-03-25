@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useAuthStore } from '../../store/authStore';
+import { useAuthStore } from '../../stores/authStore';
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL 
   ? `${process.env.EXPO_PUBLIC_BACKEND_URL}/api`
