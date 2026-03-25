@@ -396,6 +396,84 @@ export default function AdminDashboard() {
     );
   };
 
+  // Withdrawal Action Handlers
+  const handleApproveWithdrawal = async (withdrawalId: string, userEmail: string, amount: number) => {
+    if (!token) return;
+    
+    Alert.alert(
+      'Confirm Approval',
+      `Approve withdrawal of $${amount.toFixed(2)} for ${userEmail}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Approve',
+          style: 'default',
+          onPress: async () => {
+            try {
+              const response = await fetch(`${API_URL}/admin/withdrawals/${withdrawalId}/approve`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                }
+              });
+              
+              if (response.ok) {
+                Alert.alert('Success', `Withdrawal of $${amount.toFixed(2)} approved successfully`);
+                fetchDashboardData(); // Refresh data
+              } else {
+                const error = await response.json();
+                Alert.alert('Error', error.detail || 'Failed to approve withdrawal');
+              }
+            } catch (error) {
+              console.error('Approve withdrawal error:', error);
+              Alert.alert('Error', 'Failed to approve withdrawal');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleRejectWithdrawal = async (withdrawalId: string, userEmail: string, amount: number) => {
+    if (!token) return;
+    
+    Alert.alert(
+      'Confirm Rejection',
+      `Reject withdrawal of $${amount.toFixed(2)} for ${userEmail}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reject',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await fetch(`${API_URL}/admin/withdrawals/${withdrawalId}/reject`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ reason: 'Rejected by admin' })
+              });
+              
+              if (response.ok) {
+                Alert.alert('Success', `Withdrawal rejected and $${amount.toFixed(2)} refunded to user`);
+                fetchDashboardData(); // Refresh data
+              } else {
+                const error = await response.json();
+                Alert.alert('Error', error.detail || 'Failed to reject withdrawal');
+              }
+            } catch (error) {
+              console.error('Reject withdrawal error:', error);
+              Alert.alert('Error', 'Failed to reject withdrawal');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   // Format currency
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
@@ -1054,10 +1132,16 @@ export default function AdminDashboard() {
               <View style={styles.withdrawalRight}>
                 <Text style={styles.withdrawalAmount}>${wd.amount?.toFixed(2) || 0}</Text>
                 <View style={styles.withdrawalActions}>
-                  <TouchableOpacity style={[styles.wdActionBtn, styles.wdApproveBtn]}>
+                  <TouchableOpacity 
+                    style={[styles.wdActionBtn, styles.wdApproveBtn]}
+                    onPress={() => handleApproveWithdrawal(wd.withdrawal_id, wd.user_email || 'User', wd.amount || 0)}
+                  >
                     <Ionicons name="checkmark" size={18} color="#FFF" />
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.wdActionBtn, styles.wdRejectBtn]}>
+                  <TouchableOpacity 
+                    style={[styles.wdActionBtn, styles.wdRejectBtn]}
+                    onPress={() => handleRejectWithdrawal(wd.withdrawal_id, wd.user_email || 'User', wd.amount || 0)}
+                  >
                     <Ionicons name="close" size={18} color="#FFF" />
                   </TouchableOpacity>
                 </View>

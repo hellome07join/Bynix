@@ -3981,12 +3981,39 @@ async def approve_withdrawal(
     """Approve a withdrawal request"""
     admin = await get_current_user(authorization, request)
     
+    # Check both withdrawals and transactions collections
     withdrawal = await db.withdrawals.find_one({
         "$or": [
             {"withdrawal_id": withdrawal_id},
             {"_id": withdrawal_id}
         ]
     })
+    
+    # Also check transactions collection for legacy withdrawals
+    if not withdrawal:
+        withdrawal = await db.transactions.find_one({
+            "type": "withdrawal",
+            "$or": [
+                {"transaction_id": withdrawal_id},
+                {"_id": withdrawal_id}
+            ]
+        })
+        if withdrawal:
+            # Update in transactions collection
+            if withdrawal.get("status") != "pending":
+                raise HTTPException(status_code=400, detail="Withdrawal is not pending")
+            
+            await db.transactions.update_one(
+                {"_id": withdrawal["_id"]},
+                {
+                    "$set": {
+                        "status": "completed",
+                        "approved_by": admin.user_id,
+                        "approved_at": datetime.now(timezone.utc)
+                    }
+                }
+            )
+            return {"success": True, "message": "Withdrawal approved"}
     
     if not withdrawal:
         raise HTTPException(status_code=404, detail="Withdrawal not found")
@@ -4025,6 +4052,38 @@ async def reject_withdrawal(
             {"_id": withdrawal_id}
         ]
     })
+    
+    # Also check transactions collection for legacy withdrawals
+    if not withdrawal:
+        withdrawal = await db.transactions.find_one({
+            "type": "withdrawal",
+            "$or": [
+                {"transaction_id": withdrawal_id},
+                {"_id": withdrawal_id}
+            ]
+        })
+        if withdrawal:
+            if withdrawal.get("status") != "pending":
+                raise HTTPException(status_code=400, detail="Withdrawal is not pending")
+            
+            # Refund the amount to user
+            await db.users.update_one(
+                {"user_id": withdrawal["user_id"]},
+                {"$inc": {"real_balance": withdrawal.get("amount", 0)}}
+            )
+            
+            await db.transactions.update_one(
+                {"_id": withdrawal["_id"]},
+                {
+                    "$set": {
+                        "status": "rejected",
+                        "rejected_by": admin.user_id,
+                        "rejected_at": datetime.now(timezone.utc),
+                        "rejection_reason": reason
+                    }
+                }
+            )
+            return {"success": True, "message": "Withdrawal rejected and balance refunded"}
     
     if not withdrawal:
         raise HTTPException(status_code=404, detail="Withdrawal not found")
