@@ -400,14 +400,34 @@ export default function AdminDashboard() {
   };
 
   const adjustUserBalance = async () => {
-    if (!selectedUser || !balanceAdjustAmount) return;
-    await fetch(`${API_URL}/admin/users/${selectedUser.user_id}/adjust-balance`, {
-      method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount: parseFloat(balanceAdjustAmount), balance_type: balanceAdjustType, operation: balanceAdjustOp })
-    });
-    Alert.alert('Success', `Balance adjusted`);
-    setBalanceAdjustAmount('');
-    fetchUserProfile(selectedUser.user_id);
+    if (!selectedUser || !balanceAdjustAmount) {
+      Alert.alert('Error', 'Enter an amount');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_URL}/admin/users/${selectedUser.user_id}/adjust-balance`, {
+        method: 'POST', 
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          amount: parseFloat(balanceAdjustAmount), 
+          balance_type: balanceAdjustType, 
+          operation: balanceAdjustOp,
+          reason: 'Admin adjustment'
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        Alert.alert('Success', `Balance ${balanceAdjustOp === 'add' ? 'added' : 'removed'}: $${Math.abs(data.amount_adjusted)}`);
+        setBalanceAdjustAmount('');
+        fetchUserProfile(selectedUser.user_id);
+        fetchUsers(); // Refresh user list
+      } else {
+        const err = await res.json();
+        Alert.alert('Error', err.detail || 'Failed to adjust balance');
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Network error');
+    }
   };
 
   const lockWithdrawals = async (locked: boolean) => {

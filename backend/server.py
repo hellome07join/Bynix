@@ -5255,14 +5255,14 @@ async def get_detailed_users(
     max_balance: float = None,
     profit_status: str = None,  # profitable, losing, neutral
     segment: str = None,  # vip, high_risk, new, inactive
-    sort_by: str = "created_at",
+    sort_by: str = "real_balance",  # Default sort by balance
     sort_order: str = "desc",
-    limit: int = 50,
+    limit: int = 100,
     offset: int = 0,
     authorization: Optional[str] = Header(None),
     request: Request = None
 ):
-    """Get users with advanced filtering"""
+    """Get users with advanced filtering - sorted by balance by default"""
     admin = await get_current_user(authorization, request)
     
     # Build query
@@ -5609,11 +5609,14 @@ async def admin_adjust_balance(
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
     
+    # Get admin id safely
+    admin_id = admin.get("user_id") if isinstance(admin, dict) else getattr(admin, "user_id", "unknown")
+    
     # Log the adjustment
     await db.balance_adjustments.insert_one({
         "adjustment_id": f"adj_{uuid.uuid4().hex[:12]}",
         "user_id": user_id,
-        "admin_id": admin.user_id,
+        "admin_id": admin_id,
         "amount": amount,
         "balance_type": balance_type,
         "reason": reason,
@@ -5622,13 +5625,17 @@ async def admin_adjust_balance(
     
     await db.admin_logs.insert_one({
         "action": "balance_adjustment",
-        "admin_id": admin.user_id,
+        "admin_id": admin_id,
         "target_user_id": user_id,
         "details": {"amount": amount, "balance_type": balance_type, "reason": reason},
         "timestamp": datetime.now(timezone.utc)
     })
     
-    return {"success": True, "amount_adjusted": amount}
+    # Get updated balance
+    updated_user = await db.users.find_one({"user_id": user_id})
+    new_balance = updated_user.get(field, 0) if updated_user else 0
+    
+    return {"success": True, "amount_adjusted": amount, "new_balance": new_balance}
 
 @api_router.post("/admin/users/{user_id}/lock-withdrawals")
 async def lock_user_withdrawals(
