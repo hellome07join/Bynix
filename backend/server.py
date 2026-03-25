@@ -640,15 +640,68 @@ async def logout(request: Request):
 @api_router.get("/assets")
 async def get_assets():
     """Get all tradeable assets"""
-    # Create default assets if none exist
+    # Create default assets if fewer than 10 exist (to add all new assets)
     count = await db.assets.count_documents({})
-    if count == 0:
+    if count < 10:
+        # Clear old assets and add complete list
+        await db.assets.delete_many({})
         default_assets = [
-            {"asset_id": str(uuid.uuid4()), "symbol": "BTC/USD", "name": "Bitcoin", "category": "crypto", "payout_percentage": 80.0, "is_active": True},
-            {"asset_id": str(uuid.uuid4()), "symbol": "ETH/USD", "name": "Ethereum", "category": "crypto", "payout_percentage": 80.0, "is_active": True},
-            {"asset_id": str(uuid.uuid4()), "symbol": "EUR/USD", "name": "Euro/Dollar", "category": "forex", "payout_percentage": 75.0, "is_active": True},
-            {"asset_id": str(uuid.uuid4()), "symbol": "GBP/USD", "name": "Pound/Dollar", "category": "forex", "payout_percentage": 75.0, "is_active": True},
-            {"asset_id": str(uuid.uuid4()), "symbol": "AAPL", "name": "Apple Inc.", "category": "stocks", "payout_percentage": 70.0, "is_active": True},
+            # FOREX - OTC Pairs
+            {"asset_id": str(uuid.uuid4()), "symbol": "USD/CHF", "name": "USD/CHF OTC", "category": "forex", "payout_percentage": 86.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "NZD/USD", "name": "NZD/USD OTC", "category": "forex", "payout_percentage": 84.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "USD/CAD", "name": "USD/CAD OTC", "category": "forex", "payout_percentage": 83.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "EUR/JPY", "name": "EUR/JPY OTC", "category": "forex", "payout_percentage": 82.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "GBP/JPY", "name": "GBP/JPY OTC", "category": "forex", "payout_percentage": 81.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "EUR/AUD", "name": "EUR/AUD OTC", "category": "forex", "payout_percentage": 80.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "EUR/CAD", "name": "EUR/CAD OTC", "category": "forex", "payout_percentage": 79.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "EUR/CHF", "name": "EUR/CHF OTC", "category": "forex", "payout_percentage": 78.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "GBP/AUD", "name": "GBP/AUD OTC", "category": "forex", "payout_percentage": 77.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "GBP/CAD", "name": "GBP/CAD OTC", "category": "forex", "payout_percentage": 76.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "AUD/JPY", "name": "AUD/JPY OTC", "category": "forex", "payout_percentage": 75.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "CHF/JPY", "name": "CHF/JPY OTC", "category": "forex", "payout_percentage": 74.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "CAD/JPY", "name": "CAD/JPY OTC", "category": "forex", "payout_percentage": 73.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "NZD/JPY", "name": "NZD/JPY OTC", "category": "forex", "payout_percentage": 72.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "AUD/NZD", "name": "AUD/NZD OTC", "category": "forex", "payout_percentage": 71.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "EUR/USD", "name": "EUR/USD OTC", "category": "forex", "payout_percentage": 85.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "GBP/USD", "name": "GBP/USD OTC", "category": "forex", "payout_percentage": 84.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "AUD/USD", "name": "AUD/USD OTC", "category": "forex", "payout_percentage": 82.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "USD/JPY", "name": "USD/JPY OTC", "category": "forex", "payout_percentage": 83.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "EUR/GBP", "name": "EUR/GBP OTC", "category": "forex", "payout_percentage": 80.0, "is_active": True},
+            
+            # CRYPTO
+            {"asset_id": str(uuid.uuid4()), "symbol": "BTC/USD", "name": "Bitcoin OTC", "category": "crypto", "payout_percentage": 90.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "ETH/USD", "name": "Ethereum OTC", "category": "crypto", "payout_percentage": 89.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "SOL/USD", "name": "SOL/USD OTC", "category": "crypto", "payout_percentage": 88.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "ADA/USD", "name": "ADA/USD OTC", "category": "crypto", "payout_percentage": 87.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "XRP/USD", "name": "XRP/USD OTC", "category": "crypto", "payout_percentage": 86.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "DOT/USD", "name": "DOT/USD OTC", "category": "crypto", "payout_percentage": 85.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "MATIC/USD", "name": "MATIC/USD OTC", "category": "crypto", "payout_percentage": 84.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "LTC/USD", "name": "LTC/USD OTC", "category": "crypto", "payout_percentage": 83.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "AVAX/USD", "name": "AVAX/USD OTC", "category": "crypto", "payout_percentage": 82.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "LINK/USD", "name": "LINK/USD OTC", "category": "crypto", "payout_percentage": 81.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "UNI/USD", "name": "UNI/USD OTC", "category": "crypto", "payout_percentage": 80.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "ATOM/USD", "name": "ATOM/USD OTC", "category": "crypto", "payout_percentage": 79.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "XLM/USD", "name": "XLM/USD OTC", "category": "crypto", "payout_percentage": 78.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "ETC/USD", "name": "ETC/USD OTC", "category": "crypto", "payout_percentage": 77.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "FIL/USD", "name": "FIL/USD OTC", "category": "crypto", "payout_percentage": 76.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "DOGE/USD", "name": "DOGE/USD OTC", "category": "crypto", "payout_percentage": 85.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "SHIB/USD", "name": "SHIB/USD OTC", "category": "crypto", "payout_percentage": 84.0, "is_active": True},
+            
+            # STOCKS
+            {"asset_id": str(uuid.uuid4()), "symbol": "AAPL", "name": "Apple Inc.", "category": "stocks", "payout_percentage": 82.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "GOOGL", "name": "Alphabet Inc.", "category": "stocks", "payout_percentage": 81.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "MSFT", "name": "Microsoft Corp.", "category": "stocks", "payout_percentage": 80.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "AMZN", "name": "Amazon.com Inc.", "category": "stocks", "payout_percentage": 79.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "TSLA", "name": "Tesla Inc.", "category": "stocks", "payout_percentage": 85.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "META", "name": "Meta Platforms", "category": "stocks", "payout_percentage": 78.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "NVDA", "name": "NVIDIA Corp.", "category": "stocks", "payout_percentage": 84.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "NFLX", "name": "Netflix Inc.", "category": "stocks", "payout_percentage": 77.0, "is_active": True},
+            
+            # COMMODITIES
+            {"asset_id": str(uuid.uuid4()), "symbol": "GOLD", "name": "Gold", "category": "commodities", "payout_percentage": 88.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "SILVER", "name": "Silver", "category": "commodities", "payout_percentage": 86.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "OIL", "name": "Crude Oil", "category": "commodities", "payout_percentage": 85.0, "is_active": True},
+            {"asset_id": str(uuid.uuid4()), "symbol": "NATGAS", "name": "Natural Gas", "category": "commodities", "payout_percentage": 84.0, "is_active": True},
         ]
         await db.assets.insert_many(default_assets)
     
