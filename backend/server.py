@@ -801,9 +801,14 @@ async def create_trade(trade: TradeCreate, authorization: Optional[str] = Header
                 {"$inc": update_fields}
             )
     
-    # For DEMO accounts only: Predetermine outcome for 90% win rate
-    # For REAL accounts: Use actual price movement (no manipulation)
+    # For DEMO accounts only: Predetermine outcome based on AI win rate settings
+    # For REAL accounts: Also use AI win rate if AI is enabled
     predetermined_outcome = None
+    
+    # Get AI settings
+    god_mode_settings = await db.platform_settings.find_one({"_id": "god_mode"})
+    ai_enabled = god_mode_settings.get("ai_enabled", True) if god_mode_settings else True
+    ai_win_rate = god_mode_settings.get("ai_win_rate", 45) if god_mode_settings else 45
     
     if trade.account_type == "demo":
         # Check if there's already an active demo trade for consistency
@@ -816,11 +821,16 @@ async def create_trade(trade: TradeCreate, authorization: Optional[str] = Header
         if existing_active_trade and existing_active_trade.get("predetermined_outcome"):
             predetermined_outcome = existing_active_trade["predetermined_outcome"]
         else:
-            # Demo: 90% win rate to encourage users
-            win_probability = 0.90
+            # Demo: Use AI win rate (default 45% if AI disabled)
+            win_probability = ai_win_rate / 100.0 if ai_enabled else 0.90
             predetermined_won = random.random() < win_probability
             predetermined_outcome = "won" if predetermined_won else "lost"
-    # Real account: predetermined_outcome stays None - will use actual price
+    elif trade.account_type == "real" and ai_enabled:
+        # Real account with AI enabled: Use AI win rate
+        win_probability = ai_win_rate / 100.0
+        predetermined_won = random.random() < win_probability
+        predetermined_outcome = "won" if predetermined_won else "lost"
+    # Real account with AI disabled: predetermined_outcome stays None - will use actual price
     
     # Create trade
     trade_id = f"trade_{uuid.uuid4().hex[:12]}"
