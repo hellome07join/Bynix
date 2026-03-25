@@ -119,6 +119,18 @@ export default function TradingViewChart({
   activeIndicators = { ma: false, bollingerBands: false, rsi: false, macd: false, stochastic: false },
   authToken
 }: TradingViewChartProps) {
+  // Use ref to track the stable interval value - prevents unwanted re-aggregation
+  const intervalRef = useRef(interval);
+  const [stableInterval, setStableInterval] = useState(interval);
+  
+  // Only update stableInterval when interval prop explicitly changes (user action via ToolsModal)
+  useEffect(() => {
+    if (interval !== intervalRef.current) {
+      intervalRef.current = interval;
+      setStableInterval(interval);
+    }
+  }, [interval]);
+  
   // Track price range for horizontal lines
   const [priceRange, setPriceRange] = useState<PriceRange>({ min: 0, max: 0 });
   
@@ -412,7 +424,7 @@ export default function TradingViewChart({
   const aggregatedCandles = useMemo(() => {
     if (baseTickData.length === 0) return [];
     
-    const intervalSeconds = getIntervalSeconds(interval);
+    const intervalSeconds = getIntervalSeconds(stableInterval);
     const candles: CandleData[] = [];
     
     let currentCandle: CandleData | null = null;
@@ -448,7 +460,7 @@ export default function TradingViewChart({
     }
     
     return candles;
-  }, [baseTickData, interval, getIntervalSeconds]);
+  }, [baseTickData, stableInterval, getIntervalSeconds]);
 
   // Initialize data on mount or symbol change
   useEffect(() => {

@@ -85,16 +85,8 @@ export default function Trade() {
   
   // Trading
   const [amount, setAmount] = useState('100');
-  const [timeframe, setTimeframeState] = useState('1m');
+  const [timeframe, setTimeframe] = useState('1m');
   const [duration, setDuration] = useState(60);
-  
-  // Wrapper for setTimeframe to track all changes
-  const setTimeframe = useCallback((newValue: string | ((prev: string) => string)) => {
-    const actualValue = typeof newValue === 'function' ? newValue(timeframe) : newValue;
-    console.log('[TIMEFRAME CHANGE] From:', timeframe, 'To:', actualValue);
-    console.trace('[TIMEFRAME CHANGE] Call stack:');
-    setTimeframeState(actualValue);
-  }, [timeframe]);
   
   // Ref to track if timeframe has been loaded from storage (prevents race condition)
   const timeframeInitialized = useRef(false);
@@ -105,7 +97,6 @@ export default function Trade() {
       try {
         const savedTimeframe = await AsyncStorage.getItem('chart_timeframe');
         if (savedTimeframe && ['1s', '5s', '15s', '1m', '5m'].includes(savedTimeframe)) {
-          console.log('[TIMEFRAME] Loaded from storage:', savedTimeframe);
           setTimeframe(savedTimeframe);
         }
         // Mark as initialized AFTER loading (or if no saved value)
@@ -122,14 +113,12 @@ export default function Trade() {
   useEffect(() => {
     // Skip saving on initial mount - wait for load to complete first
     if (!timeframeInitialized.current) {
-      console.log('[TIMEFRAME] Skipping save - not yet initialized');
       return;
     }
     
     const saveTimeframe = async () => {
       try {
         await AsyncStorage.setItem('chart_timeframe', timeframe);
-        console.log('[TIMEFRAME] Saved to storage:', timeframe);
       } catch (error) {
         console.error('Error saving timeframe:', error);
       }
@@ -1100,7 +1089,6 @@ export default function Trade() {
     console.log('selectedAsset:', selectedAsset);
     console.log('tradeAmount:', tradeAmount);
     console.log('currentPrice:', currentPrice);
-    console.log('[DEBUG] Current timeframe before trade:', timeframe);
 
     // For demo mode, execute trade locally without API
     if (accountType === 'demo' || !token) {
