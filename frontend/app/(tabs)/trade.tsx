@@ -91,6 +91,7 @@ export default function Trade() {
   const [trendingAssets, setTrendingAssets] = useState<any[]>([]);
   const [apiPayouts, setApiPayouts] = useState<Record<string, number>>({});
   const [inactiveAssets, setInactiveAssets] = useState<Set<string>>(new Set());
+  const [isTradingEnabled, setIsTradingEnabled] = useState(true);
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showToolsModal, setShowToolsModal] = useState(false);
@@ -636,15 +637,31 @@ export default function Trade() {
     }
   };
 
+  // Fetch platform trading status
+  const fetchPlatformStatus = async () => {
+    try {
+      const response = await fetch(`${API_URL}/platform/status`);
+      if (response.ok) {
+        const data = await response.json();
+        setIsTradingEnabled(data.trading_enabled !== false);
+      }
+    } catch (error) {
+      console.error('Error fetching platform status:', error);
+    }
+  };
+
   // Fetch trending assets on mount and when asset picker opens
   useEffect(() => {
     fetchTrendingAssets();
     fetchAssetPayouts();
+    fetchPlatformStatus();
     const interval = setInterval(fetchTrendingAssets, 30000); // Refresh every 30 seconds
     const payoutInterval = setInterval(fetchAssetPayouts, 60000); // Refresh payouts every minute
+    const statusInterval = setInterval(fetchPlatformStatus, 10000); // Check trading status every 10 seconds
     return () => {
       clearInterval(interval);
       clearInterval(payoutInterval);
+      clearInterval(statusInterval);
     };
   }, []);
 
@@ -911,6 +928,12 @@ export default function Trade() {
   const placeTrade = async (type: 'call' | 'put') => {
     // Haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Check if trading is enabled globally
+    if (!isTradingEnabled) {
+      Alert.alert('Trading Disabled', 'Trading is currently disabled by the platform administrator. Please try again later.');
+      return;
+    }
 
     if (cooldownRef.current) {
       Alert.alert('Please wait', 'Cooldown active');
@@ -1749,12 +1772,20 @@ export default function Trade() {
           <Text style={styles.profitPreviewValue}>${potentialProfit.toFixed(2)}</Text>
         </View>
 
+        {/* Trading Disabled Banner */}
+        {!isTradingEnabled && (
+          <View style={styles.tradingDisabledBanner}>
+            <Ionicons name="warning" size={18} color="#FF4444" />
+            <Text style={styles.tradingDisabledText}>Trading is currently disabled</Text>
+          </View>
+        )}
+
         {/* Trade Buttons */}
         <View style={styles.tradeButtons}>
           <TouchableOpacity
-            style={[styles.tradeBtn, styles.buyBtn, loading && styles.btnDisabled]}
+            style={[styles.tradeBtn, styles.buyBtn, (loading || !isTradingEnabled) && styles.btnDisabled]}
             onPress={() => placeTrade('call')}
-            disabled={loading}
+            disabled={loading || !isTradingEnabled}
             activeOpacity={0.85}
           >
             <Ionicons name="arrow-up" size={18} color="#FFFFFF" />
@@ -1763,9 +1794,9 @@ export default function Trade() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tradeBtn, styles.sellBtn, loading && styles.btnDisabled]}
+            style={[styles.tradeBtn, styles.sellBtn, (loading || !isTradingEnabled) && styles.btnDisabled]}
             onPress={() => placeTrade('put')}
-            disabled={loading}
+            disabled={loading || !isTradingEnabled}
             activeOpacity={0.85}
           >
             <Ionicons name="arrow-down" size={18} color="#FFFFFF" />
@@ -4863,6 +4894,22 @@ const styles = StyleSheet.create({
   },
   btnDisabled: {
     opacity: 0.5,
+  },
+  tradingDisabledBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 68, 68, 0.15)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+    gap: 6,
+  },
+  tradingDisabledText: {
+    color: '#FF4444',
+    fontSize: 12,
+    fontWeight: '700',
   },
   tradeBtnText: {
     color: '#FFFFFF',

@@ -655,6 +655,15 @@ async def logout(request: Request):
 
 # ============= Trading Routes =============
 
+@api_router.get("/platform/status")
+async def get_platform_status():
+    """Get public platform status (trading enabled, maintenance, etc.)"""
+    god_mode = await db.platform_settings.find_one({"_id": "god_mode"})
+    return {
+        "trading_enabled": god_mode.get("trading_enabled", True) if god_mode else True,
+        "maintenance_mode": god_mode.get("maintenance_mode", False) if god_mode else False
+    }
+
 @api_router.get("/assets")
 async def get_assets(include_inactive: bool = False):
     """Get all tradeable assets. Use include_inactive=true to get all assets including disabled ones."""
@@ -748,6 +757,11 @@ async def get_assets(include_inactive: bool = False):
 async def create_trade(trade: TradeCreate, authorization: Optional[str] = Header(None), request: Request = None):
     """Place a new trade"""
     user = await get_current_user(authorization, request)
+    
+    # Check if global trading is enabled
+    god_mode_settings = await db.platform_settings.find_one({"_id": "god_mode"})
+    if god_mode_settings and god_mode_settings.get("trading_enabled") == False:
+        raise HTTPException(status_code=403, detail="Trading is currently disabled by administrator")
     
     # Get user document to check bonus_balance
     user_doc = await db.users.find_one({"user_id": user.user_id})
