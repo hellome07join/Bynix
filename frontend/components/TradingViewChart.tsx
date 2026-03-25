@@ -430,8 +430,12 @@ export default function TradingViewChart({
     let currentCandle: CandleData | null = null;
     let candleStartTime = 0;
     
+    // Debug: track aggregation
+    let ticksProcessed = 0;
+    
     for (const tick of baseTickData) {
       const tickCandleStart = Math.floor(tick.time / intervalSeconds) * intervalSeconds;
+      ticksProcessed++;
       
       if (currentCandle === null || tickCandleStart !== candleStartTime) {
         // Start new candle
@@ -457,6 +461,11 @@ export default function TradingViewChart({
     // Add the last candle
     if (currentCandle !== null) {
       candles.push(currentCandle);
+    }
+    
+    // Debug log every 10 seconds
+    if (candles.length > 0 && Math.random() < 0.1) {
+      console.log(`[AGGREGATION] interval=${stableInterval}(${intervalSeconds}s), ticks=${ticksProcessed}, candles=${candles.length}`);
     }
     
     return candles;
@@ -525,8 +534,8 @@ export default function TradingViewChart({
     // Sync with server immediately on mount
     syncWithServer();
     
-    // Sync every 500ms for smoother chart animation
-    syncWithServerRef.current = setInterval(syncWithServer, 500);
+    // Sync every 1000ms (1 second) - balanced between smoothness and performance
+    syncWithServerRef.current = setInterval(syncWithServer, 1000);
     
     return () => {
       if (syncWithServerRef.current) {
