@@ -8,12 +8,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../utils/api';
 
 const { width } = Dimensions.get('window');
-const BYNIX_LOGO = 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/lgz5jvli_IMG_3255.png';
+const BYNIX_LOGO = 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/f2jhd9vy_IMG_3258.png';
 
 // Light Theme Color Palette
 const COLORS = {
   bg: '#F5F7FA',
   card: '#FFFFFF',
+  cardDark: '#1A2235',
   cardLight: '#F8FAFC',
   border: '#E2E8F0',
   primary: '#00C853',
@@ -691,18 +692,18 @@ const styles = StyleSheet.create({
   sectionTitle: { color: COLORS.text, fontSize: 18, fontWeight: '700', marginBottom: 16 },
   sectionSubtitle: { color: COLORS.textSecondary, fontSize: 13, marginTop: -12, marginBottom: 16 },
   
-  // Balance Card
-  balanceCard: { borderRadius: 20, padding: 24, marginBottom: 20, backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.border, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 3 },
+  // Balance Card - Dark theme for contrast
+  balanceCard: { borderRadius: 20, padding: 24, marginBottom: 20 },
   balanceHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  balanceLabel: { color: COLORS.textSecondary, fontSize: 13 },
-  withdrawBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primaryLight, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
-  withdrawBtnText: { color: COLORS.primary, fontSize: 12, fontWeight: '600', marginLeft: 6 },
-  balanceAmount: { color: COLORS.text, fontSize: 36, fontWeight: '800' },
-  balanceFooter: { flexDirection: 'row', marginTop: 20, paddingTop: 20, borderTopWidth: 1, borderTopColor: COLORS.border },
+  balanceLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 14, fontWeight: '500' },
+  withdrawBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primaryLight, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 24 },
+  withdrawBtnText: { color: COLORS.primary, fontSize: 13, fontWeight: '700', marginLeft: 6 },
+  balanceAmount: { color: '#FFFFFF', fontSize: 42, fontWeight: '800', marginVertical: 8 },
+  balanceFooter: { flexDirection: 'row', marginTop: 24, paddingTop: 20, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)' },
   balanceStat: { flex: 1 },
-  balanceStatLabel: { color: COLORS.textMuted, fontSize: 11 },
-  balanceStatValue: { color: COLORS.text, fontSize: 16, fontWeight: '700', marginTop: 4 },
-  balanceStatDivider: { width: 1, backgroundColor: COLORS.border, marginHorizontal: 16 },
+  balanceStatLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 12 },
+  balanceStatValue: { color: '#FFFFFF', fontSize: 18, fontWeight: '700', marginTop: 6 },
+  balanceStatDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.15)', marginHorizontal: 16 },
   
   // Level Progress
   levelProgressCard: { backgroundColor: COLORS.white, borderRadius: 16, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: COLORS.border },
