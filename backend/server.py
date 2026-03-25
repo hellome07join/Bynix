@@ -3525,30 +3525,59 @@ async def admin_get_users(authorization: Optional[str] = Header(None), request: 
 @api_router.get("/admin/trades")
 async def admin_get_trades(
     limit: int = 50,
+    status: Optional[str] = None,
     authorization: Optional[str] = Header(None),
     request: Request = None
 ):
-    """Get all trades for admin"""
+    """Get all trades for admin with optional status filter"""
     user = await get_current_user(authorization, request)
     
-    trades = await db.trades.find({}).sort("created_at", -1).limit(limit).to_list(limit)
+    # Build query with optional status filter
+    query = {}
+    if status == "active":
+        query["status"] = "pending"
+    elif status:
+        query["status"] = status
+    
+    trades = await db.trades.find(query).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    # Get user names for all trades
+    user_ids = list(set([t.get("user_id") for t in trades if t.get("user_id")]))
+    users_data = await db.users.find({"user_id": {"$in": user_ids}}).to_list(None)
+    user_names = {u.get("user_id"): u.get("name") or u.get("email", "Unknown") for u in users_data}
+    
+    # Calculate volume stats
+    call_volume = sum(t.get("amount", 0) for t in trades if t.get("trade_type") == "call" or t.get("direction") == "up")
+    put_volume = sum(t.get("amount", 0) for t in trades if t.get("trade_type") == "put" or t.get("direction") == "down")
     
     return {
         "trades": [
             {
                 "trade_id": t.get("trade_id"),
                 "user_id": t.get("user_id"),
+                "user_name": user_names.get(t.get("user_id"), "Unknown User"),
                 "asset": t.get("asset"),
                 "amount": t.get("amount"),
-                "direction": t.get("direction"),
+                "direction": t.get("direction") or ("up" if t.get("trade_type") == "call" else "down"),
+                "trade_type": t.get("trade_type"),
                 "status": t.get("status"),
                 "profit_loss": t.get("profit_loss", 0),
                 "entry_price": t.get("entry_price"),
                 "exit_price": t.get("exit_price"),
+                "payout_percentage": t.get("payout_percentage", 95),
+                "duration": t.get("duration", 60),
+                "account_type": t.get("account_type", "demo"),
+                "predetermined_outcome": t.get("predetermined_outcome"),
+                "expires_at": str(t.get("expires_at", "")) if t.get("expires_at") else None,
                 "created_at": str(t.get("created_at", ""))
             }
             for t in trades
-        ]
+        ],
+        "stats": {
+            "total_trades": len(trades),
+            "call_volume": call_volume,
+            "put_volume": put_volume
+        }
     }
 
 @api_router.get("/admin/deposits")

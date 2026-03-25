@@ -1590,18 +1590,18 @@ export default function AdminDashboard() {
       {/* Live Stats */}
       <View style={styles.liveStatsRow}>
         <View style={[styles.liveStatCard, { backgroundColor: COLORS.primaryLight }]}>
-          <Text style={[styles.liveStatValue, { color: COLORS.primary }]}>{liveTrades.length || recentTrades.length}</Text>
+          <Text style={[styles.liveStatValue, { color: COLORS.primary }]}>{liveTrades.length}</Text>
           <Text style={styles.liveStatLabel}>Active Trades</Text>
         </View>
         <View style={[styles.liveStatCard, { backgroundColor: COLORS.successLight }]}>
           <Text style={[styles.liveStatValue, { color: COLORS.success }]}>
-            ${recentTrades.filter(t => t.direction === 'call').reduce((sum, t) => sum + (t.amount || 0), 0).toFixed(0)}
+            ${liveTrades.filter(t => t.direction === 'up' || t.trade_type === 'call').reduce((sum, t) => sum + (t.amount || 0), 0).toFixed(0)}
           </Text>
           <Text style={styles.liveStatLabel}>Call Volume</Text>
         </View>
         <View style={[styles.liveStatCard, { backgroundColor: COLORS.dangerLight }]}>
           <Text style={[styles.liveStatValue, { color: COLORS.danger }]}>
-            ${recentTrades.filter(t => t.direction === 'put').reduce((sum, t) => sum + (t.amount || 0), 0).toFixed(0)}
+            ${liveTrades.filter(t => t.direction === 'down' || t.trade_type === 'put').reduce((sum, t) => sum + (t.amount || 0), 0).toFixed(0)}
           </Text>
           <Text style={styles.liveStatLabel}>Put Volume</Text>
         </View>
@@ -1616,34 +1616,39 @@ export default function AdminDashboard() {
           </TouchableOpacity>
         </View>
 
-        {(liveTrades.length > 0 ? liveTrades : recentTrades).map((trade, index) => (
+        {liveTrades.length === 0 ? (
+          <View style={{ padding: 20, alignItems: 'center' }}>
+            <Ionicons name="pulse-outline" size={48} color={COLORS.textLight} />
+            <Text style={{ color: COLORS.textLight, marginTop: 10 }}>No active trades</Text>
+          </View>
+        ) : liveTrades.map((trade, index) => (
           <View key={trade.trade_id || index} style={styles.liveTradeCard}>
             <View style={styles.liveTradeHeader}>
               <View style={styles.liveTradeUser}>
                 <View style={styles.liveTradeAvatar}>
                   <Text style={styles.liveTradeAvatarText}>
-                    {(trade.user_email || 'U')[0].toUpperCase()}
+                    {(trade.user_name || 'U')[0].toUpperCase()}
                   </Text>
                 </View>
                 <View>
-                  <Text style={styles.liveTradeEmail}>{trade.user_email || 'User'}</Text>
-                  <Text style={styles.liveTradeAsset}>{trade.asset || 'BTCUSDT'}</Text>
+                  <Text style={styles.liveTradeEmail}>{trade.user_name || 'Unknown User'}</Text>
+                  <Text style={styles.liveTradeAsset}>{trade.asset || 'Unknown'}</Text>
                 </View>
               </View>
               <View style={[
                 styles.liveTradeDirection,
-                { backgroundColor: trade.direction === 'call' ? COLORS.successLight : COLORS.dangerLight }
+                { backgroundColor: (trade.direction === 'up' || trade.trade_type === 'call') ? COLORS.successLight : COLORS.dangerLight }
               ]}>
                 <Ionicons 
-                  name={trade.direction === 'call' ? 'arrow-up' : 'arrow-down'} 
+                  name={(trade.direction === 'up' || trade.trade_type === 'call') ? 'arrow-up' : 'arrow-down'} 
                   size={16} 
-                  color={trade.direction === 'call' ? COLORS.success : COLORS.danger} 
+                  color={(trade.direction === 'up' || trade.trade_type === 'call') ? COLORS.success : COLORS.danger} 
                 />
                 <Text style={[
                   styles.liveTradeDirectionText,
-                  { color: trade.direction === 'call' ? COLORS.success : COLORS.danger }
+                  { color: (trade.direction === 'up' || trade.trade_type === 'call') ? COLORS.success : COLORS.danger }
                 ]}>
-                  {trade.direction?.toUpperCase() || 'CALL'}
+                  {trade.trade_type?.toUpperCase() || (trade.direction === 'up' ? 'CALL' : 'PUT')}
                 </Text>
               </View>
             </View>
@@ -1659,7 +1664,13 @@ export default function AdminDashboard() {
               </View>
               <View style={styles.liveTradeInfo}>
                 <Text style={styles.liveTradeLabel}>Payout</Text>
-                <Text style={styles.liveTradeValue}>95%</Text>
+                <Text style={styles.liveTradeValue}>{trade.payout_percentage || 95}%</Text>
+              </View>
+              <View style={styles.liveTradeInfo}>
+                <Text style={styles.liveTradeLabel}>Account</Text>
+                <Text style={[styles.liveTradeValue, { color: trade.account_type === 'real' ? COLORS.success : COLORS.warning }]}>
+                  {trade.account_type?.toUpperCase() || 'DEMO'}
+                </Text>
               </View>
             </View>
 
