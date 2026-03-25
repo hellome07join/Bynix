@@ -536,51 +536,198 @@ export default function AffiliateDashboard() {
       </View>
     );
     
-    // Render Traders Tab - Horizontally Scrollable (Matching Quotex Partner Design)
+    // Render Traders Tab - Complete detailed view with all user stats
     const renderTradersTab = () => {
+      // Get affiliate's commission rates based on level
+      const currentLevelData = LEVELS.find(l => l.level === (affiliate?.level || 1)) || LEVELS[0];
+      const revenueRate = currentLevelData.revenue;
+      const turnoverRate = currentLevelData.turnover;
+      
       return (
         <ScrollView horizontal showsHorizontalScrollIndicator={true} style={styles.horizontalScroll}>
-          <View style={styles.wideTableWrapperTraders}>
-            {/* Table Header - Matching Screenshot */}
+          <View style={styles.wideTableWrapperTradersNew}>
+            {/* Table Header - Complete columns as per user request */}
             <View style={styles.wideTableHeader}>
-              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>WITHDRAWALS</Text>
-              <Text style={[styles.statsTableHeaderText, styles.colTurnover]}>TURNOVER ALL</Text>
-              <Text style={[styles.statsTableHeaderText, styles.colTurnover]}>TURNOVER CLEAR</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colUserId]}>USER ID</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colDate]}>REG DATE</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colLinkType]}>LINK TYPE</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colSmallNum]}>COMM %</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colLinkId]}>LINK ID</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>BALANCE</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colSmallNum]}>DEPS</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>DEPS SUM</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>BONUSES</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>WITHDRAW</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>TURNOVER ALL</Text>
+              <Text style={[styles.statsTableHeaderText, styles.colMoney]}>TURNOVER CLR</Text>
               <Text style={[styles.statsTableHeaderText, styles.colMoney]}>P/L ALL</Text>
               <Text style={[styles.statsTableHeaderText, styles.colMoney]}>P/L CLEAR</Text>
               <Text style={[styles.statsTableHeaderText, styles.colMoney]}>VOL SHARE</Text>
               <Text style={[styles.statsTableHeaderText, styles.colMoney]}>REV SHARE</Text>
             </View>
             
-            {/* Table Rows - Show empty state inside table if no data */}
+            {/* Table Rows - Show placeholder if no data */}
             {tradersData.length === 0 ? (
               <>
-                {[1,2,3,4].map((_, i) => (
+                {[
+                  { id: '10000001', date: '2026-03-20', type: 'Revenue', linkId: 'BYN001' },
+                  { id: '10000002', date: '2026-03-21', type: 'Turnover', linkId: 'BYN002' },
+                  { id: '10000003', date: '2026-03-22', type: 'Revenue', linkId: 'BYN001' },
+                  { id: '10000004', date: '2026-03-23', type: 'Turnover', linkId: 'BYN003' },
+                ].map((sample, i) => (
                   <View key={i} style={[styles.wideTableRow, i % 2 === 0 && styles.statsTableRowAlt]}>
+                    <Text style={[styles.statsTableCell, styles.colUserId, { color: COLORS.primary, fontWeight: '600' }]}>
+                      {sample.id}
+                    </Text>
+                    <Text style={[styles.statsTableCell, styles.colDate]}>{sample.date}</Text>
+                    <View style={styles.colLinkType}>
+                      <View style={[
+                        styles.linkTypeBadge, 
+                        { backgroundColor: sample.type === 'Revenue' ? COLORS.primaryLight : COLORS.accentLight }
+                      ]}>
+                        <Text style={[
+                          styles.linkTypeBadgeText,
+                          { color: sample.type === 'Revenue' ? COLORS.primary : COLORS.accent }
+                        ]}>
+                          {sample.type}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.statsTableCell, styles.colSmallNum]}>
+                      {sample.type === 'Revenue' ? `${revenueRate}%` : `${turnoverRate}%`}
+                    </Text>
+                    <Text style={[styles.statsTableCell, styles.colLinkId, { color: COLORS.accent }]}>
+                      #{sample.linkId}
+                    </Text>
                     <Text style={[styles.statsTableCell, styles.colMoney]}>$ 0.00</Text>
-                    <Text style={[styles.statsTableCell, styles.colTurnover]}>$ 0.00</Text>
-                    <Text style={[styles.statsTableCell, styles.colTurnover, { color: COLORS.textMuted }]}>-</Text>
+                    <Text style={[styles.statsTableCell, styles.colSmallNum]}>0</Text>
+                    <Text style={[styles.statsTableCell, styles.colMoney]}>$ 0.00</Text>
+                    <Text style={[styles.statsTableCell, styles.colMoney]}>$ 0.00</Text>
                     <Text style={[styles.statsTableCell, styles.colMoney]}>$ 0.00</Text>
                     <Text style={[styles.statsTableCell, styles.colMoney]}>$ 0.00</Text>
                     <Text style={[styles.statsTableCell, styles.colMoney, { color: COLORS.textMuted }]}>-</Text>
+                    <Text style={[styles.statsTableCell, styles.colMoney]}>$ 0.00</Text>
+                    <Text style={[styles.statsTableCell, styles.colMoney, { color: COLORS.textMuted }]}>-</Text>
+                    <Text style={[styles.statsTableCell, styles.colMoney]}>$ 0.00</Text>
                     <Text style={[styles.statsTableCell, styles.colMoney]}>$ 0.00</Text>
                   </View>
                 ))}
               </>
             ) : (
-              getPaginatedData(tradersData).map((trader: any, i: number) => (
-                <View key={i} style={[styles.wideTableRow, i % 2 === 0 && styles.statsTableRowAlt]}>
-                  <Text style={[styles.statsTableCell, styles.colMoney]}>${(trader.withdrawals || 0).toFixed(2)}</Text>
-                  <Text style={[styles.statsTableCell, styles.colTurnover]}>${(trader.turnover || 0).toFixed(2)}</Text>
-                  <Text style={[styles.statsTableCell, styles.colTurnover, { color: COLORS.textMuted }]}>-</Text>
-                  <Text style={[styles.statsTableCell, styles.colMoney, { color: (trader.pnl || 0) >= 0 ? COLORS.text : COLORS.danger }]}>
-                    ${(trader.pnl || 0).toFixed(2)}
-                  </Text>
-                  <Text style={[styles.statsTableCell, styles.colMoney]}>${(trader.pnl_clear || 0).toFixed(2)}</Text>
-                  <Text style={[styles.statsTableCell, styles.colMoney, { color: COLORS.textMuted }]}>-</Text>
-                  <Text style={[styles.statsTableCell, styles.colMoney]}>${(trader.rev_share || 0).toFixed(2)}</Text>
-                </View>
-              ))
+              getPaginatedData(tradersData).map((trader: any, i: number) => {
+                const linkType = trader.link_type || 'revenue';
+                const isRevenue = linkType === 'revenue' || linkType === 'revenue_sharing';
+                const commRate = isRevenue ? revenueRate : turnoverRate;
+                
+                // Calculate Volume Share (only for turnover links)
+                const volShare = !isRevenue ? ((trader.turnover || 0) * turnoverRate / 100) : 0;
+                
+                // Calculate Revenue Share (only for revenue links)
+                // If user profits, affiliate loses (negative), if user loses, affiliate gains (positive)
+                const userPnL = trader.pnl || 0;
+                const revShare = isRevenue ? (-userPnL * revenueRate / 100) : 0;
+                
+                return (
+                  <View key={i} style={[styles.wideTableRow, i % 2 === 0 && styles.statsTableRowAlt]}>
+                    {/* User ID */}
+                    <Text style={[styles.statsTableCell, styles.colUserId, { color: COLORS.primary, fontWeight: '600' }]}>
+                      {trader.user_id || `1000000${i + 1}`}
+                    </Text>
+                    
+                    {/* Registration Date */}
+                    <Text style={[styles.statsTableCell, styles.colDate]}>
+                      {trader.created_at?.slice(0, 10) || '-'}
+                    </Text>
+                    
+                    {/* Link Type Badge */}
+                    <View style={styles.colLinkType}>
+                      <View style={[
+                        styles.linkTypeBadge, 
+                        { backgroundColor: isRevenue ? COLORS.primaryLight : COLORS.accentLight }
+                      ]}>
+                        <Text style={[
+                          styles.linkTypeBadgeText,
+                          { color: isRevenue ? COLORS.primary : COLORS.accent }
+                        ]}>
+                          {isRevenue ? 'Revenue' : 'Turnover'}
+                        </Text>
+                      </View>
+                    </View>
+                    
+                    {/* Commission % */}
+                    <Text style={[styles.statsTableCell, styles.colSmallNum, { fontWeight: '600' }]}>
+                      {commRate}%
+                    </Text>
+                    
+                    {/* Link ID */}
+                    <Text style={[styles.statsTableCell, styles.colLinkId, { color: COLORS.accent }]}>
+                      #{trader.link_code || '-'}
+                    </Text>
+                    
+                    {/* Current Balance */}
+                    <Text style={[styles.statsTableCell, styles.colMoney, { color: COLORS.primary }]}>
+                      ${(trader.balance || 0).toFixed(2)}
+                    </Text>
+                    
+                    {/* Deposits Count */}
+                    <Text style={[styles.statsTableCell, styles.colSmallNum]}>
+                      {trader.deposits_count || 0}
+                    </Text>
+                    
+                    {/* Deposits Sum */}
+                    <Text style={[styles.statsTableCell, styles.colMoney]}>
+                      ${(trader.deposits_sum || trader.deposits || 0).toFixed(2)}
+                    </Text>
+                    
+                    {/* Bonuses */}
+                    <Text style={[styles.statsTableCell, styles.colMoney]}>
+                      ${(trader.bonuses || 0).toFixed(2)}
+                    </Text>
+                    
+                    {/* Withdrawals */}
+                    <Text style={[styles.statsTableCell, styles.colMoney]}>
+                      ${(trader.withdrawals || 0).toFixed(2)}
+                    </Text>
+                    
+                    {/* Turnover All */}
+                    <Text style={[styles.statsTableCell, styles.colMoney]}>
+                      ${(trader.turnover || 0).toFixed(2)}
+                    </Text>
+                    
+                    {/* Turnover Clear */}
+                    <Text style={[styles.statsTableCell, styles.colMoney, { color: COLORS.textMuted }]}>
+                      {trader.turnover_clear ? `$${trader.turnover_clear.toFixed(2)}` : '-'}
+                    </Text>
+                    
+                    {/* P/L All */}
+                    <Text style={[styles.statsTableCell, styles.colMoney, { 
+                      color: userPnL >= 0 ? COLORS.primary : COLORS.danger 
+                    }]}>
+                      ${userPnL.toFixed(2)}
+                    </Text>
+                    
+                    {/* P/L Clear */}
+                    <Text style={[styles.statsTableCell, styles.colMoney, { color: COLORS.textMuted }]}>
+                      {trader.pnl_clear ? `$${trader.pnl_clear.toFixed(2)}` : '-'}
+                    </Text>
+                    
+                    {/* Volume Share - Only for turnover links */}
+                    <Text style={[styles.statsTableCell, styles.colMoney, { 
+                      color: volShare > 0 ? COLORS.primary : COLORS.textMuted 
+                    }]}>
+                      {!isRevenue && volShare > 0 ? `$${volShare.toFixed(2)}` : '$ 0.00'}
+                    </Text>
+                    
+                    {/* Revenue Share - Only for revenue links, negative if user profits */}
+                    <Text style={[styles.statsTableCell, styles.colMoney, { 
+                      color: revShare >= 0 ? COLORS.primary : COLORS.danger,
+                      fontWeight: '600'
+                    }]}>
+                      {isRevenue ? `${revShare >= 0 ? '' : '-'}$${Math.abs(revShare).toFixed(2)}` : '$ 0.00'}
+                    </Text>
+                  </View>
+                );
+              })
             )}
           </View>
         </ScrollView>
@@ -1653,11 +1800,12 @@ const styles = StyleSheet.create({
   horizontalScroll: { marginHorizontal: -16 },
   wideTableWrapper: { minWidth: 900, paddingHorizontal: 16 },
   wideTableWrapperTraders: { minWidth: 700, paddingHorizontal: 16 },
+  wideTableWrapperTradersNew: { minWidth: 1600, paddingHorizontal: 16 },
   wideTableWrapperCountries: { minWidth: 1400, paddingHorizontal: 16 },
   wideTableHeader: { flexDirection: 'row', backgroundColor: COLORS.cardLight, paddingVertical: 12, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   wideTableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   
-  // Column Widths - Updated for Quotex Partner style
+  // Column Widths - Updated for full Traders view
   colTrader: { width: 130 },
   colCountry: { width: 160 },
   colSmall: { width: 70, textAlign: 'center' },
@@ -1665,4 +1813,15 @@ const styles = StyleSheet.create({
   colRegs: { width: 120 },
   colMoney: { width: 90, textAlign: 'right' },
   colTurnover: { width: 130, textAlign: 'right' },
+  
+  // New columns for Traders tab
+  colUserId: { width: 100 },
+  colDate: { width: 90 },
+  colLinkType: { width: 85, alignItems: 'center', justifyContent: 'center' },
+  colSmallNum: { width: 65, textAlign: 'center' },
+  colLinkId: { width: 80 },
+  
+  // Link Type Badge
+  linkTypeBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  linkTypeBadgeText: { fontSize: 10, fontWeight: '600' },
 });
