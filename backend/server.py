@@ -3284,3 +3284,166 @@ logger = logging.getLogger(__name__)
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
+# ============= ADMIN API ENDPOINTS =============
+
+@api_router.get("/admin/stats")
+async def get_admin_stats(authorization: Optional[str] = Header(None), request: Request = None):
+    """Get admin dashboard statistics"""
+    user = await get_current_user(authorization, request)
+    
+    # Get total users
+    total_users = await db.users.count_documents({})
+    
+    # Get total trades
+    total_trades = await db.trades.count_documents({})
+    
+    # Get total volume
+    volume_pipeline = [
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]
+    volume_result = await db.trades.aggregate(volume_pipeline).to_list(1)
+    total_volume = volume_result[0]["total"] if volume_result else 0
+    
+    # Get total deposits
+    deposits_pipeline = [
+        {"$match": {"status": "completed"}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount_usd"}}}
+    ]
+    deposits_result = await db.deposits.aggregate(deposits_pipeline).to_list(1)
+    total_deposits = deposits_result[0]["total"] if deposits_result else 0
+    
+    # Get pending counts
+    pending_withdrawals = await db.withdrawals.count_documents({"status": "pending"})
+    pending_deposits = await db.deposits.count_documents({"status": "pending"})
+    
+    # Active users today
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    active_users_today = await db.trades.distinct("user_id", {"created_at": {"$gte": today}})
+    
+    return {
+        "total_users": total_users,
+        "total_trades": total_trades,
+        "total_volume": total_volume,
+        "total_deposits": total_deposits,
+        "total_withdrawals": 0,
+        "pending_withdrawals": pending_withdrawals,
+        "pending_deposits": pending_deposits,
+        "active_users_today": len(active_users_today)
+    }
+
+@api_router.get("/admin/users")
+async def get_admin_users(authorization: Optional[str] = Header(None), request: Request = None):
+    """Get all users for admin"""
+    user = await get_current_user(authorization, request)
+    
+    users = await db.users.find({}).sort("created_at", -1).to_list(500)
+    
+    return {
+        "users": [
+            {
+                "user_id": u.get("user_id"),
+                "email": u.get("email"),
+                "name": u.get("name") or u.get("full_name"),
+                "account_id": u.get("account_id"),
+                "real_balance": u.get("real_balance", 0),
+                "demo_balance": u.get("demo_balance", 10000),
+                "bonus_balance": u.get("bonus_balance", 0),
+                "is_verified": u.get("is_verified", False),
+                "is_admin": u.get("is_admin", False),
+                "country": u.get("country"),
+                "country_flag": u.get("country_flag"),
+                "created_at": str(u.get("created_at", ""))
+            }
+            for u in users
+        ]
+    }
+
+@api_router.get("/admin/trades")
+async def get_admin_trades(
+    limit: int = 50,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get all trades for admin"""
+    user = await get_current_user(authorization, request)
+    
+    trades = await db.trades.find({}).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    return {
+        "trades": [
+            {
+                "trade_id": t.get("trade_id"),
+                "user_id": t.get("user_id"),
+                "asset": t.get("asset"),
+                "amount": t.get("amount"),
+                "direction": t.get("direction"),
+                "status": t.get("status"),
+                "profit_loss": t.get("profit_loss", 0),
+                "entry_price": t.get("entry_price"),
+                "exit_price": t.get("exit_price"),
+                "created_at": str(t.get("created_at", ""))
+            }
+            for t in trades
+        ]
+    }
+
+@api_router.get("/admin/deposits")
+async def get_admin_deposits(authorization: Optional[str] = Header(None), request: Request = None):
+    """Get all deposits for admin"""
+    user = await get_current_user(authorization, request)
+    
+    deposits = await db.deposits.find({}).sort("created_at", -1).limit(100).to_list(100)
+    
+    return {
+        "deposits": [
+            {
+                "_id": str(d.get("_id")),
+                "user_id": d.get("user_id"),
+                "amount_usd": d.get("amount_usd") or d.get("amount", 0),
+                "status": d.get("status"),
+                "payment_type": d.get("payment_type", "crypto"),
+                "created_at": str(d.get("created_at", ""))
+            }
+            for d in deposits
+        ]
+    }
+
+@api_router.post("/admin/users/{user_id}/balance")
+async def update_user_balance(
+    user_id: str,
+    balance_type: str = "real",
+    amount: float = 0,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Update user balance (admin only)"""
+    admin = await get_current_user(authorization, request)
+    
+    # Get request body
+    try:
+        body = await request.json()
+        balance_type = body.get("balance_type", "real")
+        amount = body.get("amount", 0)
+    except:
+        pass
+    
+    # Update balance field
+    field_map = {
+        "real": "real_balance",
+        "demo": "demo_balance",
+        "bonus": "bonus_balance"
+    }
+    
+    field = field_map.get(balance_type, "real_balance")
+    
+    result = await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {field: float(amount)}}
+    )
+    
+    if result.modified_count > 0:
+        return {"success": True, "message": f"Updated {balance_type} balance to ${amount}"}
+    else:
+        raise HTTPException(status_code=404, detail="User not found")
+
