@@ -88,7 +88,10 @@ export default function Trade() {
   const [timeframe, setTimeframe] = useState('1m');
   const [duration, setDuration] = useState(60);
   
-  // Load persisted timeframe on mount and save on change
+  // Ref to track if timeframe has been loaded from storage (prevents race condition)
+  const timeframeInitialized = useRef(false);
+  
+  // Load persisted timeframe on mount
   useEffect(() => {
     const loadTimeframe = async () => {
       try {
@@ -97,15 +100,24 @@ export default function Trade() {
           console.log('[TIMEFRAME] Loaded from storage:', savedTimeframe);
           setTimeframe(savedTimeframe);
         }
+        // Mark as initialized AFTER loading (or if no saved value)
+        timeframeInitialized.current = true;
       } catch (error) {
         console.error('Error loading timeframe:', error);
+        timeframeInitialized.current = true;
       }
     };
     loadTimeframe();
   }, []);
   
-  // Save timeframe when changed
+  // Save timeframe when changed (but skip initial mount to prevent race condition)
   useEffect(() => {
+    // Skip saving on initial mount - wait for load to complete first
+    if (!timeframeInitialized.current) {
+      console.log('[TIMEFRAME] Skipping save - not yet initialized');
+      return;
+    }
+    
     const saveTimeframe = async () => {
       try {
         await AsyncStorage.setItem('chart_timeframe', timeframe);
@@ -116,6 +128,7 @@ export default function Trade() {
     };
     saveTimeframe();
   }, [timeframe]);
+  
   const [showAssetPicker, setShowAssetPicker] = useState(false);
   const [assetSearchQuery, setAssetSearchQuery] = useState('');
   const [trendingAssets, setTrendingAssets] = useState<any[]>([]);
