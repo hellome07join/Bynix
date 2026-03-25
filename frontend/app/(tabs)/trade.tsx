@@ -1738,7 +1738,7 @@ export default function Trade() {
               <View style={styles.trendingSection}>
                 <View style={styles.trendingSectionHeader}>
                   <Text style={styles.trendingSectionTitle}>🔥 Trending</Text>
-                  <Text style={styles.trendingSectionSubtitle}>Most traded this week</Text>
+                  <Text style={styles.trendingSectionSubtitle}>Top traded</Text>
                 </View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.trendingScroll}>
                   {trendingAssets.slice(0, 5).map((item: any, idx: number) => (
@@ -1756,17 +1756,13 @@ export default function Trade() {
                       }}
                     >
                       <View style={styles.trendingRankBadge}>
-                        <Text style={styles.trendingRankText}>#{idx + 1}</Text>
+                        <Text style={styles.trendingRankText}>{idx + 1}</Text>
                       </View>
-                      <Text style={styles.trendingAssetName}>{item.asset}</Text>
-                      <Text style={styles.trendingAssetCategory}>{item.category?.toUpperCase()}</Text>
-                      <View style={styles.trendingAssetStats}>
-                        <Text style={styles.trendingAssetTrades}>{item.trade_count} trades</Text>
-                        <Text style={[styles.trendingAssetWinRate, { color: item.win_rate >= 50 ? '#00E55A' : '#FF4444' }]}>
-                          {item.win_rate}% WR
-                        </Text>
-                      </View>
-                      <Text style={styles.trendingAssetPayout}>{item.payout}% Payout</Text>
+                      <Text style={styles.trendingAssetName} numberOfLines={1}>{item.asset.replace(' OTC', '')}</Text>
+                      <Text style={styles.trendingAssetPayout}>{item.payout}%</Text>
+                      <Text style={[styles.trendingAssetWinRate, { color: item.win_rate >= 50 ? '#00E55A' : '#FF4444' }]}>
+                        {item.win_rate}%
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -4915,92 +4911,98 @@ const styles = StyleSheet.create({
   },
   // Trending Assets Styles
   trendingSection: {
-    marginBottom: 12,
-    paddingBottom: 12,
+    marginBottom: 10,
+    paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
   trendingSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   trendingSectionTitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   trendingSectionSubtitle: {
-    fontSize: 10,
-    color: '#888',
+    fontSize: 9,
+    color: '#555',
   },
   trendingScroll: {
     flexDirection: 'row',
   },
   trendingAssetCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 12,
-    padding: 12,
-    marginRight: 10,
-    minWidth: 110,
+    backgroundColor: 'rgba(40, 45, 60, 0.95)',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginRight: 6,
+    width: 68,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(80, 80, 100, 0.4)',
   },
   trendingAssetCardTop: {
-    backgroundColor: 'rgba(255, 165, 0, 0.15)',
-    borderColor: 'rgba(255, 165, 0, 0.4)',
+    backgroundColor: 'rgba(255, 120, 0, 0.18)',
+    borderColor: 'rgba(255, 140, 0, 0.6)',
   },
   trendingAssetCardSelected: {
     backgroundColor: 'rgba(0, 229, 90, 0.15)',
-    borderColor: 'rgba(0, 229, 90, 0.5)',
+    borderColor: 'rgba(0, 229, 90, 0.6)',
   },
   trendingRankBadge: {
     position: 'absolute',
-    top: -6,
-    left: 8,
+    top: -4,
+    left: -4,
     backgroundColor: '#FF6B00',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   trendingRankText: {
     color: '#FFF',
-    fontSize: 9,
-    fontWeight: '700',
+    fontSize: 8,
+    fontWeight: '800',
   },
   trendingAssetName: {
-    fontSize: 13,
+    fontSize: 9,
     fontWeight: '700',
     color: '#FFFFFF',
-    marginTop: 4,
+    textAlign: 'center',
+    marginTop: 1,
   },
   trendingAssetCategory: {
-    fontSize: 8,
-    color: '#888',
-    marginTop: 2,
-    fontWeight: '600',
+    fontSize: 7,
+    color: '#00E55A',
+    marginTop: 1,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   trendingAssetStats: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
-    gap: 8,
+    marginTop: 4,
+    gap: 3,
   },
   trendingAssetTrades: {
-    fontSize: 9,
-    color: '#AAA',
+    fontSize: 7,
+    color: '#888',
   },
   trendingAssetWinRate: {
     fontSize: 9,
     fontWeight: '700',
+    marginTop: 2,
   },
   trendingAssetPayout: {
     fontSize: 10,
     color: '#00E55A',
-    marginTop: 4,
-    fontWeight: '600',
+    marginTop: 3,
+    fontWeight: '800',
   },
   assetList: {
     maxHeight: 350,

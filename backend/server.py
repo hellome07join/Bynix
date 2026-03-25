@@ -6267,11 +6267,35 @@ async def get_public_trending_assets(
     
     result = []
     for item in trending:
-        asset_doc = await db.assets.find_one({"symbol": item.get("asset")})
+        asset_name = item.get("asset", "")
+        # Try multiple symbol formats for matching
+        clean_symbol = asset_name.replace(" OTC", "").replace("/", "")
+        symbol_with_slash = asset_name.replace(" OTC", "")
+        
+        asset_doc = await db.assets.find_one({
+            "$or": [
+                {"symbol": asset_name},
+                {"symbol": symbol_with_slash},
+                {"name": asset_name},
+                {"symbol": {"$regex": f"^{clean_symbol[:3]}", "$options": "i"}}
+            ]
+        })
+        
+        # Determine category from asset name if not found in DB
+        category = "forex"  # default
+        if asset_doc:
+            category = asset_doc.get("category", "forex")
+        elif "BTC" in asset_name or "ETH" in asset_name or "SOL" in asset_name or "ADA" in asset_name or "XRP" in asset_name or "DOGE" in asset_name:
+            category = "crypto"
+        elif "GOLD" in asset_name or "SILVER" in asset_name or "OIL" in asset_name:
+            category = "commodities"
+        elif "AAPL" in asset_name or "GOOGL" in asset_name or "MSFT" in asset_name or "TSLA" in asset_name:
+            category = "stocks"
+        
         result.append({
             "asset": item.get("asset"),
             "name": asset_doc.get("name") if asset_doc else item.get("asset"),
-            "category": asset_doc.get("category") if asset_doc else "unknown",
+            "category": category,
             "payout": asset_doc.get("payout_percentage", 80) if asset_doc else 80,
             "trade_count": item.get("trade_count", 0),
             "unique_traders": item.get("unique_traders", 0),
