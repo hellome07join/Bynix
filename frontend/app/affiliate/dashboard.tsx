@@ -558,10 +558,24 @@ export default function AffiliateDashboard() {
         });
         if (res.ok) {
           setShowNewLinkModal(false);
+          setShowLinkTypeDropdown(false);
+          setShowProgramDropdown(false);
           setNewLinkForm({ linkType: 'main_page', affiliateProgram: 'revenue_sharing', comment: '' });
           fetchLinks();
         }
       } catch (e) { console.error(e); }
+    };
+
+    const closeAllDropdowns = () => {
+      setShowLinkTypeDropdown(false);
+      setShowProgramDropdown(false);
+    };
+
+    const getProgramBadge = (program: string) => {
+      if (program === 'turnover_sharing') {
+        return { label: 'Turnover', color: COLORS.accent, bg: COLORS.accentLight };
+      }
+      return { label: 'RevShare', color: COLORS.primary, bg: COLORS.primaryLight };
     };
 
     return (
@@ -605,54 +619,87 @@ export default function AffiliateDashboard() {
             </TouchableOpacity>
           </View>
         ) : (
-          <View style={styles.linksTable}>
-            {/* Table Header */}
-            <View style={styles.tableHeader}>
-              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>ID</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 2 }]}>LINK</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>STATS</Text>
-            </View>
-            
-            {/* Table Rows */}
-            {links.map((link, i) => (
-              <View key={i} style={styles.tableRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.linkIdText}>#{link.code}</Text>
-                </View>
-                <View style={{ flex: 2 }}>
-                  <TouchableOpacity style={styles.linkUrlBox}>
-                    <Text style={styles.linkUrlText} numberOfLines={1}>bynix.com/r/{link.code}</Text>
-                    <Ionicons name="copy-outline" size={16} color={COLORS.primary} />
-                  </TouchableOpacity>
-                  <Text style={styles.linkTypeLabel}>{link.name || 'Default Link'}</Text>
-                </View>
-                <View style={{ flex: 1, alignItems: 'center' }}>
-                  <View style={styles.miniStats}>
-                    <Text style={styles.miniStatValue}>{link.clicks || 0}</Text>
-                    <Text style={styles.miniStatLabel}>clicks</Text>
+          <View style={styles.linksListContainer}>
+            {links.map((link, i) => {
+              const programInfo = getProgramBadge(link.program || 'revenue_sharing');
+              return (
+                <View key={i} style={styles.linkCardNew}>
+                  {/* Link Header */}
+                  <View style={styles.linkCardHeader}>
+                    <View style={styles.linkCodeBadge}>
+                      <Text style={styles.linkCodeText}>#{link.code}</Text>
+                    </View>
+                    <View style={[styles.programBadge, { backgroundColor: programInfo.bg }]}>
+                      <Text style={[styles.programBadgeText, { color: programInfo.color }]}>{programInfo.label}</Text>
+                    </View>
+                  </View>
+                  
+                  {/* Link URL */}
+                  <View style={styles.linkUrlContainer}>
+                    <Text style={styles.linkUrlLabel}>Referral Link</Text>
+                    <TouchableOpacity style={styles.linkUrlBoxNew}>
+                      <Text style={styles.linkUrlTextNew} numberOfLines={1}>bynix.io/r/{link.code}</Text>
+                      <View style={styles.copyBtnNew}>
+                        <Ionicons name="copy-outline" size={18} color={COLORS.primary} />
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+                  
+                  {/* Link Type & Comment */}
+                  <View style={styles.linkMetaRow}>
+                    <View style={styles.linkMetaItem}>
+                      <Ionicons name="pricetag-outline" size={14} color={COLORS.textMuted} />
+                      <Text style={styles.linkMetaText}>{link.name || 'Default Link'}</Text>
+                    </View>
+                    {link.comment && (
+                      <View style={styles.linkMetaItem}>
+                        <Ionicons name="chatbubble-outline" size={14} color={COLORS.textMuted} />
+                        <Text style={styles.linkMetaText} numberOfLines={1}>{link.comment}</Text>
+                      </View>
+                    )}
+                  </View>
+                  
+                  {/* Stats Row */}
+                  <View style={styles.linkStatsRow}>
+                    <View style={styles.linkStatBox}>
+                      <Text style={styles.linkStatNum}>{link.clicks || 0}</Text>
+                      <Text style={styles.linkStatName}>Clicks</Text>
+                    </View>
+                    <View style={styles.linkStatBox}>
+                      <Text style={styles.linkStatNum}>{link.registrations || 0}</Text>
+                      <Text style={styles.linkStatName}>Regs</Text>
+                    </View>
+                    <View style={styles.linkStatBox}>
+                      <Text style={styles.linkStatNum}>{link.ftds || 0}</Text>
+                      <Text style={styles.linkStatName}>FTDs</Text>
+                    </View>
+                    <View style={styles.linkStatBox}>
+                      <Text style={styles.linkStatNum}>${link.deposits || 0}</Text>
+                      <Text style={styles.linkStatName}>Deposits</Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
         
         {/* New Link Modal */}
         <Modal visible={showNewLinkModal} transparent animationType="slide">
-          <Pressable style={styles.modalOverlay} onPress={() => setShowNewLinkModal(false)}>
-            <Pressable style={styles.newLinkModalContent} onPress={(e) => e.stopPropagation()}>
+          <Pressable style={styles.modalOverlay} onPress={() => { setShowNewLinkModal(false); closeAllDropdowns(); }}>
+            <Pressable style={styles.newLinkModalContent} onPress={closeAllDropdowns}>
               <Text style={styles.newLinkModalTitle}>New Link</Text>
               
               {/* Link Type */}
               <Text style={styles.inputLabel}>Link Type</Text>
               <TouchableOpacity 
-                style={styles.dropdownSelector} 
-                onPress={() => { setShowLinkTypeDropdown(!showLinkTypeDropdown); setShowProgramDropdown(false); }}
+                style={[styles.dropdownSelector, showLinkTypeDropdown && styles.dropdownSelectorActive]} 
+                onPress={(e) => { e.stopPropagation(); setShowLinkTypeDropdown(!showLinkTypeDropdown); setShowProgramDropdown(false); }}
               >
                 <Text style={styles.dropdownText}>
                   {LINK_TYPES.find(t => t.value === newLinkForm.linkType)?.label}
                 </Text>
-                <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
+                <Ionicons name={showLinkTypeDropdown ? "chevron-up" : "chevron-down"} size={20} color={COLORS.textSecondary} />
               </TouchableOpacity>
               
               {showLinkTypeDropdown && (
@@ -661,7 +708,7 @@ export default function AffiliateDashboard() {
                     <TouchableOpacity 
                       key={type.value} 
                       style={[styles.dropdownItem, newLinkForm.linkType === type.value && styles.dropdownItemActive]}
-                      onPress={() => { setNewLinkForm({...newLinkForm, linkType: type.value}); setShowLinkTypeDropdown(false); }}
+                      onPress={(e) => { e.stopPropagation(); setNewLinkForm({...newLinkForm, linkType: type.value}); setShowLinkTypeDropdown(false); }}
                     >
                       {newLinkForm.linkType === type.value && <Ionicons name="checkmark" size={18} color={COLORS.primary} style={{marginRight: 8}} />}
                       <Text style={[styles.dropdownItemText, newLinkForm.linkType === type.value && styles.dropdownItemTextActive]}>{type.label}</Text>
@@ -673,13 +720,13 @@ export default function AffiliateDashboard() {
               {/* Affiliate Program */}
               <Text style={[styles.inputLabel, { marginTop: 16 }]}>Affiliate Program</Text>
               <TouchableOpacity 
-                style={styles.dropdownSelector} 
-                onPress={() => { setShowProgramDropdown(!showProgramDropdown); setShowLinkTypeDropdown(false); }}
+                style={[styles.dropdownSelector, showProgramDropdown && styles.dropdownSelectorActive]} 
+                onPress={(e) => { e.stopPropagation(); setShowProgramDropdown(!showProgramDropdown); setShowLinkTypeDropdown(false); }}
               >
                 <Text style={styles.dropdownText}>
                   {AFFILIATE_PROGRAMS.find(p => p.value === newLinkForm.affiliateProgram)?.label}
                 </Text>
-                <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
+                <Ionicons name={showProgramDropdown ? "chevron-up" : "chevron-down"} size={20} color={COLORS.textSecondary} />
               </TouchableOpacity>
               
               {showProgramDropdown && (
@@ -688,7 +735,7 @@ export default function AffiliateDashboard() {
                     <TouchableOpacity 
                       key={prog.value} 
                       style={[styles.dropdownItem, newLinkForm.affiliateProgram === prog.value && styles.dropdownItemActive]}
-                      onPress={() => { setNewLinkForm({...newLinkForm, affiliateProgram: prog.value}); setShowProgramDropdown(false); }}
+                      onPress={(e) => { e.stopPropagation(); setNewLinkForm({...newLinkForm, affiliateProgram: prog.value}); setShowProgramDropdown(false); }}
                     >
                       {newLinkForm.affiliateProgram === prog.value && <Ionicons name="checkmark" size={18} color={COLORS.primary} style={{marginRight: 8}} />}
                       <Text style={[styles.dropdownItemText, newLinkForm.affiliateProgram === prog.value && styles.dropdownItemTextActive]}>{prog.label}</Text>
@@ -699,25 +746,34 @@ export default function AffiliateDashboard() {
               
               {/* Comment */}
               <Text style={[styles.inputLabel, { marginTop: 16 }]}>Comment</Text>
-              <TextInput
-                style={styles.commentInput}
-                placeholder="Please enter Comment (optional)"
-                placeholderTextColor={COLORS.textMuted}
-                value={newLinkForm.comment}
-                onChangeText={(text) => setNewLinkForm({...newLinkForm, comment: text})}
-                multiline
-                numberOfLines={3}
-              />
+              <Pressable onPress={(e) => e.stopPropagation()}>
+                <TextInput
+                  style={styles.commentInput}
+                  placeholder="Please enter Comment (optional)"
+                  placeholderTextColor={COLORS.textMuted}
+                  value={newLinkForm.comment}
+                  onChangeText={(text) => setNewLinkForm({...newLinkForm, comment: text})}
+                  multiline
+                  numberOfLines={3}
+                  onFocus={closeAllDropdowns}
+                />
+              </Pressable>
               
               {/* Buttons */}
               <View style={styles.modalButtons}>
-                <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowNewLinkModal(false)}>
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => { setShowNewLinkModal(false); closeAllDropdowns(); }}>
                   <Text style={styles.cancelBtnText}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.saveBtn} onPress={createNewLink}>
                   <Text style={styles.saveBtnText}>Save</Text>
                 </TouchableOpacity>
               </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      </View>
+    );
+  };
             </Pressable>
           </Pressable>
         </Modal>
