@@ -1540,134 +1540,379 @@ export default function AffiliateDashboard() {
     const affiliateRefCode = links && links.length > 0 ? links[0].code : (affiliate?.ref_code || 'YOURCODE');
     const trackingUrl = `https://bynix-markets.preview.emergentagent.com?ref=${affiliateRefCode}`;
     
-    // Landing Page Templates
+    // Landing Page Templates - Professional Dark Blue Design
     const landingPages = [
       {
-        id: 'modern-dark',
-        name: 'Modern Dark Landing',
-        description: 'Dark themed, professional trading signup page',
-        preview: '🌙',
+        id: 'pro-trader',
+        name: 'Pro Trader Landing',
+        description: 'Dark blue gradient with trading stats & features',
+        preview: '📈',
         color: '#1a1a2e',
       },
       {
-        id: 'gradient-pro',
-        name: 'Gradient Pro Landing',
-        description: 'Colorful gradient, attention-grabbing design',
-        preview: '🎨',
-        color: '#667eea',
+        id: 'premium-account',
+        name: 'Premium Account Landing',
+        description: 'Account showcase with profit targets & features',
+        preview: '💎',
+        color: '#2d1b69',
       },
       {
-        id: 'minimal-clean',
-        name: 'Minimal Clean Landing',
-        description: 'Clean, minimal design for high conversions',
-        preview: '✨',
-        color: '#10B981',
+        id: 'global-stats',
+        name: 'Global Stats Landing',
+        description: 'Worldwide earnings & trust indicators',
+        preview: '🌍',
+        color: '#0d47a1',
       }
     ];
     
-    // Generate landing page HTML code
+    // Bynix Logo SVG (Green S with gradient)
+    const bynixLogoSVG = `<svg width="60" height="60" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#10B981"/>
+          <stop offset="100%" style="stop-color:#059669"/>
+        </linearGradient>
+      </defs>
+      <circle cx="50" cy="50" r="45" fill="url(#logoGradient)"/>
+      <path d="M35 35 Q50 35 50 50 Q50 65 65 65" stroke="white" stroke-width="8" fill="none" stroke-linecap="round"/>
+      <circle cx="35" cy="35" r="6" fill="white"/>
+      <circle cx="65" cy="65" r="6" fill="white"/>
+    </svg>`;
+    
+    // Generate landing page HTML code - Professional Design
     const generateLandingCode = (landingId: string) => {
-      const baseCode = `<!-- Bynix Affiliate Landing Page - ${landingId} -->
+      if (landingId === 'pro-trader') {
+        return `<!-- Bynix Affiliate Landing Page - Pro Trader -->
 <!-- Affiliate Code: ${affiliateRefCode} -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Start Trading with Bynix - Professional Trading Platform</title>
+  <title>Bynix - Built by Traders, For Traders</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-    ${landingId === 'modern-dark' ? `
-    body { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #fff; min-height: 100vh; }
-    .container { max-width: 500px; margin: 0 auto; padding: 40px 20px; text-align: center; }
-    .logo { font-size: 32px; font-weight: 800; color: #10B981; margin-bottom: 20px; }
-    h1 { font-size: 28px; margin-bottom: 16px; line-height: 1.3; }
-    .highlight { color: #10B981; }
-    p { color: #94a3b8; font-size: 16px; margin-bottom: 32px; line-height: 1.6; }
-    .features { display: flex; justify-content: center; gap: 24px; margin-bottom: 32px; flex-wrap: wrap; }
-    .feature { background: rgba(255,255,255,0.05); padding: 16px 20px; border-radius: 12px; }
-    .feature-icon { font-size: 24px; margin-bottom: 8px; }
-    .feature-text { font-size: 12px; color: #94a3b8; }
-    .cta-btn { display: inline-block; background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: #fff; padding: 16px 48px; border-radius: 12px; font-size: 18px; font-weight: 700; text-decoration: none; transition: transform 0.2s; }
-    .cta-btn:hover { transform: scale(1.05); }
-    .trust { margin-top: 32px; color: #64748b; font-size: 12px; }
-    ` : landingId === 'gradient-pro' ? `
-    body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; min-height: 100vh; }
-    .container { max-width: 500px; margin: 0 auto; padding: 40px 20px; text-align: center; }
-    .logo { font-size: 32px; font-weight: 800; color: #fff; margin-bottom: 20px; text-shadow: 0 2px 10px rgba(0,0,0,0.2); }
-    h1 { font-size: 28px; margin-bottom: 16px; line-height: 1.3; }
-    .highlight { color: #fbbf24; }
-    p { color: rgba(255,255,255,0.85); font-size: 16px; margin-bottom: 32px; line-height: 1.6; }
-    .features { display: flex; justify-content: center; gap: 24px; margin-bottom: 32px; flex-wrap: wrap; }
-    .feature { background: rgba(255,255,255,0.15); padding: 16px 20px; border-radius: 12px; backdrop-filter: blur(10px); }
-    .feature-icon { font-size: 24px; margin-bottom: 8px; }
-    .feature-text { font-size: 12px; color: rgba(255,255,255,0.8); }
-    .cta-btn { display: inline-block; background: #fff; color: #667eea; padding: 16px 48px; border-radius: 12px; font-size: 18px; font-weight: 700; text-decoration: none; transition: transform 0.2s; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
-    .cta-btn:hover { transform: scale(1.05); }
-    .trust { margin-top: 32px; color: rgba(255,255,255,0.6); font-size: 12px; }
-    ` : `
-    body { background: #f8fafc; color: #1e293b; min-height: 100vh; }
-    .container { max-width: 500px; margin: 0 auto; padding: 40px 20px; text-align: center; }
-    .logo { font-size: 32px; font-weight: 800; color: #10B981; margin-bottom: 20px; }
-    h1 { font-size: 28px; margin-bottom: 16px; line-height: 1.3; color: #0f172a; }
-    .highlight { color: #10B981; }
-    p { color: #64748b; font-size: 16px; margin-bottom: 32px; line-height: 1.6; }
-    .features { display: flex; justify-content: center; gap: 24px; margin-bottom: 32px; flex-wrap: wrap; }
-    .feature { background: #fff; padding: 16px 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-    .feature-icon { font-size: 24px; margin-bottom: 8px; }
-    .feature-text { font-size: 12px; color: #64748b; }
-    .cta-btn { display: inline-block; background: #10B981; color: #fff; padding: 16px 48px; border-radius: 12px; font-size: 18px; font-weight: 700; text-decoration: none; transition: transform 0.2s; }
-    .cta-btn:hover { transform: scale(1.05); background: #059669; }
-    .trust { margin-top: 32px; color: #94a3b8; font-size: 12px; }
-    `}
+    body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 50%, #2d1b69 100%); color: #fff; min-height: 100vh; }
+    .promo-bar { background: linear-gradient(90deg, #6366f1, #8b5cf6); padding: 12px; text-align: center; font-size: 14px; font-weight: 500; }
+    .promo-bar span { color: #fbbf24; font-weight: 700; }
+    .container { max-width: 480px; margin: 0 auto; padding: 40px 24px; text-align: center; }
+    .logo { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 32px; }
+    .logo svg { width: 50px; height: 50px; }
+    .logo-text { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
+    .badge { display: inline-block; background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.4); padding: 8px 20px; border-radius: 50px; font-size: 13px; color: #a5b4fc; margin-bottom: 24px; }
+    h1 { font-size: 42px; font-weight: 800; line-height: 1.1; margin-bottom: 24px; background: linear-gradient(135deg, #fff 0%, #c4b5fd 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .arrow { color: #10B981; font-size: 32px; }
+    .features { display: flex; justify-content: center; gap: 16px; margin: 32px 0; flex-wrap: wrap; }
+    .feature { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 16px 20px; border-radius: 16px; min-width: 100px; }
+    .feature-icon { font-size: 20px; margin-bottom: 6px; }
+    .feature-label { font-size: 11px; color: #94a3b8; }
+    .feature-value { font-size: 14px; font-weight: 700; color: #fff; }
+    .subtitle { color: #94a3b8; font-size: 16px; margin-bottom: 24px; }
+    .buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .btn-primary { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: #fff; padding: 16px 32px; border-radius: 50px; font-size: 16px; font-weight: 700; text-decoration: none; transition: all 0.3s; border: none; cursor: pointer; }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(99,102,241,0.4); }
+    .btn-secondary { background: transparent; color: #fff; padding: 16px 32px; border-radius: 50px; font-size: 16px; font-weight: 600; text-decoration: none; border: 2px solid rgba(255,255,255,0.3); }
+    .stats { margin-top: 48px; padding-top: 32px; border-top: 1px solid rgba(255,255,255,0.1); }
+    .stats-value { font-size: 36px; font-weight: 800; color: #10B981; }
+    .stats-label { font-size: 14px; color: #94a3b8; margin-top: 4px; }
+    .trust { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 16px; color: #fbbf24; font-size: 13px; }
   </style>
 </head>
 <body>
+  <div class="promo-bar">🎉 Start trading today! Use code <span>BYNIX20</span> for 20% bonus on first deposit!</div>
+  
   <div class="container">
-    <div class="logo">BYNIX</div>
-    <h1>Start Trading <span class="highlight">Smarter</span> Today</h1>
-    <p>Join thousands of traders on Bynix - the professional trading platform with up to 95% profit on winning trades.</p>
+    <div class="logo">
+      ${bynixLogoSVG}
+      <span class="logo-text">BYNIX</span>
+    </div>
+    
+    <div class="badge">⭕ Zero Hidden Fees</div>
+    
+    <h1>Built by traders<br><span class="arrow">→</span> for traders</h1>
     
     <div class="features">
       <div class="feature">
+        <div class="feature-icon">💰</div>
+        <div class="feature-label">Trade Up to</div>
+        <div class="feature-value">$1 Million</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📊</div>
+        <div class="feature-label">Starting at</div>
+        <div class="feature-value">Just $10</div>
+      </div>
+      <div class="feature">
         <div class="feature-icon">📈</div>
-        <div class="feature-text">95% Profit</div>
-      </div>
-      <div class="feature">
-        <div class="feature-icon">⚡</div>
-        <div class="feature-text">Fast Execution</div>
-      </div>
-      <div class="feature">
-        <div class="feature-icon">🔒</div>
-        <div class="feature-text">Secure</div>
+        <div class="feature-label">Up to</div>
+        <div class="feature-value">95% Profit</div>
       </div>
     </div>
     
-    <!-- AFFILIATE TRACKING LINK - DO NOT MODIFY -->
-    <a href="${trackingUrl}" class="cta-btn" id="signup-btn">
-      Start Trading Now →
-    </a>
+    <p class="subtitle">Join 500,000+ traders worldwide on the most trusted trading platform.</p>
     
-    <p class="trust">✓ 24/7 Support • ✓ Instant Withdrawals • ✓ Demo Account</p>
+    <div class="buttons">
+      <a href="${trackingUrl}" class="btn-primary" id="signup-btn">Start Trading Now</a>
+      <a href="${trackingUrl}" class="btn-secondary">Learn More</a>
+    </div>
+    
+    <div class="stats">
+      <div class="stats-value">$50M+</div>
+      <div class="stats-label">PAID OUT TO TRADERS WORLDWIDE</div>
+      <div class="trust">⭐ Rated 4.9/5 by 10,000+ traders</div>
+    </div>
   </div>
   
-  <!-- Bynix Affiliate Tracking Script -->
   <script>
     (function() {
       var refCode = '${affiliateRefCode}';
-      var btn = document.getElementById('signup-btn');
-      if (btn) {
-        btn.addEventListener('click', function(e) {
-          // Track click event
+      document.querySelectorAll('a').forEach(function(link) {
+        link.addEventListener('click', function() {
           console.log('Bynix Affiliate Click: ' + refCode);
         });
-      }
+      });
     })();
   </script>
 </body>
 </html>`;
-      return baseCode;
+      } else if (landingId === 'premium-account') {
+        return `<!-- Bynix Affiliate Landing Page - Premium Account -->
+<!-- Affiliate Code: ${affiliateRefCode} -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bynix Premium - Your Trading Journey Starts Here</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: linear-gradient(180deg, #0f0f23 0%, #1e1b4b 100%); color: #fff; min-height: 100vh; }
+    .container { max-width: 480px; margin: 0 auto; padding: 40px 24px; }
+    .logo { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 32px; }
+    .logo svg { width: 45px; height: 45px; }
+    .logo-text { font-size: 24px; font-weight: 800; }
+    .section-title { text-align: center; font-size: 28px; font-weight: 800; color: #c4b5fd; margin-bottom: 32px; }
+    .steps { display: flex; justify-content: space-between; margin-bottom: 40px; position: relative; }
+    .steps::before { content: ''; position: absolute; top: 50%; left: 15%; right: 15%; height: 2px; background: linear-gradient(90deg, #6366f1, #8b5cf6); transform: translateY(-50%); }
+    .step { text-align: center; flex: 1; position: relative; z-index: 1; }
+    .step-title { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+    .step-desc { font-size: 11px; color: #94a3b8; line-height: 1.4; }
+    .step-arrow { color: #8b5cf6; font-size: 20px; position: absolute; right: -10px; top: 10px; }
+    .main-card { background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); border-radius: 24px; padding: 32px 24px; text-align: center; border: 1px solid rgba(139,92,246,0.3); }
+    .main-title { font-size: 32px; font-weight: 800; margin-bottom: 8px; }
+    .main-subtitle { font-size: 16px; color: #94a3b8; margin-bottom: 24px; }
+    .highlight { color: #10B981; }
+    .account-options { display: flex; gap: 8px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; }
+    .account-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 10px 16px; border-radius: 20px; font-size: 13px; color: #fff; cursor: pointer; transition: all 0.2s; }
+    .account-btn.active { background: #6366f1; border-color: #6366f1; }
+    .price { font-size: 48px; font-weight: 800; color: #fff; margin: 20px 0 8px; }
+    .price-label { color: #94a3b8; font-size: 14px; margin-bottom: 24px; }
+    .cta-btn { display: block; background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: #fff; padding: 18px; border-radius: 14px; font-size: 18px; font-weight: 700; text-decoration: none; transition: all 0.3s; }
+    .cta-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(16,185,129,0.4); }
+    .features-list { margin-top: 32px; text-align: left; }
+    .feature-row { display: flex; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    .feature-label { color: #c4b5fd; font-size: 14px; font-weight: 600; }
+    .feature-value { color: #fff; font-size: 14px; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      ${bynixLogoSVG}
+      <span class="logo-text">BYNIX</span>
+    </div>
+    
+    <h2 class="section-title">How it works?</h2>
+    
+    <div class="steps">
+      <div class="step">
+        <div class="step-title">Create Account</div>
+        <div class="step-desc">Sign up in 60 seconds</div>
+        <span class="step-arrow">»</span>
+      </div>
+      <div class="step">
+        <div class="step-title">Start Trading</div>
+        <div class="step-desc">Trade with up to 95% profit</div>
+        <span class="step-arrow">»</span>
+      </div>
+      <div class="step">
+        <div class="step-title">Withdraw</div>
+        <div class="step-desc">Instant withdrawals 24/7</div>
+      </div>
+    </div>
+    
+    <div class="main-card">
+      <h1 class="main-title">Your Journey<br>Starts Here!</h1>
+      <p class="main-subtitle">From beginners to experts, traders from 195+ countries trust Bynix.</p>
+      
+      <div class="account-options">
+        <button class="account-btn">$10</button>
+        <button class="account-btn">$50</button>
+        <button class="account-btn active">$100</button>
+        <button class="account-btn">$500</button>
+        <button class="account-btn">$1000</button>
+      </div>
+      
+      <div class="price">$100</div>
+      <div class="price-label">Minimum Deposit • <span class="highlight">+50% Bonus</span></div>
+      
+      <a href="${trackingUrl}" class="cta-btn" id="signup-btn">Open Account Now →</a>
+      
+      <div class="features-list">
+        <div class="feature-row">
+          <span class="feature-label">Profit Rate</span>
+          <span class="feature-value">Up to 95%</span>
+        </div>
+        <div class="feature-row">
+          <span class="feature-label">Min Trade</span>
+          <span class="feature-value">$1</span>
+        </div>
+        <div class="feature-row">
+          <span class="feature-label">Withdrawal</span>
+          <span class="feature-value">Instant</span>
+        </div>
+        <div class="feature-row">
+          <span class="feature-label">Assets</span>
+          <span class="feature-value">100+ pairs</span>
+        </div>
+        <div class="feature-row">
+          <span class="feature-label">Support</span>
+          <span class="feature-value">24/7</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    (function() {
+      var refCode = '${affiliateRefCode}';
+      document.getElementById('signup-btn').addEventListener('click', function() {
+        console.log('Bynix Affiliate Click: ' + refCode);
+      });
+      document.querySelectorAll('.account-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          document.querySelectorAll('.account-btn').forEach(function(b) { b.classList.remove('active'); });
+          this.classList.add('active');
+        });
+      });
+    })();
+  </script>
+</body>
+</html>`;
+      } else {
+        return `<!-- Bynix Affiliate Landing Page - Global Stats -->
+<!-- Affiliate Code: ${affiliateRefCode} -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bynix - Trusted by Traders Worldwide</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: linear-gradient(180deg, #0a0a1a 0%, #1e3a5f 50%, #3b82f6 100%); color: #fff; min-height: 100vh; }
+    .container { max-width: 480px; margin: 0 auto; padding: 40px 24px; text-align: center; }
+    .logo { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 40px; }
+    .logo svg { width: 50px; height: 50px; }
+    .logo-text { font-size: 28px; font-weight: 800; }
+    .globe-section { position: relative; margin: 32px 0; }
+    .globe-bg { width: 200px; height: 200px; margin: 0 auto; background: radial-gradient(circle, #3b82f6 0%, #1e40af 50%, transparent 70%); border-radius: 50%; display: flex; align-items: center; justify-content: center; animation: pulse 3s infinite; }
+    @keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.8; } }
+    .globe-icon { font-size: 80px; }
+    .main-stat { margin: 32px 0; }
+    .main-stat-value { font-size: 48px; font-weight: 800; background: linear-gradient(135deg, #10B981 0%, #6ee7b7 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .main-stat-label { font-size: 16px; color: #fff; font-weight: 600; margin-top: 8px; }
+    .subtitle { color: #94a3b8; font-size: 15px; margin-bottom: 32px; }
+    .country-stats { display: flex; gap: 12px; justify-content: center; margin: 32px 0; overflow-x: auto; padding: 8px 0; }
+    .country-card { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 16px; padding: 16px 20px; min-width: 140px; backdrop-filter: blur(10px); }
+    .country-flag { font-size: 24px; margin-bottom: 8px; }
+    .country-name { font-size: 12px; color: #94a3b8; margin-bottom: 4px; }
+    .country-amount { font-size: 20px; font-weight: 700; color: #10B981; }
+    .cta-section { margin-top: 40px; }
+    .cta-btn { display: inline-block; background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: #fff; padding: 18px 48px; border-radius: 50px; font-size: 18px; font-weight: 700; text-decoration: none; transition: all 0.3s; box-shadow: 0 8px 32px rgba(16,185,129,0.4); }
+    .cta-btn:hover { transform: translateY(-3px); box-shadow: 0 12px 40px rgba(16,185,129,0.5); }
+    .trust-badges { display: flex; justify-content: center; gap: 24px; margin-top: 32px; flex-wrap: wrap; }
+    .trust-badge { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #94a3b8; }
+    .trust-icon { font-size: 18px; }
+    .platforms { margin-top: 48px; padding-top: 32px; border-top: 1px solid rgba(255,255,255,0.1); }
+    .platforms-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+    .platform-logos { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; }
+    .platform-logo { width: 48px; height: 48px; background: rgba(255,255,255,0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      ${bynixLogoSVG}
+      <span class="logo-text">BYNIX</span>
+    </div>
+    
+    <div class="globe-section">
+      <div class="globe-bg">
+        <span class="globe-icon">🌍</span>
+      </div>
+    </div>
+    
+    <div class="main-stat">
+      <div class="main-stat-value">$50M+</div>
+      <div class="main-stat-label">Earned by Traders Globally at Bynix</div>
+    </div>
+    
+    <p class="subtitle">Quick and reliable. Zero hidden fees. Instant withdrawals.</p>
+    
+    <div class="country-stats">
+      <div class="country-card">
+        <div class="country-flag">🇧🇩</div>
+        <div class="country-name">Bangladesh</div>
+        <div class="country-amount">$2.5M</div>
+      </div>
+      <div class="country-card">
+        <div class="country-flag">🇮🇳</div>
+        <div class="country-name">India</div>
+        <div class="country-amount">$8.2M</div>
+      </div>
+      <div class="country-card">
+        <div class="country-flag">🇳🇬</div>
+        <div class="country-name">Nigeria</div>
+        <div class="country-amount">$4.1M</div>
+      </div>
+    </div>
+    
+    <div class="cta-section">
+      <a href="${trackingUrl}" class="cta-btn" id="signup-btn">Join 500K+ Traders →</a>
+    </div>
+    
+    <div class="trust-badges">
+      <div class="trust-badge"><span class="trust-icon">✅</span> Regulated</div>
+      <div class="trust-badge"><span class="trust-icon">⚡</span> Instant Payouts</div>
+      <div class="trust-badge"><span class="trust-icon">🔒</span> Secure</div>
+    </div>
+    
+    <div class="platforms">
+      <div class="platforms-title">Trade on All Devices</div>
+      <div class="platform-logos">
+        <div class="platform-logo">📱</div>
+        <div class="platform-logo">💻</div>
+        <div class="platform-logo">🖥️</div>
+        <div class="platform-logo">⌚</div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    (function() {
+      var refCode = '${affiliateRefCode}';
+      document.getElementById('signup-btn').addEventListener('click', function() {
+        console.log('Bynix Affiliate Click: ' + refCode);
+      });
+    })();
+  </script>
+</body>
+</html>`;
+      }
     };
     
     const handleGetCode = (landing: any) => {
