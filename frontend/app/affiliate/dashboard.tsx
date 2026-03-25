@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, Dimensions, ActivityIndicator, RefreshControl, TextInput, Modal, Pressable, Alert, Platform } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, Dimensions, ActivityIndicator, RefreshControl, TextInput, Modal, Pressable, Alert, Platform, KeyboardAvoidingView, Keyboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -720,10 +720,13 @@ export default function AffiliateDashboard() {
           animationType="slide" 
           onRequestClose={() => { setShowNewLinkModal(false); }}
         >
-          <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalKeyboardView}
+          >
             <Pressable 
               style={styles.modalBackdrop} 
-              onPress={() => { setShowNewLinkModal(false); }} 
+              onPress={() => { Keyboard.dismiss(); setShowNewLinkModal(false); }} 
             />
             <View style={styles.newLinkModalContent}>
               {/* Modal Header */}
@@ -734,70 +737,78 @@ export default function AffiliateDashboard() {
                 </Pressable>
               </View>
               
-              {/* Link Type - Radio Style */}
-              <Text style={styles.inputLabel}>Link Type</Text>
-              <View style={styles.radioGroup}>
-                {LINK_TYPES.map((type) => (
-                  <Pressable 
-                    key={type.value} 
-                    style={[styles.radioOption, newLinkForm.linkType === type.value && styles.radioOptionActive]}
-                    onPress={() => setNewLinkForm({...newLinkForm, linkType: type.value})}
-                  >
-                    <View style={[styles.radioCircle, newLinkForm.linkType === type.value && styles.radioCircleActive]}>
-                      {newLinkForm.linkType === type.value && <View style={styles.radioCircleInner} />}
-                    </View>
-                    <Text style={[styles.radioLabel, newLinkForm.linkType === type.value && styles.radioLabelActive]}>
-                      {type.label}
-                    </Text>
+              <ScrollView 
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={styles.modalScrollContent}
+              >
+                {/* Link Type - Radio Style */}
+                <Text style={styles.inputLabel}>Link Type</Text>
+                <View style={styles.radioGroup}>
+                  {LINK_TYPES.map((type) => (
+                    <Pressable 
+                      key={type.value} 
+                      style={[styles.radioOption, newLinkForm.linkType === type.value && styles.radioOptionActive]}
+                      onPress={() => setNewLinkForm({...newLinkForm, linkType: type.value})}
+                    >
+                      <View style={[styles.radioCircle, newLinkForm.linkType === type.value && styles.radioCircleActive]}>
+                        {newLinkForm.linkType === type.value && <View style={styles.radioCircleInner} />}
+                      </View>
+                      <Text style={[styles.radioLabel, newLinkForm.linkType === type.value && styles.radioLabelActive]}>
+                        {type.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                
+                {/* Affiliate Program - Toggle Style */}
+                <Text style={[styles.inputLabel, { marginTop: 20 }]}>Affiliate Program</Text>
+                <View style={styles.programToggle}>
+                  {AFFILIATE_PROGRAMS.map((prog) => (
+                    <Pressable 
+                      key={prog.value} 
+                      style={[styles.programToggleBtn, newLinkForm.affiliateProgram === prog.value && styles.programToggleBtnActive]}
+                      onPress={() => setNewLinkForm({...newLinkForm, affiliateProgram: prog.value})}
+                    >
+                      <Ionicons 
+                        name={prog.value === 'revenue_sharing' ? 'trending-down' : 'repeat'} 
+                        size={18} 
+                        color={newLinkForm.affiliateProgram === prog.value ? COLORS.white : COLORS.textSecondary} 
+                      />
+                      <Text style={[styles.programToggleText, newLinkForm.affiliateProgram === prog.value && styles.programToggleTextActive]}>
+                        {prog.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                
+                {/* Comment Input */}
+                <Text style={[styles.inputLabel, { marginTop: 20 }]}>Comment (Optional)</Text>
+                <TextInput
+                  style={styles.commentInputNew}
+                  placeholder="Add a note to identify this link..."
+                  placeholderTextColor={COLORS.textMuted}
+                  value={newLinkForm.comment}
+                  onChangeText={(text) => setNewLinkForm({...newLinkForm, comment: text})}
+                  multiline
+                  numberOfLines={3}
+                  blurOnSubmit={true}
+                  returnKeyType="done"
+                />
+                
+                {/* Buttons */}
+                <View style={styles.modalButtons}>
+                  <Pressable style={styles.cancelBtn} onPress={() => setShowNewLinkModal(false)}>
+                    <Text style={styles.cancelBtnText}>Cancel</Text>
                   </Pressable>
-                ))}
-              </View>
-              
-              {/* Affiliate Program - Radio Style */}
-              <Text style={[styles.inputLabel, { marginTop: 20 }]}>Affiliate Program</Text>
-              <View style={styles.programToggle}>
-                {AFFILIATE_PROGRAMS.map((prog) => (
-                  <Pressable 
-                    key={prog.value} 
-                    style={[styles.programToggleBtn, newLinkForm.affiliateProgram === prog.value && styles.programToggleBtnActive]}
-                    onPress={() => setNewLinkForm({...newLinkForm, affiliateProgram: prog.value})}
-                  >
-                    <Ionicons 
-                      name={prog.value === 'revenue_sharing' ? 'trending-down' : 'repeat'} 
-                      size={18} 
-                      color={newLinkForm.affiliateProgram === prog.value ? COLORS.white : COLORS.textSecondary} 
-                    />
-                    <Text style={[styles.programToggleText, newLinkForm.affiliateProgram === prog.value && styles.programToggleTextActive]}>
-                      {prog.label}
-                    </Text>
+                  <Pressable style={styles.saveBtn} onPress={createNewLink}>
+                    <Ionicons name="add-circle" size={20} color={COLORS.white} />
+                    <Text style={styles.saveBtnText}>Create Link</Text>
                   </Pressable>
-                ))}
-              </View>
-              
-              {/* Comment Input */}
-              <Text style={[styles.inputLabel, { marginTop: 20 }]}>Comment (Optional)</Text>
-              <TextInput
-                style={styles.commentInputNew}
-                placeholder="Add a note to identify this link..."
-                placeholderTextColor={COLORS.textMuted}
-                value={newLinkForm.comment}
-                onChangeText={(text) => setNewLinkForm({...newLinkForm, comment: text})}
-                multiline
-                numberOfLines={3}
-              />
-              
-              {/* Buttons */}
-              <View style={styles.modalButtons}>
-                <Pressable style={styles.cancelBtn} onPress={() => setShowNewLinkModal(false)}>
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </Pressable>
-                <Pressable style={styles.saveBtn} onPress={createNewLink}>
-                  <Ionicons name="add-circle" size={20} color={COLORS.white} />
-                  <Text style={styles.saveBtnText}>Create Link</Text>
-                </Pressable>
-              </View>
+                </View>
+              </ScrollView>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
       </View>
     );
@@ -1170,7 +1181,9 @@ const styles = StyleSheet.create({
   miniStatLabel: { fontSize: 10, color: COLORS.textMuted },
   
   // New Link Modal
-  newLinkModalContent: { backgroundColor: COLORS.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '90%' },
+  modalKeyboardView: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  newLinkModalContent: { backgroundColor: COLORS.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 24, paddingHorizontal: 24, maxHeight: '85%' },
+  modalScrollContent: { paddingBottom: 24 },
   modalHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
   newLinkModalTitle: { fontSize: 22, fontWeight: '800', color: COLORS.text },
   modalCloseBtn: { padding: 4 },
