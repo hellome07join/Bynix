@@ -164,7 +164,7 @@ export default function AdminDashboard() {
   
   useEffect(() => {
     if (authChecked && !token) {
-      router.replace('/');
+      router.replace('/admin/login');
     }
   }, [authChecked, token]);
 
