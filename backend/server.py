@@ -6222,6 +6222,79 @@ async def get_automation_logs(
     
     return {"logs": logs}
 
+# ============= TRENDING ASSETS =============
+
+@api_router.get("/admin/market/trending")
+async def get_trending_assets(
+    limit: int = 10,
+    days: int = 7,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get trending assets based on trade volume"""
+    try:
+        admin = await get_current_user(authorization, request)
+    except:
+        pass  # Allow public access for this endpoint
+    
+    # Get trades from last N days
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    
+    # Aggregate trades by asset
+    pipeline = [
+        {"$match": {"created_at": {"$gte": cutoff}}},
+        {"$group": {
+            "_id": "$asset",
+            "trade_count": {"$sum": 1},
+            "total_volume": {"$sum": "$amount"},
+            "total_profit": {"$sum": "$profit_loss"},
+            "win_count": {"$sum": {"$cond": [{"$eq": ["$status", "won"]}, 1, 0]}},
+            "loss_count": {"$sum": {"$cond": [{"$eq": ["$status", "lost"]}, 1, 0]}},
+            "unique_traders": {"$addToSet": "$user_id"}
+        }},
+        {"$project": {
+            "asset": "$_id",
+            "trade_count": 1,
+            "total_volume": 1,
+            "total_profit": 1,
+            "win_count": 1,
+            "loss_count": 1,
+            "unique_traders": {"$size": "$unique_traders"},
+            "win_rate": {
+                "$cond": [
+                    {"$eq": [{"$add": ["$win_count", "$loss_count"]}, 0]},
+                    0,
+                    {"$multiply": [{"$divide": ["$win_count", {"$add": ["$win_count", "$loss_count"]}]}, 100]}
+                ]
+            }
+        }},
+        {"$sort": {"trade_count": -1}},
+        {"$limit": limit}
+    ]
+    
+    trending = await db.trades.aggregate(pipeline).to_list(limit)
+    
+    # Get asset details
+    result = []
+    for item in trending:
+        asset_doc = await db.assets.find_one({"symbol": item.get("asset")})
+        result.append({
+            "asset": item.get("asset"),
+            "name": asset_doc.get("name") if asset_doc else item.get("asset"),
+            "category": asset_doc.get("category") if asset_doc else "unknown",
+            "trade_count": item.get("trade_count", 0),
+            "total_volume": round(item.get("total_volume", 0), 2),
+            "unique_traders": item.get("unique_traders", 0),
+            "win_rate": round(item.get("win_rate", 0), 1),
+            "total_profit": round(item.get("total_profit", 0), 2),
+            "trend_score": item.get("trade_count", 0) * item.get("unique_traders", 0)  # Simple scoring
+        })
+    
+    # Sort by trend_score
+    result.sort(key=lambda x: x["trend_score"], reverse=True)
+    
+    return {"trending": result, "period_days": days}
+
 # ============= MARKET & PRICE MANIPULATION =============
 
 class PriceInjection(BaseModel):

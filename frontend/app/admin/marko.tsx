@@ -169,6 +169,7 @@ export default function AdminDashboard() {
   
   // Market Control
   const [marketStatus, setMarketStatus] = useState<any>(null);
+  const [trendingAssets, setTrendingAssets] = useState<any[]>([]);
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [priceForm, setPriceForm] = useState({ asset: 'BTCUSD', price: 65000, duration: 60 });
   const [spikeForm, setSpikeForm] = useState({ asset: 'BTCUSD', direction: 'up', percentage: 5 });
@@ -328,14 +329,25 @@ export default function AdminDashboard() {
     } catch (e) { console.error(e); }
   }, [token]);
 
+  // Trending Assets Fetching
+  const fetchTrendingAssets = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/admin/market/trending?limit=10&days=7`, { headers: { 'Authorization': `Bearer ${token}` } });
+      if (res.ok) {
+        const data = await res.json();
+        setTrendingAssets(data.trending || []);
+      }
+    } catch (e) { console.error(e); }
+  }, [token]);
+
   useEffect(() => {
     const init = async () => {
       setLoading(true);
-      await Promise.all([fetchDashboardStats(), fetchGodMode(), fetchUsers(), fetchUserSegments(), fetchAffiliates(), fetchTrades(), fetchAssets(), fetchAutomationRules(), fetchMarketStatus()]);
+      await Promise.all([fetchDashboardStats(), fetchGodMode(), fetchUsers(), fetchUserSegments(), fetchAffiliates(), fetchTrades(), fetchAssets(), fetchAutomationRules(), fetchMarketStatus(), fetchTrendingAssets()]);
       setLoading(false);
     };
     init();
-    const interval = setInterval(() => { fetchTrades(); fetchDashboardStats(); }, 10000);
+    const interval = setInterval(() => { fetchTrades(); fetchDashboardStats(); fetchTrendingAssets(); }, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -737,6 +749,54 @@ export default function AdminDashboard() {
           {activeMenu === 'market' && (
             <View style={styles.page}>
               <Text style={styles.sectionTitle}>💹 Market Control</Text>
+              
+              {/* Trending Assets */}
+              <View style={styles.marketSection}>
+                <View style={styles.trendingHeader}>
+                  <Text style={styles.marketSubtitle}>🔥 Trending Assets (Last 7 Days)</Text>
+                  <TouchableOpacity onPress={fetchTrendingAssets}>
+                    <Ionicons name="refresh" size={18} color="#635BFF" />
+                  </TouchableOpacity>
+                </View>
+                {trendingAssets.length === 0 ? (
+                  <Text style={styles.noData}>No trading activity yet</Text>
+                ) : (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.trendingScroll}>
+                    {trendingAssets.map((t: any, idx: number) => (
+                      <TouchableOpacity 
+                        key={idx} 
+                        style={[styles.trendingCard, idx === 0 && styles.trendingCardTop]}
+                        onPress={() => {
+                          setPriceForm({...priceForm, asset: t.asset});
+                          setSpikeForm({...spikeForm, asset: t.asset});
+                          setShadowForm({...shadowForm, asset: t.asset});
+                        }}
+                      >
+                        <View style={styles.trendingRank}>
+                          <Text style={styles.trendingRankText}>#{idx + 1}</Text>
+                        </View>
+                        <Text style={styles.trendingAsset}>{t.asset}</Text>
+                        <Text style={styles.trendingCategory}>{t.category?.toUpperCase()}</Text>
+                        <View style={styles.trendingStats}>
+                          <View style={styles.trendingStat}>
+                            <Text style={styles.trendingStatValue}>{t.trade_count}</Text>
+                            <Text style={styles.trendingStatLabel}>Trades</Text>
+                          </View>
+                          <View style={styles.trendingStat}>
+                            <Text style={styles.trendingStatValue}>{t.unique_traders}</Text>
+                            <Text style={styles.trendingStatLabel}>Traders</Text>
+                          </View>
+                          <View style={styles.trendingStat}>
+                            <Text style={[styles.trendingStatValue, { color: t.win_rate >= 50 ? '#00D4AA' : '#FF3B30' }]}>{t.win_rate}%</Text>
+                            <Text style={styles.trendingStatLabel}>Win Rate</Text>
+                          </View>
+                        </View>
+                        <Text style={styles.trendingVolume}>${t.total_volume?.toLocaleString()}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
               
               {/* Available Assets */}
               <View style={styles.marketSection}>
@@ -1440,6 +1500,19 @@ const styles = StyleSheet.create({
   // Market Control Styles
   marketSection: { backgroundColor: '#FFF', borderRadius: 12, padding: 16, marginBottom: 12 },
   marketSubtitle: { fontSize: 14, fontWeight: '600', color: '#1A1F36', marginBottom: 12 },
+  trendingHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  trendingScroll: { marginBottom: 8 },
+  trendingCard: { backgroundColor: '#F6F9FC', borderRadius: 12, padding: 14, marginRight: 12, minWidth: 140, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
+  trendingCardTop: { backgroundColor: '#FFF5E6', borderColor: '#FF9500' },
+  trendingRank: { position: 'absolute', top: -8, left: 8, backgroundColor: '#635BFF', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  trendingRankText: { color: '#FFF', fontSize: 10, fontWeight: '700' },
+  trendingAsset: { fontSize: 15, fontWeight: '700', color: '#1A1F36', marginTop: 4 },
+  trendingCategory: { fontSize: 9, color: '#8898AA', marginTop: 2, fontWeight: '600' },
+  trendingStats: { flexDirection: 'row', marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#E6EBF1' },
+  trendingStat: { alignItems: 'center', marginHorizontal: 6 },
+  trendingStatValue: { fontSize: 13, fontWeight: '700', color: '#1A1F36' },
+  trendingStatLabel: { fontSize: 8, color: '#8898AA', marginTop: 1 },
+  trendingVolume: { fontSize: 11, fontWeight: '600', color: '#635BFF', marginTop: 8 },
   assetScroll: { marginBottom: 8 },
   assetChip: { backgroundColor: '#F6F9FC', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10, marginRight: 8, alignItems: 'center', minWidth: 80, borderWidth: 2, borderColor: 'transparent' },
   assetChipActive: { backgroundColor: '#635BFF', borderColor: '#4A42E8' },
