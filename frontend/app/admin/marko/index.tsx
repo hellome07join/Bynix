@@ -28,23 +28,26 @@ const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL
     ? `${window.location.origin}/api`
     : 'http://localhost:8001/api';
 
-// Bynix Color Palette
+// Bynix Light Theme Color Palette
 const COLORS = {
-  bg: '#0A0E1A',
-  card: '#12182B',
-  cardHover: '#1A2236',
-  border: '#1E2A45',
-  primary: '#00E55A',
-  primaryDark: '#00B847',
-  accent: '#00D4FF',
+  bg: '#F5F7FA',
+  card: '#FFFFFF',
+  cardHover: '#F0F2F5',
+  border: '#E2E8F0',
+  primary: '#00C853',
+  primaryDark: '#00A844',
+  accent: '#0099FF',
   danger: '#FF3B5C',
-  warning: '#FFB800',
-  purple: '#8B5CF6',
-  text: '#FFFFFF',
-  textSecondary: '#7B8CA8',
-  textMuted: '#4A5568',
-  success: '#00E55A',
-  glass: 'rgba(18, 24, 43, 0.8)',
+  warning: '#FF9500',
+  purple: '#7C3AED',
+  text: '#1A202C',
+  textSecondary: '#64748B',
+  textMuted: '#94A3B8',
+  success: '#00C853',
+  glass: 'rgba(255, 255, 255, 0.95)',
+  sidebar: '#1E293B',
+  sidebarText: '#F8FAFC',
+  sidebarHover: '#334155',
 };
 
 const MENU_ITEMS = [
@@ -1254,21 +1257,21 @@ const styles = StyleSheet.create({
   loadingLogo: { width: 150, height: 75 },
   loadingText: { color: COLORS.textSecondary, marginTop: 12, fontSize: 14 },
   
-  // Sidebar
-  sidebar: { width: 220, backgroundColor: COLORS.card, borderRightWidth: 1, borderRightColor: COLORS.border },
+  // Sidebar - Keep dark for contrast
+  sidebar: { width: 220, backgroundColor: COLORS.sidebar, borderRightWidth: 0 },
   sidebarCollapsed: { width: 70 },
-  sidebarHeader: { padding: 20, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  sidebarHeader: { padding: 20, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: COLORS.sidebarHover },
   sidebarLogo: { width: 100, height: 40 },
   sidebarTitle: { color: COLORS.primary, fontSize: 10, fontWeight: '700', marginTop: 4, letterSpacing: 2 },
   sidebarMenu: { flex: 1, paddingTop: 10 },
   menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, marginHorizontal: 8, marginVertical: 2, borderRadius: 12, position: 'relative' },
-  menuItemActive: { backgroundColor: COLORS.primary + '15' },
+  menuItemActive: { backgroundColor: COLORS.primary + '20' },
   menuIconBg: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  menuIconBgInactive: { width: 36, height: 36, borderRadius: 10, backgroundColor: COLORS.border, justifyContent: 'center', alignItems: 'center' },
-  menuLabel: { color: COLORS.textSecondary, fontSize: 13, fontWeight: '500', marginLeft: 12 },
-  menuLabelActive: { color: COLORS.text, fontWeight: '600' },
+  menuIconBgInactive: { width: 36, height: 36, borderRadius: 10, backgroundColor: COLORS.sidebarHover, justifyContent: 'center', alignItems: 'center' },
+  menuLabel: { color: '#94A3B8', fontSize: 13, fontWeight: '500', marginLeft: 12 },
+  menuLabelActive: { color: COLORS.sidebarText, fontWeight: '600' },
   menuActiveIndicator: { position: 'absolute', right: 0, top: '50%', marginTop: -10, width: 3, height: 20, backgroundColor: COLORS.primary, borderRadius: 2 },
-  sidebarFooter: { padding: 16, borderTopWidth: 1, borderTopColor: COLORS.border },
+  sidebarFooter: { padding: 16, borderTopWidth: 1, borderTopColor: COLORS.sidebarHover },
   logoutBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16 },
   logoutText: { color: COLORS.danger, fontSize: 13, fontWeight: '600', marginLeft: 12 },
   
