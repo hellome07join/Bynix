@@ -3821,24 +3821,25 @@ async def get_admin_withdrawals(
     """Get all withdrawals for admin"""
     user = await get_current_user(authorization, request)
     
-    query = {}
+    # Query from transactions collection where type is withdrawal
+    query = {"type": "withdrawal"}
     if status:
         query["status"] = status
     
-    withdrawals = await db.withdrawals.find(query).sort("created_at", -1).limit(100).to_list(100)
+    withdrawals = await db.transactions.find(query).sort("created_at", -1).limit(100).to_list(100)
     
     # Get user info for each withdrawal
     result = []
     for w in withdrawals:
         user_info = await db.users.find_one({"user_id": w.get("user_id")})
         result.append({
-            "withdrawal_id": w.get("withdrawal_id") or str(w.get("_id")),
+            "withdrawal_id": w.get("transaction_id") or str(w.get("_id")),
             "user_id": w.get("user_id"),
             "user_email": user_info.get("email") if user_info else "Unknown",
             "user_name": user_info.get("name") or user_info.get("full_name") if user_info else "Unknown",
             "amount": w.get("amount", 0),
-            "method": w.get("method", "crypto"),
-            "wallet_address": w.get("wallet_address", ""),
+            "method": "USDT_TRC20",
+            "wallet_address": w.get("crypto_address", ""),
             "status": w.get("status", "pending"),
             "created_at": str(w.get("created_at", ""))
         })
@@ -7546,7 +7547,12 @@ async def request_affiliate_withdrawal(request: AffiliateWithdrawalRequest, auth
             {"$inc": {"balance": -request.amount}}
         )
         
-        return {"success": True, "withdrawal": withdrawal_doc}
+        # Return without _id field
+        return {"success": True, "withdrawal": {
+            "withdrawal_id": withdrawal_doc["withdrawal_id"],
+            "amount": withdrawal_doc["amount"],
+            "status": withdrawal_doc["status"]
+        }}
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
@@ -7567,7 +7573,19 @@ async def get_affiliate_withdrawals(authorization: str = Header(None)):
             {"affiliate_id": affiliate_id}
         ).sort("created_at", -1).to_list(100)
         
-        return {"withdrawals": withdrawals}
+        # Serialize properly - remove ObjectId
+        result = []
+        for w in withdrawals:
+            result.append({
+                "withdrawal_id": w.get("withdrawal_id") or str(w.get("_id")),
+                "amount": w.get("amount"),
+                "wallet_address": w.get("wallet_address"),
+                "payment_method": w.get("payment_method"),
+                "status": w.get("status"),
+                "created_at": str(w.get("created_at", ""))
+            })
+        
+        return {"withdrawals": result}
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
