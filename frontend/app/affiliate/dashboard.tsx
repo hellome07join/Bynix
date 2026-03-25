@@ -1553,28 +1553,120 @@ export default function AffiliateDashboard() {
   );
 
   // Top 10 Content
-  const Top10Content = () => (
-    <View style={styles.content}>
-      <Text style={styles.sectionTitle}>TOP 10 Partners</Text>
-      <Text style={styles.sectionSubtitle}>Monthly leaderboard</Text>
-      
-      {top10.map((partner, i) => (
-        <View key={i} style={[styles.top10Card, i < 3 && styles.top10CardTop]}>
-          <View style={[styles.top10Rank, { backgroundColor: i === 0 ? COLORS.gold : i === 1 ? '#C0C0C0' : i === 2 ? '#CD7F32' : COLORS.cardLight }]}>
-            {i < 3 ? <Ionicons name="trophy" size={16} color="#FFF" /> : <Text style={styles.top10RankText}>{i + 1}</Text>}
-          </View>
-          <View style={styles.top10Info}>
-            <Text style={styles.top10Name}>{partner.name}</Text>
-            <Text style={styles.top10Level}>Level {partner.level}</Text>
-          </View>
-          <View style={styles.top10Stats}>
-            <Text style={styles.top10Earnings}>{formatMoney(partner.total_earnings)}</Text>
-            <Text style={styles.top10Ftds}>{partner.total_ftds} FTDs</Text>
-          </View>
+  const Top10Content = () => {
+    // Check if current affiliate is in top 10
+    const currentAffiliateInTop10 = top10.findIndex(p => p.affiliate_id === affiliate?.affiliate_id);
+    const isInTop10 = currentAffiliateInTop10 !== -1;
+    
+    // Get current affiliate's rank if not in top 10
+    const currentAffiliateRank = isInTop10 ? currentAffiliateInTop10 + 1 : (top10.length + 1);
+    
+    return (
+      <View style={styles.content}>
+        <Text style={styles.sectionTitle}>TOP 10 Partners</Text>
+        <Text style={styles.sectionSubtitle}>Monthly leaderboard - Highest commission earners</Text>
+        
+        {/* Column Headers */}
+        <View style={styles.top10Header}>
+          <Text style={[styles.top10HeaderText, { width: 40 }]}>#</Text>
+          <Text style={[styles.top10HeaderText, { flex: 1 }]}>PARTNER</Text>
+          <Text style={[styles.top10HeaderText, { width: 50 }]}>FTDs</Text>
+          <Text style={[styles.top10HeaderText, { width: 45 }]}>REGS</Text>
+          <Text style={[styles.top10HeaderText, { width: 50 }]}>DEPS</Text>
+          <Text style={[styles.top10HeaderText, { width: 70 }]}>DEP SUM</Text>
+          <Text style={[styles.top10HeaderText, { width: 80, textAlign: 'right' }]}>COMMISSION</Text>
         </View>
-      ))}
-    </View>
-  );
+        
+        {/* TOP 10 List */}
+        {top10.length === 0 ? (
+          <View style={styles.top10Empty}>
+            <Ionicons name="trophy-outline" size={48} color={COLORS.textMuted} />
+            <Text style={styles.top10EmptyText}>No affiliates yet this month</Text>
+          </View>
+        ) : (
+          top10.slice(0, 10).map((partner, i) => (
+            <View key={i} style={[
+              styles.top10CardNew, 
+              i < 3 && styles.top10CardTop,
+              partner.affiliate_id === affiliate?.affiliate_id && styles.top10CardSelf
+            ]}>
+              {/* Rank */}
+              <View style={[
+                styles.top10RankNew, 
+                { backgroundColor: i === 0 ? COLORS.gold : i === 1 ? '#C0C0C0' : i === 2 ? '#CD7F32' : COLORS.cardLight }
+              ]}>
+                {i < 3 ? (
+                  <Ionicons name="trophy" size={14} color="#FFF" />
+                ) : (
+                  <Text style={styles.top10RankTextNew}>{i + 1}</Text>
+                )}
+              </View>
+              
+              {/* Partner Info */}
+              <View style={styles.top10InfoNew}>
+                <Text style={styles.top10NameNew}>{partner.name || `A***e`}</Text>
+                <Text style={styles.top10LevelNew}>Level {partner.level || 1}</Text>
+              </View>
+              
+              {/* FTDs */}
+              <Text style={styles.top10StatValue}>{partner.total_ftds || 0}</Text>
+              
+              {/* Registrations */}
+              <Text style={styles.top10StatValueSmall}>{partner.total_registrations || partner.registrations || 0}</Text>
+              
+              {/* Deposit Count */}
+              <Text style={styles.top10StatValueSmall}>{partner.deposit_count || partner.deposits_count || 0}</Text>
+              
+              {/* Deposit Sum */}
+              <Text style={styles.top10DepSum}>${(partner.deposit_sum || partner.deposits_sum || 0).toFixed(0)}</Text>
+              
+              {/* Commission */}
+              <View style={styles.top10CommissionBox}>
+                <Text style={styles.top10CommissionValue}>{formatMoney(partner.total_earnings || partner.commission || 0)}</Text>
+              </View>
+            </View>
+          ))
+        )}
+        
+        {/* Current Affiliate Rank (if not in TOP 10) */}
+        {!isInTop10 && affiliate && (
+          <View style={styles.yourRankSection}>
+            <Text style={styles.yourRankTitle}>Your Ranking</Text>
+            <View style={[styles.top10CardNew, styles.top10CardSelf]}>
+              {/* Rank */}
+              <View style={[styles.top10RankNew, { backgroundColor: COLORS.primaryLight }]}>
+                <Text style={[styles.top10RankTextNew, { color: COLORS.primary }]}>{currentAffiliateRank}+</Text>
+              </View>
+              
+              {/* Partner Info */}
+              <View style={styles.top10InfoNew}>
+                <Text style={styles.top10NameNew}>{affiliate.name || 'You'}</Text>
+                <Text style={styles.top10LevelNew}>Level {affiliate.level || 1}</Text>
+              </View>
+              
+              {/* FTDs */}
+              <Text style={styles.top10StatValue}>{dashboardData?.ftds || affiliate.total_ftds || 0}</Text>
+              
+              {/* Registrations */}
+              <Text style={styles.top10StatValueSmall}>{dashboardData?.registrations || 0}</Text>
+              
+              {/* Deposit Count */}
+              <Text style={styles.top10StatValueSmall}>{dashboardData?.deposits_count || 0}</Text>
+              
+              {/* Deposit Sum */}
+              <Text style={styles.top10DepSum}>${(dashboardData?.total_deposits || 0).toFixed(0)}</Text>
+              
+              {/* Commission */}
+              <View style={styles.top10CommissionBox}>
+                <Text style={styles.top10CommissionValue}>{formatMoney(affiliate.total_earnings || dashboardData?.commission || 0)}</Text>
+              </View>
+            </View>
+            <Text style={styles.yourRankNote}>Keep earning to climb the leaderboard!</Text>
+          </View>
+        )}
+      </View>
+    );
+  };
 
   // Support Content
   const SupportContent = () => (
@@ -1949,6 +2041,27 @@ const styles = StyleSheet.create({
   top10Stats: { alignItems: 'flex-end' },
   top10Earnings: { color: COLORS.primary, fontSize: 15, fontWeight: '700' },
   top10Ftds: { color: COLORS.textMuted, fontSize: 11, marginTop: 2 },
+  
+  // TOP 10 New Styles
+  top10Header: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 8, backgroundColor: COLORS.cardLight, borderRadius: 8, marginBottom: 12 },
+  top10HeaderText: { fontSize: 9, fontWeight: '700', color: COLORS.textMuted, textTransform: 'uppercase' },
+  top10Empty: { alignItems: 'center', paddingVertical: 40 },
+  top10EmptyText: { fontSize: 14, color: COLORS.textMuted, marginTop: 12 },
+  top10CardNew: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 8, marginBottom: 8, borderWidth: 1, borderColor: COLORS.border },
+  top10CardSelf: { backgroundColor: COLORS.primaryLight, borderColor: COLORS.primary },
+  top10RankNew: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginRight: 8 },
+  top10RankTextNew: { fontSize: 12, fontWeight: '700', color: COLORS.textMuted },
+  top10InfoNew: { flex: 1, minWidth: 70 },
+  top10NameNew: { fontSize: 12, fontWeight: '600', color: COLORS.text },
+  top10LevelNew: { fontSize: 9, color: COLORS.textMuted, marginTop: 1 },
+  top10StatValue: { width: 50, fontSize: 12, fontWeight: '600', color: COLORS.text, textAlign: 'center' },
+  top10StatValueSmall: { width: 45, fontSize: 11, color: COLORS.textSecondary, textAlign: 'center' },
+  top10DepSum: { width: 70, fontSize: 11, color: COLORS.textSecondary, textAlign: 'center' },
+  top10CommissionBox: { width: 80, alignItems: 'flex-end' },
+  top10CommissionValue: { fontSize: 13, fontWeight: '700', color: COLORS.primary },
+  yourRankSection: { marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: COLORS.border },
+  yourRankTitle: { fontSize: 14, fontWeight: '700', color: COLORS.text, marginBottom: 12 },
+  yourRankNote: { fontSize: 11, color: COLORS.textMuted, marginTop: 8, textAlign: 'center', fontStyle: 'italic' },
   
   // Support
   supportCard: { backgroundColor: COLORS.white, borderRadius: 20, padding: 40, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
