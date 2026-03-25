@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_URL } from '../../utils/api';
+import { API_URL } from '../../../utils/api';
 
 const BYNIX_LOGO = 'https://i.imgur.com/YmJwNPH.png';
 
@@ -55,7 +55,7 @@ export default function AdminLogin() {
           if (response.ok) {
             const data = await response.json();
             if (data.is_admin) {
-              router.replace('/admin/marko');
+              router.replace('/admin/dashboard');
               return;
             }
           }
@@ -99,7 +99,7 @@ export default function AdminLogin() {
         await AsyncStorage.setItem('user', JSON.stringify(data.user));
         
         // Navigate to admin dashboard
-        router.replace('/admin/marko');
+        router.replace('/admin/dashboard');
       } else {
         setError(data.detail || 'Invalid credentials');
       }
