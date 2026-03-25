@@ -89,6 +89,7 @@ export default function Trade() {
   const [duration, setDuration] = useState(60);
   const [showAssetPicker, setShowAssetPicker] = useState(false);
   const [trendingAssets, setTrendingAssets] = useState<any[]>([]);
+  const [apiPayouts, setApiPayouts] = useState<Record<string, number>>({});
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showToolsModal, setShowToolsModal] = useState(false);
@@ -584,11 +585,44 @@ export default function Trade() {
     }
   };
 
+  // Fetch asset payouts from API (admin configured)
+  const fetchAssetPayouts = async () => {
+    try {
+      const response = await fetch(`${API_URL}/assets`);
+      if (response.ok) {
+        const assets = await response.json();
+        const payoutMap: Record<string, number> = {};
+        assets.forEach((asset: any) => {
+          if (asset.payout_percentage) {
+            // Map by multiple formats to ensure matching
+            // Database symbol: "NZD/USD", Frontend: "NZD/USD OTC"
+            if (asset.symbol) {
+              payoutMap[asset.symbol] = asset.payout_percentage;
+              payoutMap[asset.symbol + ' OTC'] = asset.payout_percentage;
+            }
+            if (asset.name) {
+              payoutMap[asset.name] = asset.payout_percentage;
+            }
+          }
+        });
+        setApiPayouts(payoutMap);
+        console.log('Loaded payouts from API:', Object.keys(payoutMap).length, 'mappings');
+      }
+    } catch (error) {
+      console.error('Error fetching asset payouts:', error);
+    }
+  };
+
   // Fetch trending assets on mount and when asset picker opens
   useEffect(() => {
     fetchTrendingAssets();
+    fetchAssetPayouts();
     const interval = setInterval(fetchTrendingAssets, 30000); // Refresh every 30 seconds
-    return () => clearInterval(interval);
+    const payoutInterval = setInterval(fetchAssetPayouts, 60000); // Refresh payouts every minute
+    return () => {
+      clearInterval(interval);
+      clearInterval(payoutInterval);
+    };
   }, []);
 
   useEffect(() => {
@@ -632,7 +666,8 @@ export default function Trade() {
   
   // Get current asset data
   const currentAsset = currentAssets.find(a => a.value === selectedAsset) || currentAssets[0];
-  const payoutPercentage = currentAsset.payout;
+  // Use API payout if available, otherwise fallback to hardcoded payout
+  const payoutPercentage = apiPayouts[currentAsset.value] || apiPayouts[currentAsset.label] || currentAsset.payout;
 
   // Calculate potential profit
   const tradeAmount = parseFloat(amount) || 0;
@@ -1807,7 +1842,7 @@ export default function Trade() {
                   <Text style={styles.assetOptionIcon}>{asset.icon}</Text>
                   <View style={styles.assetOptionInfo}>
                     <Text style={styles.assetOptionText}>{asset.label}</Text>
-                    <Text style={styles.assetOptionPayout}>Payout: {asset.payout}%</Text>
+                    <Text style={styles.assetOptionPayout}>Payout: {apiPayouts[asset.value] || apiPayouts[asset.label] || asset.payout}%</Text>
                   </View>
                   {selectedAsset === asset.value && (
                     <Ionicons name="checkmark-circle" size={18} color="#00E55A" />
