@@ -1760,9 +1760,6 @@ export default function Trade() {
                       </View>
                       <Text style={styles.trendingAssetName} numberOfLines={1}>{item.asset.replace(' OTC', '')}</Text>
                       <Text style={styles.trendingAssetPayout}>{item.payout}%</Text>
-                      <Text style={[styles.trendingAssetWinRate, { color: item.win_rate >= 50 ? '#00E55A' : '#FF4444' }]}>
-                        {item.win_rate}%
-                      </Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
