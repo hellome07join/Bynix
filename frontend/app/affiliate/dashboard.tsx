@@ -550,9 +550,6 @@ export default function AffiliateDashboard() {
 
   // Links Content - Full Featured
   const LinksContent = () => {
-    // Local state for dropdown visibility to prevent conflicts
-    const [localLinkTypeOpen, setLocalLinkTypeOpen] = useState(false);
-    const [localProgramOpen, setLocalProgramOpen] = useState(false);
     const [copiedCode, setCopiedCode] = useState<string | null>(null);
     
     const copyToClipboard = async (linkCode: string) => {
@@ -583,17 +580,10 @@ export default function AffiliateDashboard() {
         });
         if (res.ok) {
           setShowNewLinkModal(false);
-          setLocalLinkTypeOpen(false);
-          setLocalProgramOpen(false);
           setNewLinkForm({ linkType: 'main_page', affiliateProgram: 'revenue_sharing', comment: '' });
           fetchLinks();
         }
       } catch (e) { console.error(e); }
-    };
-
-    const closeAllDropdowns = () => {
-      setLocalLinkTypeOpen(false);
-      setLocalProgramOpen(false);
     };
 
     const getProgramBadge = (program: string) => {
@@ -601,26 +591,6 @@ export default function AffiliateDashboard() {
         return { label: 'Turnover', color: COLORS.accent, bg: COLORS.accentLight };
       }
       return { label: 'RevShare', color: COLORS.primary, bg: COLORS.primaryLight };
-    };
-
-    const handleLinkTypePress = () => {
-      setLocalLinkTypeOpen(!localLinkTypeOpen);
-      setLocalProgramOpen(false);
-    };
-
-    const handleProgramPress = () => {
-      setLocalProgramOpen(!localProgramOpen);
-      setLocalLinkTypeOpen(false);
-    };
-
-    const selectLinkType = (value: string) => {
-      setNewLinkForm({...newLinkForm, linkType: value});
-      setLocalLinkTypeOpen(false);
-    };
-
-    const selectProgram = (value: string) => {
-      setNewLinkForm({...newLinkForm, affiliateProgram: value});
-      setLocalProgramOpen(false);
     };
 
     return (
@@ -631,7 +601,7 @@ export default function AffiliateDashboard() {
             <Text style={styles.linksPageTitle}>Your Links</Text>
             <Text style={styles.linksPageCount}>{links.length > 0 ? `1-${links.length} of ${links.length}` : '0 links'}</Text>
           </View>
-          <TouchableOpacity style={styles.newLinkBtn} onPress={() => { closeAllDropdowns(); setShowNewLinkModal(true); }}>
+          <TouchableOpacity style={styles.newLinkBtn} onPress={() => setShowNewLinkModal(true)}>
             <Ionicons name="add" size={18} color="#FFF" />
             <Text style={styles.newLinkBtnText}>Create</Text>
           </TouchableOpacity>
@@ -743,95 +713,87 @@ export default function AffiliateDashboard() {
           </View>
         )}
         
-        {/* New Link Modal - Fixed Structure */}
+        {/* New Link Modal - Clean Design Without Dropdowns */}
         <Modal 
           visible={showNewLinkModal} 
           transparent 
           animationType="slide" 
-          onRequestClose={() => { setShowNewLinkModal(false); closeAllDropdowns(); }}
+          onRequestClose={() => { setShowNewLinkModal(false); }}
         >
           <View style={styles.modalOverlay}>
             <Pressable 
               style={styles.modalBackdrop} 
-              onPress={() => { setShowNewLinkModal(false); closeAllDropdowns(); }} 
+              onPress={() => { setShowNewLinkModal(false); }} 
             />
             <View style={styles.newLinkModalContent}>
-              <Text style={styles.newLinkModalTitle}>New Link</Text>
+              {/* Modal Header */}
+              <View style={styles.modalHeaderRow}>
+                <Text style={styles.newLinkModalTitle}>New Link</Text>
+                <Pressable onPress={() => setShowNewLinkModal(false)} style={styles.modalCloseBtn}>
+                  <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+                </Pressable>
+              </View>
               
-              {/* Link Type Dropdown */}
+              {/* Link Type - Radio Style */}
               <Text style={styles.inputLabel}>Link Type</Text>
-              <Pressable 
-                style={[styles.dropdownSelector, localLinkTypeOpen && styles.dropdownSelectorActive]} 
-                onPress={handleLinkTypePress}
-              >
-                <Text style={styles.dropdownText}>
-                  {LINK_TYPES.find(t => t.value === newLinkForm.linkType)?.label}
-                </Text>
-                <Ionicons name={localLinkTypeOpen ? "chevron-up" : "chevron-down"} size={20} color={COLORS.textSecondary} />
-              </Pressable>
+              <View style={styles.radioGroup}>
+                {LINK_TYPES.map((type) => (
+                  <Pressable 
+                    key={type.value} 
+                    style={[styles.radioOption, newLinkForm.linkType === type.value && styles.radioOptionActive]}
+                    onPress={() => setNewLinkForm({...newLinkForm, linkType: type.value})}
+                  >
+                    <View style={[styles.radioCircle, newLinkForm.linkType === type.value && styles.radioCircleActive]}>
+                      {newLinkForm.linkType === type.value && <View style={styles.radioCircleInner} />}
+                    </View>
+                    <Text style={[styles.radioLabel, newLinkForm.linkType === type.value && styles.radioLabelActive]}>
+                      {type.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
               
-              {localLinkTypeOpen && (
-                <View style={styles.dropdownMenu}>
-                  {LINK_TYPES.map((type) => (
-                    <Pressable 
-                      key={type.value} 
-                      style={[styles.dropdownItem, newLinkForm.linkType === type.value && styles.dropdownItemActive]}
-                      onPress={() => selectLinkType(type.value)}
-                    >
-                      {newLinkForm.linkType === type.value && <Ionicons name="checkmark" size={18} color={COLORS.primary} style={{marginRight: 8}} />}
-                      <Text style={[styles.dropdownItemText, newLinkForm.linkType === type.value && styles.dropdownItemTextActive]}>{type.label}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              )}
-              
-              {/* Affiliate Program Dropdown */}
-              <Text style={[styles.inputLabel, { marginTop: 16 }]}>Affiliate Program</Text>
-              <Pressable 
-                style={[styles.dropdownSelector, localProgramOpen && styles.dropdownSelectorActive]} 
-                onPress={handleProgramPress}
-              >
-                <Text style={styles.dropdownText}>
-                  {AFFILIATE_PROGRAMS.find(p => p.value === newLinkForm.affiliateProgram)?.label}
-                </Text>
-                <Ionicons name={localProgramOpen ? "chevron-up" : "chevron-down"} size={20} color={COLORS.textSecondary} />
-              </Pressable>
-              
-              {localProgramOpen && (
-                <View style={styles.dropdownMenu}>
-                  {AFFILIATE_PROGRAMS.map((prog) => (
-                    <Pressable 
-                      key={prog.value} 
-                      style={[styles.dropdownItem, newLinkForm.affiliateProgram === prog.value && styles.dropdownItemActive]}
-                      onPress={() => selectProgram(prog.value)}
-                    >
-                      {newLinkForm.affiliateProgram === prog.value && <Ionicons name="checkmark" size={18} color={COLORS.primary} style={{marginRight: 8}} />}
-                      <Text style={[styles.dropdownItemText, newLinkForm.affiliateProgram === prog.value && styles.dropdownItemTextActive]}>{prog.label}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              )}
+              {/* Affiliate Program - Radio Style */}
+              <Text style={[styles.inputLabel, { marginTop: 20 }]}>Affiliate Program</Text>
+              <View style={styles.programToggle}>
+                {AFFILIATE_PROGRAMS.map((prog) => (
+                  <Pressable 
+                    key={prog.value} 
+                    style={[styles.programToggleBtn, newLinkForm.affiliateProgram === prog.value && styles.programToggleBtnActive]}
+                    onPress={() => setNewLinkForm({...newLinkForm, affiliateProgram: prog.value})}
+                  >
+                    <Ionicons 
+                      name={prog.value === 'revenue_sharing' ? 'trending-down' : 'repeat'} 
+                      size={18} 
+                      color={newLinkForm.affiliateProgram === prog.value ? COLORS.white : COLORS.textSecondary} 
+                    />
+                    <Text style={[styles.programToggleText, newLinkForm.affiliateProgram === prog.value && styles.programToggleTextActive]}>
+                      {prog.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
               
               {/* Comment Input */}
-              <Text style={[styles.inputLabel, { marginTop: 16 }]}>Comment</Text>
+              <Text style={[styles.inputLabel, { marginTop: 20 }]}>Comment (Optional)</Text>
               <TextInput
-                style={styles.commentInput}
-                placeholder="Please enter Comment (optional)"
+                style={styles.commentInputNew}
+                placeholder="Add a note to identify this link..."
                 placeholderTextColor={COLORS.textMuted}
                 value={newLinkForm.comment}
                 onChangeText={(text) => setNewLinkForm({...newLinkForm, comment: text})}
                 multiline
                 numberOfLines={3}
-                onFocus={closeAllDropdowns}
               />
               
               {/* Buttons */}
               <View style={styles.modalButtons}>
-                <Pressable style={styles.cancelBtn} onPress={() => { setShowNewLinkModal(false); closeAllDropdowns(); }}>
+                <Pressable style={styles.cancelBtn} onPress={() => setShowNewLinkModal(false)}>
                   <Text style={styles.cancelBtnText}>Cancel</Text>
                 </Pressable>
                 <Pressable style={styles.saveBtn} onPress={createNewLink}>
-                  <Text style={styles.saveBtnText}>Save</Text>
+                  <Ionicons name="add-circle" size={20} color={COLORS.white} />
+                  <Text style={styles.saveBtnText}>Create Link</Text>
                 </Pressable>
               </View>
             </View>
@@ -1208,23 +1170,37 @@ const styles = StyleSheet.create({
   miniStatLabel: { fontSize: 10, color: COLORS.textMuted },
   
   // New Link Modal
-  newLinkModalContent: { backgroundColor: COLORS.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '85%' },
-  newLinkModalTitle: { fontSize: 22, fontWeight: '800', color: COLORS.text, marginBottom: 24, textAlign: 'center' },
-  inputLabel: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 8 },
-  dropdownSelector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: COLORS.cardLight, borderRadius: 12, paddingVertical: 16, paddingHorizontal: 16, borderWidth: 1, borderColor: COLORS.border },
-  dropdownSelectorActive: { borderColor: COLORS.primary, borderWidth: 2 },
-  dropdownText: { fontSize: 15, color: COLORS.text, fontWeight: '500' },
-  dropdownMenu: { backgroundColor: COLORS.white, borderRadius: 12, marginTop: 8, borderWidth: 1, borderColor: COLORS.border, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5 },
-  dropdownItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  dropdownItemActive: { backgroundColor: COLORS.primaryLight },
-  dropdownItemText: { fontSize: 14, color: COLORS.text },
-  dropdownItemTextActive: { color: COLORS.primary, fontWeight: '600' },
-  commentInput: { backgroundColor: COLORS.cardLight, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16, fontSize: 14, color: COLORS.text, borderWidth: 1, borderColor: COLORS.border, minHeight: 100, textAlignVertical: 'top' },
-  modalButtons: { flexDirection: 'row', marginTop: 24 },
-  cancelBtn: { flex: 1, paddingVertical: 16, alignItems: 'center', borderRadius: 12, backgroundColor: COLORS.cardLight, marginRight: 8 },
+  newLinkModalContent: { backgroundColor: COLORS.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '90%' },
+  modalHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  newLinkModalTitle: { fontSize: 22, fontWeight: '800', color: COLORS.text },
+  modalCloseBtn: { padding: 4 },
+  inputLabel: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 12 },
+  
+  // Radio Group for Link Type
+  radioGroup: { backgroundColor: COLORS.cardLight, borderRadius: 12, padding: 4 },
+  radioOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, borderRadius: 10 },
+  radioOptionActive: { backgroundColor: COLORS.white },
+  radioCircle: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: COLORS.border, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  radioCircleActive: { borderColor: COLORS.primary },
+  radioCircleInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: COLORS.primary },
+  radioLabel: { fontSize: 14, color: COLORS.textSecondary, fontWeight: '500' },
+  radioLabelActive: { color: COLORS.text, fontWeight: '600' },
+  
+  // Program Toggle Buttons
+  programToggle: { flexDirection: 'row', gap: 10 },
+  programToggleBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, paddingHorizontal: 12, borderRadius: 12, backgroundColor: COLORS.cardLight, borderWidth: 2, borderColor: 'transparent' },
+  programToggleBtnActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  programToggleText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary, marginLeft: 8 },
+  programToggleTextActive: { color: COLORS.white },
+  
+  // Comment Input New
+  commentInputNew: { backgroundColor: COLORS.cardLight, borderRadius: 12, paddingVertical: 16, paddingHorizontal: 16, fontSize: 14, color: COLORS.text, borderWidth: 1, borderColor: COLORS.border, minHeight: 80, textAlignVertical: 'top' },
+  
+  modalButtons: { flexDirection: 'row', marginTop: 24, gap: 12 },
+  cancelBtn: { flex: 1, paddingVertical: 16, alignItems: 'center', borderRadius: 12, backgroundColor: COLORS.cardLight },
   cancelBtnText: { fontSize: 15, fontWeight: '600', color: COLORS.textSecondary },
-  saveBtn: { flex: 1, paddingVertical: 16, alignItems: 'center', borderRadius: 12, backgroundColor: COLORS.primary, marginLeft: 8 },
-  saveBtnText: { fontSize: 15, fontWeight: '700', color: '#FFF' },
+  saveBtn: { flex: 1.5, flexDirection: 'row', paddingVertical: 16, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: COLORS.primary },
+  saveBtnText: { fontSize: 15, fontWeight: '700', color: '#FFF', marginLeft: 8 },
   
   // Promo
   promoCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: 12, padding: 12, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
