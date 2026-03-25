@@ -87,6 +87,12 @@ export default function AffiliateDashboard() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   
+  // Withdrawal states
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawalHistory, setWithdrawalHistory] = useState<any[]>([]);
+  const [isLoadingWithdrawals, setIsLoadingWithdrawals] = useState(false);
+  const [isSubmittingWithdrawal, setIsSubmittingWithdrawal] = useState(false);
+  
   // Data
   const [affiliate, setAffiliate] = useState<any>(null);
   const [dashboardData, setDashboardData] = useState<any>(null);
@@ -382,6 +388,83 @@ export default function AffiliateDashboard() {
       showToast('Failed to change password');
     } finally {
       setIsChangingPassword(false);
+    }
+  };
+  
+  // Load withdrawal history
+  const loadWithdrawalHistory = async () => {
+    setIsLoadingWithdrawals(true);
+    try {
+      const token = await AsyncStorage.getItem('affiliate_token');
+      const response = await fetch(`${API_URL}/affiliate/withdrawals`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (data.withdrawals) {
+        setWithdrawalHistory(data.withdrawals);
+      }
+    } catch (error) {
+      console.error('Error loading withdrawals:', error);
+    } finally {
+      setIsLoadingWithdrawals(false);
+    }
+  };
+  
+  // Submit withdrawal request
+  const handleWithdrawal = async () => {
+    const amount = parseFloat(withdrawAmount);
+    
+    if (!amount || amount <= 0) {
+      showToast('Please enter a valid amount');
+      return;
+    }
+    
+    if (amount < 50) {
+      showToast('Minimum withdrawal is $50');
+      return;
+    }
+    
+    if (amount > (affiliate?.balance || 0)) {
+      showToast('Insufficient balance');
+      return;
+    }
+    
+    if (!usdtAddress) {
+      showToast('Please set your USDT TRC20 address in Settings first');
+      return;
+    }
+    
+    setIsSubmittingWithdrawal(true);
+    try {
+      const token = await AsyncStorage.getItem('affiliate_token');
+      const response = await fetch(`${API_URL}/affiliate/withdrawal`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          amount: amount,
+          wallet_address: usdtAddress,
+          payment_method: 'USDT_TRC20'
+        })
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        showToast('Withdrawal request submitted successfully!');
+        setWithdrawAmount('');
+        // Update balance locally
+        setAffiliate((prev: any) => ({ ...prev, balance: (prev?.balance || 0) - amount }));
+        // Reload withdrawal history
+        loadWithdrawalHistory();
+      } else {
+        showToast(data.detail || 'Withdrawal failed');
+      }
+    } catch (error) {
+      showToast('Failed to submit withdrawal');
+    } finally {
+      setIsSubmittingWithdrawal(false);
     }
   };
 
@@ -2942,6 +3025,180 @@ export default function AffiliateDashboard() {
                     <Text style={styles.helpContactMethodText}>Telegram</Text>
                   </TouchableOpacity>
                 </View>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+      
+      {/* Withdraw Modal */}
+      <Modal visible={showWithdrawModal} transparent animationType="slide" onShow={() => { loadWithdrawalHistory(); loadAffiliateSettings(); }}>
+        <View style={styles.fullModalOverlay}>
+          <View style={styles.fullModalContent}>
+            <View style={styles.fullModalHeader}>
+              <TouchableOpacity onPress={() => setShowWithdrawModal(false)} style={styles.modalBackBtn}>
+                <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+              <Text style={styles.fullModalTitle}>Withdraw</Text>
+              <View style={{ width: 24 }} />
+            </View>
+            
+            <ScrollView style={styles.fullModalBody}>
+              {/* Available Balance */}
+              <View style={styles.withdrawBalanceCard}>
+                <Text style={styles.withdrawBalanceLabel}>Available Balance</Text>
+                <Text style={styles.withdrawBalanceValue}>{formatMoney(affiliate?.balance || 0)}</Text>
+                <Text style={styles.withdrawMinNote}>Minimum withdrawal: $50</Text>
+              </View>
+              
+              {/* Withdrawal Form */}
+              <View style={styles.withdrawFormSection}>
+                <Text style={styles.withdrawFormTitle}>Withdraw Amount</Text>
+                
+                {/* Amount Input */}
+                <View style={styles.withdrawAmountInputWrap}>
+                  <Text style={styles.withdrawCurrency}>$</Text>
+                  <TextInput
+                    style={styles.withdrawAmountInput}
+                    value={withdrawAmount}
+                    onChangeText={setWithdrawAmount}
+                    placeholder="0.00"
+                    placeholderTextColor={COLORS.textMuted}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+                
+                {/* Quick Amount Buttons */}
+                <View style={styles.withdrawQuickAmounts}>
+                  {['50', '100', '250', '500'].map((amt) => (
+                    <TouchableOpacity 
+                      key={amt} 
+                      style={[
+                        styles.withdrawQuickAmountBtn,
+                        withdrawAmount === amt && styles.withdrawQuickAmountBtnActive
+                      ]}
+                      onPress={() => setWithdrawAmount(amt)}
+                    >
+                      <Text style={[
+                        styles.withdrawQuickAmountText,
+                        withdrawAmount === amt && styles.withdrawQuickAmountTextActive
+                      ]}>${amt}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                
+                {/* Wallet Address */}
+                <Text style={styles.withdrawFormTitle}>Withdrawal Wallet</Text>
+                <View style={styles.withdrawWalletCard}>
+                  <View style={styles.withdrawWalletHeader}>
+                    <Ionicons name="logo-usd" size={24} color={COLORS.primary} />
+                    <View style={styles.withdrawWalletInfo}>
+                      <Text style={styles.withdrawWalletType}>USDT TRC20</Text>
+                      {usdtAddress ? (
+                        <Text style={styles.withdrawWalletAddress} numberOfLines={1}>{usdtAddress}</Text>
+                      ) : (
+                        <Text style={styles.withdrawWalletNoAddress}>No address set</Text>
+                      )}
+                    </View>
+                    {!usdtAddress && (
+                      <TouchableOpacity 
+                        style={styles.withdrawSetAddressBtn}
+                        onPress={() => { setShowWithdrawModal(false); setShowSettingsModal(true); }}
+                      >
+                        <Text style={styles.withdrawSetAddressText}>Set Address</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  {usdtAddress && (
+                    <View style={styles.withdrawWalletSelected}>
+                      <Ionicons name="checkmark-circle" size={16} color={COLORS.primary} />
+                      <Text style={styles.withdrawWalletSelectedText}>Selected for withdrawal</Text>
+                    </View>
+                  )}
+                </View>
+                
+                {/* Submit Button */}
+                <TouchableOpacity 
+                  style={[
+                    styles.withdrawSubmitBtn,
+                    (!withdrawAmount || !usdtAddress || isSubmittingWithdrawal) && styles.withdrawSubmitBtnDisabled
+                  ]}
+                  onPress={handleWithdrawal}
+                  disabled={!withdrawAmount || !usdtAddress || isSubmittingWithdrawal}
+                >
+                  {isSubmittingWithdrawal ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="wallet-outline" size={20} color="#fff" />
+                      <Text style={styles.withdrawSubmitText}>Withdraw Now</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+              
+              {/* Withdrawal History */}
+              <View style={styles.withdrawHistorySection}>
+                <Text style={styles.withdrawHistoryTitle}>Withdrawal History</Text>
+                
+                {isLoadingWithdrawals ? (
+                  <ActivityIndicator size="small" color={COLORS.primary} style={{ marginVertical: 20 }} />
+                ) : withdrawalHistory.length === 0 ? (
+                  <View style={styles.withdrawHistoryEmpty}>
+                    <Ionicons name="wallet-outline" size={40} color={COLORS.textMuted} />
+                    <Text style={styles.withdrawHistoryEmptyText}>No withdrawals yet</Text>
+                  </View>
+                ) : (
+                  withdrawalHistory.map((withdrawal, index) => (
+                    <View key={index} style={styles.withdrawHistoryItem}>
+                      <View style={styles.withdrawHistoryLeft}>
+                        <View style={[
+                          styles.withdrawHistoryIcon,
+                          { backgroundColor: 
+                            withdrawal.status === 'completed' ? COLORS.primaryLight :
+                            withdrawal.status === 'pending' ? COLORS.warningLight :
+                            COLORS.dangerLight
+                          }
+                        ]}>
+                          <Ionicons 
+                            name={
+                              withdrawal.status === 'completed' ? 'checkmark-circle' :
+                              withdrawal.status === 'pending' ? 'time' :
+                              'close-circle'
+                            } 
+                            size={18} 
+                            color={
+                              withdrawal.status === 'completed' ? COLORS.primary :
+                              withdrawal.status === 'pending' ? COLORS.warning :
+                              COLORS.danger
+                            } 
+                          />
+                        </View>
+                        <View>
+                          <Text style={styles.withdrawHistoryAmount}>{formatMoney(withdrawal.amount)}</Text>
+                          <Text style={styles.withdrawHistoryWallet} numberOfLines={1}>
+                            {withdrawal.wallet_address?.slice(0, 8)}...{withdrawal.wallet_address?.slice(-6)}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.withdrawHistoryRight}>
+                        <Text style={[
+                          styles.withdrawHistoryStatus,
+                          { color: 
+                            withdrawal.status === 'completed' ? COLORS.primary :
+                            withdrawal.status === 'pending' ? COLORS.warning :
+                            COLORS.danger
+                          }
+                        ]}>
+                          {withdrawal.status?.charAt(0).toUpperCase() + withdrawal.status?.slice(1)}
+                        </Text>
+                        <Text style={styles.withdrawHistoryDate}>
+                          {new Date(withdrawal.created_at).toLocaleDateString()}
+                        </Text>
+                      </View>
+                    </View>
+                  ))
+                )}
               </View>
             </ScrollView>
           </View>
