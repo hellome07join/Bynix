@@ -1119,7 +1119,7 @@ export default function AdminDashboard() {
           </View>
         </View>
         <View style={styles.presetButtons}>
-          {[25, 35, 45, 55, 65].map((preset) => (
+          {[25, 35, 45, 55, 65, 100].map((preset) => (
             <TouchableOpacity 
               key={preset} 
               style={[styles.presetBtn, winRate === preset && styles.presetBtnActive]}
