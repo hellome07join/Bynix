@@ -1319,12 +1319,23 @@ export default function AdminDashboard() {
         animationType="slide"
         onRequestClose={() => setShowWithdrawalUserModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxHeight: '85%' }]}>
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowWithdrawalUserModal(false)}
+        >
+          <TouchableOpacity 
+            activeOpacity={1}
+            style={[styles.modalContent, { maxHeight: '85%' }]}
+            onPress={(e) => e.stopPropagation()}
+          >
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>User Profile</Text>
-              <TouchableOpacity onPress={() => setShowWithdrawalUserModal(false)}>
-                <Ionicons name="close" size={24} color={COLORS.text} />
+              <TouchableOpacity 
+                onPress={() => setShowWithdrawalUserModal(false)}
+                style={{ padding: 8, marginRight: -8 }}
+              >
+                <Ionicons name="close-circle" size={28} color={COLORS.danger} />
               </TouchableOpacity>
             </View>
 
@@ -1459,8 +1470,8 @@ export default function AdminDashboard() {
                 </TouchableOpacity>
               </View>
             </ScrollView>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
 
       {/* KYC Requirement Selection Modal */}
@@ -1470,12 +1481,23 @@ export default function AdminDashboard() {
         animationType="fade"
         onRequestClose={() => setShowKycModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxWidth: 350 }]}>
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setShowKycModal(false)}
+        >
+          <TouchableOpacity 
+            activeOpacity={1} 
+            style={[styles.modalContent, { maxWidth: 380, padding: 20 }]}
+            onPress={(e) => e.stopPropagation()}
+          >
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select KYC Requirement</Text>
-              <TouchableOpacity onPress={() => setShowKycModal(false)}>
-                <Ionicons name="close" size={24} color={COLORS.text} />
+              <TouchableOpacity 
+                onPress={() => setShowKycModal(false)}
+                style={{ padding: 8, marginRight: -8 }}
+              >
+                <Ionicons name="close-circle" size={28} color={COLORS.danger} />
               </TouchableOpacity>
             </View>
             
@@ -1509,8 +1531,16 @@ export default function AdminDashboard() {
                 </TouchableOpacity>
               ))}
             </View>
-          </View>
-        </View>
+
+            {/* Cancel Button */}
+            <TouchableOpacity 
+              style={styles.kycCancelBtn}
+              onPress={() => setShowKycModal(false)}
+            >
+              <Text style={styles.kycCancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </ScrollView>
   );
@@ -5253,5 +5283,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.textSecondary,
     marginTop: 2,
+  },
+  kycCancelBtn: {
+    backgroundColor: COLORS.bgSecondary,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  kycCancelBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
   },
 });
