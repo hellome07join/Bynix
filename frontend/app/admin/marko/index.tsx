@@ -180,6 +180,7 @@ export default function AdminDashboard() {
   // KYC Submissions
   const [showKycSubmissionsModal, setShowKycSubmissionsModal] = useState(false);
   const [kycSubmissions, setKycSubmissions] = useState<any[]>([]);
+  const [kycSubmissionsCount, setKycSubmissionsCount] = useState(0);
   const [loadingKycSubmissions, setLoadingKycSubmissions] = useState(false);
   const [selectedKycDocument, setSelectedKycDocument] = useState<any>(null);
 
@@ -302,6 +303,13 @@ export default function AdminDashboard() {
           pendingCount,
           todayAmount
         });
+      }
+      
+      // Fetch KYC submissions count
+      const kycRes = await fetch(`${API_URL}/admin/kyc-submissions`, { headers });
+      if (kycRes.ok) {
+        const data = await kycRes.json();
+        setKycSubmissionsCount(data.count || 0);
       }
       
     } catch (error) {
@@ -671,7 +679,7 @@ export default function AdminDashboard() {
   };
 
   // Fetch KYC Submissions
-  const fetchKycSubmissions = async () => {
+  const fetchKycSubmissions = async (showModal = true) => {
     if (!token) return;
     
     setLoadingKycSubmissions(true);
@@ -683,23 +691,79 @@ export default function AdminDashboard() {
       if (response.ok) {
         const data = await response.json();
         setKycSubmissions(data.submissions || []);
-        setShowKycSubmissionsModal(true);
+        setKycSubmissionsCount(data.count || 0);
+        if (showModal) {
+          setShowKycSubmissionsModal(true);
+        }
       } else {
+        if (showModal) {
+          if (Platform.OS === 'web') {
+            window.alert('Error: Failed to fetch KYC submissions');
+          } else {
+            Alert.alert('Error', 'Failed to fetch KYC submissions');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Fetch KYC submissions error:', error);
+      if (showModal) {
         if (Platform.OS === 'web') {
           window.alert('Error: Failed to fetch KYC submissions');
         } else {
           Alert.alert('Error', 'Failed to fetch KYC submissions');
         }
       }
-    } catch (error) {
-      console.error('Fetch KYC submissions error:', error);
-      if (Platform.OS === 'web') {
-        window.alert('Error: Failed to fetch KYC submissions');
-      } else {
-        Alert.alert('Error', 'Failed to fetch KYC submissions');
-      }
     }
     setLoadingKycSubmissions(false);
+  };
+
+  // Approve KYC (move to pending)
+  const handleApproveKyc = async (withdrawalId: string, userEmail: string) => {
+    if (!token) {
+      if (Platform.OS === 'web') {
+        window.alert('Error: Not authenticated');
+      } else {
+        Alert.alert('Error', 'Not authenticated');
+      }
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API_URL}/admin/withdrawals/${withdrawalId}/approve-kyc`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        if (Platform.OS === 'web') {
+          window.alert('Success: KYC approved! Withdrawal moved to pending for final approval.');
+        } else {
+          Alert.alert('Success', 'KYC approved! Withdrawal moved to pending for final approval.');
+        }
+        setShowKycSubmissionsModal(false);
+        setSelectedKycDocument(null);
+        fetchDashboardData();
+        fetchKycSubmissions(false); // Refresh count
+      } else {
+        if (Platform.OS === 'web') {
+          window.alert(`Error: ${data.detail || 'Failed to approve KYC'}`);
+        } else {
+          Alert.alert('Error', data.detail || 'Failed to approve KYC');
+        }
+      }
+    } catch (error) {
+      console.error('Approve KYC error:', error);
+      if (Platform.OS === 'web') {
+        window.alert('Error: Failed to approve KYC');
+      } else {
+        Alert.alert('Error', 'Failed to approve KYC');
+      }
+    }
   };
 
   // Format currency
@@ -1364,7 +1428,7 @@ export default function AdminDashboard() {
             <ActivityIndicator size="small" color={COLORS.success} />
           ) : (
             <>
-              <Text style={styles.kycSubmittedCount}>{withdrawals.filter(w => w.status === 'locked' && w.kyc_submitted).length}</Text>
+              <Text style={styles.kycSubmittedCount}>{kycSubmissionsCount}</Text>
               <Ionicons name="chevron-forward" size={20} color={COLORS.textMuted} />
             </>
           )}
@@ -1756,8 +1820,37 @@ export default function AdminDashboard() {
                   </Text>
                 </View>
                 
+                {/* User Verified Profile Info */}
+                <View style={styles.kycVerifiedInfoCard}>
+                  <View style={styles.kycVerifiedInfoHeader}>
+                    <Ionicons name="shield-checkmark" size={20} color={selectedKycDocument.kyc_verified ? COLORS.success : COLORS.warning} />
+                    <Text style={styles.kycVerifiedInfoTitle}>
+                      {selectedKycDocument.kyc_verified ? 'Verified Profile' : 'Profile Info'}
+                    </Text>
+                  </View>
+                  <View style={styles.kycVerifiedInfoRow}>
+                    <Text style={styles.kycVerifiedInfoLabel}>Name:</Text>
+                    <Text style={styles.kycVerifiedInfoValue}>
+                      {selectedKycDocument.verified_name || selectedKycDocument.user_name || 'Not provided'}
+                    </Text>
+                  </View>
+                  <View style={styles.kycVerifiedInfoRow}>
+                    <Text style={styles.kycVerifiedInfoLabel}>ID Number:</Text>
+                    <Text style={styles.kycVerifiedInfoValue}>
+                      {selectedKycDocument.verified_id || 'Not provided'}
+                    </Text>
+                  </View>
+                  <View style={styles.kycVerifiedInfoRow}>
+                    <Text style={styles.kycVerifiedInfoLabel}>Wallet:</Text>
+                    <Text style={[styles.kycVerifiedInfoValue, { fontSize: 11 }]} numberOfLines={1}>
+                      {selectedKycDocument.wallet_address || 'Not provided'}
+                    </Text>
+                  </View>
+                </View>
+                
                 {selectedKycDocument.kyc_document_url && (
                   <View style={styles.kycDocImageContainer}>
+                    <Text style={styles.kycDocImageLabel}>Submitted Document:</Text>
                     <Image 
                       source={{ uri: selectedKycDocument.kyc_document_url }}
                       style={styles.kycDocImage}
@@ -1770,17 +1863,14 @@ export default function AdminDashboard() {
                   <TouchableOpacity 
                     style={[styles.kycDocActionBtn, { backgroundColor: COLORS.success }]}
                     onPress={() => {
-                      handleApproveWithdrawal(
+                      handleApproveKyc(
                         selectedKycDocument.transaction_id, 
-                        selectedKycDocument.user_email, 
-                        selectedKycDocument.amount
+                        selectedKycDocument.user_email
                       );
-                      setShowKycSubmissionsModal(false);
-                      setSelectedKycDocument(null);
                     }}
                   >
                     <Ionicons name="checkmark-circle" size={20} color="#FFF" />
-                    <Text style={styles.kycDocActionBtnText}>Approve Withdrawal</Text>
+                    <Text style={styles.kycDocActionBtnText}>Approve KYC</Text>
                   </TouchableOpacity>
                   
                   <TouchableOpacity 
@@ -5732,5 +5822,52 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 14,
     fontWeight: '600',
+  },
+  
+  // KYC Verified Info Card
+  kycVerifiedInfoCard: {
+    backgroundColor: COLORS.bgSecondary,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  kycVerifiedInfoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  kycVerifiedInfoTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  kycVerifiedInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  kycVerifiedInfoLabel: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+  },
+  kycVerifiedInfoValue: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: COLORS.text,
+    textAlign: 'right',
+    flex: 1,
+    marginLeft: 16,
+  },
+  kycDocImageLabel: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginBottom: 8,
   },
 });

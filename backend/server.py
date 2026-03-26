@@ -4310,6 +4310,51 @@ async def unlock_withdrawal(
     return {"success": True, "message": "Withdrawal unlocked and moved back to pending"}
 
 
+@api_router.post("/admin/withdrawals/{withdrawal_id}/approve-kyc")
+async def approve_kyc_document(
+    withdrawal_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Approve KYC document and move withdrawal back to pending for final approval"""
+    admin = await get_current_user(authorization, request)
+    
+    # Find the withdrawal in transactions collection
+    withdrawal = await db.transactions.find_one({
+        "type": "withdrawal",
+        "$or": [
+            {"transaction_id": withdrawal_id},
+            {"_id": withdrawal_id}
+        ]
+    })
+    
+    if not withdrawal:
+        raise HTTPException(status_code=404, detail="Withdrawal not found")
+    
+    if withdrawal.get("status") != "locked":
+        raise HTTPException(status_code=400, detail="Withdrawal is not locked")
+    
+    # Move to pending with KYC approved flag
+    await db.transactions.update_one(
+        {"_id": withdrawal["_id"]},
+        {
+            "$set": {
+                "status": "pending",
+                "kyc_approved": True,
+                "kyc_approved_by": admin.user_id,
+                "kyc_approved_at": datetime.now(timezone.utc)
+            },
+            "$unset": {
+                "locked_by": "",
+                "locked_at": "",
+                "lock_reason": ""
+            }
+        }
+    )
+    
+    return {"success": True, "message": "KYC approved. Withdrawal moved to pending for final approval."}
+
+
 @api_router.post("/withdraw/upload-kyc/{transaction_id}")
 async def upload_kyc_document(
     transaction_id: str,
@@ -4396,12 +4441,28 @@ async def get_kyc_submissions(
     result = []
     for sub in submissions:
         user = await db.users.find_one({"user_id": sub.get("user_id")})
+        
+        # Get user's verified profile info
+        verified_name = ""
+        verified_id = ""
+        kyc_verified = False
+        
+        if user:
+            kyc_verified = user.get("kyc_verified", False)
+            # Check for ID verification data
+            verified_name = user.get("kyc_full_name") or user.get("verified_name") or user.get("name") or user.get("full_name", "")
+            verified_id = user.get("kyc_id_number") or user.get("id_number") or user.get("verified_id", "")
+        
         result.append({
             "transaction_id": sub.get("transaction_id"),
             "user_id": sub.get("user_id"),
             "user_email": user.get("email") if user else "Unknown",
             "user_name": user.get("name") or user.get("full_name", "") if user else "",
+            "verified_name": verified_name,
+            "verified_id": verified_id,
+            "kyc_verified": kyc_verified,
             "amount": sub.get("amount"),
+            "wallet_address": sub.get("wallet_address", ""),
             "kyc_requirement": sub.get("kyc_requirement"),
             "kyc_document_url": sub.get("kyc_document_url"),
             "kyc_document_type": sub.get("kyc_document_type"),
