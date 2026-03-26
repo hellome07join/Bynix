@@ -784,12 +784,23 @@ export default function Trade() {
     }
   };
 
-  // Get assets - use database assets if available, fallback to hardcoded
+  // Get assets - Demo mode shows ALL assets (with lock/unlock), Real mode shows only real assets
   const hardcodedAssets = getAssetsForAccount(accountType);
-  const currentAssets = dbAssets.length > 0 ? dbAssets : hardcodedAssets;
+  const allAssets = [...getAssetsForAccount('real'), ...getAssetsForAccount('demo')];
+  
+  // Remove duplicates by value
+  const uniqueAssets = allAssets.filter((asset, index, self) => 
+    index === self.findIndex((a) => a.value === asset.value)
+  );
+  
+  // Demo mode: Show ALL unique assets (with lock/unlock)
+  // Real mode: Use dbAssets or hardcoded real assets
+  const currentAssets = accountType === 'demo' 
+    ? (dbAssets.length > 0 ? dbAssets : uniqueAssets)
+    : (dbAssets.length > 0 ? dbAssets : hardcodedAssets);
   
   // Demo-only assets list (hardcoded for reliable switching)
-  // USD/CHF is now Real-only (removed from demo list)
+  // Only these 6 Forex assets are unlocked in Demo mode
   const DEMO_ONLY_SYMBOLS = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'NZDUSD', 'USDCAD'];
   
   // Check if asset is demo-only
