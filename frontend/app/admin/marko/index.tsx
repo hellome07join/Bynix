@@ -2850,7 +2850,55 @@ export default function AdminDashboard() {
   };
 
   // Analytics Dashboard Content
-  const AnalyticsContent = () => (
+  const AnalyticsContent = () => {
+    const [selectedPeriod, setSelectedPeriod] = useState('7D');
+    const [analyticsStats, setAnalyticsStats] = useState(stats);
+    const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+
+    const fetchAnalyticsData = async (period: string) => {
+      try {
+        setLoadingAnalytics(true);
+        const periodMap: {[key: string]: string} = {
+          '24H': '24h',
+          '7D': '7d',
+          '30D': '30d',
+          '90D': '90d',
+          'ALL': 'all'
+        };
+        
+        const response = await fetch(`${API_URL}/admin/stats?period=${periodMap[period]}`, {
+          headers: headers
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setAnalyticsStats({
+            ...stats,
+            totalDeposits: data.total_deposits || 0,
+            totalWithdrawals: data.total_withdrawals || 0,
+            platformProfit: data.platform_profit || 0,
+            totalUsers: data.total_users || 0,
+            totalTrades: data.total_trades || 0,
+            totalVolume: data.total_volume || 0,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch analytics:', error);
+      } finally {
+        setLoadingAnalytics(false);
+      }
+    };
+
+    const handlePeriodChange = (period: string) => {
+      setSelectedPeriod(period);
+      fetchAnalyticsData(period);
+    };
+
+    useEffect(() => {
+      fetchAnalyticsData(selectedPeriod);
+    }, []);
+
+    return (
     <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
       <View style={styles.pageHeader}>
         <Text style={styles.pageTitle}>Analytics Dashboard</Text>
@@ -2862,14 +2910,22 @@ export default function AdminDashboard() {
         {['24H', '7D', '30D', '90D', 'ALL'].map(range => (
           <TouchableOpacity 
             key={range}
-            style={[styles.timeRangeBtn, range === '7D' && styles.timeRangeBtnActive]}
+            style={[styles.timeRangeBtn, range === selectedPeriod && styles.timeRangeBtnActive]}
+            onPress={() => handlePeriodChange(range)}
           >
-            <Text style={[styles.timeRangeBtnText, range === '7D' && styles.timeRangeBtnTextActive]}>
+            <Text style={[styles.timeRangeBtnText, range === selectedPeriod && styles.timeRangeBtnTextActive]}>
               {range}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
+
+      {loadingAnalytics && (
+        <View style={{ padding: 20, alignItems: 'center' }}>
+          <ActivityIndicator size="small" color={COLORS.primary} />
+          <Text style={{ color: '#666', marginTop: 8 }}>Loading {selectedPeriod} data...</Text>
+        </View>
+      )}
 
       {/* Revenue Overview */}
       <View style={styles.analyticsGrid}>
@@ -2882,7 +2938,7 @@ export default function AdminDashboard() {
             </View>
           </View>
           <Text style={[styles.analyticsValue, { color: COLORS.success }]}>
-            ${formatNumber(stats.totalDeposits)}
+            ${formatNumber(analyticsStats.totalDeposits)}
           </Text>
           <Text style={styles.analyticsLabel}>Total Deposits</Text>
         </View>
@@ -2896,7 +2952,7 @@ export default function AdminDashboard() {
             </View>
           </View>
           <Text style={[styles.analyticsValue, { color: COLORS.danger }]}>
-            ${formatNumber(stats.totalWithdrawals)}
+            ${formatNumber(analyticsStats.totalWithdrawals)}
           </Text>
           <Text style={styles.analyticsLabel}>Total Withdrawals</Text>
         </View>
@@ -2912,7 +2968,7 @@ export default function AdminDashboard() {
             </View>
           </View>
           <Text style={[styles.analyticsValue, { color: COLORS.primary }]}>
-            ${formatNumber(stats.platformProfit)}
+            ${formatNumber(analyticsStats.platformProfit)}
           </Text>
           <Text style={styles.analyticsLabel}>Net Profit</Text>
         </View>
@@ -3020,7 +3076,8 @@ export default function AdminDashboard() {
         ))}
       </View>
     </ScrollView>
-  );
+    );
+  };
 
   // Deposits Content
   const DepositsContent = () => (

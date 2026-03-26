@@ -3484,48 +3484,97 @@ async def shutdown_db_client():
 # ============= ADMIN API ENDPOINTS =============
 
 @api_router.get("/admin/stats")
-async def admin_get_stats(authorization: Optional[str] = Header(None), request: Request = None):
-    """Get admin dashboard statistics"""
+async def admin_get_stats(
+    authorization: Optional[str] = Header(None), 
+    request: Request = None,
+    period: str = "all"  # 24h, 7d, 30d, 90d, all
+):
+    """Get admin dashboard statistics with time period filter"""
     user = await get_current_user(authorization, request)
     
-    # Get total users
-    total_users = await db.users.count_documents({})
+    # Calculate date filter based on period
+    date_filter = {}
+    now = datetime.now(timezone.utc)
     
-    # Get total trades
-    total_trades = await db.trades.count_documents({})
+    if period == "24h":
+        start_date = now - timedelta(hours=24)
+        date_filter = {"created_at": {"$gte": start_date}}
+    elif period == "7d":
+        start_date = now - timedelta(days=7)
+        date_filter = {"created_at": {"$gte": start_date}}
+    elif period == "30d":
+        start_date = now - timedelta(days=30)
+        date_filter = {"created_at": {"$gte": start_date}}
+    elif period == "90d":
+        start_date = now - timedelta(days=90)
+        date_filter = {"created_at": {"$gte": start_date}}
+    # 'all' = no date filter
     
-    # Get total volume
+    # Get total users (registered in period for filtered, or all)
+    if date_filter:
+        total_users = await db.users.count_documents(date_filter)
+    else:
+        total_users = await db.users.count_documents({})
+    
+    # Get total trades in period
+    trades_filter = date_filter.copy() if date_filter else {}
+    total_trades = await db.trades.count_documents(trades_filter)
+    
+    # Get total volume in period
     volume_pipeline = [
+        {"$match": trades_filter} if trades_filter else {"$match": {}},
         {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
     ]
     volume_result = await db.trades.aggregate(volume_pipeline).to_list(1)
     total_volume = volume_result[0]["total"] if volume_result else 0
     
-    # Get total deposits
+    # Get total deposits in period
+    deposits_filter = {"status": "completed"}
+    if date_filter:
+        deposits_filter.update(date_filter)
     deposits_pipeline = [
-        {"$match": {"status": "completed"}},
+        {"$match": deposits_filter},
         {"$group": {"_id": None, "total": {"$sum": "$amount_usd"}}}
     ]
     deposits_result = await db.deposits.aggregate(deposits_pipeline).to_list(1)
     total_deposits = deposits_result[0]["total"] if deposits_result else 0
     
-    # Get pending counts
-    pending_withdrawals = await db.withdrawals.count_documents({"status": "pending"})
+    # Get total withdrawals in period
+    withdrawals_filter = {"status": "completed"}
+    if date_filter:
+        withdrawals_filter.update(date_filter)
+    withdrawals_pipeline = [
+        {"$match": withdrawals_filter},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]
+    withdrawals_result = await db.transactions.aggregate(withdrawals_pipeline).to_list(1)
+    total_withdrawals = withdrawals_result[0]["total"] if withdrawals_result else 0
+    
+    # Get pending counts (always current)
+    pending_withdrawals = await db.transactions.count_documents({"type": "withdrawal", "status": "pending"})
     pending_deposits = await db.deposits.count_documents({"status": "pending"})
     
-    # Active users today
-    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    active_users_today = await db.trades.distinct("user_id", {"created_at": {"$gte": today}})
+    # Active users in period
+    if date_filter:
+        active_users = await db.trades.distinct("user_id", trades_filter)
+    else:
+        today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        active_users = await db.trades.distinct("user_id", {"created_at": {"$gte": today}})
+    
+    # Calculate platform profit (deposits - withdrawals)
+    platform_profit = total_deposits - total_withdrawals
     
     return {
         "total_users": total_users,
         "total_trades": total_trades,
         "total_volume": total_volume,
         "total_deposits": total_deposits,
-        "total_withdrawals": 0,
+        "total_withdrawals": total_withdrawals,
+        "platform_profit": platform_profit,
         "pending_withdrawals": pending_withdrawals,
         "pending_deposits": pending_deposits,
-        "active_users_today": len(active_users_today)
+        "active_users_today": len(active_users),
+        "period": period
     }
 
 @api_router.get("/admin/users")
