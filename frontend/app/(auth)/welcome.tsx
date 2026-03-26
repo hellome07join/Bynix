@@ -23,7 +23,6 @@ const { width, height } = Dimensions.get('window');
 // Animated Background Particle
 const FloatingParticle = ({ delay, startX, size }: { delay: number, startX: number, size: number }) => {
   const translateY = useRef(new Animated.Value(height + 50)).current;
-  const translateX = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -37,15 +36,9 @@ const FloatingParticle = ({ delay, startX, size }: { delay: number, startX: numb
             easing: Easing.linear,
             useNativeDriver: true,
           }),
-          Animated.timing(translateX, {
-            toValue: (Math.random() - 0.5) * 100,
-            duration: 15000,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-          }),
           Animated.sequence([
             Animated.timing(opacity, {
-              toValue: 0.6,
+              toValue: 0.4,
               duration: 2000,
               useNativeDriver: true,
             }),
@@ -77,7 +70,7 @@ const FloatingParticle = ({ delay, startX, size }: { delay: number, startX: numb
         height: size,
         borderRadius: size / 2,
         backgroundColor: '#00E55A',
-        transform: [{ translateY }, { translateX }],
+        transform: [{ translateY }],
         opacity,
       }}
     />
@@ -87,7 +80,7 @@ const FloatingParticle = ({ delay, startX, size }: { delay: number, startX: numb
 // Pulsing Ring Animation
 const PulsingRing = ({ size, delay }: { size: number, delay: number }) => {
   const scale = useRef(new Animated.Value(0.8)).current;
-  const opacity = useRef(new Animated.Value(0.5)).current;
+  const opacity = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
     const animation = Animated.loop(
@@ -113,7 +106,7 @@ const PulsingRing = ({ size, delay }: { size: number, delay: number }) => {
             useNativeDriver: true,
           }),
           Animated.timing(opacity, {
-            toValue: 0.5,
+            toValue: 0.3,
             duration: 0,
             useNativeDriver: true,
           }),
@@ -131,8 +124,8 @@ const PulsingRing = ({ size, delay }: { size: number, delay: number }) => {
         width: size,
         height: size,
         borderRadius: size / 2,
-        borderWidth: 2,
-        borderColor: '#00E55A',
+        borderWidth: 1,
+        borderColor: '#00E55A40',
         transform: [{ scale }],
         opacity,
       }}
@@ -140,12 +133,44 @@ const PulsingRing = ({ size, delay }: { size: number, delay: number }) => {
   );
 };
 
+// Animated Chart Line for Phone
+const AnimatedChartLine = () => {
+  const translateX = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(translateX, {
+          toValue: 10,
+          duration: 2000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateX, {
+          toValue: 0,
+          duration: 2000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, []);
+
+  return (
+    <Animated.View style={[styles.chartLineContainer, { transform: [{ translateX }] }]}>
+      <View style={styles.chartLine} />
+    </Animated.View>
+  );
+};
+
 export default function Welcome() {
   const router = useRouter();
   const { login } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
-  const scrollY = useRef(new Animated.Value(0)).current;
   const heroScale = useRef(new Animated.Value(1)).current;
+  const phoneRotate = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     // Hero button pulse
@@ -165,8 +190,31 @@ export default function Welcome() {
         }),
       ])
     );
+
+    // Subtle phone float
+    const phoneFloat = Animated.loop(
+      Animated.sequence([
+        Animated.timing(phoneRotate, {
+          toValue: 1,
+          duration: 3000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(phoneRotate, {
+          toValue: 0,
+          duration: 3000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
     pulse.start();
-    return () => pulse.stop();
+    phoneFloat.start();
+    return () => {
+      pulse.stop();
+      phoneFloat.stop();
+    };
   }, []);
 
   const handleStartDemo = async () => {
@@ -210,10 +258,10 @@ export default function Welcome() {
   };
 
   // Generate particles
-  const particles = Array.from({ length: 20 }, (_, i) => ({
+  const particles = Array.from({ length: 15 }, (_, i) => ({
     startX: Math.random() * width,
-    delay: i * 800,
-    size: 4 + Math.random() * 6,
+    delay: i * 1000,
+    size: 3 + Math.random() * 5,
   }));
 
   const assetCategories = [
@@ -228,20 +276,20 @@ export default function Welcome() {
     { 
       icon: 'wallet-outline', 
       title: 'Deposit', 
-      desc: 'Add funds instantly with crypto or local payment. Fast & secure.',
-      gradient: ['#00E55A20', '#00E55A05']
+      desc: 'Add funds instantly with crypto or local payment.',
+      gradient: ['#00E55A15', '#00E55A05']
     },
     { 
       icon: 'trending-up', 
       title: 'Trade', 
-      desc: 'Trade 100+ assets with real-time charts and AI-powered signals.',
-      gradient: ['#4A90E220', '#4A90E205']
+      desc: 'Trade 100+ assets with real-time charts.',
+      gradient: ['#4A90E215', '#4A90E205']
     },
     { 
       icon: 'cash-outline', 
       title: 'Withdraw', 
-      desc: 'Get your profits easily to your preferred payment method.',
-      gradient: ['#FFB80020', '#FFB80005']
+      desc: 'Get your profits to your preferred method.',
+      gradient: ['#FFB80015', '#FFB80005']
     },
   ];
 
@@ -252,7 +300,10 @@ export default function Welcome() {
     { value: '24/7', label: 'Support', color: '#FFB800' },
   ];
 
-  const brandLogos = ['apple', 'google', 'amazon', 'microsoft', 'facebook'];
+  const phoneTranslateY = phoneRotate.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -8],
+  });
 
   return (
     <View style={styles.container}>
@@ -275,7 +326,7 @@ export default function Welcome() {
         <View style={styles.header}>
           <View style={styles.logoContainer}>
             <View style={styles.logoIcon}>
-              <Ionicons name="trending-up" size={20} color="#0A0E17" />
+              <Ionicons name="trending-up" size={18} color="#0A0E17" />
             </View>
             <Text style={styles.logoText}>Bynix</Text>
           </View>
@@ -291,77 +342,141 @@ export default function Welcome() {
               onPress={() => router.push('/(auth)/signup')}
             >
               <Text style={styles.registerBtnText}>Register</Text>
-              <Ionicons name="chevron-forward" size={16} color="#00E55A" />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Hero Section */}
+        {/* Hero Section with Phone */}
         <View style={styles.heroSection}>
-          {/* Animated Background Elements */}
+          {/* Animated Rings */}
           <View style={styles.heroGlowContainer}>
-            <PulsingRing size={200} delay={0} />
-            <PulsingRing size={250} delay={500} />
-            <PulsingRing size={300} delay={1000} />
+            <PulsingRing size={180} delay={0} />
+            <PulsingRing size={220} delay={400} />
+            <PulsingRing size={260} delay={800} />
+          </View>
+
+          {/* App Rating Badge */}
+          <View style={styles.appRatingBadge}>
+            <Text style={styles.appRatingLabel}>APP RATING</Text>
+            <Text style={styles.appRatingValue}>4.8</Text>
+            <View style={styles.starsRow}>
+              {[1,2,3,4,5].map((_, i) => (
+                <Ionicons key={i} name="star" size={12} color="#FFD700" />
+              ))}
+            </View>
           </View>
 
           {/* Phone Mockup */}
-          <View style={styles.phoneMockup}>
-            <LinearGradient
-              colors={['#1A1F2E', '#0D1321']}
-              style={styles.phoneScreen}
-            >
-              {/* Mini Chart */}
-              <View style={styles.miniChart}>
-                <View style={styles.chartHeader}>
-                  <Text style={styles.chartPair}>BTC/USD</Text>
-                  <Text style={styles.chartPrice}>$67,432.50</Text>
-                </View>
-                <View style={styles.chartBars}>
-                  {[40, 60, 45, 70, 55, 80, 65, 90, 75, 85].map((h, i) => (
-                    <View 
-                      key={i} 
-                      style={[
-                        styles.chartBar, 
-                        { height: h, backgroundColor: i % 2 === 0 ? '#00E55A' : '#FF4757' }
-                      ]} 
-                    />
-                  ))}
-                </View>
+          <Animated.View style={[styles.phoneMockupContainer, { transform: [{ translateY: phoneTranslateY }] }]}>
+            {/* Phone Frame */}
+            <View style={styles.phoneFrame}>
+              {/* Side Buttons */}
+              <View style={styles.phoneSideButtons}>
+                <View style={styles.phoneSideButton} />
+                <View style={[styles.phoneSideButton, { height: 40, marginTop: 10 }]} />
+                <View style={[styles.phoneSideButton, { height: 40, marginTop: 5 }]} />
               </View>
-              {/* Quick Actions */}
-              <View style={styles.phoneActions}>
-                <View style={[styles.phoneActionBtn, { backgroundColor: '#00E55A20' }]}>
-                  <Ionicons name="arrow-up" size={14} color="#00E55A" />
-                  <Text style={[styles.phoneActionText, { color: '#00E55A' }]}>UP</Text>
+              
+              {/* Screen */}
+              <View style={styles.phoneScreen}>
+                {/* Status Bar */}
+                <View style={styles.phoneStatusBar}>
+                  <Text style={styles.phoneTime}>9:41</Text>
+                  <View style={styles.phoneDynamicIsland} />
+                  <View style={styles.phoneStatusIcons}>
+                    <Ionicons name="cellular" size={12} color="#FFF" />
+                    <Ionicons name="wifi" size={12} color="#FFF" />
+                    <Ionicons name="battery-full" size={12} color="#FFF" />
+                  </View>
                 </View>
-                <View style={[styles.phoneActionBtn, { backgroundColor: '#FF475720' }]}>
-                  <Ionicons name="arrow-down" size={14} color="#FF4757" />
-                  <Text style={[styles.phoneActionText, { color: '#FF4757' }]}>DOWN</Text>
-                </View>
-              </View>
-            </LinearGradient>
-          </View>
 
-          {/* Asset Tags Floating */}
-          <View style={styles.assetTagsContainer}>
-            {assetCategories.map((cat, i) => (
-              <View 
-                key={i} 
-                style={[
-                  styles.assetTag,
-                  { 
-                    left: 20 + (i % 3) * 100,
-                    top: 80 + Math.floor(i / 3) * 50 + (i % 2) * 20,
-                    borderColor: cat.color + '60'
-                  }
-                ]}
-              >
-                <MaterialCommunityIcons name={cat.icon as any} size={14} color={cat.color} />
-                <Text style={[styles.assetTagText, { color: cat.color }]}>{cat.name}</Text>
+                {/* App Header */}
+                <View style={styles.appHeader}>
+                  <View style={styles.appHeaderLeft}>
+                    <View style={styles.liveIndicator}>
+                      <View style={styles.liveDot} />
+                      <Text style={styles.liveText}>LIVE</Text>
+                    </View>
+                    <Text style={styles.balanceText}>$10,000.00</Text>
+                  </View>
+                  <View style={styles.appHeaderRight}>
+                    <View style={styles.notificationBadge}>
+                      <Ionicons name="notifications" size={14} color="#FFF" />
+                      <View style={styles.notifDot} />
+                    </View>
+                  </View>
+                </View>
+
+                {/* Chart Area */}
+                <View style={styles.chartArea}>
+                  <View style={styles.chartHeader}>
+                    <Text style={styles.chartPair}>BTC/USD</Text>
+                    <Text style={styles.chartPrice}>$67,432.50</Text>
+                    <Text style={styles.chartChange}>+2.34%</Text>
+                  </View>
+                  
+                  {/* Chart Grid */}
+                  <View style={styles.chartGrid}>
+                    {[1,2,3,4].map((_, i) => (
+                      <View key={i} style={styles.gridLine} />
+                    ))}
+                  </View>
+
+                  {/* Candlestick Chart */}
+                  <View style={styles.candlestickContainer}>
+                    {[
+                      { h: 35, green: true },
+                      { h: 45, green: false },
+                      { h: 30, green: true },
+                      { h: 55, green: true },
+                      { h: 40, green: false },
+                      { h: 60, green: true },
+                      { h: 50, green: true },
+                      { h: 35, green: false },
+                      { h: 65, green: true },
+                      { h: 45, green: true },
+                    ].map((candle, i) => (
+                      <View key={i} style={styles.candleWrapper}>
+                        <View style={[styles.candleWick, { backgroundColor: candle.green ? '#00E55A' : '#FF4757' }]} />
+                        <View 
+                          style={[
+                            styles.candleBody, 
+                            { 
+                              height: candle.h, 
+                              backgroundColor: candle.green ? '#00E55A' : '#FF4757' 
+                            }
+                          ]} 
+                        />
+                        <View style={[styles.candleWick, { backgroundColor: candle.green ? '#00E55A' : '#FF4757' }]} />
+                      </View>
+                    ))}
+                  </View>
+
+                  {/* Trade Line Indicator */}
+                  <View style={styles.tradeLineContainer}>
+                    <View style={styles.tradeStartLine}>
+                      <Text style={styles.tradeLineLabel}>Start</Text>
+                    </View>
+                    <View style={styles.tradeEndLine}>
+                      <Text style={styles.tradeLineLabel}>End</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Trade Buttons */}
+                <View style={styles.tradeButtons}>
+                  <View style={[styles.tradeBtn, styles.upBtn]}>
+                    <Ionicons name="arrow-up" size={16} color="#0A0E17" />
+                    <Text style={styles.tradeBtnText}>UP</Text>
+                  </View>
+                  <View style={[styles.tradeBtn, styles.downBtn]}>
+                    <Ionicons name="arrow-down" size={16} color="#FFF" />
+                    <Text style={[styles.tradeBtnText, { color: '#FFF' }]}>DOWN</Text>
+                  </View>
+                </View>
               </View>
-            ))}
-          </View>
+            </View>
+          </Animated.View>
 
           {/* Hero Text */}
           <View style={styles.heroTextContainer}>
@@ -400,19 +515,14 @@ export default function Welcome() {
             </TouchableOpacity>
           </Animated.View>
 
-          {/* Brand Logos */}
-          <View style={styles.brandSection}>
-            <Text style={styles.brandTitle}>Trade popular assets</Text>
-            <View style={styles.brandLogos}>
-              {brandLogos.map((brand, i) => (
-                <View key={i} style={styles.brandLogo}>
-                  <FontAwesome5 name={brand} size={20} color="#666" />
-                </View>
-              ))}
-              <View style={styles.brandMore}>
-                <Text style={styles.brandMoreText}>+100</Text>
+          {/* Asset Categories */}
+          <View style={styles.assetCategoriesRow}>
+            {assetCategories.map((cat, i) => (
+              <View key={i} style={[styles.assetCategoryTag, { borderColor: cat.color + '50' }]}>
+                <MaterialCommunityIcons name={cat.icon as any} size={12} color={cat.color} />
+                <Text style={[styles.assetCategoryText, { color: cat.color }]}>{cat.name}</Text>
               </View>
-            </View>
+            ))}
           </View>
         </View>
 
@@ -426,7 +536,7 @@ export default function Welcome() {
                 style={styles.howItWorksGradient}
               >
                 <View style={styles.howItWorksIcon}>
-                  <Ionicons name={item.icon as any} size={24} color="#00E55A" />
+                  <Ionicons name={item.icon as any} size={22} color="#00E55A" />
                 </View>
                 <View style={styles.howItWorksContent}>
                   <Text style={styles.howItWorksTitle}>{item.title}</Text>
@@ -435,24 +545,6 @@ export default function Welcome() {
               </LinearGradient>
             </View>
           ))}
-        </View>
-
-        {/* Trust Section */}
-        <View style={styles.trustSection}>
-          <View style={styles.trustIcon}>
-            <Ionicons name="shield-checkmark" size={32} color="#00E55A" />
-          </View>
-          <Text style={styles.trustTitle}>Trusted Platform</Text>
-          <Text style={styles.trustDesc}>
-            Join thousands of traders worldwide.{'\n'}
-            Secure, fast, and reliable trading experience.
-          </Text>
-          <TouchableOpacity 
-            style={styles.learnMoreBtn}
-            onPress={() => router.push('/(auth)/signup')}
-          >
-            <Text style={styles.learnMoreText}>Create Account</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Stats Section */}
@@ -466,75 +558,114 @@ export default function Welcome() {
               </View>
             ))}
           </View>
-          <Text style={styles.statsSubtext}>
-            Traders from 50+ countries trust Bynix
-          </Text>
         </View>
 
-        {/* World Map Section */}
-        <View style={styles.worldSection}>
-          <View style={styles.worldMap}>
-            {/* Simplified dot pattern representing world map */}
-            {Array.from({ length: 100 }).map((_, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.mapDot,
-                  {
-                    left: `${(i % 20) * 5}%`,
-                    top: `${Math.floor(i / 20) * 20}%`,
-                    opacity: Math.random() > 0.3 ? 0.3 : 0.1,
-                  }
-                ]}
-              />
-            ))}
+        {/* Mobile App Section */}
+        <View style={styles.mobileAppSection}>
+          <View style={styles.mobileAppContent}>
+            <Text style={styles.mobileAppTitle}>
+              Mobile app is always{'\n'}at your fingertips
+            </Text>
+            <Text style={styles.mobileAppDesc}>
+              Download our user-friendly trading app to your mobile device and start trading.
+            </Text>
+            <View style={styles.appStoreButtons}>
+              <TouchableOpacity style={styles.appStoreBtn}>
+                <Ionicons name="logo-google-playstore" size={20} color="#FFF" />
+                <View>
+                  <Text style={styles.appStoreLabelSmall}>GET IT ON</Text>
+                  <Text style={styles.appStoreLabelBig}>Google Play</Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.appStoreBtn, { backgroundColor: '#FFF' }]}>
+                <Ionicons name="globe-outline" size={20} color="#000" />
+                <View>
+                  <Text style={[styles.appStoreLabelSmall, { color: '#666' }]}>Progressive</Text>
+                  <Text style={[styles.appStoreLabelBig, { color: '#000' }]}>Web App</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
         {/* Footer */}
         <View style={styles.footer}>
+          {/* Logo */}
           <View style={styles.footerLogo}>
-            <View style={styles.logoIcon}>
-              <Ionicons name="trending-up" size={16} color="#0A0E17" />
+            <View style={[styles.logoIcon, { width: 28, height: 28 }]}>
+              <Ionicons name="trending-up" size={14} color="#0A0E17" />
             </View>
             <Text style={styles.footerLogoText}>Bynix</Text>
           </View>
-          <Text style={styles.footerDesc}>
-            The next generation trading platform.{'\n'}
-            Trade forex, crypto, stocks, and more.
-          </Text>
-          
-          <View style={styles.footerLinks}>
-            <View style={styles.footerLinkColumn}>
-              <Text style={styles.footerLinkTitle}>Platform</Text>
-              <Text style={styles.footerLink}>Trade</Text>
-              <Text style={styles.footerLink}>Markets</Text>
-              <Text style={styles.footerLink}>Education</Text>
-            </View>
-            <View style={styles.footerLinkColumn}>
-              <Text style={styles.footerLinkTitle}>Company</Text>
-              <Text style={styles.footerLink}>About</Text>
-              <Text style={styles.footerLink}>Contact</Text>
-              <Text style={styles.footerLink}>Support</Text>
-            </View>
-            <View style={styles.footerLinkColumn}>
-              <Text style={styles.footerLinkTitle}>Legal</Text>
-              <Text style={styles.footerLink}>Terms</Text>
-              <Text style={styles.footerLink}>Privacy</Text>
-              <Text style={styles.footerLink}>AML & KYC</Text>
+
+          {/* Social Links */}
+          <View style={styles.socialLinks}>
+            <TouchableOpacity style={styles.socialBtn}>
+              <Ionicons name="logo-telegram" size={20} color="#00E55A" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.socialBtn}>
+              <Ionicons name="logo-twitter" size={20} color="#00E55A" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.socialBtn}>
+              <Ionicons name="logo-instagram" size={20} color="#00E55A" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.socialBtn}>
+              <Ionicons name="logo-facebook" size={20} color="#00E55A" />
+            </TouchableOpacity>
+          </View>
+
+          {/* User Stats */}
+          <View style={styles.userStatsRow}>
+            <View style={styles.userStatItem}>
+              <Ionicons name="people" size={16} color="#00E55A" />
+              <Text style={styles.userStatText}>50K+ Active Traders</Text>
             </View>
           </View>
 
-          <View style={styles.footerDivider} />
-          
-          <Text style={styles.footerDisclaimer}>
-            Trading involves significant risk. Only invest what you can afford to lose.
-            Past performance is not indicative of future results.
+          {/* Regulations Section */}
+          <View style={styles.regulationsSection}>
+            <Text style={styles.regulationsTitle}>Regulations</Text>
+            <TouchableOpacity><Text style={styles.regulationLink}>Privacy policy</Text></TouchableOpacity>
+            <TouchableOpacity><Text style={styles.regulationLink}>Service agreement</Text></TouchableOpacity>
+            <TouchableOpacity><Text style={styles.regulationLink}>Risk disclosure</Text></TouchableOpacity>
+            <TouchableOpacity><Text style={styles.regulationLink}>Rules of trading operations</Text></TouchableOpacity>
+            <TouchableOpacity><Text style={styles.regulationLink}>Non-trading operations regulations</Text></TouchableOpacity>
+            <TouchableOpacity><Text style={styles.regulationLink}>Payment policy</Text></TouchableOpacity>
+            <TouchableOpacity><Text style={styles.regulationLink}>AML & KYC Policy</Text></TouchableOpacity>
+          </View>
+
+          {/* Company Info */}
+          <View style={styles.companyInfo}>
+            <Text style={styles.companyName}>
+              BYNIX TRADING LTD.
+            </Text>
+            <Text style={styles.companyAddress}>
+              Address: 71-75 Shelton Street, Covent Garden, London, WC2H 9JQ, United Kingdom
+            </Text>
+          </View>
+
+          {/* Country Restrictions */}
+          <Text style={styles.countryRestrictions}>
+            The website services are not available in certain countries, including USA, Canada, Hong Kong, EEA countries, Israel, Russia as well as for persons under 18 years of age.
           </Text>
-          
-          <Text style={styles.footerCopyright}>
-            © 2024 Bynix. All rights reserved.
-          </Text>
+
+          {/* Risk Warning */}
+          <View style={styles.riskWarning}>
+            <Text style={styles.riskWarningTitle}>Risk Warning:</Text>
+            <Text style={styles.riskWarningText}>
+              Trading Forex and Leveraged Financial Instruments involves significant risk and can result in the loss of your invested capital. You should not invest more than you can afford to lose and should ensure that you fully understand the risks involved. Trading leveraged products may not be suitable for all investors. Past performance is no guarantee of future results. Before trading, please take into consideration your level of experience, investment objectives and seek independent financial advice if necessary.
+            </Text>
+          </View>
+
+          {/* Copyright */}
+          <View style={styles.copyrightSection}>
+            <Text style={styles.copyrightText}>
+              BYNIX TRADING LTD is the owner of the bynix.com domain.
+            </Text>
+            <Text style={styles.copyrightText}>
+              Copyright © 2024 Bynix. All rights reserved
+            </Text>
+          </View>
         </View>
       </ScrollView>
     </View>
@@ -556,34 +687,34 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 20,
+    paddingTop: Platform.OS === 'ios' ? 55 : 35,
+    paddingBottom: 15,
   },
   logoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   logoIcon: {
-    width: 32,
-    height: 32,
+    width: 30,
+    height: 30,
     borderRadius: 8,
     backgroundColor: '#00E55A',
     justifyContent: 'center',
     alignItems: 'center',
   },
   logoText: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700',
     color: '#FFFFFF',
-    marginLeft: 10,
+    marginLeft: 8,
   },
   headerButtons: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   loginBtn: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 8,
   },
   loginBtnText: {
@@ -592,64 +723,186 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   registerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: '#00E55A',
+    backgroundColor: '#00E55A',
     borderRadius: 8,
   },
   registerBtnText: {
-    color: '#00E55A',
+    color: '#0A0E17',
     fontSize: 14,
     fontWeight: '600',
-    marginRight: 4,
   },
 
   // Hero Section
   heroSection: {
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 10,
     alignItems: 'center',
-    minHeight: height * 0.75,
   },
   heroGlowContainer: {
     position: 'absolute',
-    top: 50,
+    top: 100,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  phoneMockup: {
-    width: width * 0.55,
-    height: 280,
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 3,
-    borderColor: '#1A1F2E',
+
+  // App Rating Badge
+  appRatingBadge: {
+    position: 'absolute',
+    top: 30,
+    left: 20,
+    backgroundColor: '#4A90E2',
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  appRatingLabel: {
+    color: '#FFF',
+    fontSize: 9,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  appRatingValue: {
+    color: '#FFF',
+    fontSize: 28,
+    fontWeight: '800',
+    marginVertical: 2,
+  },
+  starsRow: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+
+  // Phone Mockup
+  phoneMockupContainer: {
+    marginTop: 20,
     marginBottom: 20,
+  },
+  phoneFrame: {
+    width: width * 0.65,
+    height: 380,
+    backgroundColor: '#1C1C1E',
+    borderRadius: 40,
+    padding: 8,
+    position: 'relative',
     shadowColor: '#00E55A',
-    shadowOffset: { width: 0, height: 10 },
+    shadowOffset: { width: 0, height: 15 },
     shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
+    shadowRadius: 25,
+    elevation: 15,
+  },
+  phoneSideButtons: {
+    position: 'absolute',
+    left: -3,
+    top: 80,
+  },
+  phoneSideButton: {
+    width: 3,
+    height: 25,
+    backgroundColor: '#3A3A3C',
+    borderTopLeftRadius: 2,
+    borderBottomLeftRadius: 2,
   },
   phoneScreen: {
     flex: 1,
-    padding: 15,
+    backgroundColor: '#0A0E17',
+    borderRadius: 32,
+    overflow: 'hidden',
   },
-  miniChart: {
-    flex: 1,
-  },
-  chartHeader: {
+  phoneStatusBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  phoneTime: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  phoneDynamicIsland: {
+    width: 80,
+    height: 22,
+    backgroundColor: '#000',
+    borderRadius: 11,
+  },
+  phoneStatusIcons: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  appHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1A1F2E',
+  },
+  appHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  liveIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#00E55A20',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#00E55A',
+  },
+  liveText: {
+    color: '#00E55A',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  balanceText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  appHeaderRight: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  notificationBadge: {
+    position: 'relative',
+  },
+  notifDot: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF4757',
+  },
+  chartArea: {
+    flex: 1,
+    padding: 10,
+    position: 'relative',
+  },
+  chartHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
   },
   chartPair: {
-    color: '#FFFFFF',
-    fontSize: 14,
+    color: '#FFF',
+    fontSize: 12,
     fontWeight: '600',
   },
   chartPrice: {
@@ -657,81 +910,135 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  chartBars: {
+  chartChange: {
+    color: '#00E55A',
+    fontSize: 10,
+    backgroundColor: '#00E55A20',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  chartGrid: {
+    position: 'absolute',
+    top: 30,
+    left: 10,
+    right: 10,
+    bottom: 10,
+  },
+  gridLine: {
+    height: 1,
+    backgroundColor: '#1A1F2E',
+    marginVertical: 20,
+  },
+  candlestickContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
     height: 100,
     paddingHorizontal: 5,
+    marginTop: 10,
   },
-  chartBar: {
-    width: 12,
-    borderRadius: 4,
+  candleWrapper: {
+    alignItems: 'center',
   },
-  phoneActions: {
+  candleWick: {
+    width: 1,
+    height: 8,
+  },
+  candleBody: {
+    width: 8,
+    borderRadius: 2,
+  },
+  tradeLineContainer: {
+    position: 'absolute',
+    top: 40,
+    left: 60,
+    right: 30,
+  },
+  tradeStartLine: {
+    position: 'absolute',
+    left: 0,
+    borderLeftWidth: 1,
+    borderLeftColor: '#FFF',
+    borderStyle: 'dashed',
+    height: 80,
+    paddingLeft: 4,
+  },
+  tradeEndLine: {
+    position: 'absolute',
+    right: 0,
+    borderLeftWidth: 1,
+    borderLeftColor: '#FFF',
+    borderStyle: 'dashed',
+    height: 80,
+    paddingLeft: 4,
+  },
+  tradeLineLabel: {
+    color: '#888',
+    fontSize: 8,
+  },
+  tradeButtons: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 15,
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingBottom: 10,
   },
-  phoneActionBtn: {
+  tradeBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 8,
     gap: 4,
   },
-  phoneActionText: {
+  upBtn: {
+    backgroundColor: '#00E55A',
+  },
+  downBtn: {
+    backgroundColor: '#FF4757',
+  },
+  tradeBtnText: {
+    color: '#0A0E17',
     fontSize: 12,
     fontWeight: '700',
   },
-  assetTagsContainer: {
+  chartLineContainer: {
     position: 'absolute',
-    top: 30,
+    bottom: 50,
     left: 0,
     right: 0,
-    height: 200,
   },
-  assetTag: {
-    position: 'absolute',
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1A1F2E90',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    gap: 6,
+  chartLine: {
+    height: 2,
+    backgroundColor: '#4A90E2',
   },
-  assetTagText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
+
+  // Hero Text
   heroTextContainer: {
     alignItems: 'center',
-    marginTop: 30,
-    marginBottom: 25,
+    marginTop: 20,
+    marginBottom: 20,
   },
   heroTitle: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: '800',
     color: '#FFFFFF',
     textAlign: 'center',
-    lineHeight: 44,
+    lineHeight: 40,
   },
   heroTitleGreen: {
     color: '#00E55A',
   },
   heroSubtitle: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#888',
     textAlign: 'center',
-    lineHeight: 22,
-    marginTop: 15,
+    lineHeight: 20,
+    marginTop: 12,
   },
   ctaButton: {
-    borderRadius: 14,
+    borderRadius: 12,
     overflow: 'hidden',
     shadowColor: '#00E55A',
     shadowOffset: { width: 0, height: 8 },
@@ -743,138 +1050,88 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 50,
-    gap: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 45,
+    gap: 8,
   },
   ctaText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: '#0A0E17',
   },
-  brandSection: {
-    marginTop: 40,
-    alignItems: 'center',
+
+  // Asset Categories
+  assetCategoriesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 25,
   },
-  brandTitle: {
-    fontSize: 13,
-    color: '#666',
-    marginBottom: 15,
-  },
-  brandLogos: {
+  assetCategoryTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 15,
-  },
-  brandLogo: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
     backgroundColor: '#1A1F2E',
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 4,
   },
-  brandMore: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#1A1F2E',
-    borderRadius: 15,
-  },
-  brandMoreText: {
-    color: '#00E55A',
-    fontSize: 13,
+  assetCategoryText: {
+    fontSize: 11,
     fontWeight: '600',
   },
 
   // Section
   section: {
     paddingHorizontal: 20,
-    marginTop: 50,
+    marginTop: 40,
   },
   sectionTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
     color: '#FFFFFF',
     textAlign: 'center',
-    marginBottom: 25,
+    marginBottom: 20,
   },
 
   // How It Works
   howItWorksCard: {
-    marginBottom: 15,
-    borderRadius: 16,
+    marginBottom: 12,
+    borderRadius: 14,
     overflow: 'hidden',
   },
   howItWorksGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
-    borderRadius: 16,
+    padding: 16,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#1A1F2E',
   },
   howItWorksIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
     backgroundColor: '#0A0E17',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
+    marginRight: 12,
   },
   howItWorksContent: {
     flex: 1,
   },
   howItWorksTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 5,
-  },
-  howItWorksDesc: {
-    fontSize: 14,
-    color: '#888',
-    lineHeight: 20,
-  },
-
-  // Trust Section
-  trustSection: {
-    marginTop: 50,
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  trustIcon: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: '#00E55A15',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  trustTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 10,
-  },
-  trustDesc: {
-    fontSize: 15,
-    color: '#888',
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 25,
-  },
-  learnMoreBtn: {
-    backgroundColor: '#00E55A',
-    paddingVertical: 14,
-    paddingHorizontal: 40,
-    borderRadius: 12,
-  },
-  learnMoreText: {
-    color: '#0A0E17',
     fontSize: 16,
     fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  howItWorksDesc: {
+    fontSize: 13,
+    color: '#888',
+    lineHeight: 18,
   },
 
   // Stats
@@ -887,58 +1144,85 @@ const styles = StyleSheet.create({
   statCard: {
     width: '48%',
     backgroundColor: '#1A1F2E',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 14,
+    padding: 18,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#252A3A',
   },
   statValue: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '800',
   },
   statLabel: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#888',
-    marginTop: 5,
-  },
-  statsSubtext: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 20,
+    marginTop: 4,
   },
 
-  // World Map
-  worldSection: {
+  // Mobile App Section
+  mobileAppSection: {
     marginTop: 40,
-    height: 150,
-    overflow: 'hidden',
+    paddingHorizontal: 20,
+    paddingVertical: 30,
+    backgroundColor: '#0D1321',
   },
-  worldMap: {
-    flex: 1,
-    position: 'relative',
+  mobileAppContent: {
+    alignItems: 'center',
   },
-  mapDot: {
-    position: 'absolute',
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#00E55A',
+  mobileAppTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    lineHeight: 32,
+    marginBottom: 12,
+  },
+  mobileAppDesc: {
+    fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 25,
+  },
+  appStoreButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  appStoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#000',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  appStoreLabelSmall: {
+    color: '#999',
+    fontSize: 9,
+    fontWeight: '500',
+  },
+  appStoreLabelBig: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 
   // Footer
   footer: {
-    marginTop: 50,
+    marginTop: 40,
     paddingHorizontal: 20,
-    paddingTop: 40,
+    paddingTop: 30,
     borderTopWidth: 1,
     borderTopColor: '#1A1F2E',
   },
   footerLogo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 20,
   },
   footerLogoText: {
     fontSize: 18,
@@ -946,46 +1230,89 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginLeft: 8,
   },
-  footerDesc: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-    marginBottom: 30,
-  },
-  footerLinks: {
+  socialLinks: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 30,
+    gap: 12,
+    marginBottom: 20,
   },
-  footerLinkColumn: {
-    flex: 1,
+  socialBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#1A1F2E',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  footerLinkTitle: {
+  userStatsRow: {
+    marginBottom: 25,
+  },
+  userStatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  userStatText: {
+    color: '#00E55A',
     fontSize: 14,
+    fontWeight: '600',
+  },
+  regulationsSection: {
+    marginBottom: 25,
+  },
+  regulationsTitle: {
+    fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
     marginBottom: 15,
   },
-  footerLink: {
-    fontSize: 13,
-    color: '#666',
+  regulationLink: {
+    color: '#888',
+    fontSize: 14,
     marginBottom: 10,
   },
-  footerDivider: {
-    height: 1,
-    backgroundColor: '#1A1F2E',
+  companyInfo: {
     marginBottom: 20,
   },
-  footerDisclaimer: {
-    fontSize: 11,
-    color: '#555',
-    lineHeight: 16,
-    textAlign: 'center',
-    marginBottom: 20,
+  companyName: {
+    color: '#888',
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 5,
   },
-  footerCopyright: {
+  companyAddress: {
+    color: '#666',
     fontSize: 12,
+    lineHeight: 18,
+  },
+  countryRestrictions: {
+    color: '#666',
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: 20,
+  },
+  riskWarning: {
+    marginBottom: 20,
+  },
+  riskWarningTitle: {
+    color: '#888',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  riskWarningText: {
+    color: '#555',
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  copyrightSection: {
+    borderTopWidth: 1,
+    borderTopColor: '#1A1F2E',
+    paddingTop: 20,
+  },
+  copyrightText: {
     color: '#444',
+    fontSize: 11,
     textAlign: 'center',
+    marginBottom: 5,
   },
 });
