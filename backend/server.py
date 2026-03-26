@@ -791,11 +791,8 @@ async def create_trade(trade: TradeCreate, authorization: Optional[str] = Header
     # Check asset restrictions based on account type
     asset_is_demo_only = is_demo_only_asset(trade.asset)
     
-    if trade.account_type == "demo" and not asset_is_demo_only:
-        raise HTTPException(
-            status_code=403, 
-            detail="This asset is only available for real balance trading. Please switch to real account or select a demo-available asset."
-        )
+    # REMOVED: Demo can now trade all assets (lock is just UI indication)
+    # Demo users can trade any asset - the lock icon is just a recommendation
     
     if trade.account_type == "real" and asset_is_demo_only:
         raise HTTPException(
