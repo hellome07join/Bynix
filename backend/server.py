@@ -2948,6 +2948,19 @@ async def check_deposit_status(
                 
                 print(f"Credited ${credit_amount} + ${bonus_amount} bonus to user {user.user_id} for payment {payment_id}")
         
+        # Handle expired/failed payments - update local deposit status
+        elif payment_status in ["expired", "failed", "refunded"]:
+            await db.deposits.update_one(
+                {"payment_id": str(payment_id)},
+                {
+                    "$set": {
+                        "status": "expired",
+                        "payment_status": payment_status,
+                        "expired_at": datetime.now(timezone.utc)
+                    }
+                }
+            )
+        
         return {
             "payment_id": payment_id,
             "status": payment_status,
@@ -2970,6 +2983,22 @@ async def get_deposit_history(
     except HTTPException:
         raise HTTPException(status_code=401, detail="Authentication required")
     
+    # First, auto-expire pending deposits older than 12 minutes
+    twelve_minutes_ago = datetime.now(timezone.utc) - timedelta(minutes=12)
+    await db.deposits.update_many(
+        {
+            "user_id": user.user_id,
+            "status": "pending",
+            "created_at": {"$lt": twelve_minutes_ago}
+        },
+        {
+            "$set": {
+                "status": "expired",
+                "expired_at": datetime.now(timezone.utc)
+            }
+        }
+    )
+    
     deposits = await db.deposits.find(
         {"user_id": user.user_id}
     ).sort("created_at", -1).limit(50).to_list(50)
@@ -2981,6 +3010,8 @@ async def get_deposit_history(
             dep["created_at"] = dep["created_at"].isoformat()
         if dep.get("completed_at"):
             dep["completed_at"] = dep["completed_at"].isoformat()
+        if dep.get("expired_at"):
+            dep["expired_at"] = dep["expired_at"].isoformat()
     
     return {"deposits": deposits}
 
@@ -3789,6 +3820,21 @@ async def admin_get_trades(
 async def admin_get_deposits(authorization: Optional[str] = Header(None), request: Request = None):
     """Get all deposits for admin"""
     user = await get_current_user(authorization, request)
+    
+    # Auto-expire pending deposits older than 12 minutes
+    twelve_minutes_ago = datetime.now(timezone.utc) - timedelta(minutes=12)
+    await db.deposits.update_many(
+        {
+            "status": "pending",
+            "created_at": {"$lt": twelve_minutes_ago}
+        },
+        {
+            "$set": {
+                "status": "expired",
+                "expired_at": datetime.now(timezone.utc)
+            }
+        }
+    )
     
     deposits = await db.deposits.find({}).sort("created_at", -1).limit(100).to_list(100)
     

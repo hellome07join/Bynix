@@ -3844,6 +3844,8 @@ export default function AdminDashboard() {
                     ? COLORS.successLight 
                     : deposit.status === 'pending' || deposit.status === 'waiting'
                     ? COLORS.warningLight
+                    : deposit.status === 'expired'
+                    ? '#E5E5E5'
                     : COLORS.dangerLight
                 }]}>
                   <Ionicons 
@@ -3852,6 +3854,8 @@ export default function AdminDashboard() {
                         ? 'checkmark-circle' 
                         : deposit.status === 'pending' || deposit.status === 'waiting'
                         ? 'time'
+                        : deposit.status === 'expired'
+                        ? 'hourglass'
                         : 'close-circle'
                     } 
                     size={20} 
@@ -3860,6 +3864,8 @@ export default function AdminDashboard() {
                         ? COLORS.success 
                         : deposit.status === 'pending' || deposit.status === 'waiting'
                         ? COLORS.warning
+                        : deposit.status === 'expired'
+                        ? '#808080'
                         : COLORS.danger
                     } 
                   />
@@ -3880,9 +3886,13 @@ export default function AdminDashboard() {
                     ? COLORS.success 
                     : deposit.status === 'pending' || deposit.status === 'waiting'
                     ? COLORS.warning
+                    : deposit.status === 'expired'
+                    ? '#808080'
                     : COLORS.danger
                 }]}>
-                  {(deposit.status === 'completed' || deposit.status === 'credited') ? 'COMPLETED' : deposit.status?.toUpperCase() || 'UNKNOWN'}
+                  {(deposit.status === 'completed' || deposit.status === 'credited') ? 'COMPLETED' : 
+                   deposit.status === 'expired' ? 'EXPIRED' : 
+                   deposit.status?.toUpperCase() || 'UNKNOWN'}
                 </Text>
               </View>
             </View>

@@ -1669,6 +1669,7 @@ export default function Profile() {
                         (tx.status === 'completed' || tx.status === 'confirmed' || tx.status === 'finished' || tx.status === 'credited') ? 'rgba(0,229,90,0.15)' : 
                         (tx.status === 'pending' || tx.status === 'waiting') ? 'rgba(255,184,0,0.15)' : 
                         tx.status === 'locked' ? 'rgba(139,92,246,0.15)' :
+                        tx.status === 'expired' ? 'rgba(128,128,128,0.15)' :
                         'rgba(255,59,59,0.15)' 
                       }
                     ]}>
@@ -1678,6 +1679,7 @@ export default function Profile() {
                           (tx.status === 'completed' || tx.status === 'confirmed' || tx.status === 'finished' || tx.status === 'credited') ? '#00E55A' : 
                           (tx.status === 'pending' || tx.status === 'waiting') ? '#FFB800' : 
                           tx.status === 'locked' ? '#8B5CF6' :
+                          tx.status === 'expired' ? '#808080' :
                           '#FF3B3B' 
                         }
                       ]} />
@@ -1687,6 +1689,7 @@ export default function Profile() {
                           (tx.status === 'completed' || tx.status === 'confirmed' || tx.status === 'finished' || tx.status === 'credited') ? '#00E55A' : 
                           (tx.status === 'pending' || tx.status === 'waiting') ? '#FFB800' : 
                           tx.status === 'locked' ? '#8B5CF6' :
+                          tx.status === 'expired' ? '#808080' :
                           '#FF3B3B' 
                         }
                       ]}>
