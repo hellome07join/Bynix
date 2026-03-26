@@ -3381,22 +3381,28 @@ export default function AdminDashboard() {
           <Text style={styles.pageSubtitle}>Manage user identity verification submissions</Text>
         </View>
 
-        {/* Stats Cards */}
-        <View style={styles.statsRow}>
-          <View style={[styles.statCard, { backgroundColor: COLORS.warningLight }]}>
-            <Ionicons name="time" size={24} color={COLORS.warning} />
-            <Text style={[styles.statNumber, { color: COLORS.warning }]}>{kycSubmissions.length}</Text>
-            <Text style={styles.statLabel}>Pending Review</Text>
+        {/* Stats Cards - Using depositStatsRow style for consistent layout */}
+        <View style={styles.kycStatsRow}>
+          <View style={styles.kycStatCard}>
+            <View style={[styles.kycStatIconWrap, { backgroundColor: COLORS.warningLight }]}>
+              <Ionicons name="time" size={24} color={COLORS.warning} />
+            </View>
+            <Text style={[styles.kycStatNumber, { color: COLORS.warning }]}>{kycSubmissions.length}</Text>
+            <Text style={styles.kycStatLabel}>Pending Review</Text>
           </View>
-          <View style={[styles.statCard, { backgroundColor: COLORS.successLight }]}>
-            <Ionicons name="checkmark-circle" size={24} color={COLORS.success} />
-            <Text style={[styles.statNumber, { color: COLORS.success }]}>0</Text>
-            <Text style={styles.statLabel}>Approved Today</Text>
+          <View style={styles.kycStatCard}>
+            <View style={[styles.kycStatIconWrap, { backgroundColor: COLORS.successLight }]}>
+              <Ionicons name="checkmark-circle" size={24} color={COLORS.success} />
+            </View>
+            <Text style={[styles.kycStatNumber, { color: COLORS.success }]}>0</Text>
+            <Text style={styles.kycStatLabel}>Approved Today</Text>
           </View>
-          <View style={[styles.statCard, { backgroundColor: COLORS.dangerLight }]}>
-            <Ionicons name="close-circle" size={24} color={COLORS.danger} />
-            <Text style={[styles.statNumber, { color: COLORS.danger }]}>0</Text>
-            <Text style={styles.statLabel}>Rejected</Text>
+          <View style={styles.kycStatCard}>
+            <View style={[styles.kycStatIconWrap, { backgroundColor: COLORS.dangerLight }]}>
+              <Ionicons name="close-circle" size={24} color={COLORS.danger} />
+            </View>
+            <Text style={[styles.kycStatNumber, { color: COLORS.danger }]}>0</Text>
+            <Text style={styles.kycStatLabel}>Rejected</Text>
           </View>
         </View>
 
@@ -6490,7 +6496,41 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginBottom: 8,
   },
-  // KYC Content Page Styles
+  // KYC Content Page Styles - Stats
+  kycStatsRow: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginBottom: 20,
+    gap: 12,
+  },
+  kycStatCard: {
+    flex: 1,
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  kycStatIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  kycStatNumber: {
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  kycStatLabel: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
+  // KYC Content Page Styles - List
   kycRow: {
     flexDirection: 'row',
     alignItems: 'center',
