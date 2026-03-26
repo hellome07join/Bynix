@@ -2706,13 +2706,6 @@ CRYPTO_NETWORKS = {
     "MATIC": {"currency": "usdtmatic", "name": "USDT (Polygon)", "fee": "No fee"},
 }
 
-# Promo codes - requires minimum $100 deposit
-PROMO_CODES = {
-    "BYNIX": {"bonus": 200, "min_deposit": 100, "first_deposit_only": True},  # 200% bonus for new users with $100+ deposit
-    "WELCOME": {"bonus": 10, "min_deposit": 50, "first_deposit_only": False},  # 10% bonus
-    "VIP50": {"bonus": 50, "min_deposit": 200, "first_deposit_only": False},  # 50% bonus for $200+
-}
-
 # First time deposit bonus - DISABLED (only promo codes give bonus now)
 # FIRST_DEPOSIT_BONUS_PERCENTAGE = 200
 
@@ -2771,26 +2764,61 @@ async def create_deposit(
     })
     is_first_deposit = existing_deposits == 0
     
-    # Calculate bonus - ONLY from promo codes now
+    # Calculate bonus - ONLY from promo codes now (from database)
     bonus_percentage = 0
     bonus_amount = 0
     promo_error = None
     
-    # Check promo code
+    # Check promo code from database
     if request.promo_code:
         promo_upper = request.promo_code.upper().strip()
-        if promo_upper in PROMO_CODES:
-            promo = PROMO_CODES[promo_upper]
+        
+        # Look up promo code in database instead of hardcoded dict
+        promo = await db.promo_codes.find_one({"code": promo_upper, "is_active": True})
+        
+        if promo:
+            # Check expiry
+            if promo.get("expires_at"):
+                expires_at = promo["expires_at"]
+                if expires_at.tzinfo is None:
+                    expires_at = expires_at.replace(tzinfo=timezone.utc)
+                if datetime.now(timezone.utc) > expires_at:
+                    promo_error = f"Promo code {promo_upper} has expired"
             
-            # Check if promo is first-deposit-only and user already deposited
-            if promo.get("first_deposit_only", False) and not is_first_deposit:
-                promo_error = f"Promo code {promo_upper} is only valid for first deposit"
-            elif request.amount < promo["min_deposit"]:
-                promo_error = f"Minimum deposit for {promo_upper} is ${promo['min_deposit']}"
-            else:
-                # Apply promo bonus
-                bonus_percentage = promo["bonus"]
-                bonus_amount = request.amount * (bonus_percentage / 100)
+            # Check usage limit
+            if not promo_error and promo.get("usage_limit", 0) > 0:
+                if promo.get("usage_count", 0) >= promo["usage_limit"]:
+                    promo_error = f"Promo code {promo_upper} has reached its usage limit"
+            
+            # Check if user already used this code
+            if not promo_error:
+                already_used = await db.promo_usage.find_one({
+                    "user_id": user.user_id,
+                    "promo_code": promo_upper
+                })
+                if already_used:
+                    promo_error = f"You have already used promo code {promo_upper}"
+            
+            # Check minimum deposit from database
+            if not promo_error:
+                min_deposit = promo.get("min_deposit", 0)
+                if request.amount < min_deposit:
+                    promo_error = f"Minimum deposit for {promo_upper} is ${min_deposit}"
+            
+            # Apply promo bonus if no errors
+            if not promo_error:
+                bonus_type = promo.get("bonus_type", "percentage")
+                bonus_value = promo.get("bonus_value", 0)
+                max_bonus = promo.get("max_bonus", 0)
+                
+                if bonus_type == "percentage":
+                    bonus_percentage = bonus_value
+                    bonus_amount = request.amount * (bonus_value / 100)
+                    if max_bonus > 0 and bonus_amount > max_bonus:
+                        bonus_amount = max_bonus
+                else:  # fixed
+                    bonus_percentage = 0
+                    bonus_amount = bonus_value
         else:
             promo_error = "Invalid promo code"
     
