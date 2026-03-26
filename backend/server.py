@@ -1995,9 +1995,12 @@ DIDIT_API_KEY = os.environ.get('DIDIT_API_KEY', '')
 DIDIT_WEBHOOK_SECRET = os.environ.get('DIDIT_WEBHOOK_SECRET', '')
 DIDIT_VERIFICATION_URL = os.environ.get('DIDIT_VERIFICATION_URL', 'https://verify.didit.me/u/xHb89pbETh2txYbwaQyOcg')
 
+# Extract workflow_id from verification URL (the last part after /u/)
+DIDIT_WORKFLOW_ID = DIDIT_VERIFICATION_URL.split('/u/')[-1] if '/u/' in DIDIT_VERIFICATION_URL else ''
+
 @api_router.get("/kyc/didit/start")
 async def start_didit_kyc(authorization: Optional[str] = Header(None), request: Request = None):
-    """Start Didit KYC verification - returns the verification URL for the user"""
+    """Start Didit KYC verification - creates a session via Didit API and returns the verification URL"""
     user = await get_current_user(authorization, request)
     
     # Check if user already has verified KYC
@@ -2013,47 +2016,138 @@ async def start_didit_kyc(authorization: Optional[str] = Header(None), request: 
             "status": "verified"
         }
     
-    # Check if there's a pending verification
+    # Check if there's a pending verification with a valid session URL
     pending_kyc = await db.kyc_submissions.find_one({
         "user_id": user.user_id,
         "status": "pending",
-        "provider": "didit"
+        "provider": "didit",
+        "didit_verification_url": {"$exists": True, "$ne": None}
     })
     
-    if pending_kyc:
+    if pending_kyc and pending_kyc.get("didit_verification_url"):
         return {
             "success": True,
-            "verification_url": DIDIT_VERIFICATION_URL,
+            "verification_url": pending_kyc.get("didit_verification_url"),
             "session_id": pending_kyc.get("didit_session_id"),
             "message": "Continue your pending verification",
             "status": "pending"
         }
     
-    # Create new KYC submission record
-    session_id = f"didit_{uuid.uuid4().hex[:16]}"
-    
-    kyc_record = {
-        "user_id": user.user_id,
-        "provider": "didit",
-        "didit_session_id": session_id,
-        "status": "pending",
-        "created_at": datetime.now(timezone.utc),
-        "updated_at": datetime.now(timezone.utc)
-    }
-    
-    await db.kyc_submissions.insert_one(kyc_record)
-    
-    # Return the verification URL with user reference
-    # The verification URL includes vendor_data parameter for callback identification
-    verification_url = f"{DIDIT_VERIFICATION_URL}?vendor_data={user.user_id}"
-    
-    return {
-        "success": True,
-        "verification_url": verification_url,
-        "session_id": session_id,
-        "message": "Please complete the verification on Didit",
-        "status": "pending"
-    }
+    # Create a new verification session via Didit API
+    try:
+        import httpx
+        
+        # Didit API endpoint for creating sessions
+        didit_api_url = "https://verification.didit.me/v3/session/"
+        
+        # Prepare request data
+        session_data = {
+            "workflow_id": DIDIT_WORKFLOW_ID,
+            "vendor_data": user.user_id,
+        }
+        
+        print(f"[DIDIT] Creating session for user {user.user_id} with workflow {DIDIT_WORKFLOW_ID}")
+        
+        # Make API request to Didit
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                didit_api_url,
+                json=session_data,
+                headers={
+                    "x-api-key": DIDIT_API_KEY,
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                },
+                timeout=30.0
+            )
+            
+            print(f"[DIDIT] Response status: {response.status_code}")
+            print(f"[DIDIT] Response body: {response.text}")
+            
+            if response.status_code == 200 or response.status_code == 201:
+                didit_response = response.json()
+                
+                # Get the verification URL from response
+                verification_url = didit_response.get("url") or didit_response.get("verification_url") or didit_response.get("session_url")
+                session_id = didit_response.get("session_id") or didit_response.get("id") or f"didit_{uuid.uuid4().hex[:16]}"
+                
+                if not verification_url:
+                    # If no URL in response, construct it from session_id
+                    verification_url = f"https://verify.didit.me/s/{session_id}" if session_id else None
+                
+                if verification_url:
+                    # Delete any old pending KYC for this user
+                    await db.kyc_submissions.delete_many({
+                        "user_id": user.user_id,
+                        "status": "pending",
+                        "provider": "didit"
+                    })
+                    
+                    # Create new KYC submission record with the session info
+                    kyc_record = {
+                        "user_id": user.user_id,
+                        "provider": "didit",
+                        "didit_session_id": session_id,
+                        "didit_verification_url": verification_url,
+                        "didit_response": didit_response,
+                        "status": "pending",
+                        "created_at": datetime.now(timezone.utc),
+                        "updated_at": datetime.now(timezone.utc)
+                    }
+                    
+                    await db.kyc_submissions.insert_one(kyc_record)
+                    
+                    return {
+                        "success": True,
+                        "verification_url": verification_url,
+                        "session_id": session_id,
+                        "message": "Please complete the verification on Didit",
+                        "status": "pending"
+                    }
+                else:
+                    print(f"[DIDIT] No verification URL in response: {didit_response}")
+                    raise Exception("No verification URL received from Didit")
+            else:
+                error_msg = response.text
+                print(f"[DIDIT] API error: {error_msg}")
+                raise Exception(f"Didit API error: {response.status_code} - {error_msg}")
+                
+    except Exception as e:
+        print(f"[DIDIT] Exception: {str(e)}")
+        
+        # Fallback to static URL if API fails
+        print(f"[DIDIT] Falling back to static URL")
+        
+        session_id = f"didit_{uuid.uuid4().hex[:16]}"
+        verification_url = f"{DIDIT_VERIFICATION_URL}?vendor_data={user.user_id}"
+        
+        # Delete any old pending KYC
+        await db.kyc_submissions.delete_many({
+            "user_id": user.user_id,
+            "status": "pending",
+            "provider": "didit"
+        })
+        
+        kyc_record = {
+            "user_id": user.user_id,
+            "provider": "didit",
+            "didit_session_id": session_id,
+            "didit_verification_url": verification_url,
+            "status": "pending",
+            "error": str(e),
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc)
+        }
+        
+        await db.kyc_submissions.insert_one(kyc_record)
+        
+        return {
+            "success": True,
+            "verification_url": verification_url,
+            "session_id": session_id,
+            "message": "Please complete the verification on Didit",
+            "status": "pending"
+        }
 
 
 @api_router.post("/kyc/didit/webhook")
