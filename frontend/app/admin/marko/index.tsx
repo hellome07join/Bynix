@@ -143,6 +143,7 @@ export default function AdminDashboard() {
   const [tradingAssets, setTradingAssets] = useState([]);
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [globalWinRate, setGlobalWinRate] = useState(45);
+  const [demoWinRate, setDemoWinRate] = useState(65); // Demo balance win rate
   const [tradingEnabled, setTradingEnabled] = useState(true);
   const [godModeStatus, setGodModeStatus] = useState(null);
   
@@ -1934,6 +1935,7 @@ export default function AdminDashboard() {
     const [aiEnabled, setAiEnabled] = useState(godModeStatus?.ai_enabled !== false);
     const [selectedStrategy, setSelectedStrategy] = useState(godModeStatus?.ai_strategy || 'balanced');
     const [winRate, setWinRate] = useState(godModeStatus?.ai_win_rate || 45);
+    const [demoWinRateLocal, setDemoWinRateLocal] = useState(godModeStatus?.demo_win_rate || 65);
     const [marketTrend, setMarketTrend] = useState(godModeStatus?.ai_market_trend || 'sideways');
     const [updating, setUpdating] = useState(false);
     
@@ -1946,6 +1948,7 @@ export default function AdminDashboard() {
         setAiEnabled(godModeStatus.ai_enabled !== false);
         setSelectedStrategy(godModeStatus.ai_strategy || 'balanced');
         setWinRate(godModeStatus.ai_win_rate || 45);
+        setDemoWinRateLocal(godModeStatus.demo_win_rate || 65);
         setMarketTrend(godModeStatus.ai_market_trend || 'sideways');
       }
     }, [godModeStatus]);
@@ -2003,6 +2006,25 @@ export default function AdminDashboard() {
         }
       } catch (error) {
         Alert.alert('Error', 'Failed to set win rate');
+      } finally {
+        setUpdating(false);
+      }
+    };
+
+    const handleSetDemoWinRate = async (rate: number) => {
+      try {
+        setUpdating(true);
+        const response = await fetch(`${API_URL}/admin/ai/demo-win-rate`, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify({ win_rate: rate })
+        });
+        if (response.ok) {
+          setDemoWinRateLocal(rate);
+          setDemoWinRate(rate);
+        }
+      } catch (error) {
+        Alert.alert('Error', 'Failed to set demo win rate');
       } finally {
         setUpdating(false);
       }
@@ -2116,6 +2138,45 @@ export default function AdminDashboard() {
               disabled={updating}
             >
               <Text style={[styles.presetBtnText, winRate === preset && styles.presetBtnTextActive]}>{preset}%</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {/* Demo Balance Win Rate Control */}
+      <View style={styles.sectionCard}>
+        <View style={styles.sectionCardHeader}>
+          <View style={[styles.sectionCardIcon, { backgroundColor: 'rgba(255, 184, 0, 0.15)' }]}>
+            <Ionicons name="game-controller" size={20} color={COLORS.warning} />
+          </View>
+          <Text style={styles.sectionTitle}>Demo Balance Win Rate</Text>
+        </View>
+        <View style={styles.winRateContainer}>
+          <View style={styles.winRateCircle}>
+            <Text style={[styles.winRateValue, { color: COLORS.warning }]}>{demoWinRateLocal}%</Text>
+            <Text style={styles.winRateLabel}>Demo Win</Text>
+          </View>
+          <View style={styles.winRateInfo}>
+            <Text style={styles.winRateInfoText}>
+              Demo account win rate. Higher rates encourage users to deposit real money.
+            </Text>
+            <View style={styles.winRateBadge}>
+              <Ionicons name="information-circle" size={14} color={COLORS.warning} />
+              <Text style={[styles.winRateBadgeText, { color: COLORS.warning }]}>
+                Recommended: 65-80%
+              </Text>
+            </View>
+          </View>
+        </View>
+        <View style={styles.presetButtons}>
+          {[50, 60, 65, 70, 75, 80, 90].map((preset) => (
+            <TouchableOpacity 
+              key={preset} 
+              style={[styles.presetBtn, demoWinRateLocal === preset && { backgroundColor: COLORS.warning + '20', borderColor: COLORS.warning }]}
+              onPress={() => handleSetDemoWinRate(preset)}
+              disabled={updating}
+            >
+              <Text style={[styles.presetBtnText, demoWinRateLocal === preset && { color: COLORS.warning }]}>{preset}%</Text>
             </TouchableOpacity>
           ))}
         </View>

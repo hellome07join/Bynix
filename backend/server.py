@@ -809,8 +809,9 @@ async def create_trade(trade: TradeCreate, authorization: Optional[str] = Header
     god_mode_settings = await db.platform_settings.find_one({"_id": "god_mode"})
     ai_enabled = god_mode_settings.get("ai_enabled", True) if god_mode_settings else True
     ai_win_rate = god_mode_settings.get("ai_win_rate", 45) if god_mode_settings else 45
+    demo_win_rate = god_mode_settings.get("demo_win_rate", 65) if god_mode_settings else 65
     
-    print(f"[TRADE CREATE] account_type={trade.account_type}, ai_enabled={ai_enabled}, ai_win_rate={ai_win_rate}")
+    print(f"[TRADE CREATE] account_type={trade.account_type}, ai_enabled={ai_enabled}, ai_win_rate={ai_win_rate}, demo_win_rate={demo_win_rate}")
     
     if trade.account_type == "demo":
         # Check if there's already an active demo trade for consistency
@@ -823,11 +824,11 @@ async def create_trade(trade: TradeCreate, authorization: Optional[str] = Header
         if existing_active_trade and existing_active_trade.get("predetermined_outcome"):
             predetermined_outcome = existing_active_trade["predetermined_outcome"]
         else:
-            # Demo: Use AI win rate (default 45% if AI disabled)
-            win_probability = ai_win_rate / 100.0 if ai_enabled else 0.90
+            # Demo: Use demo_win_rate (separate from real balance win rate)
+            win_probability = demo_win_rate / 100.0 if ai_enabled else 0.90
             predetermined_won = random.random() < win_probability
             predetermined_outcome = "won" if predetermined_won else "lost"
-        print(f"[TRADE CREATE] DEMO trade, predetermined_outcome={predetermined_outcome}")
+        print(f"[TRADE CREATE] DEMO trade with demo_win_rate={demo_win_rate}%, predetermined_outcome={predetermined_outcome}")
     elif trade.account_type == "real" and ai_enabled:
         # Real account with AI enabled: Use AI win rate
         win_probability = ai_win_rate / 100.0
@@ -4510,7 +4511,8 @@ async def get_god_mode_status(authorization: Optional[str] = Header(None), reque
         # AI Automation settings
         "ai_enabled": settings.get("ai_enabled", True),
         "ai_strategy": settings.get("ai_strategy", "balanced"),  # conservative, balanced, aggressive
-        "ai_win_rate": settings.get("ai_win_rate", 45),  # 0-100
+        "ai_win_rate": settings.get("ai_win_rate", 45),  # 0-100 for real balance
+        "demo_win_rate": settings.get("demo_win_rate", 65),  # 0-100 for demo balance
         "ai_market_trend": settings.get("ai_market_trend", "sideways")  # bullish, sideways, bearish
     }
 
@@ -4589,6 +4591,29 @@ async def set_ai_win_rate(authorization: Optional[str] = Header(None), request: 
     )
     
     return {"success": True, "ai_win_rate": win_rate}
+
+@api_router.post("/admin/ai/demo-win-rate")
+async def set_demo_win_rate(authorization: Optional[str] = Header(None), request: Request = None):
+    """Set Demo Balance AI win rate control"""
+    user = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    win_rate = body.get("win_rate", 65)
+    win_rate = max(0, min(100, win_rate))  # Clamp between 0-100
+    
+    await db.platform_settings.update_one(
+        {"_id": "god_mode"},
+        {
+            "$set": {
+                "demo_win_rate": win_rate,
+                "updated_at": datetime.now(timezone.utc),
+                "updated_by": user.user_id
+            }
+        },
+        upsert=True
+    )
+    
+    return {"success": True, "demo_win_rate": win_rate}
 
 @api_router.post("/admin/ai/market-trend")
 async def set_ai_market_trend(authorization: Optional[str] = Header(None), request: Request = None):
