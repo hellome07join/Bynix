@@ -1053,40 +1053,81 @@ export default function Profile() {
 
     // Function to start Didit KYC
     const startDiditKyc = async () => {
+      console.log('=== START DIDIT KYC ===');
       setIsStartingDiditKyc(true);
+      
+      // Check if token exists
+      if (!token) {
+        console.log('ERROR: No authentication token found');
+        Alert.alert('Error', 'Please login again to verify your identity.');
+        setIsStartingDiditKyc(false);
+        return;
+      }
+      
       try {
-        const token = await AsyncStorage.getItem('token');
+        console.log('Making API request to:', `${API_URL}/kyc/didit/start`);
+        console.log('Token present:', token ? 'Yes' : 'No');
+        
         const response = await fetch(`${API_URL}/kyc/didit/start`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
           },
         });
         
+        console.log('Response status:', response.status);
         const data = await response.json();
+        console.log('API Response:', JSON.stringify(data, null, 2));
+        
+        if (!response.ok) {
+          console.log('API Error:', data);
+          Alert.alert('Error', data.detail || data.message || 'Failed to start verification');
+          setIsStartingDiditKyc(false);
+          return;
+        }
         
         if (data.verification_url) {
-          // Open Didit verification in browser
-          const supported = await Linking.canOpenURL(data.verification_url);
-          if (supported) {
-            await Linking.openURL(data.verification_url);
+          console.log('Opening verification URL:', data.verification_url);
+          
+          // Try to open the URL
+          try {
+            const canOpen = await Linking.canOpenURL(data.verification_url);
+            console.log('Can open URL:', canOpen);
+            
+            if (canOpen) {
+              await Linking.openURL(data.verification_url);
+              Alert.alert(
+                'KYC Verification Started',
+                'Please complete the verification in the browser. Once done, return to the app and refresh to check your status.',
+                [{ text: 'OK', style: 'default' }]
+              );
+            } else {
+              // Fallback - try opening anyway
+              console.log('canOpenURL returned false, trying openURL anyway...');
+              await Linking.openURL(data.verification_url);
+            }
+          } catch (linkError) {
+            console.error('Linking error:', linkError);
             Alert.alert(
-              'KYC Verification Started',
-              'Please complete the verification in the browser. Once done, return to the app and refresh to check your status.',
-              [{ text: 'OK', style: 'default' }]
+              'Browser Error', 
+              'Could not open the verification page. Please try again or use this URL manually:\n\n' + data.verification_url
             );
-          } else {
-            Alert.alert('Error', 'Could not open verification URL');
           }
         } else if (data.status === 'verified') {
           Alert.alert('Already Verified', 'Your KYC is already verified!');
           fetchKycStatus();
+        } else {
+          console.log('Unexpected response:', data);
+          Alert.alert('Error', data.message || 'Unexpected response from server');
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Didit KYC error:', error);
-        Alert.alert('Error', 'Could not start KYC verification. Please try again.');
+        Alert.alert('Error', `Could not start KYC verification: ${error.message || 'Unknown error'}`);
+      } finally {
+        setIsStartingDiditKyc(false);
       }
-      setIsStartingDiditKyc(false);
+      console.log('=== END DIDIT KYC ===');
     };
 
     // If KYC is already verified
