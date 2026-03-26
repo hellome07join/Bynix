@@ -326,9 +326,11 @@ export default function Welcome() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <View style={styles.logoIcon}>
-              <Ionicons name="trending-up" size={18} color="#0A0E17" />
-            </View>
+            <Image 
+              source={{ uri: 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/fhiw6o6y_IMG_3122.png' }}
+              style={styles.headerLogoImage}
+              resizeMode="contain"
+            />
             <Text style={styles.logoText}>Bynix</Text>
           </View>
           <View style={styles.headerButtons}>
@@ -668,9 +670,11 @@ export default function Welcome() {
         <View style={styles.footer}>
           {/* Logo */}
           <View style={styles.footerLogo}>
-            <View style={[styles.logoIcon, { width: 28, height: 28 }]}>
-              <Ionicons name="trending-up" size={14} color="#0A0E17" />
-            </View>
+            <Image 
+              source={{ uri: 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/fhiw6o6y_IMG_3122.png' }}
+              style={styles.footerLogoImage}
+              resizeMode="contain"
+            />
             <Text style={styles.footerLogoText}>Bynix</Text>
           </View>
 
@@ -769,6 +773,10 @@ const styles = StyleSheet.create({
   logoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  headerLogoImage: {
+    width: 36,
+    height: 36,
   },
   logoIcon: {
     width: 30,
@@ -1940,6 +1948,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 20,
+  },
+  footerLogoImage: {
+    width: 32,
+    height: 32,
   },
   footerLogoText: {
     fontSize: 18,
