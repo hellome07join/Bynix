@@ -2081,7 +2081,7 @@ Analyze the image carefully and respond with the JSON verification result."""
             response = await chat.send_message(user_message)
         except Exception as ai_error:
             # If AI service fails, provide a fallback response for testing
-            self.log(f"AI service error: {str(ai_error)}")
+            logging.error(f"AI service error: {str(ai_error)}")
             
             # For now, provide a mock response to allow testing of the flow
             # In production, this should be handled differently
