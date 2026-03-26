@@ -133,14 +133,7 @@ export default function AdminDashboard() {
   
   // Phase 2 States
   const [allUsers, setAllUsers] = useState([]);
-  const [selectedUser, setSelectedUser] = useState<any>(null);
-  const [selectedUserStats, setSelectedUserStats] = useState<any>({
-    totalDeposit: 0,
-    totalWithdraw: 0,
-    totalProfit: 0,
-    profitRate: 0,
-    withdrawAddress: ''
-  });
+  const [selectedUser, setSelectedUser] = useState(null);
   const [showUserModal, setShowUserModal] = useState(false);
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [userFilter, setUserFilter] = useState('all'); // all, verified, unverified, banned
@@ -773,24 +766,12 @@ export default function AdminDashboard() {
       return matchesSearch && matchesFilter;
     });
 
-    const handleUserPress = async (user) => {
+    const handleUserPress = (user) => {
       setSelectedUser(user);
       setEditBalance('');
       setBalanceOperation('add');
       setBalanceType('real');
       setShowUserModal(true);
-      // Reset stats before fetching
-      setSelectedUserStats({
-        totalDeposit: 0,
-        totalWithdraw: 0,
-        totalProfit: 0,
-        profitRate: 0,
-        withdrawAddress: '',
-        totalTrades: 0,
-        wonTrades: 0
-      });
-      // Fetch user stats
-      await fetchUserStats(user.user_id);
     };
 
     const handleBalanceUpdate = async () => {
@@ -822,83 +803,6 @@ export default function AdminDashboard() {
         console.error('Balance update error:', error);
         alert('Error updating balance');
       }
-    };
-
-    // Fetch detailed user stats when user is selected
-    const fetchUserStats = async (userId: string) => {
-      if (!token) return;
-      
-      try {
-        // Fetch user trades, deposits, withdrawals
-        const headers = {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        };
-        
-        // Get user trades for profit calculation
-        const tradesRes = await fetch(`${API_URL}/admin/trades?user_id=${userId}&limit=1000`, { headers });
-        let totalProfit = 0;
-        let wonTrades = 0;
-        let totalTrades = 0;
-        
-        if (tradesRes.ok) {
-          const tradesData = await tradesRes.json();
-          const userTrades = tradesData.trades?.filter((t: any) => t.user_id === userId) || [];
-          totalTrades = userTrades.length;
-          wonTrades = userTrades.filter((t: any) => t.status === 'won').length;
-          totalProfit = userTrades.reduce((sum: number, t: any) => sum + (t.profit_loss || 0), 0);
-        }
-        
-        // Get deposits
-        const depositsRes = await fetch(`${API_URL}/admin/deposits`, { headers });
-        let totalDeposit = 0;
-        
-        if (depositsRes.ok) {
-          const depositsData = await depositsRes.json();
-          const userDeposits = depositsData.deposits?.filter((d: any) => 
-            d.user_id === userId && (d.status === 'completed' || d.status === 'confirmed')
-          ) || [];
-          totalDeposit = userDeposits.reduce((sum: number, d: any) => sum + (d.amount_usd || 0), 0);
-        }
-        
-        // Get withdrawals
-        const withdrawalsRes = await fetch(`${API_URL}/admin/withdrawals`, { headers });
-        let totalWithdraw = 0;
-        let withdrawAddress = '';
-        
-        if (withdrawalsRes.ok) {
-          const withdrawalsData = await withdrawalsRes.json();
-          const userWithdrawals = withdrawalsData.withdrawals?.filter((w: any) => w.user_id === userId) || [];
-          totalWithdraw = userWithdrawals
-            .filter((w: any) => w.status === 'completed')
-            .reduce((sum: number, w: any) => sum + (w.amount || 0), 0);
-          
-          // Get latest withdraw address
-          const latestWithdrawal = userWithdrawals.find((w: any) => w.wallet_address);
-          withdrawAddress = latestWithdrawal?.wallet_address || '';
-        }
-        
-        const profitRate = totalTrades > 0 ? ((wonTrades / totalTrades) * 100).toFixed(1) : '0';
-        
-        setSelectedUserStats({
-          totalDeposit,
-          totalWithdraw,
-          totalProfit,
-          profitRate: parseFloat(profitRate),
-          withdrawAddress,
-          totalTrades,
-          wonTrades
-        });
-      } catch (error) {
-        console.error('Fetch user stats error:', error);
-      }
-    };
-
-    // Handle user click to show modal with stats
-    const handleUserClick = async (user: any) => {
-      setSelectedUser(user);
-      setShowUserModal(true);
-      await fetchUserStats(user.user_id);
     };
 
     const handleBanUser = async (userId, shouldBan) => {
@@ -1081,66 +985,6 @@ export default function AdminDashboard() {
                     </Text>
                   </View>
                 </View>
-
-                {/* User Stats Section */}
-                <View style={styles.userInfoSection}>
-                  <Text style={styles.sectionTitleSmall}>Trading Stats</Text>
-                  <View style={styles.statsGrid}>
-                    <View style={[styles.statBox, { backgroundColor: COLORS.successLight }]}>
-                      <Ionicons name="arrow-down-circle" size={24} color={COLORS.success} />
-                      <Text style={[styles.statBoxValue, { color: COLORS.success }]}>
-                        ${selectedUserStats.totalDeposit.toFixed(2)}
-                      </Text>
-                      <Text style={styles.statBoxLabel}>Total Deposit</Text>
-                    </View>
-                    <View style={[styles.statBox, { backgroundColor: COLORS.warningLight }]}>
-                      <Ionicons name="arrow-up-circle" size={24} color={COLORS.warning} />
-                      <Text style={[styles.statBoxValue, { color: COLORS.warning }]}>
-                        ${selectedUserStats.totalWithdraw.toFixed(2)}
-                      </Text>
-                      <Text style={styles.statBoxLabel}>Total Withdraw</Text>
-                    </View>
-                    <View style={[styles.statBox, { backgroundColor: selectedUserStats.totalProfit >= 0 ? COLORS.successLight : COLORS.dangerLight }]}>
-                      <Ionicons name="trending-up" size={24} color={selectedUserStats.totalProfit >= 0 ? COLORS.success : COLORS.danger} />
-                      <Text style={[styles.statBoxValue, { color: selectedUserStats.totalProfit >= 0 ? COLORS.success : COLORS.danger }]}>
-                        ${selectedUserStats.totalProfit.toFixed(2)}
-                      </Text>
-                      <Text style={styles.statBoxLabel}>Total Profit</Text>
-                    </View>
-                    <View style={[styles.statBox, { backgroundColor: COLORS.primaryLight }]}>
-                      <Ionicons name="analytics" size={24} color={COLORS.primary} />
-                      <Text style={[styles.statBoxValue, { color: COLORS.primary }]}>
-                        {selectedUserStats.profitRate}%
-                      </Text>
-                      <Text style={styles.statBoxLabel}>Win Rate ({selectedUserStats.wonTrades}/{selectedUserStats.totalTrades})</Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Withdraw Address */}
-                {selectedUserStats.withdrawAddress ? (
-                  <View style={styles.userInfoSection}>
-                    <Text style={styles.sectionTitleSmall}>Withdraw Address</Text>
-                    <TouchableOpacity 
-                      style={styles.addressBox}
-                      onPress={() => {
-                        Alert.alert(
-                          'Withdraw Address',
-                          selectedUserStats.withdrawAddress,
-                          [
-                            { text: 'Close', style: 'cancel' }
-                          ]
-                        );
-                      }}
-                    >
-                      <Ionicons name="wallet" size={20} color={COLORS.primary} />
-                      <Text style={styles.addressText} numberOfLines={1}>
-                        {selectedUserStats.withdrawAddress}
-                      </Text>
-                      <Ionicons name="copy" size={16} color={COLORS.textMuted} />
-                    </TouchableOpacity>
-                  </View>
-                ) : null}
 
                 {/* User Info */}
                 <View style={styles.userInfoSection}>
@@ -3865,47 +3709,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 12,
-    gap: 10,
-  },
-  statBox: {
-    width: '48%',
-    padding: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  statBoxValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginTop: 6,
-    marginBottom: 2,
-  },
-  statBoxLabel: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-  },
-  addressBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  addressText: {
-    flex: 1,
-    marginLeft: 10,
-    marginRight: 10,
-    color: COLORS.primary,
-    fontSize: 13,
-    fontFamily: 'monospace',
   },
   sectionTitleSmall: {
     color: COLORS.text,
