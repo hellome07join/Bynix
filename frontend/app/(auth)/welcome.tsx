@@ -705,13 +705,27 @@ export default function Welcome() {
           {/* Regulations Section */}
           <View style={styles.regulationsSection}>
             <Text style={styles.regulationsTitle}>Regulations</Text>
-            <TouchableOpacity><Text style={styles.regulationLink}>Privacy policy</Text></TouchableOpacity>
-            <TouchableOpacity><Text style={styles.regulationLink}>Service agreement</Text></TouchableOpacity>
-            <TouchableOpacity><Text style={styles.regulationLink}>Risk disclosure</Text></TouchableOpacity>
-            <TouchableOpacity><Text style={styles.regulationLink}>Rules of trading operations</Text></TouchableOpacity>
-            <TouchableOpacity><Text style={styles.regulationLink}>Non-trading operations regulations</Text></TouchableOpacity>
-            <TouchableOpacity><Text style={styles.regulationLink}>Payment policy</Text></TouchableOpacity>
-            <TouchableOpacity><Text style={styles.regulationLink}>AML & KYC Policy</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/(auth)/privacy-policy')}>
+              <Text style={styles.regulationLink}>Privacy policy</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/(auth)/service-agreement')}>
+              <Text style={styles.regulationLink}>Service agreement</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/(auth)/risk-disclosure')}>
+              <Text style={styles.regulationLink}>Risk disclosure</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/(auth)/trading-rules')}>
+              <Text style={styles.regulationLink}>Rules of trading operations</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/(auth)/non-trading-rules')}>
+              <Text style={styles.regulationLink}>Non-trading operations regulations</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/(auth)/payment-policy')}>
+              <Text style={styles.regulationLink}>Payment policy</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/(auth)/aml-kyc-policy')}>
+              <Text style={styles.regulationLink}>AML & KYC Policy</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Company Info */}
