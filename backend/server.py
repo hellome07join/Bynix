@@ -1010,7 +1010,7 @@ async def get_trade_stats(authorization: Optional[str] = Header(None), request: 
 
 @api_router.post("/trades/{trade_id}/settle")
 async def settle_trade(trade_id: str, settle_data: TradeSettle, authorization: Optional[str] = Header(None), request: Request = None):
-    """Settle a trade - Uses ACTUAL price movement for win/loss (consistent across all users)"""
+    """Settle a trade - Uses predetermined_outcome (AI Win Rate) to determine win/loss"""
     user = await get_current_user(authorization, request)
     
     trade = await db.trades.find_one({"trade_id": trade_id, "user_id": user.user_id})
@@ -1024,20 +1024,47 @@ async def settle_trade(trade_id: str, settle_data: TradeSettle, authorization: O
     trade_type = trade["trade_type"]
     exit_price = settle_data.exit_price
     
-    # ALWAYS use ACTUAL price movement for win/loss
-    # This ensures consistency when multiple users trade opposite directions
-    # CALL (UP) wins if exit_price > entry_price
-    # PUT (DOWN) wins if exit_price < entry_price
-    if trade_type == "call":
-        won = exit_price > entry_price
-    else:  # put
-        won = exit_price < entry_price
+    # Get predetermined outcome (set at trade creation based on AI Win Rate)
+    predetermined_outcome = trade.get("predetermined_outcome")
     
-    # If price is exactly same, it's a loss
-    if exit_price == entry_price:
-        won = False
-    
-    print(f"[TRADE SETTLE] id={trade_id}, type={trade_type}, entry={entry_price:.5f}, exit={exit_price:.5f}, won={won}")
+    if predetermined_outcome:
+        # AI AUTOMATION: Use predetermined outcome (based on win rate like 95%)
+        # This ensures each user's win rate matches the AI setting
+        won = predetermined_outcome == "won"
+        
+        # Adjust exit price to match predetermined outcome
+        # This makes the trade result consistent with the predetermined outcome
+        price_diff = abs(exit_price - entry_price)
+        if price_diff == 0:
+            price_diff = entry_price * 0.0001  # Minimum price difference
+        
+        if trade_type == "call":  # UP trade
+            if won:
+                # Force exit_price > entry_price for UP trade to win
+                exit_price = entry_price + price_diff if exit_price <= entry_price else exit_price
+            else:
+                # Force exit_price < entry_price for UP trade to lose
+                exit_price = entry_price - price_diff if exit_price >= entry_price else exit_price
+        else:  # PUT/DOWN trade
+            if won:
+                # Force exit_price < entry_price for DOWN trade to win
+                exit_price = entry_price - price_diff if exit_price >= entry_price else exit_price
+            else:
+                # Force exit_price > entry_price for DOWN trade to lose
+                exit_price = entry_price + price_diff if exit_price <= entry_price else exit_price
+        
+        print(f"[TRADE SETTLE] AI Mode: id={trade_id}, type={trade_type}, predetermined={predetermined_outcome}, won={won}")
+    else:
+        # No predetermined outcome (Real account) - use actual price
+        if trade_type == "call":
+            won = exit_price > entry_price
+        else:
+            won = exit_price < entry_price
+        
+        if exit_price == entry_price:
+            won = False
+        
+        print(f"[TRADE SETTLE] Real Mode: id={trade_id}, type={trade_type}, entry={entry_price:.5f}, exit={exit_price:.5f}, won={won}")
     
     status = "won" if won else "lost"
     profit_loss = trade["amount"] * (trade["payout_percentage"] / 100) if won else -trade["amount"]
@@ -3376,92 +3403,58 @@ async def add_chart_tick(symbol: str, authorization: Optional[str] = Header(None
     # Default random change
     change = (random.random() - 0.5) * volatility * 2
     
-    # ========== GLOBAL PRICE MANIPULATION ==========
-    # Look at ALL active trades expiring soon and decide ONE direction
-    # This ensures consistent price for ALL users
+    # ========== PER-USER PRICE MANIPULATION ==========
+    # Each user's active trade gets price manipulation based on their predetermined_outcome
+    # This ensures AI Win Rate works for each user independently
     
-    symbol_variations = [
-        symbol, symbol_key, 
-        f"{symbol} OTC", f"{symbol_key} OTC", 
-        symbol.replace('/', ''), f"{symbol.replace('/', '')} OTC",
-        f"{symbol.replace('/', '')}".upper(), f"{symbol.replace('/', '').upper()} OTC"
-    ]
-    
-    # Find ALL pending trades for this symbol
-    all_pending_trades = await db.trades.find({
-        "status": "pending",
-        "asset": {"$in": symbol_variations}
-    }).to_list(length=100)
-    
-    # Filter trades expiring in next 2 seconds
-    now_dt = datetime.now(timezone.utc)
-    expiring_trades = []
-    
-    for trade in all_pending_trades:
-        expires_at = trade.get("expires_at")
+    if active_trade:
+        entry_price = active_trade.get("entry_price", base_price)
+        trade_type = active_trade.get("trade_type")  # 'call' or 'put'
+        predetermined_outcome = active_trade.get("predetermined_outcome")
+        expires_at = active_trade.get("expires_at")
+        
+        # Calculate time remaining
+        time_remaining = float('inf')
         if expires_at:
+            now_dt = datetime.now(timezone.utc)
             if expires_at.tzinfo is None:
                 expires_at = expires_at.replace(tzinfo=timezone.utc)
             time_remaining = (expires_at - now_dt).total_seconds()
-            if 0 <= time_remaining <= 2:
-                expiring_trades.append({
-                    "trade": trade,
-                    "time_remaining": time_remaining
-                })
-    
-    # If there are trades expiring soon, manipulate price
-    if expiring_trades:
-        # Calculate total amounts for each direction
-        call_total = sum(t["trade"].get("amount", 0) for t in expiring_trades if t["trade"].get("trade_type") == "call")
-        put_total = sum(t["trade"].get("amount", 0) for t in expiring_trades if t["trade"].get("trade_type") == "put")
         
-        # Count predetermined outcomes
-        call_should_win = sum(1 for t in expiring_trades if t["trade"].get("trade_type") == "call" and t["trade"].get("predetermined_outcome") == "won")
-        put_should_win = sum(1 for t in expiring_trades if t["trade"].get("trade_type") == "put" and t["trade"].get("predetermined_outcome") == "won")
-        
-        print(f"[PRICE CONTROL] {len(expiring_trades)} trades expiring - CALL: ${call_total} ({call_should_win} should win), PUT: ${put_total} ({put_should_win} should win)")
-        
-        # Decision logic:
-        # 1. If only one direction has trades → favor that direction based on predetermined
-        # 2. If both directions → Platform profit (smaller side wins) OR based on win count
-        
-        should_go_up = None
-        avg_entry = sum(t["trade"].get("entry_price", base_price) for t in expiring_trades) / len(expiring_trades)
-        
-        if call_total > 0 and put_total == 0:
-            # Only CALL trades - use predetermined outcome
-            should_go_up = call_should_win > 0
-            print(f"[PRICE CONTROL] Only CALL trades, should_go_up={should_go_up}")
-        elif put_total > 0 and call_total == 0:
-            # Only PUT trades - use predetermined outcome
-            should_go_up = put_should_win == 0  # PUT wins when price goes DOWN
-            print(f"[PRICE CONTROL] Only PUT trades, should_go_up={should_go_up}")
-        elif call_total > 0 and put_total > 0:
-            # BOTH directions - Platform profit: smaller amount side wins
-            if call_total <= put_total:
-                should_go_up = True  # CALL wins, PUT loses (CALL has less money)
-                print(f"[PRICE CONTROL] Both directions - CALL smaller (${call_total} vs ${put_total}), price UP")
-            else:
-                should_go_up = False  # PUT wins, CALL loses (PUT has less money)
-                print(f"[PRICE CONTROL] Both directions - PUT smaller (${put_total} vs ${call_total}), price DOWN")
-        
-        # Apply price manipulation
-        if should_go_up is not None:
-            min_diff = avg_entry * 0.0003
-            if should_go_up:
-                # Force price ABOVE entry
-                if base_price <= avg_entry:
-                    change = abs(avg_entry - base_price) + min_diff + volatility * 3
-                else:
-                    change = abs(change) * 2.0 + min_diff
-            else:
-                # Force price BELOW entry
-                if base_price >= avg_entry:
-                    change = -(abs(base_price - avg_entry) + min_diff + volatility * 3)
-                else:
-                    change = -abs(change) * 2.0 - min_diff
+        # Only manipulate in last 2 seconds before expiry
+        if time_remaining <= 2:
+            print(f"[PRICE CONTROL] Last {time_remaining:.1f}s - User trade manipulation")
             
-            print(f"[PRICE CONTROL] Applied: avg_entry={avg_entry:.5f}, new_price={base_price + change:.5f}")
+            should_go_up = None
+            
+            # Use predetermined outcome to decide price direction
+            if predetermined_outcome:
+                # If predetermined = "won", make price favor the trade direction
+                # If predetermined = "lost", make price go against the trade
+                if predetermined_outcome == "won":
+                    should_go_up = (trade_type == "call")  # UP trade needs price UP
+                else:
+                    should_go_up = (trade_type != "call")  # UP trade loses when price DOWN
+                
+                print(f"[PRICE CONTROL] predetermined={predetermined_outcome}, trade_type={trade_type}, should_go_up={should_go_up}")
+            
+            # Apply price manipulation
+            if should_go_up is not None:
+                min_diff = entry_price * 0.0003
+                if should_go_up:
+                    # Force price ABOVE entry
+                    if base_price <= entry_price:
+                        change = abs(entry_price - base_price) + min_diff + volatility * 3
+                    else:
+                        change = abs(change) * 2.0 + min_diff
+                else:
+                    # Force price BELOW entry
+                    if base_price >= entry_price:
+                        change = -(abs(base_price - entry_price) + min_diff + volatility * 3)
+                    else:
+                        change = -abs(change) * 2.0 - min_diff
+                
+                print(f"[PRICE CONTROL] entry={entry_price:.5f}, new_price={base_price + change:.5f}")
     
     # Reset random seed
     random.seed()
