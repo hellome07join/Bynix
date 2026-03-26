@@ -2423,10 +2423,10 @@ async def didit_webhook_redirect(request: Request):
             </div>
             <h1>{title}</h1>
             <p>{message}</p>
-            <a href="/" class="btn">Return to Bynix</a>
+            <a href="/(tabs)/trade" class="btn">Start Trading</a>
             <p class="redirect-text">
                 <span class="loader"></span>
-                Redirecting automatically in <span id="countdown">5</span> seconds...
+                Redirecting to trading in <span id="countdown">5</span> seconds...
             </p>
         </div>
         <script>
@@ -2437,7 +2437,7 @@ async def didit_webhook_redirect(request: Request):
                 countdown.textContent = count;
                 if (count <= 0) {{
                     clearInterval(timer);
-                    window.location.href = '/';
+                    window.location.href = '/(tabs)/trade';
                 }}
             }}, 1000);
         </script>
