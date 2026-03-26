@@ -789,22 +789,17 @@ export default function Trade() {
   const currentAssets = dbAssets.length > 0 ? dbAssets : hardcodedAssets;
   
   // Demo-only assets list (hardcoded for reliable switching)
-  const DEMO_ONLY_SYMBOLS = [
-    'EUR/USD', 'EUR/USD OTC', 'EURUSD', 'EURUSD OTC',
-    'GBP/USD', 'GBP/USD OTC', 'GBPUSD', 'GBPUSD OTC',
-    'USD/JPY', 'USD/JPY OTC', 'USDJPY', 'USDJPY OTC',
-    'USD/CHF', 'USD/CHF OTC', 'USDCHF', 'USDCHF OTC',
-    'AUD/USD', 'AUD/USD OTC', 'AUDUSD', 'AUDUSD OTC',
-    'NZD/USD', 'NZD/USD OTC', 'NZDUSD', 'NZDUSD OTC',
-    'USD/CAD', 'USD/CAD OTC', 'USDCAD', 'USDCAD OTC',
-  ];
+  const DEMO_ONLY_SYMBOLS = ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'NZDUSD', 'USDCAD'];
+  
+  // Check if asset is demo-only
+  const checkIsDemoOnly = (asset: string) => {
+    const cleanAsset = asset.toUpperCase().replace(/[\/\s]/g, '').replace('OTC', '');
+    return DEMO_ONLY_SYMBOLS.some(symbol => cleanAsset.includes(symbol) || symbol.includes(cleanAsset));
+  };
   
   // Auto-select valid asset when account type changes
   useEffect(() => {
-    // Check if current selected asset is a demo-only asset
-    const isDemoOnlyAsset = DEMO_ONLY_SYMBOLS.some(symbol => 
-      selectedAsset.toUpperCase().includes(symbol.replace('/', '').replace(' OTC', '').toUpperCase())
-    );
+    const isDemoOnlyAsset = checkIsDemoOnly(selectedAsset);
     
     console.log(`[ACCOUNT CHECK] accountType=${accountType}, selectedAsset=${selectedAsset}, isDemoOnly=${isDemoOnlyAsset}`);
     
