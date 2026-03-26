@@ -1591,25 +1591,33 @@ export default function Profile() {
                       styles.txStatusBadge,
                       { backgroundColor: 
                         (tx.status === 'completed' || tx.status === 'confirmed' || tx.status === 'finished') ? 'rgba(0,229,90,0.15)' : 
-                        (tx.status === 'pending' || tx.status === 'waiting') ? 'rgba(255,184,0,0.15)' : 'rgba(255,59,59,0.15)' 
+                        (tx.status === 'pending' || tx.status === 'waiting') ? 'rgba(255,184,0,0.15)' : 
+                        tx.status === 'locked' ? 'rgba(139,92,246,0.15)' :
+                        'rgba(255,59,59,0.15)' 
                       }
                     ]}>
                       <View style={[
                         styles.txStatusDot,
                         { backgroundColor: 
                           (tx.status === 'completed' || tx.status === 'confirmed' || tx.status === 'finished') ? '#00E55A' : 
-                          (tx.status === 'pending' || tx.status === 'waiting') ? '#FFB800' : '#FF3B3B' 
+                          (tx.status === 'pending' || tx.status === 'waiting') ? '#FFB800' : 
+                          tx.status === 'locked' ? '#8B5CF6' :
+                          '#FF3B3B' 
                         }
                       ]} />
                       <Text style={[
                         styles.txStatusText,
                         { color: 
                           (tx.status === 'completed' || tx.status === 'confirmed' || tx.status === 'finished') ? '#00E55A' : 
-                          (tx.status === 'pending' || tx.status === 'waiting') ? '#FFB800' : '#FF3B3B' 
+                          (tx.status === 'pending' || tx.status === 'waiting') ? '#FFB800' : 
+                          tx.status === 'locked' ? '#8B5CF6' :
+                          '#FF3B3B' 
                         }
                       ]}>
                         {(tx.status === 'completed' || tx.status === 'confirmed' || tx.status === 'finished') ? 'Success' : 
                          (tx.status === 'pending' || tx.status === 'waiting') ? 'Pending' : 
+                         tx.status === 'locked' ? 'KYC Required' :
+                         tx.status === 'rejected' ? 'Rejected' :
                          tx.status === 'expired' ? 'Expired' : 'Failed'}
                       </Text>
                     </View>
