@@ -2043,7 +2043,7 @@ export default function Trade() {
                   return payoutB - payoutA;
                 })
                 .filter((asset) => {
-                  // Filter out assets based on account type
+                  // Check if asset is demo-only
                   const isDemoOnlyAsset = demoOnlyAssets.has(asset.value) || demoOnlyAssets.has(asset.label) || demoOnlyAssets.has(asset.symbol || '');
                   
                   // Real account: Hide demo-only assets completely
@@ -2051,38 +2051,61 @@ export default function Trade() {
                     return false;
                   }
                   
-                  // Demo account: Hide non-demo assets completely
-                  if (accountType === 'demo' && !isDemoOnlyAsset) {
-                    return false;
-                  }
-                  
+                  // Demo account: Show ALL assets (both demo and real)
                   return true;
                 })
+                .sort((a, b) => {
+                  // For Demo account: Sort unlocked (demo-only) assets to TOP
+                  if (accountType === 'demo') {
+                    const aIsDemoOnly = checkIsDemoOnly(a.value);
+                    const bIsDemoOnly = checkIsDemoOnly(b.value);
+                    
+                    // Unlocked (demo-only) assets first
+                    if (aIsDemoOnly && !bIsDemoOnly) return -1;
+                    if (!aIsDemoOnly && bIsDemoOnly) return 1;
+                  }
+                  return 0; // Keep payout sorting within same group
+                })
                 .map((asset) => {
+                  // Check if asset is locked for current account type
+                  const isDemoOnlyAsset = checkIsDemoOnly(asset.value);
+                  const isLocked = accountType === 'demo' ? !isDemoOnlyAsset : false;
+                  
                   return (
                 <TouchableOpacity
                   key={asset.value}
                   style={[
                     styles.assetOption,
-                    selectedAsset === asset.value && styles.assetOptionSelected
+                    selectedAsset === asset.value && styles.assetOptionSelected,
+                    isLocked && styles.assetOptionLocked
                   ]}
                   onPress={() => {
+                    if (isLocked) {
+                      Alert.alert(
+                        '🔒 Asset Locked',
+                        'This asset is only available for real balance trading.\n\nSwitch to Real account to trade this asset.',
+                        [{ text: 'OK', style: 'default' }]
+                      );
+                      return;
+                    }
                     setSelectedAsset(asset.value);
                     setShowAssetPicker(false);
-                    setAssetSearchQuery(''); // Clear search on selection
+                    setAssetSearchQuery('');
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   }}
                 >
-                  <Text style={styles.assetOptionIcon}>{asset.icon}</Text>
+                  <Text style={[styles.assetOptionIcon, isLocked && { opacity: 0.5 }]}>{asset.icon}</Text>
                   <View style={styles.assetOptionInfo}>
-                    <Text style={styles.assetOptionText}>{asset.label}</Text>
-                    <Text style={styles.assetOptionPayout}>
-                      Payout: {apiPayouts[asset.value] || apiPayouts[asset.label] || asset.payout}%
+                    <Text style={[styles.assetOptionText, isLocked && { color: '#666' }]}>{asset.label}</Text>
+                    <Text style={[styles.assetOptionPayout, isLocked && { color: '#555' }]}>
+                      {isLocked ? '🔒 Real Balance Only' : `Payout: ${apiPayouts[asset.value] || apiPayouts[asset.label] || asset.payout}%`}
                     </Text>
                   </View>
-                  {selectedAsset === asset.value && (
+                  {isLocked ? (
+                    <Ionicons name="lock-closed" size={18} color="#FF6B6B" />
+                  ) : selectedAsset === asset.value ? (
                     <Ionicons name="checkmark-circle" size={18} color="#00E55A" />
-                  )}
+                  ) : null}
                 </TouchableOpacity>
                 );
                 })}
