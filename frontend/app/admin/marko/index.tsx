@@ -1357,12 +1357,16 @@ export default function AdminDashboard() {
                     <TouchableOpacity 
                       style={[styles.actionBtn, { backgroundColor: COLORS.warningLight }]}
                       onPress={() => {
-                        Alert.alert('KYC Status', selectedUser?.kyc_status === 'approved' ? 
+                        const status = selectedUser?.kyc_status === 'approved' ? 
                           'KYC Verified ✓' : 
                           selectedUser?.kyc_status === 'pending' ? 
                           'KYC Pending Review' : 
-                          'No KYC Submitted'
-                        );
+                          'No KYC Submitted';
+                        if (Platform.OS === 'web') {
+                          window.alert(`KYC Status: ${status}`);
+                        } else {
+                          Alert.alert('KYC Status', status);
+                        }
                       }}
                     >
                       <Ionicons name="document-text" size={20} color={COLORS.warning} />
@@ -1379,14 +1383,28 @@ export default function AdminDashboard() {
                             const data = await response.json();
                             const trades = data.trades || [];
                             const summary = trades.length > 0 
-                              ? `Last ${trades.length} trades:\n${trades.slice(0, 5).map(t => 
+                              ? `Last ${trades.length} trades:\n${trades.slice(0, 5).map((t: any) => 
                                   `${t.asset} - ${t.trade_type.toUpperCase()} - $${t.amount} - ${t.status}`
                                 ).join('\n')}`
                               : 'No trade history';
-                            Alert.alert('Trade History', summary);
+                            if (Platform.OS === 'web') {
+                              window.alert(summary);
+                            } else {
+                              Alert.alert('Trade History', summary);
+                            }
+                          } else {
+                            if (Platform.OS === 'web') {
+                              window.alert('Failed to fetch trade history');
+                            } else {
+                              Alert.alert('Error', 'Failed to fetch trade history');
+                            }
                           }
                         } catch (error) {
-                          Alert.alert('Error', 'Failed to fetch trade history');
+                          if (Platform.OS === 'web') {
+                            window.alert('Failed to fetch trade history');
+                          } else {
+                            Alert.alert('Error', 'Failed to fetch trade history');
+                          }
                         }
                       }}
                     >
@@ -1397,17 +1415,34 @@ export default function AdminDashboard() {
                   <View style={styles.actionButtonsRow}>
                     <TouchableOpacity 
                       style={[styles.actionBtn, { backgroundColor: selectedUser?.is_banned ? COLORS.successLight : COLORS.dangerLight }]}
-                      onPress={() => {
-                        Alert.alert(
-                          selectedUser?.is_banned ? 'Unban User' : 'Ban User',
-                          selectedUser?.is_banned ? 
-                            'Are you sure you want to unban this user?' :
-                            'This will suspend the user. They will see: "This account is suspended for violation of company rules"',
-                          [
-                            { text: 'Cancel', style: 'cancel' },
-                            { text: selectedUser?.is_banned ? 'Unban' : 'Ban', style: 'destructive', onPress: () => handleBanUser(selectedUser?.user_id, !selectedUser?.is_banned) }
-                          ]
-                        );
+                      onPress={async () => {
+                        const action = selectedUser?.is_banned ? 'unban' : 'ban';
+                        const message = selectedUser?.is_banned ? 
+                          'Are you sure you want to unban this user?' :
+                          'This will suspend the user. They will see: "This account is suspended for violation of company rules"';
+                        
+                        let confirmed = false;
+                        if (Platform.OS === 'web') {
+                          confirmed = window.confirm(message);
+                        } else {
+                          // For native, we need a different approach
+                          confirmed = true; // Will be handled by direct API call
+                        }
+                        
+                        if (confirmed || Platform.OS !== 'web') {
+                          if (Platform.OS === 'web' && confirmed) {
+                            await handleBanUser(selectedUser?.user_id, !selectedUser?.is_banned);
+                          } else if (Platform.OS !== 'web') {
+                            Alert.alert(
+                              selectedUser?.is_banned ? 'Unban User' : 'Ban User',
+                              message,
+                              [
+                                { text: 'Cancel', style: 'cancel' },
+                                { text: action === 'ban' ? 'Ban' : 'Unban', style: 'destructive', onPress: () => handleBanUser(selectedUser?.user_id, !selectedUser?.is_banned) }
+                              ]
+                            );
+                          }
+                        }
                       }}
                     >
                       <Ionicons 
@@ -1422,7 +1457,12 @@ export default function AdminDashboard() {
                     <TouchableOpacity 
                       style={[styles.actionBtn, { backgroundColor: COLORS.purpleLight }]}
                       onPress={() => {
-                        Alert.alert('Send Email', `Email feature coming soon.\n\nUser email: ${selectedUser?.email}`);
+                        const msg = `Email feature coming soon.\n\nUser email: ${selectedUser?.email}`;
+                        if (Platform.OS === 'web') {
+                          window.alert(msg);
+                        } else {
+                          Alert.alert('Send Email', msg);
+                        }
                       }}
                     >
                       <Ionicons name="mail" size={20} color={COLORS.purple} />
@@ -1433,36 +1473,59 @@ export default function AdminDashboard() {
                   {/* Delete User Button */}
                   <TouchableOpacity 
                     style={[styles.actionBtn, { backgroundColor: '#2a0000', marginTop: 12, width: '100%' }]}
-                    onPress={() => {
-                      Alert.alert(
-                        '⚠️ Delete User',
-                        'Are you sure you want to delete this user? They will see: "This account has been deleted by the owner" when trying to login.',
-                        [
-                          { text: 'Cancel', style: 'cancel' },
-                          { 
-                            text: 'Delete', 
-                            style: 'destructive', 
-                            onPress: async () => {
-                              try {
-                                const response = await fetch(`${API_URL}/admin/users/${selectedUser?.user_id}/delete`, {
-                                  method: 'POST',
-                                  headers: headers,
-                                  body: JSON.stringify({ reason: 'This account has been deleted by the owner' })
-                                });
-                                if (response.ok) {
-                                  Alert.alert('Success', 'User deleted successfully');
-                                  fetchDashboardData();
-                                  setShowUserModal(false);
-                                } else {
-                                  Alert.alert('Error', 'Failed to delete user');
-                                }
-                              } catch (error) {
+                    onPress={async () => {
+                      const message = 'Are you sure you want to delete this user? They will see: "This account has been deleted by the owner" when trying to login.';
+                      
+                      let confirmed = false;
+                      if (Platform.OS === 'web') {
+                        confirmed = window.confirm(message);
+                      }
+                      
+                      if (confirmed || Platform.OS !== 'web') {
+                        const doDelete = async () => {
+                          try {
+                            const response = await fetch(`${API_URL}/admin/users/${selectedUser?.user_id}/delete`, {
+                              method: 'POST',
+                              headers: headers,
+                              body: JSON.stringify({ reason: 'This account has been deleted by the owner' })
+                            });
+                            if (response.ok) {
+                              if (Platform.OS === 'web') {
+                                window.alert('User deleted successfully');
+                              } else {
+                                Alert.alert('Success', 'User deleted successfully');
+                              }
+                              fetchDashboardData();
+                              setShowUserModal(false);
+                            } else {
+                              if (Platform.OS === 'web') {
+                                window.alert('Failed to delete user');
+                              } else {
                                 Alert.alert('Error', 'Failed to delete user');
                               }
                             }
+                          } catch (error) {
+                            if (Platform.OS === 'web') {
+                              window.alert('Failed to delete user');
+                            } else {
+                              Alert.alert('Error', 'Failed to delete user');
+                            }
                           }
-                        ]
-                      );
+                        };
+                        
+                        if (Platform.OS === 'web' && confirmed) {
+                          await doDelete();
+                        } else if (Platform.OS !== 'web') {
+                          Alert.alert(
+                            '⚠️ Delete User',
+                            message,
+                            [
+                              { text: 'Cancel', style: 'cancel' },
+                              { text: 'Delete', style: 'destructive', onPress: doDelete }
+                            ]
+                          );
+                        }
+                      }
                     }}
                   >
                     <Ionicons name="trash" size={20} color="#ff4444" />
