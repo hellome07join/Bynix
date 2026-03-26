@@ -198,6 +198,7 @@ export default function Welcome() {
   const [signupLoading, setSignupLoading] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState<{name: string; flag: string} | null>(null);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [countrySearch, setCountrySearch] = useState('');
 
   // All countries list
   const ALL_COUNTRIES = [
@@ -1252,24 +1253,53 @@ export default function Welcome() {
           <View style={styles.countryModalOverlay}>
             <View style={styles.countryModalContent}>
               <View style={styles.countryModalHeader}>
-                <Text style={styles.countryModalTitle}>Select Country</Text>
-                <TouchableOpacity onPress={() => setShowCountryPicker(false)}>
+                <View>
+                  <Text style={styles.countryModalTitle}>Select Country</Text>
+                  <Text style={styles.countryCount}>{ALL_COUNTRIES.length} countries available</Text>
+                </View>
+                <TouchableOpacity onPress={() => { setShowCountryPicker(false); setCountrySearch(''); }}>
                   <Ionicons name="close" size={24} color="#888" />
                 </TouchableOpacity>
               </View>
+
+              {/* Search Input */}
+              <View style={styles.countrySearchContainer}>
+                <Ionicons name="search" size={18} color="#666" />
+                <TextInput
+                  style={styles.countrySearchInput}
+                  placeholder="Search country..."
+                  placeholderTextColor="#555"
+                  value={countrySearch}
+                  onChangeText={setCountrySearch}
+                  autoCapitalize="none"
+                />
+                {countrySearch.length > 0 && (
+                  <TouchableOpacity onPress={() => setCountrySearch('')}>
+                    <Ionicons name="close-circle" size={18} color="#666" />
+                  </TouchableOpacity>
+                )}
+              </View>
               
               <ScrollView style={styles.countryList} showsVerticalScrollIndicator={false}>
-                {ALL_COUNTRIES.map((country, index) => (
+                {ALL_COUNTRIES
+                  .filter(country => country.name.toLowerCase().includes(countrySearch.toLowerCase()))
+                  .map((country, index) => (
                   <TouchableOpacity
                     key={index}
                     style={[styles.countryItem, selectedCountry?.name === country.name && styles.countryItemSelected]}
-                    onPress={() => { setSelectedCountry(country); setShowCountryPicker(false); }}
+                    onPress={() => { setSelectedCountry(country); setShowCountryPicker(false); setCountrySearch(''); }}
                   >
                     <Text style={styles.countryFlag}>{country.flag}</Text>
                     <Text style={styles.countryName}>{country.name}</Text>
                     {selectedCountry?.name === country.name && <Ionicons name="checkmark-circle" size={18} color="#00E55A" />}
                   </TouchableOpacity>
                 ))}
+                {ALL_COUNTRIES.filter(country => country.name.toLowerCase().includes(countrySearch.toLowerCase())).length === 0 && (
+                  <View style={styles.noResultsContainer}>
+                    <Ionicons name="search-outline" size={40} color="#444" />
+                    <Text style={styles.noResultsText}>No countries found</Text>
+                  </View>
+                )}
               </ScrollView>
             </View>
           </View>
@@ -2837,7 +2867,7 @@ const styles = StyleSheet.create({
   countryModalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 16,
   },
   countryModalTitle: {
@@ -2845,8 +2875,30 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFF',
   },
+  countryCount: {
+    fontSize: 12,
+    color: '#00E55A',
+    marginTop: 4,
+  },
+  countrySearchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1A1F2E',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#252A3A',
+  },
+  countrySearchInput: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 15,
+    paddingVertical: 12,
+    marginLeft: 8,
+  },
   countryList: {
-    maxHeight: 400,
+    maxHeight: 350,
   },
   countryItem: {
     flexDirection: 'row',
@@ -2868,5 +2920,14 @@ const styles = StyleSheet.create({
     flex: 1,
     color: '#FFFFFF',
     fontSize: 15,
+  },
+  noResultsContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  noResultsText: {
+    color: '#666',
+    fontSize: 14,
+    marginTop: 12,
   },
 });
