@@ -1059,7 +1059,11 @@ export default function Profile() {
       // Check if token exists
       if (!token) {
         console.log('ERROR: No authentication token found');
-        Alert.alert('Error', 'Please login again to verify your identity.');
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          window.alert('Error: Please login again to verify your identity.');
+        } else {
+          Alert.alert('Error', 'Please login again to verify your identity.');
+        }
         setIsStartingDiditKyc(false);
         return;
       }
@@ -1081,7 +1085,12 @@ export default function Profile() {
         
         if (!response.ok) {
           console.log('API Error:', data);
-          Alert.alert('Error', data.detail || data.message || 'Failed to start verification');
+          const errorMsg = data.detail || data.message || 'Failed to start verification';
+          if (Platform.OS === 'web' && typeof window !== 'undefined') {
+            window.alert('Error: ' + errorMsg);
+          } else {
+            Alert.alert('Error', errorMsg);
+          }
           setIsStartingDiditKyc(false);
           return;
         }
@@ -1090,15 +1099,14 @@ export default function Profile() {
           console.log('Opening verification URL:', data.verification_url);
           
           // Open URL based on platform
-          if (Platform.OS === 'web') {
-            // For web, use window.open for better compatibility
-            if (typeof window !== 'undefined') {
-              window.open(data.verification_url, '_blank');
-              Alert.alert(
-                'KYC Verification Started',
-                'Please complete the verification in the new tab. Once done, return here and refresh to check your status.',
-                [{ text: 'OK', style: 'default' }]
-              );
+          if (Platform.OS === 'web' && typeof window !== 'undefined') {
+            // For web, use window.open
+            const newWindow = window.open(data.verification_url, '_blank');
+            if (newWindow) {
+              window.alert('KYC Verification Started!\n\nPlease complete the verification in the new tab.\nOnce done, return here and refresh to check your status.');
+            } else {
+              // Popup was blocked
+              window.alert('Popup blocked! Please allow popups for this site.\n\nOr copy this URL and open in new tab:\n' + data.verification_url);
             }
           } else {
             // For mobile, use Linking
@@ -1111,24 +1119,33 @@ export default function Profile() {
               );
             } catch (linkError) {
               console.error('Linking error:', linkError);
-              // Fallback to showing URL
-              Alert.alert(
-                'Open This URL', 
-                data.verification_url,
-                [{ text: 'OK', style: 'default' }]
-              );
+              Alert.alert('Open This URL', data.verification_url, [{ text: 'OK', style: 'default' }]);
             }
           }
         } else if (data.status === 'verified') {
-          Alert.alert('Already Verified', 'Your KYC is already verified!');
+          if (Platform.OS === 'web' && typeof window !== 'undefined') {
+            window.alert('Already Verified! Your KYC is already verified.');
+          } else {
+            Alert.alert('Already Verified', 'Your KYC is already verified!');
+          }
           fetchKycStatus();
         } else {
           console.log('Unexpected response:', data);
-          Alert.alert('Error', data.message || 'Unexpected response from server');
+          const errMsg = data.message || 'Unexpected response from server';
+          if (Platform.OS === 'web' && typeof window !== 'undefined') {
+            window.alert('Error: ' + errMsg);
+          } else {
+            Alert.alert('Error', errMsg);
+          }
         }
       } catch (error: any) {
         console.error('Didit KYC error:', error);
-        Alert.alert('Error', `Could not start KYC verification: ${error.message || 'Unknown error'}`);
+        const errMsg = `Could not start KYC verification: ${error.message || 'Unknown error'}`;
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          window.alert('Error: ' + errMsg);
+        } else {
+          Alert.alert('Error', errMsg);
+        }
       } finally {
         setIsStartingDiditKyc(false);
       }
