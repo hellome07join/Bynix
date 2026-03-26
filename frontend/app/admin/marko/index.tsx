@@ -306,10 +306,11 @@ export default function AdminDashboard() {
         });
       }
       
-      // Fetch KYC submissions count
+      // Fetch KYC submissions data
       const kycRes = await fetch(`${API_URL}/admin/kyc-submissions`, { headers });
       if (kycRes.ok) {
         const data = await kycRes.json();
+        setKycSubmissions(data.submissions || []);
         setKycSubmissionsCount(data.count || 0);
       }
       
@@ -3310,12 +3311,11 @@ export default function AdminDashboard() {
     const [selectedKyc, setSelectedKyc] = useState<any>(null);
     const [showKycModal, setShowKycModal] = useState(false);
 
-    const handleApproveKyc = async (submissionId: string, withdrawalId: string) => {
+    const handleApproveKyc = async (transactionId: string) => {
       try {
-        const response = await fetch(`${API_URL}/admin/withdrawals/approve-kyc`, {
+        const response = await fetch(`${API_URL}/admin/withdrawals/${transactionId}/approve-kyc`, {
           method: 'POST',
           headers: headers,
-          body: JSON.stringify({ withdrawal_id: withdrawalId })
         });
         
         if (response.ok) {
@@ -3342,9 +3342,9 @@ export default function AdminDashboard() {
       }
     };
 
-    const handleRejectKyc = async (withdrawalId: string) => {
+    const handleRejectKyc = async (transactionId: string) => {
       try {
-        const response = await fetch(`${API_URL}/admin/withdrawals/${withdrawalId}/reject`, {
+        const response = await fetch(`${API_URL}/admin/withdrawals/${transactionId}/reject`, {
           method: 'POST',
           headers: headers,
           body: JSON.stringify({ reason: 'KYC documents rejected' })
@@ -3480,10 +3480,12 @@ export default function AdminDashboard() {
 
                   {/* Document Preview */}
                   <View style={{ marginBottom: 16 }}>
-                    <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 8 }}>Submitted Document</Text>
-                    {selectedKyc.kyc_document ? (
+                    <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 8 }}>
+                      Submitted Document ({selectedKyc.kyc_document_type || selectedKyc.kyc_requirement || 'Unknown'})
+                    </Text>
+                    {selectedKyc.kyc_document_url ? (
                       <Image 
-                        source={{ uri: selectedKyc.kyc_document }}
+                        source={{ uri: selectedKyc.kyc_document_url }}
                         style={{ width: '100%', height: 300, borderRadius: 8, backgroundColor: '#eee' }}
                         resizeMode="contain"
                       />
@@ -3499,14 +3501,14 @@ export default function AdminDashboard() {
                   <View style={{ flexDirection: 'row', gap: 12 }}>
                     <TouchableOpacity 
                       style={{ flex: 1, backgroundColor: COLORS.success, padding: 14, borderRadius: 8, alignItems: 'center' }}
-                      onPress={() => handleApproveKyc(selectedKyc._id, selectedKyc.withdrawal_id)}
+                      onPress={() => handleApproveKyc(selectedKyc.transaction_id)}
                     >
                       <Ionicons name="checkmark-circle" size={20} color="#fff" />
                       <Text style={{ color: '#fff', fontWeight: '600', marginTop: 4 }}>Approve KYC</Text>
                     </TouchableOpacity>
                     <TouchableOpacity 
                       style={{ flex: 1, backgroundColor: COLORS.danger, padding: 14, borderRadius: 8, alignItems: 'center' }}
-                      onPress={() => handleRejectKyc(selectedKyc.withdrawal_id)}
+                      onPress={() => handleRejectKyc(selectedKyc.transaction_id)}
                     >
                       <Ionicons name="close-circle" size={20} color="#fff" />
                       <Text style={{ color: '#fff', fontWeight: '600', marginTop: 4 }}>Reject KYC</Text>
@@ -6487,5 +6489,42 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.textSecondary,
     marginBottom: 8,
+  },
+  // KYC Content Page Styles
+  kycRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  kycUserInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  kycUserName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  kycUserEmail: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  kycAmountInfo: {
+    alignItems: 'flex-end',
+    marginRight: 12,
+  },
+  kycAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  kycAmountLabel: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginTop: 2,
   },
 });
