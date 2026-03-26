@@ -477,16 +477,18 @@ export default function TradingViewChart({
     initializeChartData();
   }, [symbol, initializeChartData]); // Only regenerate when symbol changes, NOT interval
 
-  // Sync with server - fetch latest tick data every 2 seconds
+  // Sync with server - fetch latest tick data every 500ms for smoother updates
   const syncWithServerRef = useRef<any>(null);
+  const localAnimationRef = useRef<any>(null);
+  const lastServerPriceRef = useRef<number>(0);
+  const targetPriceRef = useRef<number>(0);
+  
   useEffect(() => {
     const syncWithServer = async () => {
       try {
         const apiUrl = getApiUrl();
         const cleanSymbol = symbol.replace(' OTC', '').replace('/', '').toUpperCase();
         
-        // Call server to add new tick and get updated data
-        // Include auth token so server can bias price based on user's active trades
         const headers: Record<string, string> = {};
         if (authToken) {
           headers['Authorization'] = `Bearer ${authToken}`;
@@ -500,7 +502,10 @@ export default function TradingViewChart({
         if (response.ok) {
           const data = await response.json();
           if (data.new_tick) {
-            // Replace/Add the tick from server - ensures all devices have identical data
+            // Store target price for smooth animation
+            targetPriceRef.current = data.new_tick.close;
+            lastServerPriceRef.current = data.new_tick.close;
+            
             setBaseTickData(prevData => {
               if (prevData.length === 0) return prevData;
               
@@ -508,10 +513,8 @@ export default function TradingViewChart({
               const lastTick = prevData[prevData.length - 1];
               
               if (lastTick.time >= data.new_tick.time) {
-                // Same second - replace last tick completely with server data
                 newData[newData.length - 1] = data.new_tick;
               } else {
-                // New second - add new tick from server
                 newData.push(data.new_tick);
                 if (newData.length > 35000) {
                   newData.shift();
@@ -521,9 +524,6 @@ export default function TradingViewChart({
               baseTickDataStore[symbol] = newData;
               return newData;
             });
-            
-            // Update displayed price from server
-            setInternalPrice(data.new_tick.close);
           }
         }
       } catch (error) {
@@ -531,15 +531,39 @@ export default function TradingViewChart({
       }
     };
 
+    // Smooth local animation between server updates
+    const animatePrice = () => {
+      setInternalPrice(prev => {
+        if (targetPriceRef.current === 0) return prev;
+        
+        const diff = targetPriceRef.current - prev;
+        // Smooth interpolation - move 30% towards target each frame
+        const step = diff * 0.3;
+        
+        // If very close to target, snap to it
+        if (Math.abs(diff) < prev * 0.000001) {
+          return targetPriceRef.current;
+        }
+        
+        return prev + step;
+      });
+    };
+
     // Sync with server immediately on mount
     syncWithServer();
     
-    // Sync every 1000ms (1 second) - balanced between smoothness and performance
-    syncWithServerRef.current = setInterval(syncWithServer, 1000);
+    // Sync every 500ms for faster updates
+    syncWithServerRef.current = setInterval(syncWithServer, 500);
+    
+    // Smooth animation at 60fps (16ms) for fluid price movement
+    localAnimationRef.current = setInterval(animatePrice, 16);
     
     return () => {
       if (syncWithServerRef.current) {
         clearInterval(syncWithServerRef.current);
+      }
+      if (localAnimationRef.current) {
+        clearInterval(localAnimationRef.current);
       }
     };
   }, [symbol, authToken]);
