@@ -479,9 +479,6 @@ export default function TradingViewChart({
 
   // Sync with server - fetch latest tick data every 500ms for smoother updates
   const syncWithServerRef = useRef<any>(null);
-  const localAnimationRef = useRef<any>(null);
-  const lastServerPriceRef = useRef<number>(0);
-  const targetPriceRef = useRef<number>(0);
   
   useEffect(() => {
     const syncWithServer = async () => {
@@ -502,10 +499,6 @@ export default function TradingViewChart({
         if (response.ok) {
           const data = await response.json();
           if (data.new_tick) {
-            // Store target price for smooth animation
-            targetPriceRef.current = data.new_tick.close;
-            lastServerPriceRef.current = data.new_tick.close;
-            
             setBaseTickData(prevData => {
               if (prevData.length === 0) return prevData;
               
@@ -524,6 +517,8 @@ export default function TradingViewChart({
               baseTickDataStore[symbol] = newData;
               return newData;
             });
+            
+            setInternalPrice(data.new_tick.close);
           }
         }
       } catch (error) {
@@ -531,39 +526,15 @@ export default function TradingViewChart({
       }
     };
 
-    // Smooth local animation between server updates
-    const animatePrice = () => {
-      setInternalPrice(prev => {
-        if (targetPriceRef.current === 0) return prev;
-        
-        const diff = targetPriceRef.current - prev;
-        // Smooth interpolation - move 30% towards target each frame
-        const step = diff * 0.3;
-        
-        // If very close to target, snap to it
-        if (Math.abs(diff) < prev * 0.000001) {
-          return targetPriceRef.current;
-        }
-        
-        return prev + step;
-      });
-    };
-
     // Sync with server immediately on mount
     syncWithServer();
     
-    // Sync every 500ms for faster updates
+    // Sync every 500ms for smoother updates (was 1000ms)
     syncWithServerRef.current = setInterval(syncWithServer, 500);
-    
-    // Smooth animation at 60fps (16ms) for fluid price movement
-    localAnimationRef.current = setInterval(animatePrice, 16);
     
     return () => {
       if (syncWithServerRef.current) {
         clearInterval(syncWithServerRef.current);
-      }
-      if (localAnimationRef.current) {
-        clearInterval(localAnimationRef.current);
       }
     };
   }, [symbol, authToken]);
