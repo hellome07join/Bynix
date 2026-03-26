@@ -12,12 +12,17 @@ import {
   ScrollView,
   Platform,
   Image,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons, FontAwesome5, FontAwesome } from '@expo/vector-icons';
 import { useAuthStore } from '../../stores/authStore';
-import { API_URL } from '../../utils/api';
+import { API_URL, api } from '../../utils/api';
+import * as WebBrowser from 'expo-web-browser';
+
+declare const window: any;
 
 const { width, height } = Dimensions.get('window');
 
@@ -172,6 +177,100 @@ export default function Welcome() {
   const [isLoading, setIsLoading] = useState(false);
   const heroScale = useRef(new Animated.Value(1)).current;
   const phoneRotate = useRef(new Animated.Value(0)).current;
+  
+  // Sidebar modal states
+  const [showLoginSidebar, setShowLoginSidebar] = useState(false);
+  const [showSignupSidebar, setShowSignupSidebar] = useState(false);
+  const sidebarSlide = useRef(new Animated.Value(width)).current;
+  
+  // Login form states
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  // Open sidebar with animation
+  const openSidebar = (type: 'login' | 'signup') => {
+    if (type === 'login') {
+      setShowLoginSidebar(true);
+    } else {
+      setShowSignupSidebar(true);
+    }
+    Animated.spring(sidebarSlide, {
+      toValue: 0,
+      tension: 65,
+      friction: 11,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  // Close sidebar with animation
+  const closeSidebar = () => {
+    Animated.timing(sidebarSlide, {
+      toValue: width,
+      duration: 250,
+      easing: Easing.ease,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowLoginSidebar(false);
+      setShowSignupSidebar(false);
+      sidebarSlide.setValue(width);
+    });
+  };
+
+  // Handle login
+  const handleSidebarLogin = async () => {
+    if (!loginEmail || !loginPassword) {
+      if (Platform.OS === 'web') window.alert('Please fill all fields');
+      else Alert.alert('Error', 'Please fill all fields');
+      return;
+    }
+
+    setLoginLoading(true);
+    try {
+      const response = await api.login({ email: loginEmail, password: loginPassword });
+      await login(response.access_token, response.user);
+      closeSidebar();
+      router.replace('/(tabs)/trade');
+    } catch (error: any) {
+      if (Platform.OS === 'web') window.alert(error.message || 'Invalid credentials');
+      else Alert.alert('Login Failed', error.message || 'Invalid credentials');
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  // Handle Google login
+  const handleGoogleLogin = async () => {
+    try {
+      const redirectUrl = Platform.OS === 'web' 
+        ? window.location.origin + '/(tabs)/trade'
+        : 'bynix://trade';
+      const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+      
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
+      
+      if (result.type === 'success' && result.url) {
+        const url = new URL(result.url);
+        const sessionId = url.hash.split('session_id=')[1];
+        
+        if (sessionId) {
+          const response = await api.googleSession(sessionId);
+          await login(response.session_token, response.user);
+          closeSidebar();
+          router.replace('/(tabs)/trade');
+        }
+      }
+    } catch (error: any) {
+      if (Platform.OS === 'web') window.alert(error.message || 'Google login failed');
+      else Alert.alert('Google Login Failed', error.message);
+    }
+  };
+
+  const handleFacebookLogin = () => {
+    if (Platform.OS === 'web') window.alert('Facebook login coming soon!');
+    else Alert.alert('Coming Soon', 'Facebook login will be available soon!');
+  };
 
   useEffect(() => {
     // Hero button pulse
@@ -336,13 +435,13 @@ export default function Welcome() {
           <View style={styles.headerButtons}>
             <TouchableOpacity 
               style={styles.loginBtn}
-              onPress={() => router.push('/(auth)/login')}
+              onPress={() => openSidebar('login')}
             >
               <Text style={styles.loginBtnText}>Login</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.registerBtn}
-              onPress={() => router.push('/(auth)/signup')}
+              onPress={() => openSidebar('signup')}
             >
               <Text style={styles.registerBtnText}>Register</Text>
             </TouchableOpacity>
@@ -762,6 +861,208 @@ export default function Welcome() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Login Sidebar Modal */}
+      <Modal visible={showLoginSidebar} transparent animationType="none">
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalBackdrop} onPress={closeSidebar} activeOpacity={1} />
+          <Animated.View style={[styles.sidebarContainer, { transform: [{ translateX: sidebarSlide }] }]}>
+            <LinearGradient colors={['#1A1A1A', '#0D0D0D', '#1A1A1A']} style={StyleSheet.absoluteFill} />
+            
+            <ScrollView contentContainerStyle={styles.sidebarContent} showsVerticalScrollIndicator={false}>
+              {/* Header */}
+              <View style={styles.sidebarHeader}>
+                <View style={styles.decorIcon}>
+                  <Ionicons name="flame" size={20} color="#FF8C00" />
+                </View>
+                <TouchableOpacity style={styles.sidebarCloseBtn} onPress={closeSidebar}>
+                  <Ionicons name="close" size={28} color="#888" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Content */}
+              <Text style={styles.sidebarGreeting}>Happy to see you</Text>
+              <Text style={styles.sidebarTitle}>Welcome back</Text>
+
+              {/* Social Login */}
+              <Text style={styles.socialLabel}>Log in with</Text>
+              <View style={styles.socialButtonsRow}>
+                <TouchableOpacity style={styles.socialButton} onPress={handleGoogleLogin}>
+                  <Image source={{ uri: 'https://www.google.com/favicon.ico' }} style={styles.socialIcon} />
+                  <Text style={styles.socialButtonText}>Google</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.socialButton} onPress={handleFacebookLogin}>
+                  <View style={styles.facebookIcon}>
+                    <FontAwesome name="facebook" size={18} color="#FFF" />
+                  </View>
+                  <Text style={styles.socialButtonText}>Facebook</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Divider */}
+              <View style={styles.sidebarDivider}>
+                <View style={styles.sidebarDividerLine} />
+                <Text style={styles.sidebarDividerText}>or</Text>
+                <View style={styles.sidebarDividerLine} />
+              </View>
+
+              {/* Email Input */}
+              <Text style={styles.sidebarInputLabel}>Email or phone</Text>
+              <View style={styles.sidebarInputContainer}>
+                <TextInput
+                  style={styles.sidebarInput}
+                  placeholder="Email or phone"
+                  placeholderTextColor="#666"
+                  value={loginEmail}
+                  onChangeText={setLoginEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+
+              {/* Password Input */}
+              <Text style={styles.sidebarInputLabel}>Password</Text>
+              <View style={styles.sidebarInputContainer}>
+                <TextInput
+                  style={styles.sidebarInput}
+                  placeholder="Password"
+                  placeholderTextColor="#666"
+                  value={loginPassword}
+                  onChangeText={setLoginPassword}
+                  secureTextEntry={!showLoginPassword}
+                />
+                <TouchableOpacity onPress={() => setShowLoginPassword(!showLoginPassword)}>
+                  <Ionicons name={showLoginPassword ? "eye-outline" : "eye-off-outline"} size={22} color="#FF8C00" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Login Button */}
+              <TouchableOpacity style={styles.sidebarActionBtn} onPress={handleSidebarLogin} disabled={loginLoading}>
+                <LinearGradient colors={['#FF8C00', '#FF6B00']} style={styles.sidebarActionBtnGradient}>
+                  {loginLoading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.sidebarActionBtnText}>Log in</Text>}
+                </LinearGradient>
+              </TouchableOpacity>
+
+              {/* Footer Links */}
+              <View style={styles.sidebarFooterLinks}>
+                <TouchableOpacity onPress={() => { closeSidebar(); router.push('/(auth)/forgot-password'); }}>
+                  <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => { closeSidebar(); setTimeout(() => openSidebar('signup'), 300); }}>
+                  <Text style={styles.signUpLinkText}>Sign Up</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Promo Banner */}
+              <View style={styles.promoBanner}>
+                <LinearGradient colors={['#2A1A0A', '#1A1A1A']} style={styles.promoBannerGradient}>
+                  <View style={styles.promoContent}>
+                    <View style={styles.promoTextContainer}>
+                      <Text style={styles.promoLabel}>YOUR TRADING PARTNER</Text>
+                      <View style={styles.promoLogoRow}>
+                        <Image source={{ uri: 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/fhiw6o6y_IMG_3122.png' }} style={styles.promoLogo} resizeMode="contain" />
+                        <Text style={styles.promoLogoText}>Bynix</Text>
+                      </View>
+                    </View>
+                    <View style={styles.promoIconContainer}>
+                      <Ionicons name="bar-chart" size={20} color="#FF8C00" />
+                    </View>
+                  </View>
+                </LinearGradient>
+              </View>
+            </ScrollView>
+          </Animated.View>
+        </View>
+      </Modal>
+
+      {/* Signup Sidebar Modal */}
+      <Modal visible={showSignupSidebar} transparent animationType="none">
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalBackdrop} onPress={closeSidebar} activeOpacity={1} />
+          <Animated.View style={[styles.sidebarContainer, { transform: [{ translateX: sidebarSlide }] }]}>
+            <LinearGradient colors={['#1A1A1A', '#0D0D0D', '#1A1A1A']} style={StyleSheet.absoluteFill} />
+            
+            <ScrollView contentContainerStyle={styles.sidebarContent} showsVerticalScrollIndicator={false}>
+              {/* Header */}
+              <View style={styles.sidebarHeader}>
+                <View style={styles.decorIcon}>
+                  <Ionicons name="flame" size={20} color="#FF8C00" />
+                </View>
+                <TouchableOpacity style={styles.sidebarCloseBtn} onPress={closeSidebar}>
+                  <Ionicons name="close" size={28} color="#888" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Content */}
+              <Text style={styles.sidebarGreeting}>Get started now</Text>
+              <Text style={styles.sidebarTitle}>Create an account</Text>
+
+              {/* Social Login */}
+              <Text style={styles.socialLabel}>Continue with</Text>
+              <View style={styles.socialButtonsRow}>
+                <TouchableOpacity style={styles.socialButton} onPress={handleGoogleLogin}>
+                  <Image source={{ uri: 'https://www.google.com/favicon.ico' }} style={styles.socialIcon} />
+                  <Text style={styles.socialButtonText}>Google</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.socialButton} onPress={handleFacebookLogin}>
+                  <View style={styles.facebookIcon}>
+                    <FontAwesome name="facebook" size={18} color="#FFF" />
+                  </View>
+                  <Text style={styles.socialButtonText}>Facebook</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Divider */}
+              <View style={styles.sidebarDivider}>
+                <View style={styles.sidebarDividerLine} />
+                <Text style={styles.sidebarDividerText}>or</Text>
+                <View style={styles.sidebarDividerLine} />
+              </View>
+
+              {/* Proceed with Email Button */}
+              <TouchableOpacity style={styles.sidebarActionBtn} onPress={() => { closeSidebar(); router.push('/(auth)/signup'); }}>
+                <LinearGradient colors={['#FF8C00', '#FF6B00']} style={styles.sidebarActionBtnGradient}>
+                  <Text style={styles.sidebarActionBtnText}>Proceed with email</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              {/* Footer Links */}
+              <View style={styles.sidebarFooterLinksCenter}>
+                <Text style={styles.footerText}>Already have an account?</Text>
+                <TouchableOpacity onPress={() => { closeSidebar(); setTimeout(() => openSidebar('login'), 300); }}>
+                  <Text style={styles.loginLinkText}>Log in</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Promo Banner */}
+              <View style={styles.promoBanner}>
+                <LinearGradient colors={['#2A1A0A', '#1A1A1A']} style={styles.promoBannerGradient}>
+                  <View style={styles.promoContent}>
+                    <View style={styles.promoTextContainer}>
+                      <Text style={styles.promoLabel}>YOUR TRADING PARTNER</Text>
+                      <View style={styles.promoLogoRow}>
+                        <Image source={{ uri: 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/fhiw6o6y_IMG_3122.png' }} style={styles.promoLogo} resizeMode="contain" />
+                        <Text style={styles.promoLogoText}>Bynix</Text>
+                      </View>
+                    </View>
+                    <View style={styles.promoIconContainer}>
+                      <Ionicons name="bar-chart" size={20} color="#FF8C00" />
+                    </View>
+                  </View>
+                </LinearGradient>
+              </View>
+
+              {/* Terms */}
+              <Text style={styles.termsText}>
+                By creating an account, you agree to and accept our{' '}
+                <Text style={styles.termsLink} onPress={() => router.push('/(auth)/service-agreement')}>Terms & Conditions</Text>
+                {' '}and{' '}
+                <Text style={styles.termsLink} onPress={() => router.push('/(auth)/privacy-policy')}>Privacy Policy</Text>
+              </Text>
+            </ScrollView>
+          </Animated.View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -2057,5 +2358,246 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textAlign: 'center',
     marginBottom: 5,
+  },
+
+  // Sidebar Modal Styles
+  modalOverlay: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  sidebarContainer: {
+    width: width > 500 ? 400 : width * 0.9,
+    height: '100%',
+    position: 'absolute',
+    right: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: -4, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 20,
+  },
+  sidebarContent: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+  },
+  sidebarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: Platform.OS === 'ios' ? 55 : 35,
+    paddingBottom: 20,
+  },
+  decorIcon: {
+    width: 32,
+    height: 32,
+  },
+  sidebarCloseBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#2A2A2A',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sidebarGreeting: {
+    fontSize: 16,
+    color: '#888',
+    marginBottom: 8,
+  },
+  sidebarTitle: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 30,
+  },
+  socialLabel: {
+    fontSize: 14,
+    color: '#888',
+    marginBottom: 15,
+  },
+  socialButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 25,
+  },
+  socialButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2A2A2A',
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 10,
+  },
+  socialIcon: {
+    width: 20,
+    height: 20,
+  },
+  facebookIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#1877F2',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  socialButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  sidebarDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 25,
+  },
+  sidebarDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#333',
+  },
+  sidebarDividerText: {
+    color: '#666',
+    marginHorizontal: 16,
+    fontSize: 14,
+  },
+  sidebarInputLabel: {
+    fontSize: 14,
+    color: '#FFF',
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  sidebarInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2A2A2A',
+    borderRadius: 12,
+    marginBottom: 18,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  sidebarInput: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 16,
+    paddingVertical: 16,
+  },
+  sidebarActionBtn: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 8,
+    shadowColor: '#FF8C00',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  sidebarActionBtnGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+  },
+  sidebarActionBtnText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  sidebarFooterLinks: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    marginBottom: 30,
+  },
+  sidebarFooterLinksCenter: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 30,
+    gap: 8,
+  },
+  forgotPasswordText: {
+    color: '#FF8C00',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  signUpLinkText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  footerText: {
+    color: '#888',
+    fontSize: 15,
+  },
+  loginLinkText: {
+    color: '#FF8C00',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  promoBanner: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#FF8C0030',
+    marginBottom: 20,
+  },
+  promoBannerGradient: {
+    padding: 16,
+  },
+  promoContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  promoTextContainer: {
+    flex: 1,
+  },
+  promoLabel: {
+    fontSize: 10,
+    color: '#FF8C00',
+    fontWeight: '600',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  promoLogoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  promoLogo: {
+    width: 32,
+    height: 32,
+  },
+  promoLogoText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  promoIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FF8C0020',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  termsText: {
+    fontSize: 13,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  termsLink: {
+    color: '#FF8C00',
+    textDecorationLine: 'underline',
   },
 });
