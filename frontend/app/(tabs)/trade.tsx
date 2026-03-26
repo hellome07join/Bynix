@@ -2080,7 +2080,19 @@ export default function Trade() {
                 .map((asset) => {
                   // Check if asset is locked for current account type
                   const isDemoOnlyAsset = checkIsDemoOnly(asset.value);
-                  const isLocked = accountType === 'demo' ? !isDemoOnlyAsset : false;
+                  
+                  // Demo mode: Only demo-only assets are unlocked, rest locked
+                  // Real mode: Demo-only assets are locked (shown with lock)
+                  let isLocked = false;
+                  let lockText = '';
+                  
+                  if (accountType === 'demo') {
+                    isLocked = !isDemoOnlyAsset; // Lock if NOT demo-only
+                    lockText = '🔒 Real Balance Only';
+                  } else {
+                    isLocked = isDemoOnlyAsset; // Lock if demo-only
+                    lockText = '🔒 Demo Only';
+                  }
                   
                   return (
                 <TouchableOpacity
@@ -2094,7 +2106,9 @@ export default function Trade() {
                     if (isLocked) {
                       Alert.alert(
                         '🔒 Asset Locked',
-                        'This asset is only available for real balance trading.\n\nSwitch to Real account to trade this asset.',
+                        accountType === 'demo' 
+                          ? 'This asset is only available for real balance trading.\n\nSwitch to Real account to trade this asset.'
+                          : 'This asset is only available for demo trading.\n\nSwitch to Demo account to trade this asset.',
                         [{ text: 'OK', style: 'default' }]
                       );
                       return;
@@ -2109,7 +2123,7 @@ export default function Trade() {
                   <View style={styles.assetOptionInfo}>
                     <Text style={[styles.assetOptionText, isLocked && { color: '#666' }]}>{asset.label}</Text>
                     <Text style={[styles.assetOptionPayout, isLocked && { color: '#555' }]}>
-                      {isLocked ? '🔒 Real Balance Only' : `Payout: ${apiPayouts[asset.value] || apiPayouts[asset.label] || asset.payout}%`}
+                      {isLocked ? lockText : `Payout: ${apiPayouts[asset.value] || apiPayouts[asset.label] || asset.payout}%`}
                     </Text>
                   </View>
                   {isLocked ? (
