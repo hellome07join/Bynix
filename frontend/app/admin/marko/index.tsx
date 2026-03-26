@@ -2169,7 +2169,7 @@ export default function AdminDashboard() {
           </View>
         </View>
         
-        {/* Demo-only assets info */}
+        {/* Demo account info */}
         <View style={{ 
           backgroundColor: 'rgba(255, 184, 0, 0.08)', 
           borderRadius: 8, 
@@ -2179,16 +2179,16 @@ export default function AdminDashboard() {
           borderColor: 'rgba(255, 184, 0, 0.2)'
         }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-            <Ionicons name="lock-closed" size={14} color={COLORS.warning} />
+            <Ionicons name="game-controller" size={14} color={COLORS.warning} />
             <Text style={{ color: COLORS.warning, fontWeight: '700', fontSize: 12, marginLeft: 6 }}>
-              Applies to Demo-Only Assets:
+              Applies to ALL Demo Account Trades
             </Text>
           </View>
           <Text style={{ color: '#94a3b8', fontSize: 11, lineHeight: 16 }}>
-            EUR/USD • GBP/USD • USD/JPY • AUD/USD • NZD/USD • USD/CAD
+            This win rate controls the probability of winning for all trades placed using Demo balance.
           </Text>
           <Text style={{ color: '#64748b', fontSize: 10, marginTop: 6, fontStyle: 'italic' }}>
-            Other assets use the Real Balance AI Win Rate
+            Real balance uses the AI Win Rate above
           </Text>
         </View>
         

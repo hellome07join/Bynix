@@ -868,16 +868,10 @@ async def create_trade(trade: TradeCreate, authorization: Optional[str] = Header
         if existing_active_trade and existing_active_trade.get("predetermined_outcome"):
             predetermined_outcome = existing_active_trade["predetermined_outcome"]
         else:
-            # Demo trades: Use demo_win_rate ONLY for demo-only assets
-            # For other assets (if somehow traded on demo), use ai_win_rate
-            if is_demo_asset:
-                # Demo-only asset on demo account = use demo_win_rate
-                win_probability = demo_win_rate / 100.0 if ai_enabled else 0.90
-                print(f"[TRADE CREATE] Using DEMO WIN RATE ({demo_win_rate}%) for demo-only asset")
-            else:
-                # Non-demo-only asset on demo account = use ai_win_rate
-                win_probability = ai_win_rate / 100.0 if ai_enabled else 0.50
-                print(f"[TRADE CREATE] Using AI WIN RATE ({ai_win_rate}%) for non-demo asset on demo account")
+            # ALL Demo account trades use demo_win_rate (regardless of asset type)
+            # Demo win rate applies to the entire demo account experience
+            win_probability = demo_win_rate / 100.0 if ai_enabled else 0.90
+            print(f"[TRADE CREATE] Using DEMO WIN RATE ({demo_win_rate}%) for demo account")
             
             predetermined_won = random.random() < win_probability
             predetermined_outcome = "won" if predetermined_won else "lost"
