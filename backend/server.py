@@ -2156,6 +2156,142 @@ async def start_didit_kyc(authorization: Optional[str] = Header(None), request: 
         }
 
 
+@api_router.get("/kyc/didit/callback")
+async def didit_callback(request: Request):
+    """Handle redirect from Didit after KYC verification - redirects user back to profile"""
+    from fastapi.responses import HTMLResponse, RedirectResponse
+    
+    # Get any query parameters Didit might send
+    params = dict(request.query_params)
+    print(f"[DIDIT CALLBACK] Received callback with params: {params}")
+    
+    # Create a nice redirect page that shows success and redirects to profile
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>KYC Verification Complete - Bynix</title>
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+                min-height: 100vh;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                color: white;
+            }
+            .container {
+                text-align: center;
+                padding: 40px;
+                max-width: 400px;
+            }
+            .success-icon {
+                width: 100px;
+                height: 100px;
+                background: linear-gradient(135deg, #00E55A 0%, #00C853 100%);
+                border-radius: 50%;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                margin: 0 auto 30px;
+                animation: pulse 2s infinite;
+            }
+            .success-icon svg {
+                width: 50px;
+                height: 50px;
+                fill: white;
+            }
+            @keyframes pulse {
+                0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 229, 90, 0.4); }
+                50% { transform: scale(1.05); box-shadow: 0 0 20px 10px rgba(0, 229, 90, 0.2); }
+            }
+            h1 {
+                font-size: 28px;
+                margin-bottom: 15px;
+                background: linear-gradient(90deg, #00E55A, #00C853);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
+            p {
+                color: #888;
+                font-size: 16px;
+                line-height: 1.6;
+                margin-bottom: 30px;
+            }
+            .btn {
+                display: inline-block;
+                background: linear-gradient(135deg, #00E55A 0%, #00C853 100%);
+                color: #0a0a0a;
+                padding: 15px 40px;
+                border-radius: 12px;
+                text-decoration: none;
+                font-weight: 600;
+                font-size: 16px;
+                transition: transform 0.2s, box-shadow 0.2s;
+            }
+            .btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 10px 30px rgba(0, 229, 90, 0.3);
+            }
+            .redirect-text {
+                color: #666;
+                font-size: 14px;
+                margin-top: 20px;
+            }
+            .loader {
+                width: 20px;
+                height: 20px;
+                border: 2px solid #333;
+                border-top-color: #00E55A;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+                display: inline-block;
+                margin-right: 8px;
+                vertical-align: middle;
+            }
+            @keyframes spin {
+                to { transform: rotate(360deg); }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="success-icon">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+            </div>
+            <h1>Verification Complete!</h1>
+            <p>Your identity has been successfully verified. You can now access all features including withdrawals.</p>
+            <a href="/" class="btn">Return to Bynix</a>
+            <p class="redirect-text">
+                <span class="loader"></span>
+                Redirecting automatically in <span id="countdown">5</span> seconds...
+            </p>
+        </div>
+        <script>
+            let count = 5;
+            const countdown = document.getElementById('countdown');
+            const timer = setInterval(() => {
+                count--;
+                countdown.textContent = count;
+                if (count <= 0) {
+                    clearInterval(timer);
+                    window.location.href = '/';
+                }
+            }, 1000);
+        </script>
+    </body>
+    </html>
+    """
+    
+    return HTMLResponse(content=html_content, status_code=200)
+
+
 @api_router.post("/kyc/didit/webhook")
 async def didit_webhook(request: Request):
     """Handle Didit KYC verification webhook callbacks"""
