@@ -1531,6 +1531,70 @@ export default function AdminDashboard() {
                     <Ionicons name="trash" size={20} color="#ff4444" />
                     <Text style={[styles.actionBtnText, { color: '#ff4444' }]}>Delete User</Text>
                   </TouchableOpacity>
+                  
+                  {/* Unban User Button - Only shows when user is banned */}
+                  {selectedUser?.is_banned && (
+                    <TouchableOpacity 
+                      style={[styles.actionBtn, { backgroundColor: COLORS.successLight, marginTop: 12, width: '100%' }]}
+                      onPress={async () => {
+                        const message = 'Are you sure you want to unban this user? They will be able to login again.';
+                        
+                        let confirmed = false;
+                        if (Platform.OS === 'web') {
+                          confirmed = window.confirm(message);
+                        }
+                        
+                        if (confirmed || Platform.OS !== 'web') {
+                          const doUnban = async () => {
+                            try {
+                              const response = await fetch(`${API_URL}/admin/users/${selectedUser?.user_id}/ban`, {
+                                method: 'POST',
+                                headers: headers,
+                                body: JSON.stringify({ banned: false })
+                              });
+                              if (response.ok) {
+                                if (Platform.OS === 'web') {
+                                  window.alert('User unbanned successfully');
+                                } else {
+                                  Alert.alert('Success', 'User unbanned successfully');
+                                }
+                                fetchDashboardData();
+                                setShowUserModal(false);
+                              } else {
+                                if (Platform.OS === 'web') {
+                                  window.alert('Failed to unban user');
+                                } else {
+                                  Alert.alert('Error', 'Failed to unban user');
+                                }
+                              }
+                            } catch (error) {
+                              if (Platform.OS === 'web') {
+                                window.alert('Failed to unban user');
+                              } else {
+                                Alert.alert('Error', 'Failed to unban user');
+                              }
+                            }
+                          };
+                          
+                          if (Platform.OS === 'web' && confirmed) {
+                            await doUnban();
+                          } else if (Platform.OS !== 'web') {
+                            Alert.alert(
+                              '✅ Unban User',
+                              message,
+                              [
+                                { text: 'Cancel', style: 'cancel' },
+                                { text: 'Unban', onPress: doUnban }
+                              ]
+                            );
+                          }
+                        }
+                      }}
+                    >
+                      <Ionicons name="checkmark-circle" size={20} color={COLORS.success} />
+                      <Text style={[styles.actionBtnText, { color: COLORS.success }]}>Unban User</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </ScrollView>
             </View>
