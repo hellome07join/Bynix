@@ -1952,27 +1952,49 @@ export default function Trade() {
                   <Text style={styles.trendingSectionSubtitle}>Top traded</Text>
                 </View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.trendingScroll}>
-                  {trendingAssets.slice(0, 5).map((item: any, idx: number) => (
+                  {trendingAssets.slice(0, 5).map((item: any, idx: number) => {
+                    // Check if this trending asset is locked for current account type
+                    const isTrendingDemoOnly = checkIsDemoOnly(item.asset);
+                    const isTrendingLocked = accountType === 'demo' ? !isTrendingDemoOnly : isTrendingDemoOnly;
+                    
+                    return (
                     <TouchableOpacity
                       key={idx}
                       style={[
                         styles.trendingAssetCard,
                         idx === 0 && styles.trendingAssetCardTop,
-                        selectedAsset === item.asset && styles.trendingAssetCardSelected
+                        selectedAsset === item.asset && styles.trendingAssetCardSelected,
+                        isTrendingLocked && styles.trendingAssetCardLocked
                       ]}
                       onPress={() => {
+                        if (isTrendingLocked) {
+                          Alert.alert(
+                            '🔒 Asset Locked',
+                            accountType === 'demo' 
+                              ? 'This asset is only available for real balance trading.\n\nSwitch to Real account to trade this asset.'
+                              : 'This asset is only available for demo trading.\n\nSwitch to Demo account to trade this asset.',
+                            [{ text: 'OK', style: 'default' }]
+                          );
+                          return;
+                        }
                         setSelectedAsset(item.asset);
                         setShowAssetPicker(false);
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                       }}
                     >
+                      {isTrendingLocked && (
+                        <View style={styles.trendingLockOverlay}>
+                          <Ionicons name="lock-closed" size={14} color="#FF6B6B" />
+                        </View>
+                      )}
                       <View style={styles.trendingRankBadge}>
                         <Text style={styles.trendingRankText}>{idx + 1}</Text>
                       </View>
-                      <Text style={styles.trendingAssetName} numberOfLines={1}>{item.asset.replace(' OTC', '')}</Text>
-                      <Text style={styles.trendingAssetPayout}>{item.payout}%</Text>
+                      <Text style={[styles.trendingAssetName, isTrendingLocked && { opacity: 0.5 }]} numberOfLines={1}>{item.asset.replace(' OTC', '')}</Text>
+                      <Text style={[styles.trendingAssetPayout, isTrendingLocked && { opacity: 0.5 }]}>{item.payout}%</Text>
                     </TouchableOpacity>
-                  ))}
+                    );
+                  })}
                 </ScrollView>
               </View>
             )}
@@ -5299,6 +5321,17 @@ const styles = StyleSheet.create({
   trendingAssetCardSelected: {
     backgroundColor: 'rgba(0, 229, 90, 0.15)',
     borderColor: 'rgba(0, 229, 90, 0.6)',
+  },
+  trendingAssetCardLocked: {
+    backgroundColor: 'rgba(40, 45, 60, 0.5)',
+    borderColor: 'rgba(255, 107, 107, 0.4)',
+    opacity: 0.7,
+  },
+  trendingLockOverlay: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    zIndex: 10,
   },
   trendingRankBadge: {
     position: 'absolute',
