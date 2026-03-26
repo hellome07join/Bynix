@@ -789,7 +789,8 @@ export default function Trade() {
   const currentAssets = dbAssets.length > 0 ? dbAssets : hardcodedAssets;
   
   // Demo-only assets list (hardcoded for reliable switching)
-  const DEMO_ONLY_SYMBOLS = ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'NZDUSD', 'USDCAD'];
+  // USD/CHF is now Real-only (removed from demo list)
+  const DEMO_ONLY_SYMBOLS = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'NZDUSD', 'USDCAD'];
   
   // Check if asset is demo-only
   const checkIsDemoOnly = (asset: string) => {

@@ -21,13 +21,12 @@ from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContent
 from tarspay_service import tarspay_service, fetch_live_exchange_rate, get_current_rate
 from email_service import send_verification_otp, verify_otp as verify_email_otp, resend_otp
 
-# Demo-only assets - These 7 Forex assets are ONLY available for Demo trading
-# Real balance can trade all OTHER assets
+# Demo-only assets - These 6 Forex assets are ONLY available for Demo trading
+# Real balance can trade all OTHER assets (including USD/CHF)
 DEMO_ONLY_ASSETS = [
     "EURUSD", "EUR/USD", "EUR/USD OTC",
     "GBPUSD", "GBP/USD", "GBP/USD OTC",
     "USDJPY", "USD/JPY", "USD/JPY OTC",
-    "USDCHF", "USD/CHF", "USD/CHF OTC",
     "AUDUSD", "AUD/USD", "AUD/USD OTC",
     "NZDUSD", "NZD/USD", "NZD/USD OTC",
     "USDCAD", "USD/CAD", "USD/CAD OTC",
