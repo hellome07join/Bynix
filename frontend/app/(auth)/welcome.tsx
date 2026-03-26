@@ -867,16 +867,17 @@ export default function Welcome() {
         <View style={styles.modalOverlay}>
           <TouchableOpacity style={styles.modalBackdrop} onPress={closeSidebar} activeOpacity={1} />
           <Animated.View style={[styles.sidebarContainer, { transform: [{ translateX: sidebarSlide }] }]}>
-            <LinearGradient colors={['#1A1A1A', '#0D0D0D', '#1A1A1A']} style={StyleSheet.absoluteFill} />
             
             <ScrollView contentContainerStyle={styles.sidebarContent} showsVerticalScrollIndicator={false}>
               {/* Header */}
               <View style={styles.sidebarHeader}>
-                <View style={styles.decorIcon}>
-                  <Ionicons name="flame" size={20} color="#FF8C00" />
-                </View>
+                <Image 
+                  source={{ uri: 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/fhiw6o6y_IMG_3122.png' }}
+                  style={{ width: 28, height: 28 }}
+                  resizeMode="contain"
+                />
                 <TouchableOpacity style={styles.sidebarCloseBtn} onPress={closeSidebar}>
-                  <Ionicons name="close" size={28} color="#888" />
+                  <Ionicons name="close" size={22} color="#888" />
                 </TouchableOpacity>
               </View>
 
@@ -893,7 +894,7 @@ export default function Welcome() {
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.socialButton} onPress={handleFacebookLogin}>
                   <View style={styles.facebookIcon}>
-                    <FontAwesome name="facebook" size={18} color="#FFF" />
+                    <FontAwesome name="facebook" size={14} color="#FFF" />
                   </View>
                   <Text style={styles.socialButtonText}>Facebook</Text>
                 </TouchableOpacity>
@@ -912,7 +913,7 @@ export default function Welcome() {
                 <TextInput
                   style={styles.sidebarInput}
                   placeholder="Email or phone"
-                  placeholderTextColor="#666"
+                  placeholderTextColor="#555"
                   value={loginEmail}
                   onChangeText={setLoginEmail}
                   keyboardType="email-address"
@@ -926,20 +927,20 @@ export default function Welcome() {
                 <TextInput
                   style={styles.sidebarInput}
                   placeholder="Password"
-                  placeholderTextColor="#666"
+                  placeholderTextColor="#555"
                   value={loginPassword}
                   onChangeText={setLoginPassword}
                   secureTextEntry={!showLoginPassword}
                 />
                 <TouchableOpacity onPress={() => setShowLoginPassword(!showLoginPassword)}>
-                  <Ionicons name={showLoginPassword ? "eye-outline" : "eye-off-outline"} size={22} color="#FF8C00" />
+                  <Ionicons name={showLoginPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#00E55A" />
                 </TouchableOpacity>
               </View>
 
               {/* Login Button */}
               <TouchableOpacity style={styles.sidebarActionBtn} onPress={handleSidebarLogin} disabled={loginLoading}>
-                <LinearGradient colors={['#FF8C00', '#FF6B00']} style={styles.sidebarActionBtnGradient}>
-                  {loginLoading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.sidebarActionBtnText}>Log in</Text>}
+                <LinearGradient colors={['#00E55A', '#00C94D']} style={styles.sidebarActionBtnGradient}>
+                  {loginLoading ? <ActivityIndicator color="#0D0D0D" /> : <Text style={styles.sidebarActionBtnText}>Log in</Text>}
                 </LinearGradient>
               </TouchableOpacity>
 
@@ -955,7 +956,7 @@ export default function Welcome() {
 
               {/* Promo Banner */}
               <View style={styles.promoBanner}>
-                <LinearGradient colors={['#2A1A0A', '#1A1A1A']} style={styles.promoBannerGradient}>
+                <LinearGradient colors={['#0A1A10', '#0D0D0D']} style={styles.promoBannerGradient}>
                   <View style={styles.promoContent}>
                     <View style={styles.promoTextContainer}>
                       <Text style={styles.promoLabel}>YOUR TRADING PARTNER</Text>
@@ -965,7 +966,7 @@ export default function Welcome() {
                       </View>
                     </View>
                     <View style={styles.promoIconContainer}>
-                      <Ionicons name="bar-chart" size={20} color="#FF8C00" />
+                      <Ionicons name="trending-up" size={18} color="#00E55A" />
                     </View>
                   </View>
                 </LinearGradient>
@@ -980,16 +981,17 @@ export default function Welcome() {
         <View style={styles.modalOverlay}>
           <TouchableOpacity style={styles.modalBackdrop} onPress={closeSidebar} activeOpacity={1} />
           <Animated.View style={[styles.sidebarContainer, { transform: [{ translateX: sidebarSlide }] }]}>
-            <LinearGradient colors={['#1A1A1A', '#0D0D0D', '#1A1A1A']} style={StyleSheet.absoluteFill} />
             
             <ScrollView contentContainerStyle={styles.sidebarContent} showsVerticalScrollIndicator={false}>
               {/* Header */}
               <View style={styles.sidebarHeader}>
-                <View style={styles.decorIcon}>
-                  <Ionicons name="flame" size={20} color="#FF8C00" />
-                </View>
+                <Image 
+                  source={{ uri: 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/fhiw6o6y_IMG_3122.png' }}
+                  style={{ width: 28, height: 28 }}
+                  resizeMode="contain"
+                />
                 <TouchableOpacity style={styles.sidebarCloseBtn} onPress={closeSidebar}>
-                  <Ionicons name="close" size={28} color="#888" />
+                  <Ionicons name="close" size={22} color="#888" />
                 </TouchableOpacity>
               </View>
 
@@ -1006,7 +1008,7 @@ export default function Welcome() {
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.socialButton} onPress={handleFacebookLogin}>
                   <View style={styles.facebookIcon}>
-                    <FontAwesome name="facebook" size={18} color="#FFF" />
+                    <FontAwesome name="facebook" size={14} color="#FFF" />
                   </View>
                   <Text style={styles.socialButtonText}>Facebook</Text>
                 </TouchableOpacity>
@@ -1021,7 +1023,7 @@ export default function Welcome() {
 
               {/* Proceed with Email Button */}
               <TouchableOpacity style={styles.sidebarActionBtn} onPress={() => { closeSidebar(); router.push('/(auth)/signup'); }}>
-                <LinearGradient colors={['#FF8C00', '#FF6B00']} style={styles.sidebarActionBtnGradient}>
+                <LinearGradient colors={['#00E55A', '#00C94D']} style={styles.sidebarActionBtnGradient}>
                   <Text style={styles.sidebarActionBtnText}>Proceed with email</Text>
                 </LinearGradient>
               </TouchableOpacity>
@@ -1036,7 +1038,7 @@ export default function Welcome() {
 
               {/* Promo Banner */}
               <View style={styles.promoBanner}>
-                <LinearGradient colors={['#2A1A0A', '#1A1A1A']} style={styles.promoBannerGradient}>
+                <LinearGradient colors={['#0A1A10', '#0D0D0D']} style={styles.promoBannerGradient}>
                   <View style={styles.promoContent}>
                     <View style={styles.promoTextContainer}>
                       <Text style={styles.promoLabel}>YOUR TRADING PARTNER</Text>
@@ -1046,7 +1048,7 @@ export default function Welcome() {
                       </View>
                     </View>
                     <View style={styles.promoIconContainer}>
-                      <Ionicons name="bar-chart" size={20} color="#FF8C00" />
+                      <Ionicons name="trending-up" size={18} color="#00E55A" />
                     </View>
                   </View>
                 </LinearGradient>
@@ -1054,8 +1056,8 @@ export default function Welcome() {
 
               {/* Terms */}
               <Text style={styles.termsText}>
-                By creating an account, you agree to and accept our{' '}
-                <Text style={styles.termsLink} onPress={() => router.push('/(auth)/service-agreement')}>Terms & Conditions</Text>
+                By creating an account, you agree to our{' '}
+                <Text style={styles.termsLink} onPress={() => router.push('/(auth)/service-agreement')}>Terms</Text>
                 {' '}and{' '}
                 <Text style={styles.termsLink} onPress={() => router.push('/(auth)/privacy-policy')}>Privacy Policy</Text>
               </Text>
@@ -2364,194 +2366,191 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     flexDirection: 'row',
+    justifyContent: 'flex-end',
   },
   modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
   },
   sidebarContainer: {
-    width: width > 500 ? 400 : width * 0.9,
-    height: '100%',
-    position: 'absolute',
-    right: 0,
+    width: width > 500 ? 380 : width * 0.85,
+    maxWidth: 400,
+    backgroundColor: '#0D0D0D',
+    borderTopLeftRadius: 24,
+    borderBottomLeftRadius: 24,
     shadowColor: '#000',
     shadowOffset: { width: -4, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 20,
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 25,
   },
   sidebarContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingBottom: 40,
+    paddingHorizontal: 20,
+    paddingBottom: 30,
   },
   sidebarHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: Platform.OS === 'ios' ? 55 : 35,
-    paddingBottom: 20,
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    paddingBottom: 16,
   },
   decorIcon: {
-    width: 32,
-    height: 32,
+    width: 28,
+    height: 28,
   },
   sidebarCloseBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#2A2A2A',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#1A1F2E',
     justifyContent: 'center',
     alignItems: 'center',
   },
   sidebarGreeting: {
-    fontSize: 16,
-    color: '#888',
-    marginBottom: 8,
-  },
-  sidebarTitle: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 30,
-  },
-  socialLabel: {
     fontSize: 14,
     color: '#888',
-    marginBottom: 15,
+    marginBottom: 4,
+  },
+  sidebarTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 20,
+  },
+  socialLabel: {
+    fontSize: 13,
+    color: '#888',
+    marginBottom: 12,
   },
   socialButtonsRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 25,
+    gap: 10,
+    marginBottom: 18,
   },
   socialButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2A2A2A',
-    paddingVertical: 14,
-    borderRadius: 12,
-    gap: 10,
+    backgroundColor: '#1A1F2E',
+    paddingVertical: 12,
+    borderRadius: 10,
+    gap: 8,
   },
   socialIcon: {
-    width: 20,
-    height: 20,
+    width: 18,
+    height: 18,
   },
   facebookIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: '#1877F2',
     justifyContent: 'center',
     alignItems: 'center',
   },
   socialButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
   },
   sidebarDivider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 25,
+    marginBottom: 18,
   },
   sidebarDividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#333',
+    backgroundColor: '#252A3A',
   },
   sidebarDividerText: {
-    color: '#666',
-    marginHorizontal: 16,
-    fontSize: 14,
+    color: '#555',
+    marginHorizontal: 12,
+    fontSize: 13,
   },
   sidebarInputLabel: {
-    fontSize: 14,
-    color: '#FFF',
-    fontWeight: '600',
-    marginBottom: 10,
+    fontSize: 13,
+    color: '#AAA',
+    fontWeight: '500',
+    marginBottom: 8,
   },
   sidebarInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2A2A2A',
-    borderRadius: 12,
-    marginBottom: 18,
-    paddingHorizontal: 16,
+    backgroundColor: '#1A1F2E',
+    borderRadius: 10,
+    marginBottom: 14,
+    paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: '#252A3A',
   },
   sidebarInput: {
     flex: 1,
     color: '#FFFFFF',
-    fontSize: 16,
-    paddingVertical: 16,
+    fontSize: 15,
+    paddingVertical: 14,
   },
   sidebarActionBtn: {
-    borderRadius: 12,
+    borderRadius: 10,
     overflow: 'hidden',
-    marginTop: 8,
-    shadowColor: '#FF8C00',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    marginTop: 6,
   },
   sidebarActionBtnGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 18,
+    paddingVertical: 14,
   },
   sidebarActionBtnText: {
-    color: '#FFF',
-    fontSize: 18,
+    color: '#0D0D0D',
+    fontSize: 16,
     fontWeight: '700',
   },
   sidebarFooterLinks: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 20,
-    marginBottom: 30,
+    marginTop: 16,
+    marginBottom: 20,
   },
   sidebarFooterLinksCenter: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 30,
-    gap: 8,
+    marginTop: 16,
+    marginBottom: 20,
+    gap: 6,
   },
   forgotPasswordText: {
-    color: '#FF8C00',
-    fontSize: 15,
+    color: '#00E55A',
+    fontSize: 14,
     fontWeight: '600',
   },
   signUpLinkText: {
     color: '#FFF',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
   },
   footerText: {
     color: '#888',
-    fontSize: 15,
+    fontSize: 14,
   },
   loginLinkText: {
-    color: '#FF8C00',
-    fontSize: 15,
+    color: '#00E55A',
+    fontSize: 14,
     fontWeight: '700',
   },
   promoBanner: {
-    borderRadius: 16,
+    borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#FF8C0030',
-    marginBottom: 20,
+    borderColor: '#00E55A30',
+    marginBottom: 16,
   },
   promoBannerGradient: {
-    padding: 16,
+    padding: 14,
   },
   promoContent: {
     flexDirection: 'row',
@@ -2562,42 +2561,41 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   promoLabel: {
-    fontSize: 10,
-    color: '#FF8C00',
+    fontSize: 9,
+    color: '#00E55A',
     fontWeight: '600',
     letterSpacing: 1,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   promoLogoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   promoLogo: {
-    width: 32,
-    height: 32,
+    width: 28,
+    height: 28,
   },
   promoLogoText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: '#FFF',
   },
   promoIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FF8C0020',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#00E55A20',
     justifyContent: 'center',
     alignItems: 'center',
   },
   termsText: {
-    fontSize: 13,
+    fontSize: 11,
     color: '#666',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 18,
   },
   termsLink: {
-    color: '#FF8C00',
-    textDecorationLine: 'underline',
+    color: '#00E55A',
   },
 });

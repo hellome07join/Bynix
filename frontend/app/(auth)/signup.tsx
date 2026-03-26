@@ -263,7 +263,7 @@ export default function Signup() {
             </TouchableOpacity>
 
             <View style={styles.otpIconContainer}>
-              <Ionicons name="mail" size={48} color="#FF8C00" />
+              <Ionicons name="mail" size={48} color="#00E55A" />
             </View>
 
             <Text style={styles.otpTitle}>Verify Your Email</Text>
@@ -287,7 +287,7 @@ export default function Signup() {
             </View>
 
             <TouchableOpacity style={[styles.verifyBtn, verifyingOTP && styles.verifyBtnDisabled]} onPress={handleVerifyOTP} disabled={verifyingOTP}>
-              <LinearGradient colors={['#FF8C00', '#FF6B00']} style={styles.verifyBtnGradient}>
+              <LinearGradient colors={['#00E55A', '#00C94D']} style={styles.verifyBtnGradient}>
                 {verifyingOTP ? <ActivityIndicator color="#FFF" /> : <Text style={styles.verifyBtnText}>Verify Email</Text>}
               </LinearGradient>
             </TouchableOpacity>
@@ -360,7 +360,7 @@ export default function Signup() {
                 <Text style={[styles.input, !selectedCountry && { color: '#666' }]}>
                   {selectedCountry ? `${selectedCountry.flag} ${selectedCountry.name}` : 'Select your country'}
                 </Text>
-                <Ionicons name="chevron-down" size={22} color="#FF8C00" />
+                <Ionicons name="chevron-down" size={22} color="#00E55A" />
               </TouchableOpacity>
 
               {/* Password Input */}
@@ -375,7 +375,7 @@ export default function Signup() {
                   secureTextEntry={!showPassword}
                 />
                 <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                  <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={22} color="#FF8C00" />
+                  <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={22} color="#00E55A" />
                 </TouchableOpacity>
               </View>
 
@@ -391,7 +391,7 @@ export default function Signup() {
                   secureTextEntry={!showConfirmPassword}
                 />
                 <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                  <Ionicons name={showConfirmPassword ? "eye-outline" : "eye-off-outline"} size={22} color="#FF8C00" />
+                  <Ionicons name={showConfirmPassword ? "eye-outline" : "eye-off-outline"} size={22} color="#00E55A" />
                 </TouchableOpacity>
               </View>
 
@@ -411,7 +411,7 @@ export default function Signup() {
 
               {/* Create Account Button */}
               <TouchableOpacity style={styles.actionButton} onPress={handleSignup} disabled={loading}>
-                <LinearGradient colors={['#FF8C00', '#FF6B00']} style={styles.actionButtonGradient}>
+                <LinearGradient colors={['#00E55A', '#00C94D']} style={styles.actionButtonGradient}>
                   {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.actionButtonText}>Create account</Text>}
                 </LinearGradient>
               </TouchableOpacity>
@@ -439,7 +439,7 @@ export default function Signup() {
               </View>
               
               <View style={styles.restrictedNotice}>
-                <Ionicons name="warning" size={16} color="#FF8C00" />
+                <Ionicons name="warning" size={16} color="#00E55A" />
                 <Text style={styles.restrictedText}>
                   Service not available in: US, Canada, EU, EEA, Russia, Hong Kong, Israel
                 </Text>
@@ -457,7 +457,7 @@ export default function Signup() {
                       >
                         <Text style={styles.countryFlag}>{country.flag}</Text>
                         <Text style={styles.countryName}>{country.name}</Text>
-                        {selectedCountry?.name === country.name && <Ionicons name="checkmark-circle" size={20} color="#FF8C00" />}
+                        {selectedCountry?.name === country.name && <Ionicons name="checkmark-circle" size={20} color="#00E55A" />}
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -484,7 +484,7 @@ export default function Signup() {
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.decorIcon}>
-              <Ionicons name="flame" size={20} color="#FF8C00" />
+              <Ionicons name="flame" size={20} color="#00E55A" />
             </View>
             <TouchableOpacity style={styles.closeButton} onPress={() => router.push('/(auth)/welcome')}>
               <Ionicons name="close" size={28} color="#888" />
@@ -522,7 +522,7 @@ export default function Signup() {
 
             {/* Proceed with Email Button */}
             <TouchableOpacity style={styles.actionButton} onPress={() => setShowEmailForm(true)}>
-              <LinearGradient colors={['#FF8C00', '#FF6B00']} style={styles.actionButtonGradient}>
+              <LinearGradient colors={['#00E55A', '#00C94D']} style={styles.actionButtonGradient}>
                 <Text style={styles.actionButtonText}>Proceed with email</Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -551,7 +551,7 @@ export default function Signup() {
                     </View>
                   </View>
                   <View style={styles.promoIconContainer}>
-                    <Ionicons name="bar-chart" size={20} color="#FF8C00" />
+                    <Ionicons name="bar-chart" size={20} color="#00E55A" />
                   </View>
                 </View>
               </LinearGradient>
@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
     left: 0,
     width: 150,
     height: 150,
-    backgroundColor: '#FF8C00',
+    backgroundColor: '#00E55A',
     opacity: 0.05,
     borderBottomRightRadius: 150,
   },
@@ -592,7 +592,7 @@ const styles = StyleSheet.create({
     right: 0,
     width: 200,
     height: 200,
-    backgroundColor: '#FF8C00',
+    backgroundColor: '#00E55A',
     opacity: 0.03,
     borderTopLeftRadius: 200,
   },
@@ -700,7 +700,7 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 14,
-    color: '#FFF',
+    color: '#0D0D0D',
     fontWeight: '600',
     marginBottom: 10,
   },
@@ -733,7 +733,7 @@ const styles = StyleSheet.create({
   actionButton: {
     borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#FF8C00',
+    shadowColor: '#00E55A',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -746,7 +746,7 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
   },
   actionButtonText: {
-    color: '#FFF',
+    color: '#0D0D0D',
     fontSize: 18,
     fontWeight: '700',
   },
@@ -763,7 +763,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   loginLinkText: {
-    color: '#FF8C00',
+    color: '#00E55A',
     fontSize: 15,
     fontWeight: '700',
   },
@@ -771,7 +771,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#FF8C0030',
+    borderColor: '#00E55A30',
     marginBottom: 20,
   },
   promoBannerGradient: {
@@ -787,7 +787,7 @@ const styles = StyleSheet.create({
   },
   promoLabel: {
     fontSize: 10,
-    color: '#FF8C00',
+    color: '#00E55A',
     fontWeight: '600',
     letterSpacing: 1,
     marginBottom: 8,
@@ -804,13 +804,13 @@ const styles = StyleSheet.create({
   promoLogoText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#FFF',
+    color: '#0D0D0D',
   },
   promoIconContainer: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FF8C0020',
+    backgroundColor: '#00E55A20',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -821,7 +821,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   termsLink: {
-    color: '#FF8C00',
+    color: '#00E55A',
     textDecorationLine: 'underline',
   },
   // Modal Styles
@@ -846,12 +846,12 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#FFF',
+    color: '#0D0D0D',
   },
   restrictedNotice: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FF8C0015',
+    backgroundColor: '#00E55A15',
     borderRadius: 10,
     padding: 12,
     marginBottom: 16,
@@ -859,14 +859,14 @@ const styles = StyleSheet.create({
   },
   restrictedText: {
     flex: 1,
-    color: '#FF8C00',
+    color: '#00E55A',
     fontSize: 12,
   },
   countryList: {
     maxHeight: 400,
   },
   regionHeader: {
-    color: '#FF8C00',
+    color: '#00E55A',
     fontSize: 12,
     fontWeight: '700',
     marginTop: 15,
@@ -883,7 +883,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#2A2A2A',
   },
   countryItemSelected: {
-    backgroundColor: '#FF8C0015',
+    backgroundColor: '#00E55A15',
     borderRadius: 10,
   },
   countryFlag: {
@@ -918,7 +918,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#FF8C0020',
+    backgroundColor: '#00E55A20',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
@@ -926,7 +926,7 @@ const styles = StyleSheet.create({
   otpTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#FFF',
+    color: '#0D0D0D',
     marginBottom: 12,
   },
   otpSubtitle: {
@@ -937,7 +937,7 @@ const styles = StyleSheet.create({
   otpEmail: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#FF8C00',
+    color: '#00E55A',
     marginBottom: 32,
   },
   otpInputContainer: {
@@ -959,8 +959,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   otpInputFilled: {
-    borderColor: '#FF8C00',
-    backgroundColor: '#FF8C0015',
+    borderColor: '#00E55A',
+    backgroundColor: '#00E55A15',
   },
   verifyBtn: {
     width: '100%',
@@ -976,7 +976,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   verifyBtnText: {
-    color: '#FFF',
+    color: '#0D0D0D',
     fontSize: 18,
     fontWeight: '700',
   },
@@ -989,7 +989,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   otpResendLink: {
-    color: '#FF8C00',
+    color: '#00E55A',
     fontSize: 14,
     fontWeight: '600',
   },

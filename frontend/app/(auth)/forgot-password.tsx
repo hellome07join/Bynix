@@ -76,7 +76,7 @@ export default function ForgotPassword() {
           <View style={styles.content}>
             {/* Icon */}
             <View style={styles.iconContainer}>
-              <Ionicons name="lock-open-outline" size={48} color="#FF8C00" />
+              <Ionicons name="lock-open-outline" size={48} color="#00E55A" />
             </View>
 
             <Text style={styles.title}>Forgot Password?</Text>
@@ -108,7 +108,7 @@ export default function ForgotPassword() {
                   activeOpacity={0.8}
                 >
                   <LinearGradient
-                    colors={['#FF8C00', '#FF6B00']}
+                    colors={['#00E55A', '#00C94D']}
                     style={styles.resetButtonGradient}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
@@ -145,7 +145,7 @@ export default function ForgotPassword() {
                 style={styles.backToLogin}
                 onPress={() => router.push('/(auth)/login')}
               >
-                <Ionicons name="arrow-back" size={16} color="#FF8C00" />
+                <Ionicons name="arrow-back" size={16} color="#00E55A" />
                 <Text style={styles.backToLoginLinkText}>Back to Login</Text>
               </TouchableOpacity>
             )}
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#FF8C0020',
+    backgroundColor: '#00E55A20',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   resetButton: {
     borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#FF8C00',
+    shadowColor: '#00E55A',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   backToLoginLinkText: {
-    color: '#FF8C00',
+    color: '#00E55A',
     fontSize: 15,
     fontWeight: '600',
   },

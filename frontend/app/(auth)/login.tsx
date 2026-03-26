@@ -119,10 +119,12 @@ export default function Login() {
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              {/* Decorative leaf/flame icon */}
-              <View style={styles.decorIcon}>
-                <Ionicons name="flame" size={20} color="#FF8C00" />
-              </View>
+              {/* Bynix Logo */}
+              <Image 
+                source={{ uri: 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/fhiw6o6y_IMG_3122.png' }}
+                style={{ width: 28, height: 28 }}
+                resizeMode="contain"
+              />
             </View>
             <TouchableOpacity 
               style={styles.closeButton}
@@ -205,7 +207,7 @@ export default function Login() {
                 <Ionicons 
                   name={showPassword ? "eye-outline" : "eye-off-outline"} 
                   size={22} 
-                  color="#FF8C00" 
+                  color="#00E55A" 
                 />
               </TouchableOpacity>
             </View>
@@ -218,7 +220,7 @@ export default function Login() {
               activeOpacity={0.8}
             >
               <LinearGradient
-                colors={['#FF8C00', '#FF6B00']}
+                colors={['#00E55A', '#00C94D']}
                 style={styles.loginButtonGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -244,7 +246,7 @@ export default function Login() {
             {/* Promo Banner */}
             <View style={styles.promoBanner}>
               <LinearGradient
-                colors={['#2A1A0A', '#1A1A1A']}
+                colors={['#0A1A10', '#1A1A1A']}
                 style={styles.promoBannerGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -262,7 +264,7 @@ export default function Login() {
                     </View>
                   </View>
                   <View style={styles.promoIconContainer}>
-                    <Ionicons name="bar-chart" size={20} color="#FF8C00" />
+                    <Ionicons name="trending-up" size={20} color="#00E55A" />
                   </View>
                 </View>
               </LinearGradient>
@@ -285,7 +287,7 @@ const styles = StyleSheet.create({
     left: 0,
     width: 150,
     height: 150,
-    backgroundColor: '#FF8C00',
+    backgroundColor: '#00E55A',
     opacity: 0.05,
     borderBottomRightRadius: 150,
   },
@@ -295,7 +297,7 @@ const styles = StyleSheet.create({
     right: 0,
     width: 200,
     height: 200,
-    backgroundColor: '#FF8C00',
+    backgroundColor: '#00E55A',
     opacity: 0.03,
     borderTopLeftRadius: 200,
   },
@@ -425,7 +427,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#FF8C00',
+    shadowColor: '#00E55A',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -438,7 +440,7 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
   },
   loginButtonText: {
-    color: '#FFF',
+    color: '#0D0D0D',
     fontSize: 18,
     fontWeight: '700',
   },
@@ -449,7 +451,7 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   forgotPasswordText: {
-    color: '#FF8C00',
+    color: '#00E55A',
     fontSize: 15,
     fontWeight: '600',
   },
@@ -462,7 +464,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#FF8C0030',
+    borderColor: '#00E55A30',
   },
   promoBannerGradient: {
     padding: 16,
@@ -477,7 +479,7 @@ const styles = StyleSheet.create({
   },
   promoLabel: {
     fontSize: 10,
-    color: '#FF8C00',
+    color: '#00E55A',
     fontWeight: '600',
     letterSpacing: 1,
     marginBottom: 8,
@@ -500,7 +502,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FF8C0020',
+    backgroundColor: '#00E55A20',
     justifyContent: 'center',
     alignItems: 'center',
   },
