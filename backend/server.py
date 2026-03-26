@@ -4984,6 +4984,275 @@ async def toggle_maintenance(authorization: Optional[str] = Header(None), reques
     
     return {"success": True, "maintenance_mode": enabled}
 
+# ============= PROMO CODE / DEPOSIT BONUS SYSTEM =============
+
+@api_router.get("/admin/promo-codes")
+async def get_promo_codes(authorization: Optional[str] = Header(None), request: Request = None):
+    """Get all promo codes"""
+    user = await get_current_user(authorization, request)
+    
+    promo_codes = await db.promo_codes.find({}).sort("created_at", -1).to_list(100)
+    
+    result = []
+    for pc in promo_codes:
+        result.append({
+            "code": pc.get("code"),
+            "bonus_type": pc.get("bonus_type", "percentage"),  # percentage or fixed
+            "bonus_value": pc.get("bonus_value", 0),
+            "min_deposit": pc.get("min_deposit", 0),
+            "max_bonus": pc.get("max_bonus", 0),
+            "usage_limit": pc.get("usage_limit", 0),  # 0 = unlimited
+            "usage_count": pc.get("usage_count", 0),
+            "is_active": pc.get("is_active", True),
+            "expires_at": str(pc.get("expires_at", "")) if pc.get("expires_at") else None,
+            "created_at": str(pc.get("created_at", "")),
+            "created_by": pc.get("created_by", "")
+        })
+    
+    return {"promo_codes": result, "count": len(result)}
+
+
+@api_router.post("/admin/promo-codes")
+async def create_promo_code(authorization: Optional[str] = Header(None), request: Request = None):
+    """Create a new promo code"""
+    user = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    code = body.get("code", "").upper().strip()
+    bonus_type = body.get("bonus_type", "percentage")  # percentage or fixed
+    bonus_value = float(body.get("bonus_value", 0))
+    min_deposit = float(body.get("min_deposit", 0))
+    max_bonus = float(body.get("max_bonus", 0))
+    usage_limit = int(body.get("usage_limit", 0))  # 0 = unlimited
+    expires_days = int(body.get("expires_days", 0))  # 0 = never expires
+    
+    if not code:
+        raise HTTPException(status_code=400, detail="Promo code is required")
+    
+    if bonus_value <= 0:
+        raise HTTPException(status_code=400, detail="Bonus value must be greater than 0")
+    
+    # Check if code already exists
+    existing = await db.promo_codes.find_one({"code": code})
+    if existing:
+        raise HTTPException(status_code=400, detail="Promo code already exists")
+    
+    expires_at = None
+    if expires_days > 0:
+        expires_at = datetime.now(timezone.utc) + timedelta(days=expires_days)
+    
+    promo_doc = {
+        "code": code,
+        "bonus_type": bonus_type,
+        "bonus_value": bonus_value,
+        "min_deposit": min_deposit,
+        "max_bonus": max_bonus,
+        "usage_limit": usage_limit,
+        "usage_count": 0,
+        "is_active": True,
+        "expires_at": expires_at,
+        "created_at": datetime.now(timezone.utc),
+        "created_by": user.user_id
+    }
+    
+    await db.promo_codes.insert_one(promo_doc)
+    
+    return {
+        "success": True,
+        "message": f"Promo code '{code}' created successfully",
+        "promo_code": {
+            "code": code,
+            "bonus_type": bonus_type,
+            "bonus_value": bonus_value,
+            "min_deposit": min_deposit,
+            "max_bonus": max_bonus
+        }
+    }
+
+
+@api_router.post("/admin/promo-codes/{code}/toggle")
+async def toggle_promo_code(code: str, authorization: Optional[str] = Header(None), request: Request = None):
+    """Enable/Disable a promo code"""
+    user = await get_current_user(authorization, request)
+    
+    promo = await db.promo_codes.find_one({"code": code.upper()})
+    if not promo:
+        raise HTTPException(status_code=404, detail="Promo code not found")
+    
+    new_status = not promo.get("is_active", True)
+    
+    await db.promo_codes.update_one(
+        {"code": code.upper()},
+        {"$set": {"is_active": new_status}}
+    )
+    
+    return {"success": True, "is_active": new_status}
+
+
+@api_router.delete("/admin/promo-codes/{code}")
+async def delete_promo_code(code: str, authorization: Optional[str] = Header(None), request: Request = None):
+    """Delete a promo code"""
+    user = await get_current_user(authorization, request)
+    
+    result = await db.promo_codes.delete_one({"code": code.upper()})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Promo code not found")
+    
+    return {"success": True, "message": f"Promo code '{code}' deleted"}
+
+
+@api_router.post("/promo-codes/validate")
+async def validate_promo_code(authorization: Optional[str] = Header(None), request: Request = None):
+    """Validate a promo code for user deposit"""
+    user = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    code = body.get("code", "").upper().strip()
+    deposit_amount = float(body.get("deposit_amount", 0))
+    
+    if not code:
+        raise HTTPException(status_code=400, detail="Promo code is required")
+    
+    promo = await db.promo_codes.find_one({"code": code})
+    
+    if not promo:
+        raise HTTPException(status_code=404, detail="Invalid promo code")
+    
+    if not promo.get("is_active", False):
+        raise HTTPException(status_code=400, detail="This promo code is no longer active")
+    
+    # Check expiry
+    if promo.get("expires_at"):
+        if datetime.now(timezone.utc) > promo["expires_at"]:
+            raise HTTPException(status_code=400, detail="This promo code has expired")
+    
+    # Check usage limit
+    if promo.get("usage_limit", 0) > 0:
+        if promo.get("usage_count", 0) >= promo["usage_limit"]:
+            raise HTTPException(status_code=400, detail="This promo code has reached its usage limit")
+    
+    # Check minimum deposit
+    min_deposit = promo.get("min_deposit", 0)
+    if deposit_amount < min_deposit:
+        raise HTTPException(status_code=400, detail=f"Minimum deposit for this code is ${min_deposit}")
+    
+    # Check if user already used this code
+    already_used = await db.promo_usage.find_one({
+        "user_id": user.user_id,
+        "promo_code": code
+    })
+    if already_used:
+        raise HTTPException(status_code=400, detail="You have already used this promo code")
+    
+    # Calculate bonus
+    bonus_type = promo.get("bonus_type", "percentage")
+    bonus_value = promo.get("bonus_value", 0)
+    max_bonus = promo.get("max_bonus", 0)
+    
+    if bonus_type == "percentage":
+        calculated_bonus = deposit_amount * (bonus_value / 100)
+        if max_bonus > 0 and calculated_bonus > max_bonus:
+            calculated_bonus = max_bonus
+    else:  # fixed
+        calculated_bonus = bonus_value
+    
+    return {
+        "valid": True,
+        "code": code,
+        "bonus_type": bonus_type,
+        "bonus_value": bonus_value,
+        "calculated_bonus": round(calculated_bonus, 2),
+        "deposit_amount": deposit_amount,
+        "total_credit": round(deposit_amount + calculated_bonus, 2),
+        "message": f"You will receive ${round(calculated_bonus, 2)} bonus!"
+    }
+
+
+@api_router.post("/promo-codes/apply")
+async def apply_promo_code(authorization: Optional[str] = Header(None), request: Request = None):
+    """Apply a promo code after successful deposit"""
+    user = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    code = body.get("code", "").upper().strip()
+    deposit_amount = float(body.get("deposit_amount", 0))
+    transaction_id = body.get("transaction_id", "")
+    
+    if not code:
+        raise HTTPException(status_code=400, detail="Promo code is required")
+    
+    promo = await db.promo_codes.find_one({"code": code})
+    
+    if not promo or not promo.get("is_active", False):
+        raise HTTPException(status_code=400, detail="Invalid or inactive promo code")
+    
+    # Calculate bonus
+    bonus_type = promo.get("bonus_type", "percentage")
+    bonus_value = promo.get("bonus_value", 0)
+    max_bonus = promo.get("max_bonus", 0)
+    
+    if bonus_type == "percentage":
+        calculated_bonus = deposit_amount * (bonus_value / 100)
+        if max_bonus > 0 and calculated_bonus > max_bonus:
+            calculated_bonus = max_bonus
+    else:
+        calculated_bonus = bonus_value
+    
+    calculated_bonus = round(calculated_bonus, 2)
+    
+    # Add bonus to user's balance
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$inc": {"real_balance": calculated_bonus, "bonus_balance": calculated_bonus}}
+    )
+    
+    # Record promo usage
+    await db.promo_usage.insert_one({
+        "user_id": user.user_id,
+        "promo_code": code,
+        "deposit_amount": deposit_amount,
+        "bonus_amount": calculated_bonus,
+        "transaction_id": transaction_id,
+        "applied_at": datetime.now(timezone.utc)
+    })
+    
+    # Increment usage count
+    await db.promo_codes.update_one(
+        {"code": code},
+        {"$inc": {"usage_count": 1}}
+    )
+    
+    return {
+        "success": True,
+        "bonus_applied": calculated_bonus,
+        "message": f"Bonus of ${calculated_bonus} has been added to your account!"
+    }
+
+
+@api_router.get("/admin/promo-codes/usage")
+async def get_promo_usage(authorization: Optional[str] = Header(None), request: Request = None):
+    """Get promo code usage history"""
+    user = await get_current_user(authorization, request)
+    
+    usage_records = await db.promo_usage.find({}).sort("applied_at", -1).to_list(100)
+    
+    result = []
+    for record in usage_records:
+        # Get user info
+        user_doc = await db.users.find_one({"user_id": record.get("user_id")})
+        result.append({
+            "user_id": record.get("user_id"),
+            "user_email": user_doc.get("email") if user_doc else "Unknown",
+            "promo_code": record.get("promo_code"),
+            "deposit_amount": record.get("deposit_amount"),
+            "bonus_amount": record.get("bonus_amount"),
+            "applied_at": str(record.get("applied_at", ""))
+        })
+    
+    return {"usage": result, "count": len(result)}
+
+
 # ============= ADMIN ASSET CONTROL =============
 
 @api_router.get("/admin/assets")

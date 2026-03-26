@@ -185,6 +185,20 @@ export default function AdminDashboard() {
   const [loadingKycSubmissions, setLoadingKycSubmissions] = useState(false);
   const [selectedKycDocument, setSelectedKycDocument] = useState<any>(null);
 
+  // Promo Codes States
+  const [promoCodes, setPromoCodes] = useState<any[]>([]);
+  const [showPromoModal, setShowPromoModal] = useState(false);
+  const [newPromoCode, setNewPromoCode] = useState({
+    code: '',
+    bonus_type: 'percentage',
+    bonus_value: '',
+    min_deposit: '',
+    max_bonus: '',
+    usage_limit: '',
+    expires_days: ''
+  });
+  const [promoLoading, setPromoLoading] = useState(false);
+
   // Auth check
   useEffect(() => {
     const checkAuth = async () => {
@@ -325,6 +339,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (token) {
       fetchDashboardData();
+      fetchPromoCodes();
       const interval = setInterval(fetchDashboardData, 30000);
       return () => clearInterval(interval);
     }
@@ -765,6 +780,142 @@ export default function AdminDashboard() {
       } else {
         Alert.alert('Error', 'Failed to approve KYC');
       }
+    }
+  };
+
+  // ============= PROMO CODE FUNCTIONS =============
+  
+  // Fetch Promo Codes
+  const fetchPromoCodes = async () => {
+    if (!token) return;
+    
+    try {
+      const response = await fetch(`${API_URL}/admin/promo-codes`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setPromoCodes(data.promo_codes || []);
+      }
+    } catch (error) {
+      console.error('Fetch promo codes error:', error);
+    }
+  };
+
+  // Create Promo Code
+  const handleCreatePromoCode = async () => {
+    if (!token) return;
+    
+    if (!newPromoCode.code || !newPromoCode.bonus_value) {
+      if (Platform.OS === 'web') {
+        window.alert('Error: Code and bonus value are required');
+      } else {
+        Alert.alert('Error', 'Code and bonus value are required');
+      }
+      return;
+    }
+    
+    setPromoLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/admin/promo-codes`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          code: newPromoCode.code,
+          bonus_type: newPromoCode.bonus_type,
+          bonus_value: parseFloat(newPromoCode.bonus_value) || 0,
+          min_deposit: parseFloat(newPromoCode.min_deposit) || 0,
+          max_bonus: parseFloat(newPromoCode.max_bonus) || 0,
+          usage_limit: parseInt(newPromoCode.usage_limit) || 0,
+          expires_days: parseInt(newPromoCode.expires_days) || 0
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        if (Platform.OS === 'web') {
+          window.alert(`Success: Promo code "${newPromoCode.code}" created!`);
+        } else {
+          Alert.alert('Success', `Promo code "${newPromoCode.code}" created!`);
+        }
+        setShowPromoModal(false);
+        setNewPromoCode({
+          code: '',
+          bonus_type: 'percentage',
+          bonus_value: '',
+          min_deposit: '',
+          max_bonus: '',
+          usage_limit: '',
+          expires_days: ''
+        });
+        fetchPromoCodes();
+      } else {
+        if (Platform.OS === 'web') {
+          window.alert(`Error: ${data.detail || 'Failed to create promo code'}`);
+        } else {
+          Alert.alert('Error', data.detail || 'Failed to create promo code');
+        }
+      }
+    } catch (error) {
+      console.error('Create promo code error:', error);
+      if (Platform.OS === 'web') {
+        window.alert('Error: Failed to create promo code');
+      } else {
+        Alert.alert('Error', 'Failed to create promo code');
+      }
+    }
+    setPromoLoading(false);
+  };
+
+  // Toggle Promo Code
+  const handleTogglePromoCode = async (code: string) => {
+    if (!token) return;
+    
+    try {
+      const response = await fetch(`${API_URL}/admin/promo-codes/${code}/toggle`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        fetchPromoCodes();
+      }
+    } catch (error) {
+      console.error('Toggle promo code error:', error);
+    }
+  };
+
+  // Delete Promo Code
+  const handleDeletePromoCode = async (code: string) => {
+    if (!token) return;
+    
+    const confirmed = Platform.OS === 'web' 
+      ? window.confirm(`Delete promo code "${code}"?`)
+      : true; // For native, you'd use Alert.alert with buttons
+    
+    if (!confirmed) return;
+    
+    try {
+      const response = await fetch(`${API_URL}/admin/promo-codes/${code}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        if (Platform.OS === 'web') {
+          window.alert('Promo code deleted');
+        } else {
+          Alert.alert('Success', 'Promo code deleted');
+        }
+        fetchPromoCodes();
+      }
+    } catch (error) {
+      console.error('Delete promo code error:', error);
     }
   };
 
@@ -3534,7 +3685,7 @@ export default function AdminDashboard() {
     <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
       <View style={styles.pageHeader}>
         <Text style={styles.pageTitle}>Deposit Management</Text>
-        <Text style={styles.pageSubtitle}>Monitor and manage user deposits</Text>
+        <Text style={styles.pageSubtitle}>Monitor deposits, manage promo codes & bonuses</Text>
       </View>
 
       {/* Deposit Stats */}
@@ -3558,13 +3709,98 @@ export default function AdminDashboard() {
         </View>
       </View>
 
-      {/* Deposit Methods */}
+      {/* Payment Gateway Info */}
       <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>Payment Methods</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Payment Gateway</Text>
+          <View style={[styles.statusBadge, { backgroundColor: COLORS.successLight }]}>
+            <Text style={[styles.statusBadgeText, { color: COLORS.success }]}>Active</Text>
+          </View>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#f0f9ff', borderRadius: 12 }}>
+          <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: '#0066FF', justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>NP</Text>
+          </View>
+          <View style={{ marginLeft: 12, flex: 1 }}>
+            <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.text }}>NOWPayments</Text>
+            <Text style={{ fontSize: 12, color: COLORS.textSecondary }}>Crypto payment gateway for deposits</Text>
+          </View>
+          <Ionicons name="checkmark-circle" size={24} color={COLORS.success} />
+        </View>
+      </View>
+
+      {/* Promo Codes Management */}
+      <View style={styles.sectionCard}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Promo Codes & Bonuses</Text>
+          <TouchableOpacity 
+            style={{ backgroundColor: COLORS.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}
+            onPress={() => setShowPromoModal(true)}
+          >
+            <Ionicons name="add" size={18} color="#fff" />
+            <Text style={{ color: '#fff', fontWeight: '600', marginLeft: 4 }}>Create</Text>
+          </TouchableOpacity>
+        </View>
+
+        {promoCodes.length === 0 ? (
+          <View style={{ padding: 30, alignItems: 'center' }}>
+            <Ionicons name="pricetag-outline" size={48} color={COLORS.textMuted} />
+            <Text style={{ color: COLORS.textSecondary, marginTop: 12, fontSize: 14 }}>No promo codes yet</Text>
+            <Text style={{ color: COLORS.textMuted, marginTop: 4, fontSize: 12 }}>Create your first promo code to offer deposit bonuses</Text>
+          </View>
+        ) : (
+          promoCodes.map((promo, index) => (
+            <View key={promo.code} style={{ padding: 16, borderBottomWidth: index < promoCodes.length - 1 ? 1 : 0, borderBottomColor: COLORS.border }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{ backgroundColor: COLORS.purpleLight, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}>
+                      <Text style={{ color: COLORS.purple, fontWeight: '700', fontSize: 14 }}>{promo.code}</Text>
+                    </View>
+                    <View style={[styles.statusBadge, { backgroundColor: promo.is_active ? COLORS.successLight : COLORS.dangerLight, marginLeft: 8 }]}>
+                      <Text style={[styles.statusBadgeText, { color: promo.is_active ? COLORS.success : COLORS.danger }]}>
+                        {promo.is_active ? 'Active' : 'Inactive'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={{ marginTop: 8 }}>
+                    <Text style={{ color: COLORS.text, fontSize: 14 }}>
+                      {promo.bonus_type === 'percentage' ? `${promo.bonus_value}% Bonus` : `$${promo.bonus_value} Fixed Bonus`}
+                      {promo.max_bonus > 0 ? ` (Max $${promo.max_bonus})` : ''}
+                    </Text>
+                    <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 2 }}>
+                      Min deposit: ${promo.min_deposit} • Used: {promo.usage_count}/{promo.usage_limit || '∞'}
+                    </Text>
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity 
+                    style={{ padding: 8 }}
+                    onPress={() => handleTogglePromoCode(promo.code)}
+                  >
+                    <Ionicons name={promo.is_active ? 'pause-circle' : 'play-circle'} size={24} color={promo.is_active ? COLORS.warning : COLORS.success} />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={{ padding: 8 }}
+                    onPress={() => handleDeletePromoCode(promo.code)}
+                  >
+                    <Ionicons name="trash-outline" size={22} color={COLORS.danger} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          ))
+        )}
+      </View>
+
+      {/* Payment Methods */}
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Supported Cryptocurrencies</Text>
         {[
           { name: 'USDT TRC20', icon: '₮', color: '#26A17B', enabled: true, deposits: deposits.filter(d => d.payment_type === 'usdt' || d.payment_type === 'crypto').length },
           { name: 'Bitcoin', icon: '₿', color: '#F7931A', enabled: true, deposits: deposits.filter(d => d.payment_type === 'btc' || d.payment_type === 'bitcoin').length },
-          { name: 'Ethereum', icon: 'Ξ', color: '#627EEA', enabled: false, deposits: deposits.filter(d => d.payment_type === 'eth' || d.payment_type === 'ethereum').length },
+          { name: 'Ethereum', icon: 'Ξ', color: '#627EEA', enabled: true, deposits: deposits.filter(d => d.payment_type === 'eth' || d.payment_type === 'ethereum').length },
+          { name: 'Litecoin', icon: 'Ł', color: '#345D9D', enabled: true, deposits: 0 },
         ].map((method, index) => (
           <View key={method.name} style={styles.paymentMethodRow}>
             <View style={styles.paymentMethodLeft}>
@@ -3653,6 +3889,155 @@ export default function AdminDashboard() {
           ))
         )}
       </View>
+
+      {/* Create Promo Code Modal */}
+      <Modal
+        visible={showPromoModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowPromoModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '90%' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Create Promo Code</Text>
+              <TouchableOpacity onPress={() => setShowPromoModal(false)}>
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ padding: 16 }}>
+              {/* Code Input */}
+              <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 6 }}>Promo Code *</Text>
+              <TextInput
+                style={[styles.input, { marginBottom: 16 }]}
+                placeholder="e.g., WELCOME50"
+                placeholderTextColor={COLORS.textMuted}
+                value={newPromoCode.code}
+                onChangeText={(text) => setNewPromoCode({...newPromoCode, code: text.toUpperCase()})}
+                autoCapitalize="characters"
+              />
+
+              {/* Bonus Type */}
+              <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 6 }}>Bonus Type</Text>
+              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    padding: 12,
+                    borderRadius: 8,
+                    borderWidth: 2,
+                    borderColor: newPromoCode.bonus_type === 'percentage' ? COLORS.primary : COLORS.border,
+                    backgroundColor: newPromoCode.bonus_type === 'percentage' ? COLORS.primaryLight : '#fff',
+                    alignItems: 'center'
+                  }}
+                  onPress={() => setNewPromoCode({...newPromoCode, bonus_type: 'percentage'})}
+                >
+                  <Text style={{ fontWeight: '600', color: newPromoCode.bonus_type === 'percentage' ? COLORS.primary : COLORS.text }}>
+                    Percentage %
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    padding: 12,
+                    borderRadius: 8,
+                    borderWidth: 2,
+                    borderColor: newPromoCode.bonus_type === 'fixed' ? COLORS.primary : COLORS.border,
+                    backgroundColor: newPromoCode.bonus_type === 'fixed' ? COLORS.primaryLight : '#fff',
+                    alignItems: 'center'
+                  }}
+                  onPress={() => setNewPromoCode({...newPromoCode, bonus_type: 'fixed'})}
+                >
+                  <Text style={{ fontWeight: '600', color: newPromoCode.bonus_type === 'fixed' ? COLORS.primary : COLORS.text }}>
+                    Fixed Amount $
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Bonus Value */}
+              <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 6 }}>
+                Bonus Value {newPromoCode.bonus_type === 'percentage' ? '(%)' : '($)'} *
+              </Text>
+              <TextInput
+                style={[styles.input, { marginBottom: 16 }]}
+                placeholder={newPromoCode.bonus_type === 'percentage' ? "e.g., 50" : "e.g., 100"}
+                placeholderTextColor={COLORS.textMuted}
+                value={newPromoCode.bonus_value}
+                onChangeText={(text) => setNewPromoCode({...newPromoCode, bonus_value: text})}
+                keyboardType="numeric"
+              />
+
+              {/* Min Deposit */}
+              <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 6 }}>Minimum Deposit ($)</Text>
+              <TextInput
+                style={[styles.input, { marginBottom: 16 }]}
+                placeholder="e.g., 100 (0 = no minimum)"
+                placeholderTextColor={COLORS.textMuted}
+                value={newPromoCode.min_deposit}
+                onChangeText={(text) => setNewPromoCode({...newPromoCode, min_deposit: text})}
+                keyboardType="numeric"
+              />
+
+              {/* Max Bonus (for percentage) */}
+              {newPromoCode.bonus_type === 'percentage' && (
+                <>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 6 }}>Maximum Bonus ($)</Text>
+                  <TextInput
+                    style={[styles.input, { marginBottom: 16 }]}
+                    placeholder="e.g., 500 (0 = unlimited)"
+                    placeholderTextColor={COLORS.textMuted}
+                    value={newPromoCode.max_bonus}
+                    onChangeText={(text) => setNewPromoCode({...newPromoCode, max_bonus: text})}
+                    keyboardType="numeric"
+                  />
+                </>
+              )}
+
+              {/* Usage Limit */}
+              <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 6 }}>Usage Limit</Text>
+              <TextInput
+                style={[styles.input, { marginBottom: 16 }]}
+                placeholder="e.g., 100 (0 = unlimited)"
+                placeholderTextColor={COLORS.textMuted}
+                value={newPromoCode.usage_limit}
+                onChangeText={(text) => setNewPromoCode({...newPromoCode, usage_limit: text})}
+                keyboardType="numeric"
+              />
+
+              {/* Expires In */}
+              <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 6 }}>Expires In (Days)</Text>
+              <TextInput
+                style={[styles.input, { marginBottom: 24 }]}
+                placeholder="e.g., 30 (0 = never expires)"
+                placeholderTextColor={COLORS.textMuted}
+                value={newPromoCode.expires_days}
+                onChangeText={(text) => setNewPromoCode({...newPromoCode, expires_days: text})}
+                keyboardType="numeric"
+              />
+
+              {/* Create Button */}
+              <TouchableOpacity
+                style={{
+                  backgroundColor: COLORS.primary,
+                  padding: 16,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  marginBottom: 20
+                }}
+                onPress={handleCreatePromoCode}
+                disabled={promoLoading}
+              >
+                {promoLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Create Promo Code</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 
@@ -4557,6 +4942,17 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 14,
     marginTop: 12,
+  },
+  
+  // Input Style
+  input: {
+    backgroundColor: COLORS.bg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 10,
+    padding: 14,
+    fontSize: 15,
+    color: COLORS.text,
   },
 
   // Page Header
