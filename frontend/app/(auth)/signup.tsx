@@ -500,16 +500,9 @@ export default function Signup() {
             <Text style={styles.socialLabel}>Continue with</Text>
             
             <View style={styles.socialButtonsRow}>
-              <TouchableOpacity style={styles.socialButton} onPress={handleGoogleLogin}>
+              <TouchableOpacity style={[styles.socialButton, { flex: 1 }]} onPress={handleGoogleLogin}>
                 <Image source={{ uri: 'https://www.google.com/favicon.ico' }} style={styles.socialIcon} />
                 <Text style={styles.socialButtonText}>Google</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.socialButton} onPress={handleFacebookLogin}>
-                <View style={styles.facebookIcon}>
-                  <FontAwesome name="facebook" size={20} color="#FFF" />
-                </View>
-                <Text style={styles.socialButtonText}>Facebook</Text>
               </TouchableOpacity>
             </View>
 

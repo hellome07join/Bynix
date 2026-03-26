@@ -145,7 +145,7 @@ export default function Login() {
             
             <View style={styles.socialButtonsRow}>
               <TouchableOpacity 
-                style={styles.socialButton}
+                style={[styles.socialButton, { flex: 1 }]}
                 onPress={handleGoogleLogin}
                 activeOpacity={0.8}
               >
@@ -154,17 +154,6 @@ export default function Login() {
                   style={styles.socialIcon}
                 />
                 <Text style={styles.socialButtonText}>Google</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={styles.socialButton}
-                onPress={handleFacebookLogin}
-                activeOpacity={0.8}
-              >
-                <View style={styles.facebookIcon}>
-                  <FontAwesome name="facebook" size={20} color="#FFF" />
-                </View>
-                <Text style={styles.socialButtonText}>Facebook</Text>
               </TouchableOpacity>
             </View>
 
