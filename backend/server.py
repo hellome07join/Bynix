@@ -4112,6 +4112,143 @@ async def reject_withdrawal(
     return {"success": True, "message": "Withdrawal rejected and balance refunded"}
 
 
+@api_router.get("/admin/withdrawals/{user_id}/user-stats")
+async def get_withdrawal_user_stats(
+    user_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get user stats for withdrawal review"""
+    admin = await get_current_user(authorization, request)
+    
+    # Get user info
+    user = await db.users.find_one({"user_id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Calculate total deposits
+    deposits = await db.transactions.find({
+        "user_id": user_id,
+        "type": "deposit",
+        "status": "completed"
+    }).to_list(1000)
+    total_deposit = sum(d.get("amount", 0) for d in deposits)
+    
+    # Calculate total withdrawals (completed)
+    withdrawals = await db.transactions.find({
+        "user_id": user_id,
+        "type": "withdrawal",
+        "status": "completed"
+    }).to_list(1000)
+    total_withdraw = sum(w.get("amount", 0) for w in withdrawals)
+    
+    # Calculate trading stats
+    trades = await db.trades.find({"user_id": user_id}).to_list(10000)
+    total_trades = len(trades)
+    won_trades = sum(1 for t in trades if t.get("result") == "win")
+    lost_trades = sum(1 for t in trades if t.get("result") == "loss")
+    
+    # Calculate profit from trades
+    total_profit = 0
+    for trade in trades:
+        if trade.get("result") == "win":
+            payout = trade.get("payout_rate", 85)
+            total_profit += trade.get("amount", 0) * (payout / 100)
+        elif trade.get("result") == "loss":
+            total_profit -= trade.get("amount", 0)
+    
+    # Profit rate
+    profit_rate = (won_trades / total_trades * 100) if total_trades > 0 else 0
+    
+    # Current balance
+    total_balance = user.get("real_balance", 0) + user.get("bonus_balance", 0)
+    
+    return {
+        "user_id": user_id,
+        "email": user.get("email", ""),
+        "name": user.get("name") or user.get("full_name", ""),
+        "total_deposit": total_deposit,
+        "total_withdraw": total_withdraw,
+        "total_profit": total_profit,
+        "profit_rate": round(profit_rate, 2),
+        "total_balance": total_balance,
+        "real_balance": user.get("real_balance", 0),
+        "bonus_balance": user.get("bonus_balance", 0),
+        "total_trades": total_trades,
+        "won_trades": won_trades,
+        "lost_trades": lost_trades,
+        "kyc_verified": user.get("kyc_verified", False),
+        "created_at": str(user.get("created_at", ""))
+    }
+
+
+@api_router.post("/admin/withdrawals/{withdrawal_id}/lock")
+async def lock_withdrawal(
+    withdrawal_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Lock a withdrawal request and require additional KYC"""
+    admin = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    kyc_requirement = body.get("kyc_requirement", "Bank Statement")
+    lock_reason = body.get("reason", "Additional verification required")
+    
+    # Find the withdrawal in transactions collection
+    withdrawal = await db.transactions.find_one({
+        "type": "withdrawal",
+        "$or": [
+            {"transaction_id": withdrawal_id},
+            {"_id": withdrawal_id}
+        ]
+    })
+    
+    if not withdrawal:
+        # Also check legacy withdrawals collection
+        withdrawal = await db.withdrawals.find_one({
+            "$or": [
+                {"withdrawal_id": withdrawal_id},
+                {"_id": withdrawal_id}
+            ]
+        })
+        if withdrawal:
+            await db.withdrawals.update_one(
+                {"_id": withdrawal["_id"]},
+                {
+                    "$set": {
+                        "status": "locked",
+                        "locked_by": admin.user_id,
+                        "locked_at": datetime.now(timezone.utc),
+                        "lock_reason": lock_reason,
+                        "kyc_requirement": kyc_requirement,
+                        "kyc_submitted": False
+                    }
+                }
+            )
+            return {"success": True, "message": f"Withdrawal locked. User must submit: {kyc_requirement}"}
+    
+    if not withdrawal:
+        raise HTTPException(status_code=404, detail="Withdrawal not found")
+    
+    if withdrawal.get("status") not in ["pending", "locked"]:
+        raise HTTPException(status_code=400, detail="Cannot lock this withdrawal")
+    
+    await db.transactions.update_one(
+        {"_id": withdrawal["_id"]},
+        {
+            "$set": {
+                "status": "locked",
+                "locked_by": admin.user_id,
+                "locked_at": datetime.now(timezone.utc),
+                "lock_reason": lock_reason,
+                "kyc_requirement": kyc_requirement,
+                "kyc_submitted": False
+            }
+        }
+    )
+    
+    return {"success": True, "message": f"Withdrawal locked. User must submit: {kyc_requirement}"}
 
 
 # ============= GOD MODE CONTROL SYSTEM =============

@@ -515,6 +515,68 @@ export default function AdminDashboard() {
     );
   };
 
+  // Fetch user stats for withdrawal review
+  const fetchWithdrawalUserStats = async (userId: string, withdrawal: any) => {
+    if (!token) {
+      Alert.alert('Error', 'Not authenticated');
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API_URL}/admin/withdrawals/${userId}/user-stats`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setWithdrawalUserStats(data);
+        setSelectedWithdrawal(withdrawal);
+        setShowWithdrawalUserModal(true);
+      } else {
+        Alert.alert('Error', 'Failed to fetch user stats');
+      }
+    } catch (error) {
+      console.error('Fetch user stats error:', error);
+      Alert.alert('Error', 'Failed to fetch user stats');
+    }
+  };
+
+  // Lock withdrawal with KYC requirement
+  const handleLockWithdrawal = async (withdrawalId: string, kycType: string) => {
+    if (!token) {
+      Alert.alert('Error', 'Not authenticated');
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API_URL}/admin/withdrawals/${withdrawalId}/lock`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          kyc_requirement: kycType,
+          reason: `Additional KYC required: ${kycType}`
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        Alert.alert('Success', `Withdrawal locked. User must submit: ${kycType}`);
+        setShowKycModal(false);
+        setShowWithdrawalUserModal(false);
+        fetchDashboardData(); // Refresh data
+      } else {
+        Alert.alert('Error', data.detail || 'Failed to lock withdrawal');
+      }
+    } catch (error) {
+      console.error('Lock withdrawal error:', error);
+      Alert.alert('Error', 'Failed to lock withdrawal');
+    }
+  };
+
   // Format currency
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
@@ -1144,6 +1206,10 @@ export default function AdminDashboard() {
           <Text style={styles.miniStatLabel}>Pending</Text>
         </View>
         <View style={styles.miniStat}>
+          <Text style={[styles.miniStatValue, { color: COLORS.purple }]}>{withdrawals.filter(w => w.status === 'locked').length}</Text>
+          <Text style={styles.miniStatLabel}>Locked</Text>
+        </View>
+        <View style={styles.miniStat}>
           <Text style={[styles.miniStatValue, { color: COLORS.success }]}>{withdrawals.filter(w => w.status === 'completed').length}</Text>
           <Text style={styles.miniStatLabel}>Approved</Text>
         </View>
@@ -1153,39 +1219,28 @@ export default function AdminDashboard() {
         </View>
       </View>
 
-      {/* Withdrawals List */}
+      {/* Pending Withdrawals List */}
       <View style={styles.sectionCard}>
         <Text style={styles.sectionTitle}>Pending Requests</Text>
         
         {withdrawals.filter(w => w.status === 'pending').length > 0 ? (
           withdrawals.filter(w => w.status === 'pending').map((wd, index) => (
             <View key={wd.withdrawal_id || index} style={styles.withdrawalCard}>
-              <View style={styles.withdrawalLeft}>
+              <TouchableOpacity 
+                style={styles.withdrawalLeft}
+                onPress={() => fetchWithdrawalUserStats(wd.user_id, wd)}
+              >
                 <View style={[styles.withdrawalIcon, { backgroundColor: COLORS.warningLight }]}>
-                  <Ionicons name="time" size={20} color={COLORS.warning} />
+                  <Ionicons name="person" size={20} color={COLORS.warning} />
                 </View>
                 <View style={styles.withdrawalInfo}>
-                  <Text style={styles.withdrawalEmail}>{wd.user_email || 'User'}</Text>
-                  <TouchableOpacity 
-                    onPress={() => {
-                      if (wd.wallet_address) {
-                        Alert.alert(
-                          'Wallet Address',
-                          wd.wallet_address,
-                          [
-                            { text: 'Close', style: 'cancel' }
-                          ]
-                        );
-                      }
-                    }}
-                  >
-                    <Text style={[styles.withdrawalAddress, { color: COLORS.primary }]} numberOfLines={1}>
-                      {wd.wallet_address || 'No address'}
-                    </Text>
-                  </TouchableOpacity>
+                  <Text style={[styles.withdrawalEmail, { color: COLORS.primary }]}>{wd.user_email || 'User'}</Text>
+                  <Text style={styles.withdrawalAddress} numberOfLines={1}>
+                    {wd.wallet_address ? `${wd.wallet_address.slice(0, 12)}...${wd.wallet_address.slice(-8)}` : 'No address'}
+                  </Text>
                   <Text style={styles.withdrawalDate}>{wd.created_at?.split(' ')[0] || 'N/A'}</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
               <View style={styles.withdrawalRight}>
                 <Text style={styles.withdrawalAmount}>${wd.amount?.toFixed(2) || 0}</Text>
                 <View style={styles.withdrawalActions}>
@@ -1212,6 +1267,251 @@ export default function AdminDashboard() {
           </View>
         )}
       </View>
+
+      {/* Locked Withdrawals List */}
+      {withdrawals.filter(w => w.status === 'locked').length > 0 && (
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Locked (Awaiting KYC)</Text>
+          
+          {withdrawals.filter(w => w.status === 'locked').map((wd, index) => (
+            <View key={wd.withdrawal_id || index} style={styles.withdrawalCard}>
+              <TouchableOpacity 
+                style={styles.withdrawalLeft}
+                onPress={() => fetchWithdrawalUserStats(wd.user_id, wd)}
+              >
+                <View style={[styles.withdrawalIcon, { backgroundColor: COLORS.purpleLight }]}>
+                  <Ionicons name="lock-closed" size={20} color={COLORS.purple} />
+                </View>
+                <View style={styles.withdrawalInfo}>
+                  <Text style={[styles.withdrawalEmail, { color: COLORS.primary }]}>{wd.user_email || 'User'}</Text>
+                  <Text style={[styles.withdrawalAddress, { color: COLORS.purple }]} numberOfLines={1}>
+                    KYC Required: {wd.kyc_requirement || 'Bank Statement'}
+                  </Text>
+                  <Text style={styles.withdrawalDate}>{wd.created_at?.split(' ')[0] || 'N/A'}</Text>
+                </View>
+              </TouchableOpacity>
+              <View style={styles.withdrawalRight}>
+                <Text style={styles.withdrawalAmount}>${wd.amount?.toFixed(2) || 0}</Text>
+                <View style={styles.withdrawalActions}>
+                  <TouchableOpacity 
+                    style={[styles.wdActionBtn, styles.wdApproveBtn]}
+                    onPress={() => handleApproveWithdrawal(wd.withdrawal_id, wd.user_email || 'User', wd.amount || 0)}
+                  >
+                    <Ionicons name="checkmark" size={18} color="#FFF" />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.wdActionBtn, styles.wdRejectBtn]}
+                    onPress={() => handleRejectWithdrawal(wd.withdrawal_id, wd.user_email || 'User', wd.amount || 0)}
+                  >
+                    <Ionicons name="close" size={18} color="#FFF" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Withdrawal User Stats Modal */}
+      <Modal
+        visible={showWithdrawalUserModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowWithdrawalUserModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '85%' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>User Profile</Text>
+              <TouchableOpacity onPress={() => setShowWithdrawalUserModal(false)}>
+                <Ionicons name="close" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* User Info */}
+              <View style={styles.userProfileHeader}>
+                <View style={[styles.userAvatar, { width: 60, height: 60, borderRadius: 30 }]}>
+                  <Text style={[styles.userAvatarText, { fontSize: 24 }]}>
+                    {(withdrawalUserStats.name || withdrawalUserStats.email || 'U')[0].toUpperCase()}
+                  </Text>
+                </View>
+                <Text style={styles.userProfileName}>{withdrawalUserStats.name || 'User'}</Text>
+                <Text style={styles.userProfileEmail}>{withdrawalUserStats.email}</Text>
+                <View style={[styles.kycBadge, { backgroundColor: withdrawalUserStats.kyc_verified ? COLORS.successLight : COLORS.warningLight }]}>
+                  <Ionicons 
+                    name={withdrawalUserStats.kyc_verified ? "shield-checkmark" : "shield"} 
+                    size={14} 
+                    color={withdrawalUserStats.kyc_verified ? COLORS.success : COLORS.warning} 
+                  />
+                  <Text style={[styles.kycBadgeText, { color: withdrawalUserStats.kyc_verified ? COLORS.success : COLORS.warning }]}>
+                    {withdrawalUserStats.kyc_verified ? 'KYC Verified' : 'KYC Pending'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Withdrawal Info */}
+              {selectedWithdrawal && (
+                <View style={styles.wdInfoCard}>
+                  <Text style={styles.wdInfoTitle}>Withdrawal Request</Text>
+                  <View style={styles.wdInfoRow}>
+                    <Text style={styles.wdInfoLabel}>Amount:</Text>
+                    <Text style={[styles.wdInfoValue, { color: COLORS.danger }]}>${selectedWithdrawal.amount?.toFixed(2)}</Text>
+                  </View>
+                  <View style={styles.wdInfoRow}>
+                    <Text style={styles.wdInfoLabel}>Wallet:</Text>
+                    <TouchableOpacity 
+                      style={{ flex: 1 }}
+                      onPress={() => {
+                        if (selectedWithdrawal.wallet_address) {
+                          Alert.alert('Wallet Address Copied', selectedWithdrawal.wallet_address);
+                        }
+                      }}
+                    >
+                      <Text style={[styles.wdInfoValue, { color: COLORS.primary }]} numberOfLines={1}>
+                        {selectedWithdrawal.wallet_address || 'N/A'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.wdInfoRow}>
+                    <Text style={styles.wdInfoLabel}>Status:</Text>
+                    <View style={[styles.statusBadge, { 
+                      backgroundColor: selectedWithdrawal.status === 'pending' ? COLORS.warningLight : 
+                        selectedWithdrawal.status === 'locked' ? COLORS.purpleLight : COLORS.successLight 
+                    }]}>
+                      <Text style={[styles.statusBadgeText, { 
+                        color: selectedWithdrawal.status === 'pending' ? COLORS.warning : 
+                          selectedWithdrawal.status === 'locked' ? COLORS.purple : COLORS.success 
+                      }]}>
+                        {selectedWithdrawal.status?.toUpperCase()}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* User Stats Grid */}
+              <View style={styles.userStatsGrid}>
+                <View style={styles.userStatCard}>
+                  <Ionicons name="arrow-down-circle" size={24} color={COLORS.success} />
+                  <Text style={styles.userStatValue}>${withdrawalUserStats.total_deposit?.toFixed(2) || '0.00'}</Text>
+                  <Text style={styles.userStatLabel}>Total Deposit</Text>
+                </View>
+                <View style={styles.userStatCard}>
+                  <Ionicons name="arrow-up-circle" size={24} color={COLORS.danger} />
+                  <Text style={styles.userStatValue}>${withdrawalUserStats.total_withdraw?.toFixed(2) || '0.00'}</Text>
+                  <Text style={styles.userStatLabel}>Total Withdraw</Text>
+                </View>
+                <View style={styles.userStatCard}>
+                  <Ionicons name="trending-up" size={24} color={COLORS.primary} />
+                  <Text style={[styles.userStatValue, { color: withdrawalUserStats.total_profit >= 0 ? COLORS.success : COLORS.danger }]}>
+                    ${withdrawalUserStats.total_profit?.toFixed(2) || '0.00'}
+                  </Text>
+                  <Text style={styles.userStatLabel}>Total Profit</Text>
+                </View>
+                <View style={styles.userStatCard}>
+                  <Ionicons name="analytics" size={24} color={COLORS.purple} />
+                  <Text style={styles.userStatValue}>{withdrawalUserStats.profit_rate?.toFixed(1) || '0'}%</Text>
+                  <Text style={styles.userStatLabel}>Win Rate</Text>
+                </View>
+                <View style={styles.userStatCard}>
+                  <Ionicons name="wallet" size={24} color={COLORS.info} />
+                  <Text style={styles.userStatValue}>${withdrawalUserStats.total_balance?.toFixed(2) || '0.00'}</Text>
+                  <Text style={styles.userStatLabel}>Current Balance</Text>
+                </View>
+                <View style={styles.userStatCard}>
+                  <Ionicons name="swap-horizontal" size={24} color={COLORS.textSecondary} />
+                  <Text style={styles.userStatValue}>{withdrawalUserStats.total_trades || 0}</Text>
+                  <Text style={styles.userStatLabel}>Total Trades</Text>
+                </View>
+              </View>
+
+              {/* Action Buttons */}
+              <View style={styles.wdActionButtons}>
+                <TouchableOpacity 
+                  style={[styles.wdMainActionBtn, { backgroundColor: COLORS.success }]}
+                  onPress={() => {
+                    setShowWithdrawalUserModal(false);
+                    handleApproveWithdrawal(selectedWithdrawal?.withdrawal_id, selectedWithdrawal?.user_email, selectedWithdrawal?.amount);
+                  }}
+                >
+                  <Ionicons name="checkmark-circle" size={20} color="#FFF" />
+                  <Text style={styles.wdMainActionBtnText}>Approve</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.wdMainActionBtn, { backgroundColor: COLORS.danger }]}
+                  onPress={() => {
+                    setShowWithdrawalUserModal(false);
+                    handleRejectWithdrawal(selectedWithdrawal?.withdrawal_id, selectedWithdrawal?.user_email, selectedWithdrawal?.amount);
+                  }}
+                >
+                  <Ionicons name="close-circle" size={20} color="#FFF" />
+                  <Text style={styles.wdMainActionBtnText}>Reject</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.wdMainActionBtn, { backgroundColor: COLORS.purple }]}
+                  onPress={() => setShowKycModal(true)}
+                >
+                  <Ionicons name="lock-closed" size={20} color="#FFF" />
+                  <Text style={styles.wdMainActionBtnText}>Lock (KYC)</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* KYC Requirement Selection Modal */}
+      <Modal
+        visible={showKycModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowKycModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxWidth: 350 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select KYC Requirement</Text>
+              <TouchableOpacity onPress={() => setShowKycModal(false)}>
+                <Ionicons name="close" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={styles.kycModalDesc}>
+              User will be required to submit additional verification document to unlock this withdrawal.
+            </Text>
+
+            <View style={styles.kycOptions}>
+              {[
+                { id: 'Bank Statement', icon: 'document-text', desc: 'Last 3 months bank statement' },
+                { id: 'ID Card', icon: 'card', desc: 'Government issued ID' },
+                { id: 'Selfie with ID', icon: 'camera', desc: 'Photo holding ID card' },
+                { id: 'Proof of Address', icon: 'home', desc: 'Utility bill or bank letter' },
+                { id: 'Source of Funds', icon: 'cash', desc: 'Document showing income source' },
+              ].map((option) => (
+                <TouchableOpacity 
+                  key={option.id}
+                  style={styles.kycOptionCard}
+                  onPress={() => {
+                    handleLockWithdrawal(selectedWithdrawal?.withdrawal_id, option.id);
+                  }}
+                >
+                  <View style={[styles.kycOptionIcon, { backgroundColor: COLORS.purpleLight }]}>
+                    <Ionicons name={option.icon as any} size={24} color={COLORS.purple} />
+                  </View>
+                  <View style={styles.kycOptionInfo}>
+                    <Text style={styles.kycOptionTitle}>{option.id}</Text>
+                    <Text style={styles.kycOptionDesc}>{option.desc}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 
@@ -4796,5 +5096,162 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textMuted,
     marginTop: 12,
+  },
+  
+  // Withdrawal User Stats Modal Styles
+  userProfileHeader: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    marginBottom: 16,
+  },
+  userProfileName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginTop: 12,
+  },
+  userProfileEmail: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginTop: 4,
+  },
+  kycBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginTop: 12,
+    gap: 6,
+  },
+  kycBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  wdInfoCard: {
+    backgroundColor: COLORS.bgSecondary,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  wdInfoTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 12,
+  },
+  wdInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  wdInfoLabel: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+  },
+  wdInfoValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.text,
+    textAlign: 'right',
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  userStatsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 20,
+  },
+  userStatCard: {
+    width: '47%',
+    backgroundColor: COLORS.bgSecondary,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  userStatValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginTop: 8,
+  },
+  userStatLabel: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  wdActionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 20,
+  },
+  wdMainActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+  },
+  wdMainActionBtnText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  kycModalDesc: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    lineHeight: 20,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  kycOptions: {
+    gap: 12,
+  },
+  kycOptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.bgSecondary,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  kycOptionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  kycOptionInfo: {
+    flex: 1,
+  },
+  kycOptionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  kycOptionDesc: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 2,
   },
 });
