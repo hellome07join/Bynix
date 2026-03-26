@@ -2520,11 +2520,7 @@ export default function Profile() {
                 }}
                 onPress={() => {
                   setShowKycRequiredModal(false);
-                  setSelectedTab('profile');
-                  // Scroll to KYC section or expand it
-                  setTimeout(() => {
-                    // Could trigger KYC section expansion
-                  }, 300);
+                  setActiveTab('KYC');
                 }}
               >
                 <Ionicons name="shield-checkmark" size={20} color="#0A0A0A" />
