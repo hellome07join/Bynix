@@ -2061,7 +2061,8 @@ export default function Trade() {
                     <Ionicons name="checkmark-circle" size={18} color="#00E55A" />
                   ) : null}
                 </TouchableOpacity>
-                );})
+                );
+                })}
               
               {/* No results message */}
               {currentAssets.filter(asset => {
