@@ -161,6 +161,21 @@ export default function AdminDashboard() {
     todayAmount: 0
   });
 
+  // Withdrawal User Modal
+  const [showWithdrawalUserModal, setShowWithdrawalUserModal] = useState(false);
+  const [selectedWithdrawal, setSelectedWithdrawal] = useState<any>(null);
+  const [withdrawalUserStats, setWithdrawalUserStats] = useState<any>({
+    totalDeposit: 0,
+    totalWithdraw: 0,
+    totalProfit: 0,
+    profitRate: 0,
+    totalBalance: 0,
+    totalTrades: 0,
+    wonTrades: 0
+  });
+  const [showKycModal, setShowKycModal] = useState(false);
+  const [kycRequirement, setKycRequirement] = useState('');
+
   // Auth check
   useEffect(() => {
     const checkAuth = async () => {
