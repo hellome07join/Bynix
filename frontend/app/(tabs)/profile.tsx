@@ -125,6 +125,13 @@ export default function Profile() {
   const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
   const [isProcessingWithdraw, setIsProcessingWithdraw] = useState(false);
   
+  // KYC Upload State for locked withdrawals
+  const [showKycUploadModal, setShowKycUploadModal] = useState(false);
+  const [selectedLockedTx, setSelectedLockedTx] = useState<any>(null);
+  const [kycUploadImage, setKycUploadImage] = useState<string | null>(null);
+  const [isUploadingKyc, setIsUploadingKyc] = useState(false);
+  const [hasLockedWithdrawal, setHasLockedWithdrawal] = useState(false);
+  
   // Deposit Payment States
   const [generatedAddress, setGeneratedAddress] = useState<string | null>(null);
   const [isGeneratingAddress, setIsGeneratingAddress] = useState(false);
@@ -1458,11 +1465,80 @@ export default function Profile() {
         if (data.summary) {
           setTransactionSummary(data.summary);
         }
+        // Check if any withdrawal is locked
+        const lockedTx = (data.transactions || []).find((tx: any) => tx.status === 'locked' && tx.type === 'withdrawal');
+        setHasLockedWithdrawal(!!lockedTx);
       }
     } catch (error) {
       console.error('Error fetching transactions:', error);
     }
     setLoadingTransactions(false);
+  };
+
+  // Pick KYC document image
+  const pickKycDocument = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.7,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0].base64) {
+        setKycUploadImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image');
+    }
+  };
+
+  // Upload KYC document for locked withdrawal
+  const uploadKycDocument = async () => {
+    if (!kycUploadImage || !selectedLockedTx || !token) {
+      Alert.alert('Error', 'Please select a document image');
+      return;
+    }
+
+    setIsUploadingKyc(true);
+    try {
+      const response = await fetch(`${API_URL}/withdraw/upload-kyc/${selectedLockedTx.transaction_id}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          document_url: kycUploadImage,
+          document_type: selectedLockedTx.kyc_requirement || 'Bank Statement'
+        })
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        Alert.alert('Success', 'Document uploaded successfully! Awaiting admin review.');
+        setShowKycUploadModal(false);
+        setKycUploadImage(null);
+        setSelectedLockedTx(null);
+        fetchTransactions(); // Refresh
+      } else {
+        Alert.alert('Error', data.detail || 'Failed to upload document');
+      }
+    } catch (error) {
+      console.error('Upload KYC error:', error);
+      Alert.alert('Error', 'Failed to upload document');
+    }
+    setIsUploadingKyc(false);
+  };
+
+  // Open KYC upload modal for locked transaction
+  const openKycUploadModal = (tx: any) => {
+    setSelectedLockedTx(tx);
+    setKycUploadImage(null);
+    setShowKycUploadModal(true);
   };
 
   // Fetch transactions when Finance tab Overview is active
@@ -1621,6 +1697,22 @@ export default function Profile() {
                          tx.status === 'expired' ? 'Expired' : 'Failed'}
                       </Text>
                     </View>
+                    {/* Upload Document Button for Locked Withdrawals */}
+                    {tx.status === 'locked' && tx.type === 'withdrawal' && !tx.kyc_submitted && (
+                      <TouchableOpacity 
+                        style={styles.kycUploadBtn}
+                        onPress={() => openKycUploadModal(tx)}
+                      >
+                        <Ionicons name="cloud-upload" size={14} color="#FFF" />
+                        <Text style={styles.kycUploadBtnText}>Upload Doc</Text>
+                      </TouchableOpacity>
+                    )}
+                    {tx.status === 'locked' && tx.type === 'withdrawal' && tx.kyc_submitted && (
+                      <View style={[styles.kycUploadBtn, { backgroundColor: '#FFB800' }]}>
+                        <Ionicons name="time" size={14} color="#FFF" />
+                        <Text style={styles.kycUploadBtnText}>Under Review</Text>
+                      </View>
+                    )}
                   </View>
                   
                   {/* Right Side - Amount, Method, Type */}
@@ -2380,6 +2472,21 @@ export default function Profile() {
                 <Text style={styles.withdrawMinText}>Minimum withdrawal: $10</Text>
               </View>
 
+              {/* Locked Withdrawal Warning */}
+              {hasLockedWithdrawal && (
+                <View style={[styles.withdrawBonusCard, { backgroundColor: 'rgba(139,92,246,0.15)', borderColor: '#8B5CF6' }]}>
+                  <Ionicons name="lock-closed" size={20} color="#8B5CF6" />
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <Text style={[styles.withdrawBonusText, { color: '#8B5CF6' }]}>
+                      You have a locked withdrawal pending KYC verification.
+                    </Text>
+                    <Text style={[styles.withdrawBonusText, { color: '#8B5CF6', fontSize: 11, marginTop: 4 }]}>
+                      Please upload the required document before creating new requests.
+                    </Text>
+                  </View>
+                </View>
+              )}
+
               {/* Bonus Warning */}
               {(user?.bonus_balance || 0) > 0 && (
                 <View style={styles.withdrawBonusCard}>
@@ -2558,7 +2665,7 @@ export default function Profile() {
                     }
                   })();
                 }}
-                disabled={!withdrawAmount || !withdrawAddress || parseFloat(withdrawAmount) < 10 || isProcessingWithdraw}
+                disabled={!withdrawAmount || !withdrawAddress || parseFloat(withdrawAmount) < 10 || isProcessingWithdraw || hasLockedWithdrawal}
               >
                 {isProcessingWithdraw ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
@@ -2570,6 +2677,86 @@ export default function Profile() {
                 )}
               </TouchableOpacity>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* KYC Document Upload Modal */}
+      <Modal visible={showKycUploadModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { padding: 20 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Upload KYC Document</Text>
+              <TouchableOpacity onPress={() => {
+                setShowKycUploadModal(false);
+                setKycUploadImage(null);
+                setSelectedLockedTx(null);
+              }}>
+                <Ionicons name="close-circle" size={28} color="#FF3B3B" />
+              </TouchableOpacity>
+            </View>
+            
+            {selectedLockedTx && (
+              <View style={{ marginBottom: 16 }}>
+                <Text style={[styles.modalSubtitle, { color: '#8B5CF6', fontWeight: '600' }]}>
+                  Required: {selectedLockedTx.kyc_requirement || 'Bank Statement'}
+                </Text>
+                <Text style={[styles.modalSubtitle, { fontSize: 12, marginTop: 4 }]}>
+                  For withdrawal of ${selectedLockedTx.amount?.toFixed(2)}
+                </Text>
+              </View>
+            )}
+            
+            {/* Upload Area */}
+            <TouchableOpacity 
+              style={[styles.kycUploadArea, kycUploadImage && { borderColor: '#00E55A' }]}
+              onPress={pickKycDocument}
+            >
+              {kycUploadImage ? (
+                <Image 
+                  source={{ uri: kycUploadImage }} 
+                  style={{ width: '100%', height: 200, borderRadius: 12 }}
+                  resizeMode="contain"
+                />
+              ) : (
+                <>
+                  <Ionicons name="cloud-upload-outline" size={48} color="#8B5CF6" />
+                  <Text style={styles.kycUploadAreaText}>Tap to select document image</Text>
+                  <Text style={[styles.kycUploadAreaText, { fontSize: 11, color: '#666' }]}>
+                    Supported: JPG, PNG
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+            
+            {kycUploadImage && (
+              <TouchableOpacity 
+                style={{ alignItems: 'center', marginTop: 8 }}
+                onPress={() => setKycUploadImage(null)}
+              >
+                <Text style={{ color: '#FF3B3B', fontSize: 12 }}>Remove & Choose Different</Text>
+              </TouchableOpacity>
+            )}
+            
+            {/* Submit Button */}
+            <TouchableOpacity 
+              style={[
+                styles.saveBtn, 
+                { backgroundColor: kycUploadImage ? '#8B5CF6' : '#444', marginTop: 20 }
+              ]}
+              onPress={uploadKycDocument}
+              disabled={!kycUploadImage || isUploadingKyc}
+            >
+              {isUploadingKyc ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Text style={styles.saveBtnText}>Submit Document</Text>
+              )}
+            </TouchableOpacity>
+            
+            <Text style={{ color: '#888', fontSize: 11, textAlign: 'center', marginTop: 12 }}>
+              Your document will be reviewed by admin within 24 hours
+            </Text>
           </View>
         </View>
       </Modal>
@@ -5075,5 +5262,40 @@ const styles = StyleSheet.create({
     color: '#FF3B3B',
     fontSize: 14,
     fontWeight: '600',
+  },
+  
+  // KYC Upload Styles
+  kycUploadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#8B5CF6',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginTop: 8,
+    gap: 4,
+  },
+  kycUploadBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  kycUploadArea: {
+    borderWidth: 2,
+    borderColor: '#333',
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(139, 92, 246, 0.05)',
+    minHeight: 180,
+  },
+  kycUploadAreaText: {
+    color: '#888',
+    fontSize: 14,
+    marginTop: 12,
+    textAlign: 'center',
   },
 });

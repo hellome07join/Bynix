@@ -618,6 +618,52 @@ export default function AdminDashboard() {
     }
   };
 
+  // Unlock withdrawal
+  const handleUnlockWithdrawal = async (withdrawalId: string) => {
+    if (!token) {
+      if (Platform.OS === 'web') {
+        window.alert('Error: Not authenticated');
+      } else {
+        Alert.alert('Error', 'Not authenticated');
+      }
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API_URL}/admin/withdrawals/${withdrawalId}/unlock`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        if (Platform.OS === 'web') {
+          window.alert('Success: Withdrawal unlocked and moved back to pending');
+        } else {
+          Alert.alert('Success', 'Withdrawal unlocked and moved back to pending');
+        }
+        fetchDashboardData(); // Refresh data
+      } else {
+        if (Platform.OS === 'web') {
+          window.alert(`Error: ${data.detail || 'Failed to unlock withdrawal'}`);
+        } else {
+          Alert.alert('Error', data.detail || 'Failed to unlock withdrawal');
+        }
+      }
+    } catch (error) {
+      console.error('Unlock withdrawal error:', error);
+      if (Platform.OS === 'web') {
+        window.alert('Error: Failed to unlock withdrawal');
+      } else {
+        Alert.alert('Error', 'Failed to unlock withdrawal');
+      }
+    }
+  };
+
   // Format currency
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
@@ -1320,13 +1366,13 @@ export default function AdminDashboard() {
                 style={styles.withdrawalLeft}
                 onPress={() => fetchWithdrawalUserStats(wd.user_id, wd)}
               >
-                <View style={[styles.withdrawalIcon, { backgroundColor: COLORS.purpleLight }]}>
-                  <Ionicons name="lock-closed" size={20} color={COLORS.purple} />
+                <View style={[styles.withdrawalIcon, { backgroundColor: wd.kyc_submitted ? COLORS.successLight : COLORS.purpleLight }]}>
+                  <Ionicons name={wd.kyc_submitted ? "document-text" : "lock-closed"} size={20} color={wd.kyc_submitted ? COLORS.success : COLORS.purple} />
                 </View>
                 <View style={styles.withdrawalInfo}>
                   <Text style={[styles.withdrawalEmail, { color: COLORS.primary }]}>{wd.user_email || 'User'}</Text>
-                  <Text style={[styles.withdrawalAddress, { color: COLORS.purple }]} numberOfLines={1}>
-                    KYC Required: {wd.kyc_requirement || 'Bank Statement'}
+                  <Text style={[styles.withdrawalAddress, { color: wd.kyc_submitted ? COLORS.success : COLORS.purple }]} numberOfLines={1}>
+                    {wd.kyc_submitted ? '✓ Document Submitted' : `KYC Required: ${wd.kyc_requirement || 'Bank Statement'}`}
                   </Text>
                   <Text style={styles.withdrawalDate}>{wd.created_at?.split(' ')[0] || 'N/A'}</Text>
                 </View>
@@ -1334,6 +1380,13 @@ export default function AdminDashboard() {
               <View style={styles.withdrawalRight}>
                 <Text style={styles.withdrawalAmount}>${wd.amount?.toFixed(2) || 0}</Text>
                 <View style={styles.withdrawalActions}>
+                  {/* Unlock Button */}
+                  <TouchableOpacity 
+                    style={[styles.wdActionBtn, { backgroundColor: COLORS.info }]}
+                    onPress={() => handleUnlockWithdrawal(wd.withdrawal_id)}
+                  >
+                    <Ionicons name="lock-open" size={18} color="#FFF" />
+                  </TouchableOpacity>
                   <TouchableOpacity 
                     style={[styles.wdActionBtn, styles.wdApproveBtn]}
                     onPress={() => handleApproveWithdrawal(wd.withdrawal_id, wd.user_email || 'User', wd.amount || 0)}

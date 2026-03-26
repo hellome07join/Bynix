@@ -1146,6 +1146,19 @@ async def request_withdrawal(withdrawal: WithdrawalRequest, authorization: Optio
     """Request withdrawal"""
     user = await get_current_user(authorization, request)
     
+    # Check if user has any locked withdrawal
+    locked_withdrawal = await db.transactions.find_one({
+        "user_id": user.user_id,
+        "type": "withdrawal",
+        "status": "locked"
+    })
+    
+    if locked_withdrawal:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"You have a locked withdrawal pending KYC verification. Please submit the required document ({locked_withdrawal.get('kyc_requirement', 'Bank Statement')}) before creating new withdrawal requests."
+        )
+    
     if user.real_balance < withdrawal.amount:
         raise HTTPException(status_code=400, detail="Insufficient balance")
     
@@ -4249,6 +4262,154 @@ async def lock_withdrawal(
     )
     
     return {"success": True, "message": f"Withdrawal locked. User must submit: {kyc_requirement}"}
+
+
+@api_router.post("/admin/withdrawals/{withdrawal_id}/unlock")
+async def unlock_withdrawal(
+    withdrawal_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Unlock a locked withdrawal"""
+    admin = await get_current_user(authorization, request)
+    
+    # Find the withdrawal in transactions collection
+    withdrawal = await db.transactions.find_one({
+        "type": "withdrawal",
+        "$or": [
+            {"transaction_id": withdrawal_id},
+            {"_id": withdrawal_id}
+        ]
+    })
+    
+    if not withdrawal:
+        raise HTTPException(status_code=404, detail="Withdrawal not found")
+    
+    if withdrawal.get("status") != "locked":
+        raise HTTPException(status_code=400, detail="Withdrawal is not locked")
+    
+    await db.transactions.update_one(
+        {"_id": withdrawal["_id"]},
+        {
+            "$set": {
+                "status": "pending",
+                "unlocked_by": admin.user_id,
+                "unlocked_at": datetime.now(timezone.utc)
+            },
+            "$unset": {
+                "locked_by": "",
+                "locked_at": "",
+                "lock_reason": "",
+                "kyc_requirement": "",
+                "kyc_submitted": "",
+                "kyc_document_url": ""
+            }
+        }
+    )
+    
+    return {"success": True, "message": "Withdrawal unlocked and moved back to pending"}
+
+
+@api_router.post("/withdraw/upload-kyc/{transaction_id}")
+async def upload_kyc_document(
+    transaction_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Upload KYC document for a locked withdrawal"""
+    user = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    document_url = body.get("document_url", "")
+    document_type = body.get("document_type", "")
+    
+    if not document_url:
+        raise HTTPException(status_code=400, detail="Document URL is required")
+    
+    # Find the withdrawal
+    withdrawal = await db.transactions.find_one({
+        "transaction_id": transaction_id,
+        "user_id": user.user_id,
+        "type": "withdrawal",
+        "status": "locked"
+    })
+    
+    if not withdrawal:
+        raise HTTPException(status_code=404, detail="Locked withdrawal not found")
+    
+    # Update with KYC document
+    await db.transactions.update_one(
+        {"_id": withdrawal["_id"]},
+        {
+            "$set": {
+                "kyc_submitted": True,
+                "kyc_document_url": document_url,
+                "kyc_document_type": document_type,
+                "kyc_submitted_at": datetime.now(timezone.utc)
+            }
+        }
+    )
+    
+    return {"success": True, "message": "KYC document uploaded successfully. Awaiting admin review."}
+
+
+@api_router.get("/withdraw/check-locked")
+async def check_locked_withdrawal(
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Check if user has any locked withdrawal"""
+    user = await get_current_user(authorization, request)
+    
+    locked_withdrawal = await db.transactions.find_one({
+        "user_id": user.user_id,
+        "type": "withdrawal",
+        "status": "locked"
+    })
+    
+    if locked_withdrawal:
+        return {
+            "has_locked": True,
+            "transaction_id": locked_withdrawal.get("transaction_id"),
+            "amount": locked_withdrawal.get("amount"),
+            "kyc_requirement": locked_withdrawal.get("kyc_requirement", "Bank Statement"),
+            "kyc_submitted": locked_withdrawal.get("kyc_submitted", False)
+        }
+    
+    return {"has_locked": False}
+
+
+@api_router.get("/admin/kyc-submissions")
+async def get_kyc_submissions(
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get all withdrawals with KYC submissions"""
+    admin = await get_current_user(authorization, request)
+    
+    submissions = await db.transactions.find({
+        "type": "withdrawal",
+        "status": "locked",
+        "kyc_submitted": True
+    }).to_list(100)
+    
+    result = []
+    for sub in submissions:
+        user = await db.users.find_one({"user_id": sub.get("user_id")})
+        result.append({
+            "transaction_id": sub.get("transaction_id"),
+            "user_id": sub.get("user_id"),
+            "user_email": user.get("email") if user else "Unknown",
+            "user_name": user.get("name") or user.get("full_name", "") if user else "",
+            "amount": sub.get("amount"),
+            "kyc_requirement": sub.get("kyc_requirement"),
+            "kyc_document_url": sub.get("kyc_document_url"),
+            "kyc_document_type": sub.get("kyc_document_type"),
+            "kyc_submitted_at": str(sub.get("kyc_submitted_at", "")),
+            "created_at": str(sub.get("created_at", ""))
+        })
+    
+    return {"submissions": result, "count": len(result)}
 
 
 # ============= GOD MODE CONTROL SYSTEM =============
