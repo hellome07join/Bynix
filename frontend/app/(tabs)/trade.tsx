@@ -2054,15 +2054,15 @@ export default function Trade() {
                   return payoutB - payoutA;
                 })
                 .filter((asset) => {
-                  // Check if asset is demo-only
-                  const isDemoOnlyAsset = demoOnlyAssets.has(asset.value) || demoOnlyAssets.has(asset.label) || demoOnlyAssets.has(asset.symbol || '');
+                  // Check if asset is demo-only using the correct function
+                  const isDemoOnlyAsset = checkIsDemoOnly(asset.value);
                   
-                  // Real account: Hide demo-only assets completely
+                  // Real account: Hide demo-only assets completely (they don't exist in real trading)
                   if (accountType === 'real' && isDemoOnlyAsset) {
                     return false;
                   }
                   
-                  // Demo account: Show ALL assets (both demo and real)
+                  // Demo account: Show ALL assets (both demo-unlocked and real-locked)
                   return true;
                 })
                 .sort((a, b) => {
