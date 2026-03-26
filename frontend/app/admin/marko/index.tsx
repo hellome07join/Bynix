@@ -3030,8 +3030,9 @@ export default function AdminDashboard() {
       case 'overview':
         return <OverviewContent />;
       case 'users':
-      case 'kyc':
         return <UsersContent />;
+      case 'kyc':
+        return <KYCContent />;
       case 'withdrawals':
         return <WithdrawalsContent />;
       case 'ai-control':
@@ -3300,6 +3301,223 @@ export default function AdminDashboard() {
         )}
       </View>
     </ScrollView>
+    );
+  };
+
+  // KYC Requests Content
+  const KYCContent = () => {
+    const [localKycData, setLocalKycData] = useState(kycSubmissions);
+    const [selectedKyc, setSelectedKyc] = useState<any>(null);
+    const [showKycModal, setShowKycModal] = useState(false);
+
+    const handleApproveKyc = async (submissionId: string, withdrawalId: string) => {
+      try {
+        const response = await fetch(`${API_URL}/admin/withdrawals/approve-kyc`, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify({ withdrawal_id: withdrawalId })
+        });
+        
+        if (response.ok) {
+          if (Platform.OS === 'web') {
+            window.alert('KYC approved successfully');
+          } else {
+            Alert.alert('Success', 'KYC approved successfully');
+          }
+          fetchDashboardData();
+          setShowKycModal(false);
+        } else {
+          if (Platform.OS === 'web') {
+            window.alert('Failed to approve KYC');
+          } else {
+            Alert.alert('Error', 'Failed to approve KYC');
+          }
+        }
+      } catch (error) {
+        if (Platform.OS === 'web') {
+          window.alert('Failed to approve KYC');
+        } else {
+          Alert.alert('Error', 'Failed to approve KYC');
+        }
+      }
+    };
+
+    const handleRejectKyc = async (withdrawalId: string) => {
+      try {
+        const response = await fetch(`${API_URL}/admin/withdrawals/${withdrawalId}/reject`, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify({ reason: 'KYC documents rejected' })
+        });
+        
+        if (response.ok) {
+          if (Platform.OS === 'web') {
+            window.alert('KYC rejected successfully');
+          } else {
+            Alert.alert('Success', 'KYC rejected successfully');
+          }
+          fetchDashboardData();
+          setShowKycModal(false);
+        } else {
+          if (Platform.OS === 'web') {
+            window.alert('Failed to reject KYC');
+          } else {
+            Alert.alert('Error', 'Failed to reject KYC');
+          }
+        }
+      } catch (error) {
+        if (Platform.OS === 'web') {
+          window.alert('Failed to reject KYC');
+        } else {
+          Alert.alert('Error', 'Failed to reject KYC');
+        }
+      }
+    };
+
+    return (
+      <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.pageHeader}>
+          <Text style={styles.pageTitle}>KYC Requests</Text>
+          <Text style={styles.pageSubtitle}>Manage user identity verification submissions</Text>
+        </View>
+
+        {/* Stats Cards */}
+        <View style={styles.statsRow}>
+          <View style={[styles.statCard, { backgroundColor: COLORS.warningLight }]}>
+            <Ionicons name="time" size={24} color={COLORS.warning} />
+            <Text style={[styles.statNumber, { color: COLORS.warning }]}>{kycSubmissions.length}</Text>
+            <Text style={styles.statLabel}>Pending Review</Text>
+          </View>
+          <View style={[styles.statCard, { backgroundColor: COLORS.successLight }]}>
+            <Ionicons name="checkmark-circle" size={24} color={COLORS.success} />
+            <Text style={[styles.statNumber, { color: COLORS.success }]}>0</Text>
+            <Text style={styles.statLabel}>Approved Today</Text>
+          </View>
+          <View style={[styles.statCard, { backgroundColor: COLORS.dangerLight }]}>
+            <Ionicons name="close-circle" size={24} color={COLORS.danger} />
+            <Text style={[styles.statNumber, { color: COLORS.danger }]}>0</Text>
+            <Text style={styles.statLabel}>Rejected</Text>
+          </View>
+        </View>
+
+        {/* KYC Submissions List */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Pending KYC Submissions</Text>
+            <TouchableOpacity onPress={fetchDashboardData}>
+              <Ionicons name="refresh" size={20} color={COLORS.primary} />
+            </TouchableOpacity>
+          </View>
+          
+          {kycSubmissions.length === 0 ? (
+            <View style={{ padding: 40, alignItems: 'center' }}>
+              <Ionicons name="document-text-outline" size={48} color="#666" />
+              <Text style={{ color: '#666', marginTop: 12, fontSize: 16 }}>No pending KYC submissions</Text>
+              <Text style={{ color: '#888', marginTop: 4, fontSize: 12 }}>New submissions will appear here</Text>
+            </View>
+          ) : (
+            kycSubmissions.map((submission, index) => (
+              <TouchableOpacity 
+                key={submission.withdrawal_id || index}
+                style={styles.kycRow}
+                onPress={() => {
+                  setSelectedKyc(submission);
+                  setShowKycModal(true);
+                }}
+              >
+                <View style={styles.kycUserInfo}>
+                  <View style={[styles.userAvatar, { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.primaryLight }]}>
+                    <Text style={[styles.userAvatarText, { color: COLORS.primary }]}>
+                      {(submission.user_name || submission.user_email || 'U')[0].toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={{ marginLeft: 12, flex: 1 }}>
+                    <Text style={styles.kycUserName}>{submission.user_name || 'Unknown User'}</Text>
+                    <Text style={styles.kycUserEmail}>{submission.user_email}</Text>
+                    <Text style={{ color: '#888', fontSize: 11, marginTop: 2 }}>
+                      Account ID: {submission.user_verified_id || 'N/A'}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.kycAmountInfo}>
+                  <Text style={styles.kycAmount}>${submission.amount?.toFixed(2) || '0.00'}</Text>
+                  <Text style={styles.kycAmountLabel}>Withdrawal</Text>
+                </View>
+                <View style={[styles.statusBadge, { backgroundColor: COLORS.warningLight }]}>
+                  <Text style={[styles.statusBadgeText, { color: COLORS.warning }]}>Review</Text>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
+
+        {/* KYC Detail Modal */}
+        <Modal
+          visible={showKycModal}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowKycModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { maxHeight: '90%' }]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>KYC Document Review</Text>
+                <TouchableOpacity onPress={() => setShowKycModal(false)}>
+                  <Ionicons name="close" size={24} color="#333" />
+                </TouchableOpacity>
+              </View>
+
+              {selectedKyc && (
+                <ScrollView style={{ flex: 1 }}>
+                  {/* User Info */}
+                  <View style={{ padding: 16, backgroundColor: '#f8f9fa', borderRadius: 8, marginBottom: 16 }}>
+                    <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 8 }}>User Information</Text>
+                    <Text style={{ color: '#666', marginBottom: 4 }}>Name: {selectedKyc.user_name || 'N/A'}</Text>
+                    <Text style={{ color: '#666', marginBottom: 4 }}>Email: {selectedKyc.user_email}</Text>
+                    <Text style={{ color: '#666', marginBottom: 4 }}>Account ID: {selectedKyc.user_verified_id || 'N/A'}</Text>
+                    <Text style={{ color: '#666' }}>Withdrawal Amount: ${selectedKyc.amount?.toFixed(2) || '0.00'}</Text>
+                  </View>
+
+                  {/* Document Preview */}
+                  <View style={{ marginBottom: 16 }}>
+                    <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 8 }}>Submitted Document</Text>
+                    {selectedKyc.kyc_document ? (
+                      <Image 
+                        source={{ uri: selectedKyc.kyc_document }}
+                        style={{ width: '100%', height: 300, borderRadius: 8, backgroundColor: '#eee' }}
+                        resizeMode="contain"
+                      />
+                    ) : (
+                      <View style={{ padding: 40, alignItems: 'center', backgroundColor: '#f0f0f0', borderRadius: 8 }}>
+                        <Ionicons name="document-outline" size={48} color="#999" />
+                        <Text style={{ color: '#999', marginTop: 8 }}>No document uploaded</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Action Buttons */}
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <TouchableOpacity 
+                      style={{ flex: 1, backgroundColor: COLORS.success, padding: 14, borderRadius: 8, alignItems: 'center' }}
+                      onPress={() => handleApproveKyc(selectedKyc._id, selectedKyc.withdrawal_id)}
+                    >
+                      <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                      <Text style={{ color: '#fff', fontWeight: '600', marginTop: 4 }}>Approve KYC</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={{ flex: 1, backgroundColor: COLORS.danger, padding: 14, borderRadius: 8, alignItems: 'center' }}
+                      onPress={() => handleRejectKyc(selectedKyc.withdrawal_id)}
+                    >
+                      <Ionicons name="close-circle" size={20} color="#fff" />
+                      <Text style={{ color: '#fff', fontWeight: '600', marginTop: 4 }}>Reject KYC</Text>
+                    </TouchableOpacity>
+                  </View>
+                </ScrollView>
+              )}
+            </View>
+          </View>
+        </Modal>
+      </ScrollView>
     );
   };
 
