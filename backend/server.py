@@ -2040,13 +2040,19 @@ async def start_didit_kyc(authorization: Optional[str] = Header(None), request: 
         # Didit API endpoint for creating sessions
         didit_api_url = "https://verification.didit.me/v3/session/"
         
-        # Prepare request data
+        # Get base URL for callback and redirect
+        base_url = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://bynix-markets.preview.emergentagent.com')
+        frontend_url = base_url  # Same domain for frontend
+        
+        # Prepare request data with callback for webhook and redirect URL
         session_data = {
             "workflow_id": DIDIT_WORKFLOW_ID,
             "vendor_data": user.user_id,
+            "callback": f"{base_url}/api/kyc/didit/webhook",  # Webhook URL for status updates
         }
         
         print(f"[DIDIT] Creating session for user {user.user_id} with workflow {DIDIT_WORKFLOW_ID}")
+        print(f"[DIDIT] Callback URL: {session_data['callback']}")
         
         # Make API request to Didit
         async with httpx.AsyncClient() as client:
@@ -2234,14 +2240,84 @@ async def didit_webhook(request: Request):
 
 @api_router.get("/kyc/didit/status")
 async def get_didit_kyc_status(authorization: Optional[str] = Header(None), request: Request = None):
-    """Check user's Didit KYC verification status"""
+    """Check user's Didit KYC verification status - also checks Didit API for updates"""
     user = await get_current_user(authorization, request)
     
-    # Check for verified KYC
+    # Check for existing KYC submission
     kyc = await db.kyc_submissions.find_one({
         "user_id": user.user_id,
         "provider": "didit"
     })
+    
+    if kyc and kyc.get("status") == "pending" and kyc.get("didit_session_id"):
+        # Check Didit API for updated status
+        try:
+            import httpx
+            session_id = kyc.get("didit_session_id")
+            
+            # Call Didit API to get session status
+            didit_status_url = f"https://verification.didit.me/v3/session/{session_id}/"
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    didit_status_url,
+                    headers={
+                        "x-api-key": DIDIT_API_KEY,
+                        "Accept": "application/json"
+                    },
+                    timeout=10.0
+                )
+                
+                print(f"[DIDIT STATUS CHECK] Session: {session_id}, Response: {response.status_code}")
+                
+                if response.status_code == 200:
+                    didit_data = response.json()
+                    didit_status = didit_data.get("status", "").lower()
+                    print(f"[DIDIT STATUS CHECK] Didit status: {didit_status}")
+                    
+                    # Map Didit status to our status
+                    new_status = kyc.get("status")
+                    if didit_status in ["approved", "completed", "verified"]:
+                        new_status = "verified"
+                    elif didit_status in ["declined", "rejected", "failed"]:
+                        new_status = "rejected"
+                    elif didit_status in ["expired"]:
+                        new_status = "expired"
+                    
+                    # Update our database if status changed
+                    if new_status != kyc.get("status"):
+                        await db.kyc_submissions.update_one(
+                            {"_id": kyc["_id"]},
+                            {
+                                "$set": {
+                                    "status": new_status,
+                                    "didit_api_response": didit_data,
+                                    "verified_at": datetime.now(timezone.utc) if new_status == "verified" else None,
+                                    "updated_at": datetime.now(timezone.utc)
+                                }
+                            }
+                        )
+                        
+                        # Update user's kyc_verified flag if verified
+                        if new_status == "verified":
+                            await db.users.update_one(
+                                {"user_id": user.user_id},
+                                {"$set": {"kyc_verified": True, "kyc_verified_at": datetime.now(timezone.utc)}}
+                            )
+                            
+                            # Send notification
+                            await create_notification(
+                                user.user_id,
+                                "KYC Verified!",
+                                "Congratulations! Your identity has been verified. You can now make withdrawals.",
+                                "kyc"
+                            )
+                        
+                        kyc["status"] = new_status
+                        
+        except Exception as e:
+            print(f"[DIDIT STATUS CHECK] Error: {str(e)}")
+            # Continue with cached status if API fails
     
     if not kyc:
         # Check legacy KYC (non-Didit)
@@ -2526,13 +2602,13 @@ Analyze the image carefully and respond with the JSON verification result."""
 
 @api_router.get("/kyc/status")
 async def get_kyc_status(authorization: Optional[str] = Header(None), request: Request = None):
-    """Get user's KYC status"""
+    """Get user's KYC status - also checks Didit API for pending verifications"""
     user = await get_current_user(authorization, request)
     
     # Get latest KYC submission
     kyc_record = await db.kyc_submissions.find_one(
         {"user_id": user.user_id},
-        sort=[("submitted_at", -1)]
+        sort=[("created_at", -1)]
     )
     
     if not kyc_record:
@@ -2541,7 +2617,78 @@ async def get_kyc_status(authorization: Optional[str] = Header(None), request: R
             "is_verified": False
         }
     
-    # Calculate remaining time for auto-approval
+    # If it's a Didit KYC and pending, check Didit API for status update
+    if kyc_record.get("provider") == "didit" and kyc_record.get("status") == "pending":
+        session_id = kyc_record.get("didit_session_id")
+        if session_id and not session_id.startswith("didit_"):  # Only real Didit session IDs
+            try:
+                import httpx
+                didit_status_url = f"https://verification.didit.me/v3/session/{session_id}/"
+                
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(
+                        didit_status_url,
+                        headers={
+                            "x-api-key": DIDIT_API_KEY,
+                            "Accept": "application/json"
+                        },
+                        timeout=10.0
+                    )
+                    
+                    print(f"[KYC STATUS] Checking Didit session {session_id[:20]}..., Response: {response.status_code}")
+                    
+                    if response.status_code == 200:
+                        didit_data = response.json()
+                        didit_status = didit_data.get("status", "").lower()
+                        print(f"[KYC STATUS] Didit status: {didit_status}")
+                        
+                        # Map Didit status to our status
+                        new_status = kyc_record.get("status")
+                        if didit_status in ["approved", "completed", "verified"]:
+                            new_status = "verified"
+                        elif didit_status in ["declined", "rejected", "failed"]:
+                            new_status = "rejected"
+                        elif didit_status in ["expired"]:
+                            new_status = "expired"
+                        
+                        # Update database if status changed
+                        if new_status != kyc_record.get("status"):
+                            print(f"[KYC STATUS] Updating status from {kyc_record.get('status')} to {new_status}")
+                            
+                            await db.kyc_submissions.update_one(
+                                {"_id": kyc_record["_id"]},
+                                {
+                                    "$set": {
+                                        "status": new_status,
+                                        "didit_api_response": didit_data,
+                                        "verified_at": datetime.now(timezone.utc) if new_status == "verified" else None,
+                                        "updated_at": datetime.now(timezone.utc)
+                                    }
+                                }
+                            )
+                            
+                            # Update user's kyc_verified flag
+                            if new_status == "verified":
+                                await db.users.update_one(
+                                    {"user_id": user.user_id},
+                                    {"$set": {"kyc_verified": True, "kyc_verified_at": datetime.now(timezone.utc)}}
+                                )
+                                
+                                # Send notification
+                                await create_notification(
+                                    user.user_id,
+                                    "KYC Verified!",
+                                    "Congratulations! Your identity has been verified. You can now make withdrawals.",
+                                    "kyc"
+                                )
+                            
+                            kyc_record["status"] = new_status
+                            
+            except Exception as e:
+                print(f"[KYC STATUS] Error checking Didit: {str(e)}")
+                # Continue with cached status
+    
+    # Calculate remaining time for auto-approval (legacy)
     remaining_seconds = None
     if kyc_record.get("status") == "auto_approved" and kyc_record.get("auto_approve_at"):
         now = datetime.now(timezone.utc)
@@ -2554,10 +2701,11 @@ async def get_kyc_status(authorization: Optional[str] = Header(None), request: R
         "kyc_id": kyc_record.get("kyc_id"),
         "status": kyc_record.get("status"),
         "is_verified": kyc_record.get("status") == "verified",
-        "submitted_at": kyc_record.get("submitted_at"),
+        "submitted_at": kyc_record.get("submitted_at") or kyc_record.get("created_at"),
         "verified_at": kyc_record.get("verified_at"),
         "ai_result": kyc_record.get("ai_verification"),
-        "remaining_seconds": remaining_seconds
+        "remaining_seconds": remaining_seconds,
+        "provider": kyc_record.get("provider", "legacy")
     }
 
 # ============= Old Admin Routes (Legacy - Kept for compatibility) =============
