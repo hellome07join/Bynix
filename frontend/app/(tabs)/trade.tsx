@@ -788,6 +788,32 @@ export default function Trade() {
   const hardcodedAssets = getAssetsForAccount(accountType);
   const currentAssets = dbAssets.length > 0 ? dbAssets : hardcodedAssets;
   
+  // Auto-select valid asset when account type changes
+  useEffect(() => {
+    if (dbAssets.length === 0 || demoOnlyAssets.size === 0) return;
+    
+    // Check if current selected asset is valid for the new account type
+    const isDemoOnlyAsset = demoOnlyAssets.has(selectedAsset) || 
+      demoOnlyAssets.has(selectedAsset.replace(' OTC', ''));
+    
+    const isCurrentAssetValid = accountType === 'demo' ? isDemoOnlyAsset : !isDemoOnlyAsset;
+    
+    if (!isCurrentAssetValid) {
+      // Find first valid asset for current account type
+      const validAsset = dbAssets.find((asset: any) => {
+        const assetIsDemoOnly = demoOnlyAssets.has(asset.value) || 
+          demoOnlyAssets.has(asset.label) || 
+          demoOnlyAssets.has(asset.symbol || '');
+        return accountType === 'demo' ? assetIsDemoOnly : !assetIsDemoOnly;
+      });
+      
+      if (validAsset) {
+        console.log(`[ACCOUNT SWITCH] ${accountType} mode - switching asset to: ${validAsset.value}`);
+        setSelectedAsset(validAsset.value);
+      }
+    }
+  }, [accountType, dbAssets, demoOnlyAssets]);
+  
   // Get current asset data
   const currentAsset = currentAssets.find(a => a.value === selectedAsset) || currentAssets[0];
   // Use API payout if available, otherwise fallback to hardcoded payout
