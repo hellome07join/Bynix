@@ -1010,7 +1010,7 @@ async def get_trade_stats(authorization: Optional[str] = Header(None), request: 
 
 @api_router.post("/trades/{trade_id}/settle")
 async def settle_trade(trade_id: str, settle_data: TradeSettle, authorization: Optional[str] = Header(None), request: Request = None):
-    """Settle a trade - Uses predetermined_outcome (AI Win Rate) to determine win/loss"""
+    """Settle a trade - Uses ACTUAL price movement for win/loss"""
     user = await get_current_user(authorization, request)
     
     trade = await db.trades.find_one({"trade_id": trade_id, "user_id": user.user_id})
@@ -1024,47 +1024,19 @@ async def settle_trade(trade_id: str, settle_data: TradeSettle, authorization: O
     trade_type = trade["trade_type"]
     exit_price = settle_data.exit_price
     
-    # Get predetermined outcome (set at trade creation based on AI Win Rate)
-    predetermined_outcome = trade.get("predetermined_outcome")
+    # Use ACTUAL price movement to determine win/loss
+    # UP (call) wins if price went UP (exit > entry)
+    # DOWN (put) wins if price went DOWN (exit < entry)
+    if trade_type == "call":
+        won = exit_price > entry_price
+    else:  # put
+        won = exit_price < entry_price
     
-    if predetermined_outcome:
-        # AI AUTOMATION: Use predetermined outcome (based on win rate like 95%)
-        # This ensures each user's win rate matches the AI setting
-        won = predetermined_outcome == "won"
-        
-        # Adjust exit price to match predetermined outcome
-        # This makes the trade result consistent with the predetermined outcome
-        price_diff = abs(exit_price - entry_price)
-        if price_diff == 0:
-            price_diff = entry_price * 0.0001  # Minimum price difference
-        
-        if trade_type == "call":  # UP trade
-            if won:
-                # Force exit_price > entry_price for UP trade to win
-                exit_price = entry_price + price_diff if exit_price <= entry_price else exit_price
-            else:
-                # Force exit_price < entry_price for UP trade to lose
-                exit_price = entry_price - price_diff if exit_price >= entry_price else exit_price
-        else:  # PUT/DOWN trade
-            if won:
-                # Force exit_price < entry_price for DOWN trade to win
-                exit_price = entry_price - price_diff if exit_price >= entry_price else exit_price
-            else:
-                # Force exit_price > entry_price for DOWN trade to lose
-                exit_price = entry_price + price_diff if exit_price <= entry_price else exit_price
-        
-        print(f"[TRADE SETTLE] AI Mode: id={trade_id}, type={trade_type}, predetermined={predetermined_outcome}, won={won}")
-    else:
-        # No predetermined outcome (Real account) - use actual price
-        if trade_type == "call":
-            won = exit_price > entry_price
-        else:
-            won = exit_price < entry_price
-        
-        if exit_price == entry_price:
-            won = False
-        
-        print(f"[TRADE SETTLE] Real Mode: id={trade_id}, type={trade_type}, entry={entry_price:.5f}, exit={exit_price:.5f}, won={won}")
+    # Tie goes to house (loss)
+    if exit_price == entry_price:
+        won = False
+    
+    print(f"[TRADE SETTLE] id={trade_id}, type={trade_type}, entry={entry_price:.5f}, exit={exit_price:.5f}, won={won}")
     
     status = "won" if won else "lost"
     profit_loss = trade["amount"] * (trade["payout_percentage"] / 100) if won else -trade["amount"]
