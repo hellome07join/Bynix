@@ -1068,6 +1068,13 @@ export default function Profile() {
         return;
       }
       
+      // For web: Open window FIRST (before async call) to avoid popup blocker
+      let newWindow: Window | null = null;
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        // Open blank window immediately on user click - this bypasses popup blocker
+        newWindow = window.open('about:blank', '_blank');
+      }
+      
       try {
         console.log('Making API request to:', `${API_URL}/kyc/didit/start`);
         
@@ -1086,6 +1093,7 @@ export default function Profile() {
         if (!response.ok) {
           console.log('API Error:', data);
           const errorMsg = data.detail || data.message || 'Failed to start verification';
+          if (newWindow) newWindow.close(); // Close blank window on error
           if (Platform.OS === 'web' && typeof window !== 'undefined') {
             window.alert('Error: ' + errorMsg);
           } else {
@@ -1100,16 +1108,24 @@ export default function Profile() {
           
           // Open URL based on platform
           if (Platform.OS === 'web' && typeof window !== 'undefined') {
-            // For web, use window.open
-            const newWindow = window.open(data.verification_url, '_blank');
             if (newWindow) {
+              // Set the URL on the already-opened window
+              newWindow.location.href = data.verification_url;
               window.alert('KYC Verification Started!\n\nPlease complete the verification in the new tab.\nOnce done, return here and refresh to check your status.');
             } else {
-              // Popup was blocked
-              window.alert('Popup blocked! Please allow popups for this site.\n\nOr copy this URL and open in new tab:\n' + data.verification_url);
+              // Fallback: try window.open again or show URL
+              const retryWindow = window.open(data.verification_url, '_blank');
+              if (retryWindow) {
+                window.alert('KYC Verification Started!\n\nPlease complete the verification in the new tab.\nOnce done, return here and refresh to check your status.');
+              } else {
+                // Last resort: redirect in same window
+                if (window.confirm('Popup blocked! Click OK to open verification page in this window.\n\n(You can return here after completing verification)')) {
+                  window.location.href = data.verification_url;
+                }
+              }
             }
           } else {
-            // For mobile, use Linking
+            // For mobile native app, use Linking
             try {
               await Linking.openURL(data.verification_url);
               Alert.alert(
@@ -1123,6 +1139,7 @@ export default function Profile() {
             }
           }
         } else if (data.status === 'verified') {
+          if (newWindow) newWindow.close();
           if (Platform.OS === 'web' && typeof window !== 'undefined') {
             window.alert('Already Verified! Your KYC is already verified.');
           } else {
@@ -1130,6 +1147,7 @@ export default function Profile() {
           }
           fetchKycStatus();
         } else {
+          if (newWindow) newWindow.close();
           console.log('Unexpected response:', data);
           const errMsg = data.message || 'Unexpected response from server';
           if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -1139,6 +1157,7 @@ export default function Profile() {
           }
         }
       } catch (error: any) {
+        if (newWindow) newWindow.close();
         console.error('Didit KYC error:', error);
         const errMsg = `Could not start KYC verification: ${error.message || 'Unknown error'}`;
         if (Platform.OS === 'web' && typeof window !== 'undefined') {
