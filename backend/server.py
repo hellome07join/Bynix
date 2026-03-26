@@ -3653,11 +3653,33 @@ async def admin_get_top_traders(
     return {"top_traders": top_traders, "period": period}
 
 @api_router.get("/admin/users")
-async def admin_get_users(authorization: Optional[str] = Header(None), request: Request = None):
-    """Get all users for admin"""
+async def admin_get_users(
+    authorization: Optional[str] = Header(None), 
+    request: Request = None,
+    search: Optional[str] = None,
+    limit: int = 500
+):
+    """Get all users for admin with optional search"""
     user = await get_current_user(authorization, request)
     
-    users = await db.users.find({}).sort("created_at", -1).to_list(500)
+    # Build search query
+    query = {}
+    if search and search.strip():
+        search_term = search.strip()
+        # Search by email, name, account_id, or user_id
+        query["$or"] = [
+            {"email": {"$regex": search_term, "$options": "i"}},
+            {"name": {"$regex": search_term, "$options": "i"}},
+            {"full_name": {"$regex": search_term, "$options": "i"}},
+            {"account_id": {"$regex": search_term, "$options": "i"}},
+            {"user_id": {"$regex": search_term, "$options": "i"}}
+        ]
+        # Also try exact match for account_id (numeric)
+        if search_term.isdigit():
+            query["$or"].append({"account_id": search_term})
+            query["$or"].append({"account_id": int(search_term)})
+    
+    users = await db.users.find(query).sort("created_at", -1).limit(limit).to_list(limit)
     
     return {
         "users": [
@@ -3670,6 +3692,8 @@ async def admin_get_users(authorization: Optional[str] = Header(None), request: 
                 "demo_balance": u.get("demo_balance", 10000),
                 "bonus_balance": u.get("bonus_balance", 0),
                 "is_verified": u.get("is_verified", False),
+                "is_banned": u.get("is_banned", False),
+                "is_deleted": u.get("is_deleted", False),
                 "is_admin": u.get("is_admin", False),
                 "country": u.get("country"),
                 "country_flag": u.get("country_flag"),

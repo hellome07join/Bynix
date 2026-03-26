@@ -1023,7 +1023,8 @@ export default function AdminDashboard() {
       const matchesSearch = !userSearchQuery || 
         user.email?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
         user.name?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-        user.user_id?.includes(userSearchQuery);
+        user.user_id?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+        user.account_id?.toString().includes(userSearchQuery);
       
       const matchesFilter = userFilter === 'all' ||
         (userFilter === 'verified' && user.is_verified) ||
