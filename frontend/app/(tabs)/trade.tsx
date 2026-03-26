@@ -347,17 +347,17 @@ export default function Trade() {
           setIsAutoPolling(false);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           
-          // Refresh user balance
+          // Use refreshUser from authStore to properly update balance
+          const { refreshUser } = useAuthStore.getState();
+          await refreshUser();
+          
+          // Also update local state
           const meResponse = await fetch(`${API_URL}/auth/me`, {
             headers: { 'Authorization': `Bearer ${token}` },
           });
           if (meResponse.ok) {
             const userData = await meResponse.json();
-            setRealBalance(userData.real_balance || 0);
-            // Also update user in auth store
-            if (user) {
-              updateBalance(user.demo_balance || 10000, userData.real_balance || 0);
-            }
+            setRealBalance(userData.total_balance || userData.real_balance || 0);
           }
           
           // Wait a bit to show success animation, then close and redirect
@@ -368,7 +368,16 @@ export default function Trade() {
             setPayAmount(null);
             setExpirationTime(null);
             setPaymentStatus(null);
+            setPromoCode('');
+            setPromoValidation(null);
             setAccountType('real'); // Switch to real account
+            
+            // Force refresh user one more time after modal closes
+            setTimeout(async () => {
+              const { refreshUser } = useAuthStore.getState();
+              await refreshUser();
+            }, 500);
+            
             Alert.alert(
               '✅ Deposit Successful!', 
               `Your deposit has been credited to your real account with bonus!`,
@@ -392,7 +401,7 @@ export default function Trade() {
       clearInterval(pollInterval);
       setIsAutoPolling(false);
     };
-  }, [paymentId, generatedAddress, paymentStatus, user]);
+  }, [paymentId, generatedAddress, paymentStatus]);
   
   // Format countdown for display
   const formatCandleCountdown = () => {
@@ -2958,9 +2967,11 @@ export default function Trade() {
                     <View style={depositModalStyles.amountToSendCard}>
                       <Text style={depositModalStyles.amountToSendLabel}>Amount to Send</Text>
                       <Text style={depositModalStyles.amountToSendValue}>
-                        {payAmount || depositAmount} {selectedNetwork.split(' ')[0]}
+                        {(parseFloat(depositAmount) + 1).toFixed(2)} USDT
                       </Text>
-                      <Text style={depositModalStyles.amountToSendUsd}>≈ ${depositAmount} USD</Text>
+                      <Text style={depositModalStyles.amountToSendUsd}>
+                        ${depositAmount} deposit + $1 network fee
+                      </Text>
                     </View>
 
                     <View style={depositModalStyles.warningBox}>
