@@ -799,17 +799,14 @@ export default function Trade() {
     const isCurrentAssetValid = accountType === 'demo' ? isDemoOnlyAsset : !isDemoOnlyAsset;
     
     if (!isCurrentAssetValid) {
-      // Find first valid asset for current account type
-      const validAsset = dbAssets.find((asset: any) => {
-        const assetIsDemoOnly = demoOnlyAssets.has(asset.value) || 
-          demoOnlyAssets.has(asset.label) || 
-          demoOnlyAssets.has(asset.symbol || '');
-        return accountType === 'demo' ? assetIsDemoOnly : !assetIsDemoOnly;
-      });
-      
-      if (validAsset) {
-        console.log(`[ACCOUNT SWITCH] ${accountType} mode - switching asset to: ${validAsset.value}`);
-        setSelectedAsset(validAsset.value);
+      if (accountType === 'real') {
+        // Real account: Set EUR/JPY OTC as default
+        console.log('[ACCOUNT SWITCH] Real mode - switching to EUR/JPY OTC');
+        setSelectedAsset('EUR/JPY OTC');
+      } else {
+        // Demo account: Set EUR/USD OTC as default
+        console.log('[ACCOUNT SWITCH] Demo mode - switching to EUR/USD OTC');
+        setSelectedAsset('EUR/USD OTC');
       }
     }
   }, [accountType, dbAssets, demoOnlyAssets]);
