@@ -2854,6 +2854,7 @@ export default function AdminDashboard() {
     const [selectedPeriod, setSelectedPeriod] = useState('7D');
     const [analyticsStats, setAnalyticsStats] = useState(stats);
     const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+    const [topTraders, setTopTraders] = useState<any[]>([]);
 
     const fetchAnalyticsData = async (period: string) => {
       try {
@@ -2866,6 +2867,7 @@ export default function AdminDashboard() {
           'ALL': 'all'
         };
         
+        // Fetch stats
         const response = await fetch(`${API_URL}/admin/stats?period=${periodMap[period]}`, {
           headers: headers
         });
@@ -2881,6 +2883,16 @@ export default function AdminDashboard() {
             totalTrades: data.total_trades || 0,
             totalVolume: data.total_volume || 0,
           });
+        }
+
+        // Fetch top traders
+        const tradersResponse = await fetch(`${API_URL}/admin/top-traders?period=${periodMap[period]}&limit=5`, {
+          headers: headers
+        });
+        
+        if (tradersResponse.ok) {
+          const tradersData = await tradersResponse.json();
+          setTopTraders(tradersData.top_traders || []);
         }
       } catch (error) {
         console.error('Failed to fetch analytics:', error);
@@ -3052,28 +3064,34 @@ export default function AdminDashboard() {
           </TouchableOpacity>
         </View>
         
-        {recentUsers.slice(0, 5).map((user, index) => (
-          <View key={user.user_id || index} style={styles.topUserRow}>
-            <View style={styles.topUserRank}>
-              <Text style={[styles.topUserRankText, index < 3 && { color: COLORS.warning }]}>
-                #{index + 1}
-              </Text>
-            </View>
-            <View style={[styles.userAvatar, { width: 36, height: 36, borderRadius: 18 }]}>
-              <Text style={[styles.userAvatarText, { fontSize: 14 }]}>
-                {(user.name || user.email || 'U')[0].toUpperCase()}
-              </Text>
-            </View>
-            <View style={styles.topUserInfo}>
-              <Text style={styles.topUserName}>{user.name || 'Unnamed'}</Text>
-              <Text style={styles.topUserEmail}>{user.email}</Text>
-            </View>
-            <View style={styles.topUserStats}>
-              <Text style={styles.topUserVolume}>${(user.real_balance || 0).toFixed(0)}</Text>
-              <Text style={styles.topUserLabel}>Volume</Text>
-            </View>
+        {topTraders.length === 0 ? (
+          <View style={{ padding: 20, alignItems: 'center' }}>
+            <Text style={{ color: '#666' }}>No trading activity in this period</Text>
           </View>
-        ))}
+        ) : (
+          topTraders.map((trader, index) => (
+            <View key={trader.user_id || index} style={styles.topUserRow}>
+              <View style={styles.topUserRank}>
+                <Text style={[styles.topUserRankText, index < 3 && { color: COLORS.warning }]}>
+                  #{index + 1}
+                </Text>
+              </View>
+              <View style={[styles.userAvatar, { width: 36, height: 36, borderRadius: 18 }]}>
+                <Text style={[styles.userAvatarText, { fontSize: 14 }]}>
+                  {(trader.name || trader.email || 'U')[0].toUpperCase()}
+                </Text>
+              </View>
+              <View style={styles.topUserInfo}>
+                <Text style={styles.topUserName}>{trader.name || 'Unnamed'}</Text>
+                <Text style={styles.topUserEmail}>{trader.email}</Text>
+              </View>
+              <View style={styles.topUserStats}>
+                <Text style={styles.topUserVolume}>${formatNumber(trader.total_volume)}</Text>
+                <Text style={styles.topUserLabel}>Volume</Text>
+              </View>
+            </View>
+          ))
+        )}
       </View>
     </ScrollView>
     );

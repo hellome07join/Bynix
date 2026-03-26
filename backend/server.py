@@ -3577,6 +3577,72 @@ async def admin_get_stats(
         "period": period
     }
 
+@api_router.get("/admin/top-traders")
+async def admin_get_top_traders(
+    authorization: Optional[str] = Header(None), 
+    request: Request = None,
+    period: str = "all",  # 24h, 7d, 30d, 90d, all
+    limit: int = 10
+):
+    """Get top traders by trading volume for admin dashboard"""
+    user = await get_current_user(authorization, request)
+    
+    # Calculate date filter based on period
+    match_filter: dict = {"status": {"$in": ["won", "lost"]}}
+    now = datetime.now(timezone.utc)
+    
+    if period == "24h":
+        match_filter["created_at"] = {"$gte": now - timedelta(hours=24)}
+    elif period == "7d":
+        match_filter["created_at"] = {"$gte": now - timedelta(days=7)}
+    elif period == "30d":
+        match_filter["created_at"] = {"$gte": now - timedelta(days=30)}
+    elif period == "90d":
+        match_filter["created_at"] = {"$gte": now - timedelta(days=90)}
+    # 'all' = no date filter
+    
+    # Aggregate trades to get volume and stats per user
+    pipeline = [
+        {"$match": match_filter},
+        {
+            "$group": {
+                "_id": "$user_id",
+                "total_volume": {"$sum": "$amount"},
+                "total_trades": {"$sum": 1},
+                "won_trades": {"$sum": {"$cond": [{"$eq": ["$status", "won"]}, 1, 0]}},
+                "total_profit": {"$sum": "$profit_loss"},
+            }
+        },
+        {"$sort": {"total_volume": -1}},  # Sort by volume descending
+        {"$limit": limit}
+    ]
+    
+    results = await db.trades.aggregate(pipeline).to_list(limit)
+    
+    # Fetch user details
+    top_traders = []
+    for i, result in enumerate(results):
+        user_doc = await db.users.find_one(
+            {"user_id": result["_id"]},
+            {"_id": 0, "user_id": 1, "email": 1, "name": 1, "full_name": 1, "account_id": 1}
+        )
+        
+        if user_doc:
+            win_rate = (result["won_trades"] / result["total_trades"] * 100) if result["total_trades"] > 0 else 0
+            top_traders.append({
+                "rank": i + 1,
+                "user_id": result["_id"],
+                "email": user_doc.get("email", "N/A"),
+                "name": user_doc.get("name") or user_doc.get("full_name") or "Unnamed",
+                "account_id": user_doc.get("account_id", "N/A"),
+                "total_volume": round(result["total_volume"], 2),
+                "total_trades": result["total_trades"],
+                "win_rate": round(win_rate, 1),
+                "total_profit": round(result["total_profit"], 2),
+            })
+    
+    return {"top_traders": top_traders, "period": period}
+
 @api_router.get("/admin/users")
 async def admin_get_users(authorization: Optional[str] = Header(None), request: Request = None):
     """Get all users for admin"""
