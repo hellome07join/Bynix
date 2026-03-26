@@ -1257,20 +1257,30 @@ export default function AdminDashboard() {
                 <View style={styles.userInfoSection}>
                   <Text style={styles.sectionTitleSmall}>User Information</Text>
                   <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Account ID</Text>
+                    <Text style={styles.infoValue}>{selectedUser?.account_id || 'N/A'}</Text>
+                  </View>
+                  <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>User ID</Text>
-                    <Text style={styles.infoValue}>{selectedUser?.user_id?.slice(0, 8)}...</Text>
+                    <Text style={[styles.infoValue, { fontSize: 11 }]}>{selectedUser?.user_id}</Text>
                   </View>
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>Status</Text>
-                    <View style={[styles.statusBadgeSmall, { backgroundColor: selectedUser?.is_verified ? COLORS.successLight : COLORS.warningLight }]}>
-                      <Text style={[styles.statusBadgeText, { color: selectedUser?.is_verified ? COLORS.success : COLORS.warning }]}>
-                        {selectedUser?.is_verified ? 'Verified' : 'Unverified'}
+                    <View style={[styles.statusBadgeSmall, { backgroundColor: selectedUser?.is_banned ? COLORS.dangerLight : selectedUser?.is_verified ? COLORS.successLight : COLORS.warningLight }]}>
+                      <Text style={[styles.statusBadgeText, { color: selectedUser?.is_banned ? COLORS.danger : selectedUser?.is_verified ? COLORS.success : COLORS.warning }]}>
+                        {selectedUser?.is_banned ? 'Banned' : selectedUser?.is_verified ? 'Verified' : 'Unverified'}
                       </Text>
                     </View>
                   </View>
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>KYC Status</Text>
                     <Text style={styles.infoValue}>{selectedUser?.kyc_status || 'Not Submitted'}</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Joined</Text>
+                    <Text style={styles.infoValue}>
+                      {selectedUser?.created_at ? new Date(selectedUser.created_at).toLocaleDateString() : 'N/A'}
+                    </Text>
                   </View>
                 </View>
 
@@ -1344,11 +1354,42 @@ export default function AdminDashboard() {
                 <View style={styles.actionButtonsSection}>
                   <Text style={styles.sectionTitleSmall}>Actions</Text>
                   <View style={styles.actionButtonsRow}>
-                    <TouchableOpacity style={[styles.actionBtn, { backgroundColor: COLORS.warningLight }]}>
+                    <TouchableOpacity 
+                      style={[styles.actionBtn, { backgroundColor: COLORS.warningLight }]}
+                      onPress={() => {
+                        Alert.alert('KYC Status', selectedUser?.kyc_status === 'approved' ? 
+                          'KYC Verified ✓' : 
+                          selectedUser?.kyc_status === 'pending' ? 
+                          'KYC Pending Review' : 
+                          'No KYC Submitted'
+                        );
+                      }}
+                    >
                       <Ionicons name="document-text" size={20} color={COLORS.warning} />
                       <Text style={[styles.actionBtnText, { color: COLORS.warning }]}>View KYC</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.actionBtn, { backgroundColor: COLORS.infoLight }]}>
+                    <TouchableOpacity 
+                      style={[styles.actionBtn, { backgroundColor: COLORS.infoLight }]}
+                      onPress={async () => {
+                        try {
+                          const response = await fetch(`${API_URL}/admin/users/${selectedUser?.user_id}/trades?limit=20`, {
+                            headers: headers
+                          });
+                          if (response.ok) {
+                            const data = await response.json();
+                            const trades = data.trades || [];
+                            const summary = trades.length > 0 
+                              ? `Last ${trades.length} trades:\n${trades.slice(0, 5).map(t => 
+                                  `${t.asset} - ${t.trade_type.toUpperCase()} - $${t.amount} - ${t.status}`
+                                ).join('\n')}`
+                              : 'No trade history';
+                            Alert.alert('Trade History', summary);
+                          }
+                        } catch (error) {
+                          Alert.alert('Error', 'Failed to fetch trade history');
+                        }
+                      }}
+                    >
                       <Ionicons name="time" size={20} color={COLORS.info} />
                       <Text style={[styles.actionBtnText, { color: COLORS.info }]}>Trade History</Text>
                     </TouchableOpacity>
@@ -1356,7 +1397,18 @@ export default function AdminDashboard() {
                   <View style={styles.actionButtonsRow}>
                     <TouchableOpacity 
                       style={[styles.actionBtn, { backgroundColor: selectedUser?.is_banned ? COLORS.successLight : COLORS.dangerLight }]}
-                      onPress={() => handleBanUser(selectedUser?.user_id, !selectedUser?.is_banned)}
+                      onPress={() => {
+                        Alert.alert(
+                          selectedUser?.is_banned ? 'Unban User' : 'Ban User',
+                          selectedUser?.is_banned ? 
+                            'Are you sure you want to unban this user?' :
+                            'This will suspend the user. They will see: "This account is suspended for violation of company rules"',
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: selectedUser?.is_banned ? 'Unban' : 'Ban', style: 'destructive', onPress: () => handleBanUser(selectedUser?.user_id, !selectedUser?.is_banned) }
+                          ]
+                        );
+                      }}
                     >
                       <Ionicons 
                         name={selectedUser?.is_banned ? 'checkmark-circle' : 'ban'} 
@@ -1367,11 +1419,55 @@ export default function AdminDashboard() {
                         {selectedUser?.is_banned ? 'Unban User' : 'Ban User'}
                       </Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.actionBtn, { backgroundColor: COLORS.purpleLight }]}>
+                    <TouchableOpacity 
+                      style={[styles.actionBtn, { backgroundColor: COLORS.purpleLight }]}
+                      onPress={() => {
+                        Alert.alert('Send Email', `Email feature coming soon.\n\nUser email: ${selectedUser?.email}`);
+                      }}
+                    >
                       <Ionicons name="mail" size={20} color={COLORS.purple} />
                       <Text style={[styles.actionBtnText, { color: COLORS.purple }]}>Send Email</Text>
                     </TouchableOpacity>
                   </View>
+                  
+                  {/* Delete User Button */}
+                  <TouchableOpacity 
+                    style={[styles.actionBtn, { backgroundColor: '#2a0000', marginTop: 12, width: '100%' }]}
+                    onPress={() => {
+                      Alert.alert(
+                        '⚠️ Delete User',
+                        'Are you sure you want to delete this user? They will see: "This account has been deleted by the owner" when trying to login.',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          { 
+                            text: 'Delete', 
+                            style: 'destructive', 
+                            onPress: async () => {
+                              try {
+                                const response = await fetch(`${API_URL}/admin/users/${selectedUser?.user_id}/delete`, {
+                                  method: 'POST',
+                                  headers: headers,
+                                  body: JSON.stringify({ reason: 'This account has been deleted by the owner' })
+                                });
+                                if (response.ok) {
+                                  Alert.alert('Success', 'User deleted successfully');
+                                  fetchDashboardData();
+                                  setShowUserModal(false);
+                                } else {
+                                  Alert.alert('Error', 'Failed to delete user');
+                                }
+                              } catch (error) {
+                                Alert.alert('Error', 'Failed to delete user');
+                              }
+                            }
+                          }
+                        ]
+                      );
+                    }}
+                  >
+                    <Ionicons name="trash" size={20} color="#ff4444" />
+                    <Text style={[styles.actionBtnText, { color: '#ff4444' }]}>Delete User</Text>
+                  </TouchableOpacity>
                 </View>
               </ScrollView>
             </View>

@@ -484,6 +484,15 @@ async def login(credentials: UserLogin):
     if not verify_password(credentials.password, user_doc["password"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     
+    # Check if user is deleted
+    if user_doc.get("is_deleted", False):
+        raise HTTPException(status_code=403, detail="This account has been deleted by the owner")
+    
+    # Check if user is banned
+    if user_doc.get("is_banned", False):
+        ban_reason = user_doc.get("ban_reason", "This account is suspended for violation of company rules")
+        raise HTTPException(status_code=403, detail=ban_reason)
+    
     if not user_doc.get("is_verified", False):
         raise HTTPException(status_code=401, detail="Please verify your email first")
     
@@ -5395,6 +5404,94 @@ async def set_user_payout(
     })
     
     return {"success": True, "payout_modifier": modifier}
+
+@api_router.post("/admin/users/{user_id}/ban")
+async def ban_user(
+    user_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Ban or unban user - they will see suspension message on login"""
+    admin = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    banned = body.get("banned", True)
+    reason = body.get("reason", "This account is suspended for violation of company rules")
+    
+    result = await db.users.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {
+                "is_banned": banned,
+                "ban_reason": reason if banned else None,
+                "banned_at": datetime.now(timezone.utc) if banned else None,
+                "banned_by": admin.user_id if banned else None
+            }
+        }
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {"success": True, "banned": banned, "message": f"User {'banned' if banned else 'unbanned'} successfully"}
+
+@api_router.post("/admin/users/{user_id}/delete")
+async def delete_user(
+    user_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Soft delete user - they will see deleted message on login"""
+    admin = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    reason = body.get("reason", "This account has been deleted by the owner")
+    
+    result = await db.users.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {
+                "is_deleted": True,
+                "delete_reason": reason,
+                "deleted_at": datetime.now(timezone.utc),
+                "deleted_by": admin.user_id
+            }
+        }
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {"success": True, "message": "User deleted successfully"}
+
+@api_router.get("/admin/users/{user_id}/trades")
+async def get_user_trades(
+    user_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None,
+    limit: int = 50
+):
+    """Get trade history for a specific user"""
+    admin = await get_current_user(authorization, request)
+    
+    trades = await db.trades.find({"user_id": user_id}).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    return {
+        "trades": [
+            {
+                "trade_id": t.get("trade_id"),
+                "asset": t.get("asset"),
+                "trade_type": t.get("trade_type"),
+                "amount": t.get("amount"),
+                "status": t.get("status"),
+                "profit_loss": t.get("profit_loss"),
+                "created_at": str(t.get("created_at")),
+                "account_type": t.get("account_type")
+            }
+            for t in trades
+        ],
+        "total": len(trades)
+    }
 
 @api_router.post("/admin/users/{user_id}/shadow-ban")
 async def shadow_ban_user(
