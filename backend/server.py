@@ -644,18 +644,11 @@ async def get_me(authorization: Optional[str] = Header(None), request: Request =
         profit_balance = 0
         has_withdrawn = False
     
-    # Total balance in account (includes bonus + real_balance for backward compatibility)
-    # If new balance fields are 0, use real_balance as fallback
-    if deposit_balance == 0 and bonus_balance == 0 and profit_balance == 0:
-        total_balance = user.real_balance
-    else:
-        total_balance = deposit_balance + bonus_balance + profit_balance
+    # Total balance in account (real_balance includes deposit + bonus)
+    total_balance = user.real_balance
     
-    # Available for withdrawal (deposit + profit only, no bonus, or real_balance for old users)
-    if deposit_balance == 0 and profit_balance == 0:
-        withdrawable_balance = user.real_balance
-    else:
-        withdrawable_balance = deposit_balance + profit_balance
+    # Available for withdrawal (real_balance - bonus_balance)
+    withdrawable_balance = max(0, user.real_balance - bonus_balance)
     
     return {
         "user_id": user.user_id,
