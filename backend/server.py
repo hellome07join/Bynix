@@ -4559,7 +4559,8 @@ async def get_god_mode_status(authorization: Optional[str] = Header(None), reque
         "ai_enabled": settings.get("ai_enabled", True),
         "ai_strategy": settings.get("ai_strategy", "balanced"),  # conservative, balanced, aggressive
         "ai_win_rate": settings.get("ai_win_rate", 45),  # 0-100 for real balance
-        "demo_win_rate": settings.get("demo_win_rate", 65),  # 0-100 for demo balance
+        "demo_strategy": settings.get("demo_strategy", "encouraging"),  # realistic, encouraging, generous, vip
+        "demo_win_rate": settings.get("demo_win_rate", 70),  # 0-100 for demo balance
         "ai_market_trend": settings.get("ai_market_trend", "sideways")  # bullish, sideways, bearish
     }
 
@@ -4661,6 +4662,38 @@ async def set_demo_win_rate(authorization: Optional[str] = Header(None), request
     )
     
     return {"success": True, "demo_win_rate": win_rate}
+
+@api_router.post("/admin/ai/demo-strategy")
+async def set_demo_strategy(authorization: Optional[str] = Header(None), request: Request = None):
+    """Set Demo trading strategy preset - controls demo account win rate"""
+    user = await get_current_user(authorization, request)
+    
+    body = await request.json()
+    strategy = body.get("strategy", "encouraging")  # realistic, encouraging, generous
+    
+    # Demo strategies focus on encouraging users to feel confident
+    demo_strategy_win_rates = {
+        "realistic": 55,      # Slightly above 50% - feels realistic
+        "encouraging": 70,    # 70% wins - builds confidence
+        "generous": 85,       # 85% wins - very positive experience
+        "vip": 95             # 95% wins - almost always wins (for special users)
+    }
+    win_rate = demo_strategy_win_rates.get(strategy, 70)
+    
+    await db.platform_settings.update_one(
+        {"_id": "god_mode"},
+        {
+            "$set": {
+                "demo_strategy": strategy,
+                "demo_win_rate": win_rate,
+                "updated_at": datetime.now(timezone.utc),
+                "updated_by": user.user_id
+            }
+        },
+        upsert=True
+    )
+    
+    return {"success": True, "demo_strategy": strategy, "demo_win_rate": win_rate}
 
 @api_router.post("/admin/ai/market-trend")
 async def set_ai_market_trend(authorization: Optional[str] = Header(None), request: Request = None):

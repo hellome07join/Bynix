@@ -2030,6 +2030,27 @@ export default function AdminDashboard() {
       }
     };
 
+    const handleSetDemoStrategy = async (strategy: string, rate: number) => {
+      try {
+        setUpdating(true);
+        const response = await fetch(`${API_URL}/admin/ai/demo-strategy`, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify({ strategy })
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setDemoWinRateLocal(data.demo_win_rate);
+          setDemoWinRate(data.demo_win_rate);
+          Alert.alert('✅ Demo Strategy Updated', `Set to ${strategy.charAt(0).toUpperCase() + strategy.slice(1)} (${data.demo_win_rate}% win rate)`);
+        }
+      } catch (error) {
+        Alert.alert('Error', 'Failed to set demo strategy');
+      } finally {
+        setUpdating(false);
+      }
+    };
+
     const handleSetMarketTrend = async (trend: string) => {
       try {
         setUpdating(true);
@@ -2151,6 +2172,40 @@ export default function AdminDashboard() {
           </View>
           <Text style={styles.sectionTitle}>Demo Balance Win Rate</Text>
         </View>
+        
+        {/* Demo Strategy Presets - Like Real Balance */}
+        <Text style={{ color: '#94a3b8', fontSize: 12, marginBottom: 12 }}>Strategy Preset (Quick Select)</Text>
+        <View style={styles.strategyGrid}>
+          {[
+            { id: 'realistic', label: 'Realistic', desc: '55% wins - Feels natural', icon: 'analytics', color: '#64748b', rate: 55 },
+            { id: 'encouraging', label: 'Encouraging', desc: '70% wins - Builds confidence', icon: 'thumbs-up', color: COLORS.warning, rate: 70 },
+            { id: 'generous', label: 'Generous', desc: '85% wins - Very positive', icon: 'gift', color: COLORS.success, rate: 85 },
+            { id: 'vip', label: 'VIP', desc: '95% wins - Almost always', icon: 'diamond', color: COLORS.primary, rate: 95 },
+          ].map((strategy) => (
+            <TouchableOpacity 
+              key={strategy.id} 
+              style={[
+                styles.strategyCard, 
+                demoWinRateLocal === strategy.rate && styles.strategyCardActive,
+                { borderColor: demoWinRateLocal === strategy.rate ? COLORS.warning : 'rgba(255,255,255,0.1)' }
+              ]}
+              onPress={() => handleSetDemoStrategy(strategy.id, strategy.rate)}
+              disabled={updating}
+            >
+              <View style={[styles.strategyIcon, { backgroundColor: strategy.color + '15' }]}>
+                <Ionicons name={strategy.icon as any} size={24} color={strategy.color} />
+              </View>
+              <Text style={styles.strategyLabel}>{strategy.label}</Text>
+              <Text style={styles.strategyDesc}>{strategy.desc}</Text>
+              {demoWinRateLocal === strategy.rate && (
+                <View style={styles.activeIndicator}>
+                  <Ionicons name="checkmark-circle" size={20} color={COLORS.warning} />
+                </View>
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+        
         <View style={styles.winRateContainer}>
           <View style={styles.winRateCircle}>
             <Text style={[styles.winRateValue, { color: COLORS.warning }]}>{demoWinRateLocal}%</Text>
@@ -2163,37 +2218,16 @@ export default function AdminDashboard() {
             <View style={styles.winRateBadge}>
               <Ionicons name="information-circle" size={14} color={COLORS.warning} />
               <Text style={[styles.winRateBadgeText, { color: COLORS.warning }]}>
-                Recommended: 65-80%
+                Recommended: 70-85%
               </Text>
             </View>
           </View>
         </View>
         
-        {/* Demo account info */}
-        <View style={{ 
-          backgroundColor: 'rgba(255, 184, 0, 0.08)', 
-          borderRadius: 8, 
-          padding: 12, 
-          marginTop: 12,
-          borderWidth: 1,
-          borderColor: 'rgba(255, 184, 0, 0.2)'
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-            <Ionicons name="game-controller" size={14} color={COLORS.warning} />
-            <Text style={{ color: COLORS.warning, fontWeight: '700', fontSize: 12, marginLeft: 6 }}>
-              Applies to ALL Demo Account Trades
-            </Text>
-          </View>
-          <Text style={{ color: '#94a3b8', fontSize: 11, lineHeight: 16 }}>
-            This win rate controls the probability of winning for all trades placed using Demo balance.
-          </Text>
-          <Text style={{ color: '#64748b', fontSize: 10, marginTop: 6, fontStyle: 'italic' }}>
-            Real balance uses the AI Win Rate above
-          </Text>
-        </View>
-        
+        {/* Custom Win Rate Buttons */}
+        <Text style={{ color: '#94a3b8', fontSize: 11, marginTop: 12, marginBottom: 8 }}>Or set custom rate:</Text>
         <View style={styles.presetButtons}>
-          {[50, 60, 65, 70, 75, 80, 90].map((preset) => (
+          {[50, 60, 70, 80, 90, 95].map((preset) => (
             <TouchableOpacity 
               key={preset} 
               style={[styles.presetBtn, demoWinRateLocal === preset && { backgroundColor: COLORS.warning + '20', borderColor: COLORS.warning }]}
