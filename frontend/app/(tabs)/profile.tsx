@@ -168,6 +168,8 @@ export default function Profile() {
   const [showKycRequiredModal, setShowKycRequiredModal] = useState(false);
   const [kycCountdown, setKycCountdown] = useState<number | null>(null);
   const [isStartingDiditKyc, setIsStartingDiditKyc] = useState(false);
+  const [showDiditUrlModal, setShowDiditUrlModal] = useState(false);
+  const [diditVerificationUrl, setDiditVerificationUrl] = useState<string | null>(null);
   
   // Password Change State
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -1068,13 +1070,6 @@ export default function Profile() {
         return;
       }
       
-      // For web: Open window FIRST (before async call) to avoid popup blocker
-      let newWindow: Window | null = null;
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        // Open blank window immediately on user click - this bypasses popup blocker
-        newWindow = window.open('about:blank', '_blank');
-      }
-      
       try {
         console.log('Making API request to:', `${API_URL}/kyc/didit/start`);
         
@@ -1093,7 +1088,6 @@ export default function Profile() {
         if (!response.ok) {
           console.log('API Error:', data);
           const errorMsg = data.detail || data.message || 'Failed to start verification';
-          if (newWindow) newWindow.close(); // Close blank window on error
           if (Platform.OS === 'web' && typeof window !== 'undefined') {
             window.alert('Error: ' + errorMsg);
           } else {
@@ -1104,26 +1098,12 @@ export default function Profile() {
         }
         
         if (data.verification_url) {
-          console.log('Opening verification URL:', data.verification_url);
+          console.log('Got verification URL:', data.verification_url);
           
-          // Open URL based on platform
           if (Platform.OS === 'web' && typeof window !== 'undefined') {
-            if (newWindow) {
-              // Set the URL on the already-opened window
-              newWindow.location.href = data.verification_url;
-              window.alert('KYC Verification Started!\n\nPlease complete the verification in the new tab.\nOnce done, return here and refresh to check your status.');
-            } else {
-              // Fallback: try window.open again or show URL
-              const retryWindow = window.open(data.verification_url, '_blank');
-              if (retryWindow) {
-                window.alert('KYC Verification Started!\n\nPlease complete the verification in the new tab.\nOnce done, return here and refresh to check your status.');
-              } else {
-                // Last resort: redirect in same window
-                if (window.confirm('Popup blocked! Click OK to open verification page in this window.\n\n(You can return here after completing verification)')) {
-                  window.location.href = data.verification_url;
-                }
-              }
-            }
+            // For web/Safari: Show modal with clickable link
+            setDiditVerificationUrl(data.verification_url);
+            setShowDiditUrlModal(true);
           } else {
             // For mobile native app, use Linking
             try {
@@ -1139,7 +1119,6 @@ export default function Profile() {
             }
           }
         } else if (data.status === 'verified') {
-          if (newWindow) newWindow.close();
           if (Platform.OS === 'web' && typeof window !== 'undefined') {
             window.alert('Already Verified! Your KYC is already verified.');
           } else {
@@ -1147,7 +1126,6 @@ export default function Profile() {
           }
           fetchKycStatus();
         } else {
-          if (newWindow) newWindow.close();
           console.log('Unexpected response:', data);
           const errMsg = data.message || 'Unexpected response from server';
           if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -1157,7 +1135,6 @@ export default function Profile() {
           }
         }
       } catch (error: any) {
-        if (newWindow) newWindow.close();
         console.error('Didit KYC error:', error);
         const errMsg = `Could not start KYC verification: ${error.message || 'Unknown error'}`;
         if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -2447,6 +2424,101 @@ export default function Profile() {
                 onPress={() => setShowKycRequiredModal(false)}
               >
                 <Text style={{ color: '#666', fontSize: 14 }}>I'll do it later</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Didit KYC Verification URL Modal - For Safari/iOS compatibility */}
+      <Modal visible={showDiditUrlModal} transparent animationType="fade">
+        <View style={styles.withdrawModalOverlay}>
+          <View style={[styles.withdrawModalContent, { maxHeight: 500, justifyContent: 'center' }]}>
+            {/* Close Button */}
+            <TouchableOpacity 
+              onPress={() => {
+                setShowDiditUrlModal(false);
+                setDiditVerificationUrl(null);
+              }} 
+              style={{ position: 'absolute', top: 16, right: 16, zIndex: 10 }}
+            >
+              <Ionicons name="close" size={24} color="#888" />
+            </TouchableOpacity>
+
+            {/* Icon */}
+            <View style={{ alignItems: 'center', marginTop: 20 }}>
+              <View style={{
+                width: 80,
+                height: 80,
+                borderRadius: 40,
+                backgroundColor: 'rgba(0, 229, 90, 0.15)',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 20
+              }}>
+                <Ionicons name="checkmark-circle" size={40} color="#00E55A" />
+              </View>
+              
+              <Text style={{ fontSize: 22, fontWeight: '700', color: '#FFFFFF', textAlign: 'center', marginBottom: 12 }}>
+                Ready to Verify!
+              </Text>
+              
+              <Text style={{ fontSize: 14, color: '#888', textAlign: 'center', paddingHorizontal: 20, lineHeight: 22, marginBottom: 20 }}>
+                Tap the button below to open the verification page. Complete the process and return here.
+              </Text>
+
+              {/* Open Verification Button - This will be a direct link that Safari won't block */}
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#00E55A',
+                  paddingVertical: 18,
+                  paddingHorizontal: 40,
+                  borderRadius: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  width: '90%',
+                  justifyContent: 'center',
+                  marginBottom: 15
+                }}
+                onPress={() => {
+                  if (diditVerificationUrl) {
+                    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                      // Direct navigation - Safari won't block this from a user click
+                      window.location.href = diditVerificationUrl;
+                    } else {
+                      Linking.openURL(diditVerificationUrl);
+                    }
+                  }
+                }}
+              >
+                <Ionicons name="open-outline" size={22} color="#0A0A0A" />
+                <Text style={{ color: '#0A0A0A', fontWeight: '700', fontSize: 16, marginLeft: 10 }}>
+                  Open Verification Page
+                </Text>
+              </TouchableOpacity>
+
+              {/* Info Text */}
+              <View style={{
+                backgroundColor: 'rgba(255, 184, 0, 0.1)',
+                padding: 12,
+                borderRadius: 10,
+                marginTop: 10,
+                width: '90%'
+              }}>
+                <Text style={{ color: '#FFB800', fontSize: 12, textAlign: 'center', lineHeight: 18 }}>
+                  After completing verification, use your browser's back button or return to this app to check your status.
+                </Text>
+              </View>
+
+              {/* Cancel Button */}
+              <TouchableOpacity
+                style={{ marginTop: 20, paddingVertical: 10 }}
+                onPress={() => {
+                  setShowDiditUrlModal(false);
+                  setDiditVerificationUrl(null);
+                }}
+              >
+                <Text style={{ color: '#666', fontSize: 14 }}>Cancel</Text>
               </TouchableOpacity>
             </View>
           </View>
