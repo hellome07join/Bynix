@@ -790,7 +790,7 @@ async def create_trade(trade: TradeCreate, authorization: Optional[str] = Header
         raise HTTPException(status_code=403, detail="Trading is currently disabled by administrator")
     
     # Check asset restrictions based on account type
-    asset_is_demo_only = is_demo_only_asset(trade.symbol)
+    asset_is_demo_only = is_demo_only_asset(trade.asset)
     
     if trade.account_type == "demo" and not asset_is_demo_only:
         raise HTTPException(

@@ -2015,51 +2015,47 @@ export default function Trade() {
                   const payoutB = apiPayouts[b.value] || apiPayouts[b.label] || b.payout || 0;
                   return payoutB - payoutA;
                 })
-                .map((asset) => {
-                  // Check if asset is locked based on account type
+                .filter((asset) => {
+                  // Filter out assets based on account type
                   const isDemoOnlyAsset = demoOnlyAssets.has(asset.value) || demoOnlyAssets.has(asset.label) || demoOnlyAssets.has(asset.symbol || '');
-                  const isLocked = accountType === 'demo' ? !isDemoOnlyAsset : isDemoOnlyAsset;
                   
+                  // Real account: Hide demo-only assets completely
+                  if (accountType === 'real' && isDemoOnlyAsset) {
+                    return false;
+                  }
+                  
+                  // Demo account: Hide non-demo assets completely
+                  if (accountType === 'demo' && !isDemoOnlyAsset) {
+                    return false;
+                  }
+                  
+                  return true;
+                })
+                .map((asset) => {
                   return (
                 <TouchableOpacity
                   key={asset.value}
                   style={[
                     styles.assetOption,
-                    selectedAsset === asset.value && styles.assetOptionSelected,
-                    isLocked && styles.assetOptionLocked
+                    selectedAsset === asset.value && styles.assetOptionSelected
                   ]}
                   onPress={() => {
-                    if (isLocked) {
-                      Alert.alert(
-                        'Asset Locked',
-                        accountType === 'demo' 
-                          ? 'This asset is only available for real balance trading. Switch to real account to trade this asset.'
-                          : 'This asset is only available for demo trading. Switch to demo account to trade this asset.',
-                        [{ text: 'OK', style: 'default' }]
-                      );
-                      return;
-                    }
                     setSelectedAsset(asset.value);
                     setShowAssetPicker(false);
                     setAssetSearchQuery(''); // Clear search on selection
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   }}
                 >
-                  <Text style={[styles.assetOptionIcon, isLocked && { opacity: 0.4 }]}>{asset.icon}</Text>
+                  <Text style={styles.assetOptionIcon}>{asset.icon}</Text>
                   <View style={styles.assetOptionInfo}>
-                    <Text style={[styles.assetOptionText, isLocked && { color: '#666' }]}>{asset.label}</Text>
-                    <Text style={[styles.assetOptionPayout, isLocked && { color: '#555' }]}>
-                      {isLocked 
-                        ? (accountType === 'demo' ? '🔒 Real Only' : '🔒 Demo Only')
-                        : `Payout: ${apiPayouts[asset.value] || apiPayouts[asset.label] || asset.payout}%`
-                      }
+                    <Text style={styles.assetOptionText}>{asset.label}</Text>
+                    <Text style={styles.assetOptionPayout}>
+                      Payout: {apiPayouts[asset.value] || apiPayouts[asset.label] || asset.payout}%
                     </Text>
                   </View>
-                  {isLocked ? (
-                    <Ionicons name="lock-closed" size={18} color="#FF6B6B" />
-                  ) : selectedAsset === asset.value ? (
+                  {selectedAsset === asset.value && (
                     <Ionicons name="checkmark-circle" size={18} color="#00E55A" />
-                  ) : null}
+                  )}
                 </TouchableOpacity>
                 );
                 })}
