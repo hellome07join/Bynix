@@ -788,28 +788,36 @@ export default function Trade() {
   const hardcodedAssets = getAssetsForAccount(accountType);
   const currentAssets = dbAssets.length > 0 ? dbAssets : hardcodedAssets;
   
+  // Demo-only assets list (hardcoded for reliable switching)
+  const DEMO_ONLY_SYMBOLS = [
+    'EUR/USD', 'EUR/USD OTC', 'EURUSD', 'EURUSD OTC',
+    'GBP/USD', 'GBP/USD OTC', 'GBPUSD', 'GBPUSD OTC',
+    'USD/JPY', 'USD/JPY OTC', 'USDJPY', 'USDJPY OTC',
+    'USD/CHF', 'USD/CHF OTC', 'USDCHF', 'USDCHF OTC',
+    'AUD/USD', 'AUD/USD OTC', 'AUDUSD', 'AUDUSD OTC',
+    'NZD/USD', 'NZD/USD OTC', 'NZDUSD', 'NZDUSD OTC',
+    'USD/CAD', 'USD/CAD OTC', 'USDCAD', 'USDCAD OTC',
+  ];
+  
   // Auto-select valid asset when account type changes
   useEffect(() => {
-    if (dbAssets.length === 0 || demoOnlyAssets.size === 0) return;
+    // Check if current selected asset is a demo-only asset
+    const isDemoOnlyAsset = DEMO_ONLY_SYMBOLS.some(symbol => 
+      selectedAsset.toUpperCase().includes(symbol.replace('/', '').replace(' OTC', '').toUpperCase())
+    );
     
-    // Check if current selected asset is valid for the new account type
-    const isDemoOnlyAsset = demoOnlyAssets.has(selectedAsset) || 
-      demoOnlyAssets.has(selectedAsset.replace(' OTC', ''));
+    console.log(`[ACCOUNT CHECK] accountType=${accountType}, selectedAsset=${selectedAsset}, isDemoOnly=${isDemoOnlyAsset}`);
     
-    const isCurrentAssetValid = accountType === 'demo' ? isDemoOnlyAsset : !isDemoOnlyAsset;
-    
-    if (!isCurrentAssetValid) {
-      if (accountType === 'real') {
-        // Real account: Set EUR/JPY OTC as default
-        console.log('[ACCOUNT SWITCH] Real mode - switching to EUR/JPY OTC');
-        setSelectedAsset('EUR/JPY OTC');
-      } else {
-        // Demo account: Set EUR/USD OTC as default
-        console.log('[ACCOUNT SWITCH] Demo mode - switching to EUR/USD OTC');
-        setSelectedAsset('EUR/USD OTC');
-      }
+    if (accountType === 'real' && isDemoOnlyAsset) {
+      // Real account but demo-only asset selected - switch to EUR/JPY
+      console.log('[ACCOUNT SWITCH] Real mode - switching to EUR/JPY OTC');
+      setSelectedAsset('EUR/JPY OTC');
+    } else if (accountType === 'demo' && !isDemoOnlyAsset) {
+      // Demo account but real-only asset selected - switch to EUR/USD
+      console.log('[ACCOUNT SWITCH] Demo mode - switching to EUR/USD OTC');
+      setSelectedAsset('EUR/USD OTC');
     }
-  }, [accountType, dbAssets, demoOnlyAssets]);
+  }, [accountType, selectedAsset]);
   
   // Get current asset data
   const currentAsset = currentAssets.find(a => a.value === selectedAsset) || currentAssets[0];
