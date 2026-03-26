@@ -11,6 +11,7 @@ import {
   Easing,
   ScrollView,
   Platform,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -366,179 +367,43 @@ export default function Welcome() {
             </View>
           </View>
 
-          {/* Phone Mockup */}
-          <Animated.View style={[styles.phoneMockupContainer, { transform: [{ translateY: phoneTranslateY }] }]}>
-            {/* Phone Outer Frame (Silver/Space Gray) */}
+          {/* Phone Mockup - iPhone 17 Pro Max with Screenshot */}
+          <Animated.View style={[styles.phoneMockupContainer, { transform: [{ translateY: phoneTranslateY }, { rotateY: '-12deg' }, { rotateX: '5deg' }, { rotateZ: '3deg' }] }]}>
+            {/* Phone Outer Frame (Titanium) */}
             <View style={styles.phoneOuterFrame}>
               {/* Phone Inner Frame */}
               <View style={styles.phoneFrame}>
-                {/* Side Buttons */}
-                <View style={styles.phoneSideButtons}>
-                  <View style={styles.phoneSideButton} />
-                  <View style={[styles.phoneSideButton, { height: 40, marginTop: 10 }]} />
-                  <View style={[styles.phoneSideButton, { height: 40, marginTop: 5 }]} />
-                </View>
+                {/* Power Button (Right side) */}
+                <View style={styles.phonePowerButton} />
                 
-                {/* Screen */}
-                <View style={styles.phoneScreen}>
-                {/* Status Bar */}
-                <View style={styles.phoneStatusBar}>
-                  <Text style={styles.phoneTime}>9:41</Text>
-                  <View style={styles.phoneDynamicIsland} />
-                  <View style={styles.phoneStatusIcons}>
-                    <Ionicons name="cellular" size={10} color="#FFF" />
-                    <Ionicons name="wifi" size={10} color="#FFF" />
-                    <Ionicons name="battery-full" size={10} color="#FFF" />
-                  </View>
+                {/* Volume Buttons (Left side) */}
+                <View style={styles.phoneVolumeButtons}>
+                  <View style={styles.phoneVolumeBtn} />
+                  <View style={[styles.phoneVolumeBtn, { marginTop: 8 }]} />
                 </View>
 
-                {/* Bynix App Header */}
-                <View style={styles.bynixAppHeader}>
-                  <View style={styles.depositBadge}>
-                    <Ionicons name="gift" size={8} color="#000" />
-                    <Text style={styles.depositBadgeText}>200% Deposit</Text>
-                  </View>
-                  <View style={styles.bynixLogoSmall}>
-                    <View style={styles.bynixLogoRing}>
-                      <Ionicons name="trending-up" size={12} color="#00E55A" />
-                    </View>
-                  </View>
-                  <View style={styles.balanceBadge}>
-                    <Ionicons name="wallet" size={8} color="#00E55A" />
-                    <Text style={styles.balanceBadgeText}>$64,696.00</Text>
-                  </View>
-                </View>
-
-                {/* Timer Row */}
-                <View style={styles.timerRow}>
-                  <View style={styles.timerBadge}>
-                    <Ionicons name="time" size={8} color="#00E55A" />
-                    <Text style={styles.timerText}>50s</Text>
-                  </View>
-                  <Text style={styles.utcText}>UTC 22:39:10</Text>
-                  <Text style={styles.currentPrice}>$1.03855</Text>
-                </View>
-
-                {/* Chart Area with Candlesticks */}
-                <View style={styles.chartArea}>
-                  {/* Price levels on right */}
-                  <View style={styles.priceLevels}>
-                    <Text style={styles.priceLevel}>1.04083</Text>
-                    <Text style={styles.priceLevel}>1.04019</Text>
-                    <Text style={styles.priceLevel}>1.03956</Text>
-                    <Text style={styles.priceLevel}>1.03892</Text>
+                {/* Screen with actual screenshot */}
+                <View style={styles.phoneScreenNew}>
+                  {/* Dynamic Island */}
+                  <View style={styles.dynamicIsland}>
+                    <View style={styles.dynamicIslandPill} />
                   </View>
 
-                  {/* Grid lines */}
-                  <View style={styles.chartGridLines}>
-                    {[1,2,3,4].map((_, i) => (
-                      <View key={i} style={styles.gridLineH} />
-                    ))}
-                  </View>
+                  {/* Screenshot Image */}
+                  <Image 
+                    source={{ uri: 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/ig4f3f1q_IMG_3393.jpeg' }}
+                    style={styles.screenshotImage}
+                    resizeMode="cover"
+                  />
 
-                  {/* Candlesticks - matching screenshot pattern */}
-                  <View style={styles.candlestickChart}>
-                    {[
-                      { h: 45, green: false, top: 5 },
-                      { h: 40, green: false, top: 10 },
-                      { h: 35, green: false, top: 15 },
-                      { h: 25, green: true, top: 25 },
-                      { h: 20, green: false, top: 30 },
-                      { h: 18, green: true, top: 35 },
-                      { h: 15, green: false, top: 38 },
-                      { h: 12, green: true, top: 45 },
-                      { h: 15, green: false, top: 50 },
-                      { h: 10, green: true, top: 55 },
-                      { h: 12, green: false, top: 52 },
-                      { h: 8, green: true, top: 58 },
-                      { h: 18, green: false, top: 60 },
-                    ].map((candle, i) => (
-                      <View key={i} style={[styles.candleCol, { marginTop: candle.top }]}>
-                        <View style={[styles.candleWickTop, { backgroundColor: candle.green ? '#00E55A' : '#FF4757' }]} />
-                        <View style={[styles.candleBodyNew, { height: candle.h, backgroundColor: candle.green ? '#00E55A' : '#FF4757' }]} />
-                        <View style={[styles.candleWickBot, { backgroundColor: candle.green ? '#00E55A' : '#FF4757' }]} />
-                      </View>
-                    ))}
-                  </View>
-
-                  {/* Entry line (dashed) */}
-                  <View style={styles.entryLine} />
-                </View>
-
-                {/* Toolbar */}
-                <View style={styles.toolbarRow}>
-                  <View style={styles.toolbarItem}>
-                    <Ionicons name="time-outline" size={10} color="#FFB800" />
-                    <Text style={styles.toolbarText}>1m</Text>
-                  </View>
-                  <View style={styles.toolbarItem}>
-                    <Ionicons name="build-outline" size={10} color="#FFB800" />
-                    <Text style={styles.toolbarText}>Tools</Text>
-                  </View>
-                  <View style={styles.toolbarItem}>
-                    <Ionicons name="swap-horizontal" size={10} color="#FFB800" />
-                    <Text style={styles.toolbarText}>Trade</Text>
-                  </View>
-                  <View style={styles.toolbarItem}>
-                    <Text style={styles.pairText}>USD/CHF</Text>
-                  </View>
-                </View>
-
-                {/* Investment Section */}
-                <View style={styles.investmentSection}>
-                  <Text style={styles.investmentLabel}>Investment Amount</Text>
-                  <View style={styles.investmentRow}>
-                    <View style={styles.amountInput}>
-                      <Text style={styles.amountText}>$ 100</Text>
-                    </View>
-                    <View style={styles.quickAmounts}>
-                      <View style={styles.quickBtn}><Text style={styles.quickBtnText}>$10</Text></View>
-                      <View style={styles.quickBtn}><Text style={styles.quickBtnText}>$50</Text></View>
-                      <View style={[styles.quickBtn, styles.quickBtnActive]}><Text style={styles.quickBtnTextActive}>$100</Text></View>
-                    </View>
-                  </View>
-                  <View style={styles.payoutRow}>
-                    <Text style={styles.payoutLabel}>You will get:</Text>
-                    <Text style={styles.payoutValue}>$195.00</Text>
-                  </View>
-                </View>
-
-                {/* Trade Buttons */}
-                <View style={styles.tradeButtonsRow}>
-                  <View style={styles.upButton}>
-                    <Ionicons name="arrow-up" size={12} color="#000" />
-                    <Text style={styles.upButtonText}>UP</Text>
-                    <Text style={styles.percentText}>95%</Text>
-                  </View>
-                  <View style={styles.downButton}>
-                    <Ionicons name="arrow-down" size={12} color="#FFF" />
-                    <Text style={styles.downButtonText}>DOWN</Text>
-                    <Text style={styles.percentTextDown}>95%</Text>
-                  </View>
-                </View>
-
-                {/* Bottom Navigation */}
-                <View style={styles.bottomNav}>
-                  <View style={styles.navItem}>
-                    <Ionicons name="trending-up" size={12} color="#00E55A" />
-                    <Text style={[styles.navText, { color: '#00E55A' }]}>Trade</Text>
-                  </View>
-                  <View style={styles.navItem}>
-                    <Ionicons name="trophy-outline" size={12} color="#666" />
-                    <Text style={styles.navText}>Leaderboard</Text>
-                  </View>
-                  <View style={styles.navItem}>
-                    <Ionicons name="headset-outline" size={12} color="#666" />
-                    <Text style={styles.navText}>Support</Text>
-                  </View>
-                  <View style={styles.navItem}>
-                    <Ionicons name="person-outline" size={12} color="#666" />
-                    <Text style={styles.navText}>Profile</Text>
-                  </View>
+                  {/* Home Indicator */}
+                  <View style={styles.homeIndicator} />
                 </View>
               </View>
             </View>
-          </View>
+
+            {/* Glow Effect */}
+            <View style={styles.phoneGlow} />
           </Animated.View>
 
           {/* Hero Text */}
@@ -844,27 +709,102 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   phoneOuterFrame: {
-    width: width * 0.72,
-    height: 520,
-    backgroundColor: '#2C2C2E',
-    borderRadius: 50,
-    padding: 12,
+    width: width * 0.75,
+    height: 550,
+    backgroundColor: '#1C1C1E',
+    borderRadius: 55,
+    padding: 8,
     shadowColor: '#00E55A',
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.4,
-    shadowRadius: 35,
-    elevation: 25,
-    borderWidth: 5,
-    borderColor: '#3D3D3F',
+    shadowOffset: { width: 0, height: 25 },
+    shadowOpacity: 0.5,
+    shadowRadius: 40,
+    elevation: 30,
+    borderWidth: 4,
+    borderColor: '#4A4A4C',
   },
   phoneFrame: {
     flex: 1,
-    backgroundColor: '#0A0E17',
-    borderRadius: 38,
+    backgroundColor: '#000',
+    borderRadius: 48,
     overflow: 'hidden',
     position: 'relative',
-    borderWidth: 3,
-    borderColor: '#1A1A1A',
+    borderWidth: 2,
+    borderColor: '#2C2C2E',
+  },
+  phonePowerButton: {
+    position: 'absolute',
+    right: -4,
+    top: 130,
+    width: 4,
+    height: 90,
+    backgroundColor: '#4A4A4C',
+    borderTopRightRadius: 3,
+    borderBottomRightRadius: 3,
+  },
+  phoneVolumeButtons: {
+    position: 'absolute',
+    left: -4,
+    top: 100,
+  },
+  phoneVolumeBtn: {
+    width: 4,
+    height: 50,
+    backgroundColor: '#4A4A4C',
+    borderTopLeftRadius: 3,
+    borderBottomLeftRadius: 3,
+  },
+  phoneScreenNew: {
+    flex: 1,
+    backgroundColor: '#000',
+    borderRadius: 45,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  dynamicIsland: {
+    position: 'absolute',
+    top: 12,
+    left: '50%',
+    marginLeft: -60,
+    width: 120,
+    height: 35,
+    backgroundColor: '#000',
+    borderRadius: 20,
+    zIndex: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dynamicIslandPill: {
+    width: 100,
+    height: 28,
+    backgroundColor: '#1C1C1E',
+    borderRadius: 15,
+  },
+  screenshotImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 45,
+  },
+  homeIndicator: {
+    position: 'absolute',
+    bottom: 8,
+    left: '50%',
+    marginLeft: -65,
+    width: 130,
+    height: 5,
+    backgroundColor: '#FFF',
+    borderRadius: 3,
+    opacity: 0.6,
+  },
+  phoneGlow: {
+    position: 'absolute',
+    top: -50,
+    left: -50,
+    right: -50,
+    bottom: -50,
+    borderRadius: 100,
+    backgroundColor: '#00E55A',
+    opacity: 0.08,
+    zIndex: -1,
   },
   phoneSideButtons: {
     position: 'absolute',
