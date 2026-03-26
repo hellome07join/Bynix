@@ -177,6 +177,12 @@ export default function AdminDashboard() {
   const [showKycModal, setShowKycModal] = useState(false);
   const [kycRequirement, setKycRequirement] = useState('');
 
+  // KYC Submissions
+  const [showKycSubmissionsModal, setShowKycSubmissionsModal] = useState(false);
+  const [kycSubmissions, setKycSubmissions] = useState<any[]>([]);
+  const [loadingKycSubmissions, setLoadingKycSubmissions] = useState(false);
+  const [selectedKycDocument, setSelectedKycDocument] = useState<any>(null);
+
   // Auth check
   useEffect(() => {
     const checkAuth = async () => {
@@ -662,6 +668,38 @@ export default function AdminDashboard() {
         Alert.alert('Error', 'Failed to unlock withdrawal');
       }
     }
+  };
+
+  // Fetch KYC Submissions
+  const fetchKycSubmissions = async () => {
+    if (!token) return;
+    
+    setLoadingKycSubmissions(true);
+    try {
+      const response = await fetch(`${API_URL}/admin/kyc-submissions`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setKycSubmissions(data.submissions || []);
+        setShowKycSubmissionsModal(true);
+      } else {
+        if (Platform.OS === 'web') {
+          window.alert('Error: Failed to fetch KYC submissions');
+        } else {
+          Alert.alert('Error', 'Failed to fetch KYC submissions');
+        }
+      }
+    } catch (error) {
+      console.error('Fetch KYC submissions error:', error);
+      if (Platform.OS === 'web') {
+        window.alert('Error: Failed to fetch KYC submissions');
+      } else {
+        Alert.alert('Error', 'Failed to fetch KYC submissions');
+      }
+    }
+    setLoadingKycSubmissions(false);
   };
 
   // Format currency
@@ -1306,6 +1344,33 @@ export default function AdminDashboard() {
         </View>
       </View>
 
+      {/* KYC Submitted Button */}
+      <TouchableOpacity 
+        style={styles.kycSubmittedBtn}
+        onPress={fetchKycSubmissions}
+        disabled={loadingKycSubmissions}
+      >
+        <View style={styles.kycSubmittedBtnLeft}>
+          <View style={[styles.kycSubmittedIcon, { backgroundColor: 'rgba(0, 229, 90, 0.15)' }]}>
+            <Ionicons name="document-text" size={22} color={COLORS.success} />
+          </View>
+          <View>
+            <Text style={styles.kycSubmittedBtnTitle}>KYC Documents Submitted</Text>
+            <Text style={styles.kycSubmittedBtnSubtitle}>Click to review submitted documents</Text>
+          </View>
+        </View>
+        <View style={styles.kycSubmittedBtnRight}>
+          {loadingKycSubmissions ? (
+            <ActivityIndicator size="small" color={COLORS.success} />
+          ) : (
+            <>
+              <Text style={styles.kycSubmittedCount}>{withdrawals.filter(w => w.status === 'locked' && w.kyc_submitted).length}</Text>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.textMuted} />
+            </>
+          )}
+        </View>
+      </TouchableOpacity>
+
       {/* Pending Withdrawals List */}
       <View style={styles.sectionCard}>
         <Text style={styles.sectionTitle}>Pending Requests</Text>
@@ -1633,6 +1698,141 @@ export default function AdminDashboard() {
             >
               <Text style={styles.kycCancelBtnText}>Cancel</Text>
             </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* KYC Submissions Modal */}
+      <Modal
+        visible={showKycSubmissionsModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          setShowKycSubmissionsModal(false);
+          setSelectedKycDocument(null);
+        }}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => {
+            setShowKycSubmissionsModal(false);
+            setSelectedKycDocument(null);
+          }}
+        >
+          <TouchableOpacity 
+            activeOpacity={1}
+            style={[styles.modalContent, { maxHeight: '90%', maxWidth: 600 }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>KYC Documents Submitted</Text>
+              <TouchableOpacity 
+                onPress={() => {
+                  setShowKycSubmissionsModal(false);
+                  setSelectedKycDocument(null);
+                }}
+                style={{ padding: 8, marginRight: -8 }}
+              >
+                <Ionicons name="close-circle" size={28} color={COLORS.danger} />
+              </TouchableOpacity>
+            </View>
+
+            {selectedKycDocument ? (
+              /* Document Preview */
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <TouchableOpacity 
+                  style={styles.kycBackBtn}
+                  onPress={() => setSelectedKycDocument(null)}
+                >
+                  <Ionicons name="arrow-back" size={20} color={COLORS.primary} />
+                  <Text style={styles.kycBackBtnText}>Back to list</Text>
+                </TouchableOpacity>
+                
+                <View style={styles.kycDocPreviewHeader}>
+                  <Text style={styles.kycDocPreviewTitle}>{selectedKycDocument.user_email}</Text>
+                  <Text style={styles.kycDocPreviewSubtitle}>
+                    {selectedKycDocument.kyc_requirement} • ${selectedKycDocument.amount?.toFixed(2)}
+                  </Text>
+                </View>
+                
+                {selectedKycDocument.kyc_document_url && (
+                  <View style={styles.kycDocImageContainer}>
+                    <Image 
+                      source={{ uri: selectedKycDocument.kyc_document_url }}
+                      style={styles.kycDocImage}
+                      resizeMode="contain"
+                    />
+                  </View>
+                )}
+                
+                <View style={styles.kycDocActions}>
+                  <TouchableOpacity 
+                    style={[styles.kycDocActionBtn, { backgroundColor: COLORS.success }]}
+                    onPress={() => {
+                      handleApproveWithdrawal(
+                        selectedKycDocument.transaction_id, 
+                        selectedKycDocument.user_email, 
+                        selectedKycDocument.amount
+                      );
+                      setShowKycSubmissionsModal(false);
+                      setSelectedKycDocument(null);
+                    }}
+                  >
+                    <Ionicons name="checkmark-circle" size={20} color="#FFF" />
+                    <Text style={styles.kycDocActionBtnText}>Approve Withdrawal</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={[styles.kycDocActionBtn, { backgroundColor: COLORS.danger }]}
+                    onPress={() => {
+                      handleRejectWithdrawal(
+                        selectedKycDocument.transaction_id, 
+                        selectedKycDocument.user_email, 
+                        selectedKycDocument.amount
+                      );
+                      setShowKycSubmissionsModal(false);
+                      setSelectedKycDocument(null);
+                    }}
+                  >
+                    <Ionicons name="close-circle" size={20} color="#FFF" />
+                    <Text style={styles.kycDocActionBtnText}>Reject</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            ) : (
+              /* Submissions List */
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {kycSubmissions.length > 0 ? (
+                  kycSubmissions.map((sub, index) => (
+                    <TouchableOpacity 
+                      key={sub.transaction_id || index}
+                      style={styles.kycSubmissionCard}
+                      onPress={() => setSelectedKycDocument(sub)}
+                    >
+                      <View style={[styles.kycSubmissionIcon, { backgroundColor: COLORS.successLight }]}>
+                        <Ionicons name="document-text" size={24} color={COLORS.success} />
+                      </View>
+                      <View style={styles.kycSubmissionInfo}>
+                        <Text style={styles.kycSubmissionEmail}>{sub.user_email}</Text>
+                        <Text style={styles.kycSubmissionDetails}>
+                          {sub.kyc_requirement} • ${sub.amount?.toFixed(2)}
+                        </Text>
+                        <Text style={styles.kycSubmissionDate}>
+                          Submitted: {sub.kyc_submitted_at?.split('T')[0] || 'N/A'}
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color={COLORS.textMuted} />
+                    </TouchableOpacity>
+                  ))
+                ) : (
+                  <View style={styles.emptyState}>
+                    <Ionicons name="document-outline" size={48} color={COLORS.textMuted} />
+                    <Text style={styles.emptyStateText}>No KYC documents submitted yet</Text>
+                  </View>
+                )}
+              </ScrollView>
+            )}
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
@@ -5391,5 +5591,146 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: COLORS.textSecondary,
+  },
+  
+  // KYC Submitted Button Styles
+  kycSubmittedBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 90, 0.2)',
+  },
+  kycSubmittedBtnLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  kycSubmittedIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  kycSubmittedBtnTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  kycSubmittedBtnSubtitle: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  kycSubmittedBtnRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  kycSubmittedCount: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.success,
+  },
+  
+  // KYC Submission Card
+  kycSubmissionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.bgSecondary,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  kycSubmissionIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  kycSubmissionInfo: {
+    flex: 1,
+  },
+  kycSubmissionEmail: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  kycSubmissionDetails: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  kycSubmissionDate: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginTop: 4,
+  },
+  
+  // KYC Document Preview
+  kycBackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  kycBackBtnText: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: '500',
+  },
+  kycDocPreviewHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  kycDocPreviewTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  kycDocPreviewSubtitle: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginTop: 4,
+  },
+  kycDocImageContainer: {
+    backgroundColor: COLORS.bgSecondary,
+    borderRadius: 12,
+    padding: 8,
+    marginBottom: 16,
+    minHeight: 300,
+  },
+  kycDocImage: {
+    width: '100%',
+    height: 400,
+    borderRadius: 8,
+  },
+  kycDocActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  kycDocActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+  },
+  kycDocActionBtnText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
