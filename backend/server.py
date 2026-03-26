@@ -1988,6 +1988,190 @@ class KYCDocumentSubmission(BaseModel):
     front_image_base64: str
     back_image_base64: Optional[str] = None
 
+# ============= DIDIT KYC INTEGRATION =============
+
+# Get Didit configuration from environment
+DIDIT_API_KEY = os.environ.get('DIDIT_API_KEY', '')
+DIDIT_WEBHOOK_SECRET = os.environ.get('DIDIT_WEBHOOK_SECRET', '')
+DIDIT_VERIFICATION_URL = os.environ.get('DIDIT_VERIFICATION_URL', 'https://verify.didit.me/u/xHb89pbETh2txYbwaQyOcg')
+
+@api_router.get("/kyc/didit/start")
+async def start_didit_kyc(authorization: Optional[str] = Header(None), request: Request = None):
+    """Start Didit KYC verification - returns the verification URL for the user"""
+    user = await get_current_user(authorization, request)
+    
+    # Check if user already has verified KYC
+    existing_kyc = await db.kyc_submissions.find_one({
+        "user_id": user.user_id,
+        "status": "verified"
+    })
+    
+    if existing_kyc:
+        return {
+            "success": False,
+            "message": "Your KYC is already verified",
+            "status": "verified"
+        }
+    
+    # Check if there's a pending verification
+    pending_kyc = await db.kyc_submissions.find_one({
+        "user_id": user.user_id,
+        "status": "pending",
+        "provider": "didit"
+    })
+    
+    if pending_kyc:
+        return {
+            "success": True,
+            "verification_url": DIDIT_VERIFICATION_URL,
+            "session_id": pending_kyc.get("didit_session_id"),
+            "message": "Continue your pending verification",
+            "status": "pending"
+        }
+    
+    # Create new KYC submission record
+    session_id = f"didit_{uuid.uuid4().hex[:16]}"
+    
+    kyc_record = {
+        "user_id": user.user_id,
+        "provider": "didit",
+        "didit_session_id": session_id,
+        "status": "pending",
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc)
+    }
+    
+    await db.kyc_submissions.insert_one(kyc_record)
+    
+    # Return the verification URL with user reference
+    # The verification URL includes vendor_data parameter for callback identification
+    verification_url = f"{DIDIT_VERIFICATION_URL}?vendor_data={user.user_id}"
+    
+    return {
+        "success": True,
+        "verification_url": verification_url,
+        "session_id": session_id,
+        "message": "Please complete the verification on Didit",
+        "status": "pending"
+    }
+
+
+@api_router.post("/kyc/didit/webhook")
+async def didit_webhook(request: Request):
+    """Handle Didit KYC verification webhook callbacks"""
+    try:
+        body = await request.json()
+        
+        # Log webhook for debugging
+        print(f"Didit Webhook received: {body}")
+        
+        # Verify webhook signature if secret is configured
+        if DIDIT_WEBHOOK_SECRET:
+            signature = request.headers.get("x-signature") or request.headers.get("x-webhook-signature")
+            # TODO: Implement signature verification
+        
+        # Extract data from webhook
+        session_id = body.get("session_id") or body.get("id")
+        status = body.get("status", "").lower()
+        vendor_data = body.get("vendor_data", "")  # This is the user_id we sent
+        
+        # Map Didit status to our status
+        if status in ["approved", "completed", "verified"]:
+            kyc_status = "verified"
+        elif status in ["declined", "rejected", "failed"]:
+            kyc_status = "rejected"
+        else:
+            kyc_status = "pending"
+        
+        # Find and update the KYC record
+        update_query = {}
+        if vendor_data:
+            update_query["user_id"] = vendor_data
+        if session_id:
+            update_query["$or"] = [
+                {"didit_session_id": session_id},
+                {"didit_session_id": {"$regex": session_id[:16]}}
+            ]
+        
+        if not update_query:
+            return {"success": False, "message": "Could not identify user"}
+        
+        # Update KYC submission
+        result = await db.kyc_submissions.update_one(
+            {"user_id": vendor_data, "provider": "didit"},
+            {
+                "$set": {
+                    "status": kyc_status,
+                    "didit_response": body,
+                    "verified_at": datetime.now(timezone.utc) if kyc_status == "verified" else None,
+                    "updated_at": datetime.now(timezone.utc)
+                }
+            }
+        )
+        
+        # Also update user's KYC status
+        if kyc_status == "verified":
+            await db.users.update_one(
+                {"user_id": vendor_data},
+                {"$set": {"kyc_verified": True, "kyc_verified_at": datetime.now(timezone.utc)}}
+            )
+            
+            # Send notification
+            await create_notification(
+                vendor_data,
+                "KYC Verified! ✅",
+                "Your identity has been successfully verified. You can now make withdrawals.",
+                "kyc"
+            )
+        elif kyc_status == "rejected":
+            await create_notification(
+                vendor_data,
+                "KYC Rejected ❌",
+                "Your identity verification was not successful. Please try again with valid documents.",
+                "kyc"
+            )
+        
+        return {"success": True, "status": kyc_status}
+        
+    except Exception as e:
+        print(f"Didit webhook error: {str(e)}")
+        return {"success": False, "error": str(e)}
+
+
+@api_router.get("/kyc/didit/status")
+async def get_didit_kyc_status(authorization: Optional[str] = Header(None), request: Request = None):
+    """Check user's Didit KYC verification status"""
+    user = await get_current_user(authorization, request)
+    
+    # Check for verified KYC
+    kyc = await db.kyc_submissions.find_one({
+        "user_id": user.user_id,
+        "provider": "didit"
+    })
+    
+    if not kyc:
+        # Check legacy KYC (non-Didit)
+        legacy_kyc = await db.kyc_submissions.find_one({
+            "user_id": user.user_id,
+            "status": "verified"
+        })
+        if legacy_kyc:
+            return {
+                "status": "verified",
+                "provider": "legacy",
+                "verified_at": str(legacy_kyc.get("verified_at", ""))
+            }
+        return {"status": "not_started", "provider": None}
+    
+    return {
+        "status": kyc.get("status", "pending"),
+        "provider": "didit",
+        "session_id": kyc.get("didit_session_id"),
+        "created_at": str(kyc.get("created_at", "")),
+        "verified_at": str(kyc.get("verified_at", "")) if kyc.get("verified_at") else None
+    }
+
+
 @api_router.post("/kyc/submit")
 async def submit_kyc_documents(submission: KYCDocumentSubmission, authorization: Optional[str] = Header(None), request: Request = None):
     """Submit KYC documents for AI verification"""
