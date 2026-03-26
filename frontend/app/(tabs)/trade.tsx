@@ -177,6 +177,7 @@ export default function Trade() {
   const [depositError, setDepositError] = useState<string | null>(null);
   const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'success' | 'failed' | null>(null);
+  const [isAutoPolling, setIsAutoPolling] = useState(false);
   
   // TarsPay (bKash/Nagad) State
   const [depositMethod, setDepositMethod] = useState<'crypto' | 'ewallet'>('ewallet');
@@ -326,6 +327,72 @@ export default function Trade() {
     
     return () => clearInterval(interval);
   }, [expirationTime, generatedAddress]);
+
+  // Auto-poll payment status every 5 seconds when address is generated
+  useEffect(() => {
+    if (!paymentId || !generatedAddress || paymentStatus === 'success') return;
+    
+    const pollPaymentStatus = async () => {
+      try {
+        const token = await AsyncStorage.getItem('token');
+        const response = await fetch(`${API_URL}/deposit/check/${paymentId}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        
+        const data = await response.json();
+        
+        if (data.credited) {
+          // Payment successful - stop polling and update
+          setPaymentStatus('success');
+          setIsAutoPolling(false);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          
+          // Refresh user balance
+          const meResponse = await fetch(`${API_URL}/auth/me`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+          });
+          if (meResponse.ok) {
+            const userData = await meResponse.json();
+            setRealBalance(userData.real_balance || 0);
+            // Also update user in auth store
+            if (user) {
+              updateBalance(user.demo_balance || 10000, userData.real_balance || 0);
+            }
+          }
+          
+          // Wait a bit to show success animation, then close and redirect
+          setTimeout(() => {
+            setShowDepositModal(false);
+            setGeneratedAddress(null);
+            setPaymentId(null);
+            setPayAmount(null);
+            setExpirationTime(null);
+            setPaymentStatus(null);
+            setAccountType('real'); // Switch to real account
+            Alert.alert(
+              '✅ Deposit Successful!', 
+              `Your deposit has been credited to your real account with bonus!`,
+              [{ text: 'Start Trading', style: 'default' }]
+            );
+          }, 2000);
+        }
+      } catch (error) {
+        console.log('Auto-poll error (will retry):', error);
+      }
+    };
+    
+    // Start polling
+    setIsAutoPolling(true);
+    const pollInterval = setInterval(pollPaymentStatus, 5000); // Poll every 5 seconds
+    
+    // Also check immediately
+    pollPaymentStatus();
+    
+    return () => {
+      clearInterval(pollInterval);
+      setIsAutoPolling(false);
+    };
+  }, [paymentId, generatedAddress, paymentStatus, user]);
   
   // Format countdown for display
   const formatCandleCountdown = () => {
@@ -2918,6 +2985,26 @@ export default function Trade() {
                         <Ionicons name="close-circle" size={24} color="#FF3B3B" />
                         <Text style={depositModalStyles.failedText}>
                           Payment not found. Please wait for blockchain confirmation or check your transaction.
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Auto-checking indicator */}
+                    {isAutoPolling && paymentStatus !== 'success' && (
+                      <View style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: 'rgba(0, 255, 100, 0.15)',
+                        borderRadius: 8,
+                        padding: 10,
+                        marginBottom: 12,
+                        borderWidth: 1,
+                        borderColor: 'rgba(0, 255, 100, 0.3)'
+                      }}>
+                        <ActivityIndicator size="small" color="#00FF64" style={{ marginRight: 8 }} />
+                        <Text style={{ color: '#00FF64', fontSize: 13 }}>
+                          Auto-checking payment status every 5 seconds...
                         </Text>
                       </View>
                     )}
