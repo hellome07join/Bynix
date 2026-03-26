@@ -1995,8 +1995,8 @@ DIDIT_API_KEY = os.environ.get('DIDIT_API_KEY', '')
 DIDIT_WEBHOOK_SECRET = os.environ.get('DIDIT_WEBHOOK_SECRET', '')
 DIDIT_VERIFICATION_URL = os.environ.get('DIDIT_VERIFICATION_URL', 'https://verify.didit.me/u/xHb89pbETh2txYbwaQyOcg')
 
-# Extract workflow_id from verification URL (the last part after /u/)
-DIDIT_WORKFLOW_ID = DIDIT_VERIFICATION_URL.split('/u/')[-1] if '/u/' in DIDIT_VERIFICATION_URL else ''
+# Workflow ID for Didit API - this is the UUID from Didit Console
+DIDIT_WORKFLOW_ID = os.environ.get('DIDIT_WORKFLOW_ID', 'c476fcf6-96c4-4e1d-adc5-86f0690c8e72')
 
 @api_router.get("/kyc/didit/start")
 async def start_didit_kyc(authorization: Optional[str] = Header(None), request: Request = None):
