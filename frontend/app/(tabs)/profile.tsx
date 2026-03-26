@@ -1066,7 +1066,6 @@ export default function Profile() {
       
       try {
         console.log('Making API request to:', `${API_URL}/kyc/didit/start`);
-        console.log('Token present:', token ? 'Yes' : 'No');
         
         const response = await fetch(`${API_URL}/kyc/didit/start`, {
           method: 'GET',
@@ -1090,29 +1089,35 @@ export default function Profile() {
         if (data.verification_url) {
           console.log('Opening verification URL:', data.verification_url);
           
-          // Try to open the URL
-          try {
-            const canOpen = await Linking.canOpenURL(data.verification_url);
-            console.log('Can open URL:', canOpen);
-            
-            if (canOpen) {
+          // Open URL based on platform
+          if (Platform.OS === 'web') {
+            // For web, use window.open for better compatibility
+            if (typeof window !== 'undefined') {
+              window.open(data.verification_url, '_blank');
+              Alert.alert(
+                'KYC Verification Started',
+                'Please complete the verification in the new tab. Once done, return here and refresh to check your status.',
+                [{ text: 'OK', style: 'default' }]
+              );
+            }
+          } else {
+            // For mobile, use Linking
+            try {
               await Linking.openURL(data.verification_url);
               Alert.alert(
                 'KYC Verification Started',
                 'Please complete the verification in the browser. Once done, return to the app and refresh to check your status.',
                 [{ text: 'OK', style: 'default' }]
               );
-            } else {
-              // Fallback - try opening anyway
-              console.log('canOpenURL returned false, trying openURL anyway...');
-              await Linking.openURL(data.verification_url);
+            } catch (linkError) {
+              console.error('Linking error:', linkError);
+              // Fallback to showing URL
+              Alert.alert(
+                'Open This URL', 
+                data.verification_url,
+                [{ text: 'OK', style: 'default' }]
+              );
             }
-          } catch (linkError) {
-            console.error('Linking error:', linkError);
-            Alert.alert(
-              'Browser Error', 
-              'Could not open the verification page. Please try again or use this URL manually:\n\n' + data.verification_url
-            );
           }
         } else if (data.status === 'verified') {
           Alert.alert('Already Verified', 'Your KYC is already verified!');
