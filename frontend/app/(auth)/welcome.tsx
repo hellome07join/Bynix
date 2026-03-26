@@ -368,114 +368,177 @@ export default function Welcome() {
 
           {/* Phone Mockup */}
           <Animated.View style={[styles.phoneMockupContainer, { transform: [{ translateY: phoneTranslateY }] }]}>
-            {/* Phone Frame */}
-            <View style={styles.phoneFrame}>
-              {/* Side Buttons */}
-              <View style={styles.phoneSideButtons}>
-                <View style={styles.phoneSideButton} />
-                <View style={[styles.phoneSideButton, { height: 40, marginTop: 10 }]} />
-                <View style={[styles.phoneSideButton, { height: 40, marginTop: 5 }]} />
-              </View>
-              
-              {/* Screen */}
-              <View style={styles.phoneScreen}>
+            {/* Phone Outer Frame (Silver/Space Gray) */}
+            <View style={styles.phoneOuterFrame}>
+              {/* Phone Inner Frame */}
+              <View style={styles.phoneFrame}>
+                {/* Side Buttons */}
+                <View style={styles.phoneSideButtons}>
+                  <View style={styles.phoneSideButton} />
+                  <View style={[styles.phoneSideButton, { height: 40, marginTop: 10 }]} />
+                  <View style={[styles.phoneSideButton, { height: 40, marginTop: 5 }]} />
+                </View>
+                
+                {/* Screen */}
+                <View style={styles.phoneScreen}>
                 {/* Status Bar */}
                 <View style={styles.phoneStatusBar}>
                   <Text style={styles.phoneTime}>9:41</Text>
                   <View style={styles.phoneDynamicIsland} />
                   <View style={styles.phoneStatusIcons}>
-                    <Ionicons name="cellular" size={12} color="#FFF" />
-                    <Ionicons name="wifi" size={12} color="#FFF" />
-                    <Ionicons name="battery-full" size={12} color="#FFF" />
+                    <Ionicons name="cellular" size={10} color="#FFF" />
+                    <Ionicons name="wifi" size={10} color="#FFF" />
+                    <Ionicons name="battery-full" size={10} color="#FFF" />
                   </View>
                 </View>
 
-                {/* App Header */}
-                <View style={styles.appHeader}>
-                  <View style={styles.appHeaderLeft}>
-                    <View style={styles.liveIndicator}>
-                      <View style={styles.liveDot} />
-                      <Text style={styles.liveText}>LIVE</Text>
-                    </View>
-                    <Text style={styles.balanceText}>$10,000.00</Text>
+                {/* Bynix App Header */}
+                <View style={styles.bynixAppHeader}>
+                  <View style={styles.depositBadge}>
+                    <Ionicons name="gift" size={8} color="#000" />
+                    <Text style={styles.depositBadgeText}>200% Deposit</Text>
                   </View>
-                  <View style={styles.appHeaderRight}>
-                    <View style={styles.notificationBadge}>
-                      <Ionicons name="notifications" size={14} color="#FFF" />
-                      <View style={styles.notifDot} />
+                  <View style={styles.bynixLogoSmall}>
+                    <View style={styles.bynixLogoRing}>
+                      <Ionicons name="trending-up" size={12} color="#00E55A" />
                     </View>
+                  </View>
+                  <View style={styles.balanceBadge}>
+                    <Ionicons name="wallet" size={8} color="#00E55A" />
+                    <Text style={styles.balanceBadgeText}>$64,696.00</Text>
                   </View>
                 </View>
 
-                {/* Chart Area */}
+                {/* Timer Row */}
+                <View style={styles.timerRow}>
+                  <View style={styles.timerBadge}>
+                    <Ionicons name="time" size={8} color="#00E55A" />
+                    <Text style={styles.timerText}>50s</Text>
+                  </View>
+                  <Text style={styles.utcText}>UTC 22:39:10</Text>
+                  <Text style={styles.currentPrice}>$1.03855</Text>
+                </View>
+
+                {/* Chart Area with Candlesticks */}
                 <View style={styles.chartArea}>
-                  <View style={styles.chartHeader}>
-                    <Text style={styles.chartPair}>BTC/USD</Text>
-                    <Text style={styles.chartPrice}>$67,432.50</Text>
-                    <Text style={styles.chartChange}>+2.34%</Text>
+                  {/* Price levels on right */}
+                  <View style={styles.priceLevels}>
+                    <Text style={styles.priceLevel}>1.04083</Text>
+                    <Text style={styles.priceLevel}>1.04019</Text>
+                    <Text style={styles.priceLevel}>1.03956</Text>
+                    <Text style={styles.priceLevel}>1.03892</Text>
                   </View>
-                  
-                  {/* Chart Grid */}
-                  <View style={styles.chartGrid}>
+
+                  {/* Grid lines */}
+                  <View style={styles.chartGridLines}>
                     {[1,2,3,4].map((_, i) => (
-                      <View key={i} style={styles.gridLine} />
+                      <View key={i} style={styles.gridLineH} />
                     ))}
                   </View>
 
-                  {/* Candlestick Chart */}
-                  <View style={styles.candlestickContainer}>
+                  {/* Candlesticks - matching screenshot pattern */}
+                  <View style={styles.candlestickChart}>
                     {[
-                      { h: 35, green: true },
-                      { h: 45, green: false },
-                      { h: 30, green: true },
-                      { h: 55, green: true },
-                      { h: 40, green: false },
-                      { h: 60, green: true },
-                      { h: 50, green: true },
-                      { h: 35, green: false },
-                      { h: 65, green: true },
-                      { h: 45, green: true },
+                      { h: 45, green: false, top: 5 },
+                      { h: 40, green: false, top: 10 },
+                      { h: 35, green: false, top: 15 },
+                      { h: 25, green: true, top: 25 },
+                      { h: 20, green: false, top: 30 },
+                      { h: 18, green: true, top: 35 },
+                      { h: 15, green: false, top: 38 },
+                      { h: 12, green: true, top: 45 },
+                      { h: 15, green: false, top: 50 },
+                      { h: 10, green: true, top: 55 },
+                      { h: 12, green: false, top: 52 },
+                      { h: 8, green: true, top: 58 },
+                      { h: 18, green: false, top: 60 },
                     ].map((candle, i) => (
-                      <View key={i} style={styles.candleWrapper}>
-                        <View style={[styles.candleWick, { backgroundColor: candle.green ? '#00E55A' : '#FF4757' }]} />
-                        <View 
-                          style={[
-                            styles.candleBody, 
-                            { 
-                              height: candle.h, 
-                              backgroundColor: candle.green ? '#00E55A' : '#FF4757' 
-                            }
-                          ]} 
-                        />
-                        <View style={[styles.candleWick, { backgroundColor: candle.green ? '#00E55A' : '#FF4757' }]} />
+                      <View key={i} style={[styles.candleCol, { marginTop: candle.top }]}>
+                        <View style={[styles.candleWickTop, { backgroundColor: candle.green ? '#00E55A' : '#FF4757' }]} />
+                        <View style={[styles.candleBodyNew, { height: candle.h, backgroundColor: candle.green ? '#00E55A' : '#FF4757' }]} />
+                        <View style={[styles.candleWickBot, { backgroundColor: candle.green ? '#00E55A' : '#FF4757' }]} />
                       </View>
                     ))}
                   </View>
 
-                  {/* Trade Line Indicator */}
-                  <View style={styles.tradeLineContainer}>
-                    <View style={styles.tradeStartLine}>
-                      <Text style={styles.tradeLineLabel}>Start</Text>
+                  {/* Entry line (dashed) */}
+                  <View style={styles.entryLine} />
+                </View>
+
+                {/* Toolbar */}
+                <View style={styles.toolbarRow}>
+                  <View style={styles.toolbarItem}>
+                    <Ionicons name="time-outline" size={10} color="#FFB800" />
+                    <Text style={styles.toolbarText}>1m</Text>
+                  </View>
+                  <View style={styles.toolbarItem}>
+                    <Ionicons name="build-outline" size={10} color="#FFB800" />
+                    <Text style={styles.toolbarText}>Tools</Text>
+                  </View>
+                  <View style={styles.toolbarItem}>
+                    <Ionicons name="swap-horizontal" size={10} color="#FFB800" />
+                    <Text style={styles.toolbarText}>Trade</Text>
+                  </View>
+                  <View style={styles.toolbarItem}>
+                    <Text style={styles.pairText}>USD/CHF</Text>
+                  </View>
+                </View>
+
+                {/* Investment Section */}
+                <View style={styles.investmentSection}>
+                  <Text style={styles.investmentLabel}>Investment Amount</Text>
+                  <View style={styles.investmentRow}>
+                    <View style={styles.amountInput}>
+                      <Text style={styles.amountText}>$ 100</Text>
                     </View>
-                    <View style={styles.tradeEndLine}>
-                      <Text style={styles.tradeLineLabel}>End</Text>
+                    <View style={styles.quickAmounts}>
+                      <View style={styles.quickBtn}><Text style={styles.quickBtnText}>$10</Text></View>
+                      <View style={styles.quickBtn}><Text style={styles.quickBtnText}>$50</Text></View>
+                      <View style={[styles.quickBtn, styles.quickBtnActive]}><Text style={styles.quickBtnTextActive}>$100</Text></View>
                     </View>
+                  </View>
+                  <View style={styles.payoutRow}>
+                    <Text style={styles.payoutLabel}>You will get:</Text>
+                    <Text style={styles.payoutValue}>$195.00</Text>
                   </View>
                 </View>
 
                 {/* Trade Buttons */}
-                <View style={styles.tradeButtons}>
-                  <View style={[styles.tradeBtn, styles.upBtn]}>
-                    <Ionicons name="arrow-up" size={16} color="#0A0E17" />
-                    <Text style={styles.tradeBtnText}>UP</Text>
+                <View style={styles.tradeButtonsRow}>
+                  <View style={styles.upButton}>
+                    <Ionicons name="arrow-up" size={12} color="#000" />
+                    <Text style={styles.upButtonText}>UP</Text>
+                    <Text style={styles.percentText}>95%</Text>
                   </View>
-                  <View style={[styles.tradeBtn, styles.downBtn]}>
-                    <Ionicons name="arrow-down" size={16} color="#FFF" />
-                    <Text style={[styles.tradeBtnText, { color: '#FFF' }]}>DOWN</Text>
+                  <View style={styles.downButton}>
+                    <Ionicons name="arrow-down" size={12} color="#FFF" />
+                    <Text style={styles.downButtonText}>DOWN</Text>
+                    <Text style={styles.percentTextDown}>95%</Text>
+                  </View>
+                </View>
+
+                {/* Bottom Navigation */}
+                <View style={styles.bottomNav}>
+                  <View style={styles.navItem}>
+                    <Ionicons name="trending-up" size={12} color="#00E55A" />
+                    <Text style={[styles.navText, { color: '#00E55A' }]}>Trade</Text>
+                  </View>
+                  <View style={styles.navItem}>
+                    <Ionicons name="trophy-outline" size={12} color="#666" />
+                    <Text style={styles.navText}>Leaderboard</Text>
+                  </View>
+                  <View style={styles.navItem}>
+                    <Ionicons name="headset-outline" size={12} color="#666" />
+                    <Text style={styles.navText}>Support</Text>
+                  </View>
+                  <View style={styles.navItem}>
+                    <Ionicons name="person-outline" size={12} color="#666" />
+                    <Text style={styles.navText}>Profile</Text>
                   </View>
                 </View>
               </View>
             </View>
+          </View>
           </Animated.View>
 
           {/* Hero Text */}
@@ -780,18 +843,28 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 20,
   },
-  phoneFrame: {
-    width: width * 0.65,
-    height: 380,
-    backgroundColor: '#1C1C1E',
-    borderRadius: 40,
-    padding: 8,
-    position: 'relative',
+  phoneOuterFrame: {
+    width: width * 0.72,
+    height: 520,
+    backgroundColor: '#2C2C2E',
+    borderRadius: 50,
+    padding: 12,
     shadowColor: '#00E55A',
-    shadowOffset: { width: 0, height: 15 },
-    shadowOpacity: 0.3,
-    shadowRadius: 25,
-    elevation: 15,
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.4,
+    shadowRadius: 35,
+    elevation: 25,
+    borderWidth: 5,
+    borderColor: '#3D3D3F',
+  },
+  phoneFrame: {
+    flex: 1,
+    backgroundColor: '#0A0E17',
+    borderRadius: 38,
+    overflow: 'hidden',
+    position: 'relative',
+    borderWidth: 3,
+    borderColor: '#1A1A1A',
   },
   phoneSideButtons: {
     position: 'absolute',
@@ -810,6 +883,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#0A0E17',
     borderRadius: 32,
     overflow: 'hidden',
+    borderWidth: 3,
+    borderColor: '#1C1C1E',
   },
   phoneStatusBar: {
     flexDirection: 'row',
@@ -1012,6 +1087,296 @@ const styles = StyleSheet.create({
   chartLine: {
     height: 2,
     backgroundColor: '#4A90E2',
+  },
+
+  // Bynix App Header Styles
+  bynixAppHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    backgroundColor: '#0D1117',
+  },
+  depositBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFB800',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 10,
+    gap: 3,
+  },
+  depositBadgeText: {
+    color: '#000',
+    fontSize: 7,
+    fontWeight: '700',
+  },
+  bynixLogoSmall: {
+    alignItems: 'center',
+  },
+  bynixLogoRing: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#00E55A',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  balanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1A1F2E',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 10,
+    gap: 3,
+  },
+  balanceBadgeText: {
+    color: '#FFF',
+    fontSize: 8,
+    fontWeight: '600',
+  },
+  timerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#0D1117',
+  },
+  timerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#00E55A20',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    gap: 3,
+  },
+  timerText: {
+    color: '#00E55A',
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  utcText: {
+    color: '#666',
+    fontSize: 8,
+  },
+  currentPrice: {
+    color: '#00E55A',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  priceLevels: {
+    position: 'absolute',
+    right: 5,
+    top: 5,
+    bottom: 5,
+    justifyContent: 'space-between',
+  },
+  priceLevel: {
+    color: '#555',
+    fontSize: 6,
+    textAlign: 'right',
+  },
+  chartGridLines: {
+    position: 'absolute',
+    top: 10,
+    left: 5,
+    right: 35,
+    bottom: 10,
+  },
+  gridLineH: {
+    height: 1,
+    backgroundColor: '#1A1F2E',
+    marginVertical: 15,
+  },
+  candlestickChart: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-around',
+    paddingHorizontal: 5,
+    paddingRight: 35,
+    height: 80,
+  },
+  candleCol: {
+    alignItems: 'center',
+  },
+  candleWickTop: {
+    width: 1,
+    height: 5,
+  },
+  candleBodyNew: {
+    width: 5,
+    borderRadius: 1,
+  },
+  candleWickBot: {
+    width: 1,
+    height: 5,
+  },
+  entryLine: {
+    position: 'absolute',
+    left: 10,
+    right: 40,
+    top: '50%',
+    height: 1,
+    backgroundColor: '#FFB800',
+    borderStyle: 'dashed',
+  },
+  toolbarRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 4,
+    backgroundColor: '#0D1117',
+    borderTopWidth: 1,
+    borderTopColor: '#1A1F2E',
+  },
+  toolbarItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  toolbarText: {
+    color: '#FFB800',
+    fontSize: 7,
+    fontWeight: '600',
+  },
+  pairText: {
+    color: '#FFF',
+    fontSize: 8,
+    fontWeight: '600',
+  },
+  investmentSection: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    backgroundColor: '#0D1117',
+  },
+  investmentLabel: {
+    color: '#888',
+    fontSize: 7,
+    marginBottom: 4,
+  },
+  investmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  amountInput: {
+    flex: 1,
+    backgroundColor: '#1A1F2E',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  amountText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  quickAmounts: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  quickBtn: {
+    backgroundColor: '#1A1F2E',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  quickBtnActive: {
+    backgroundColor: '#00E55A20',
+    borderWidth: 1,
+    borderColor: '#00E55A',
+  },
+  quickBtnText: {
+    color: '#888',
+    fontSize: 8,
+    fontWeight: '600',
+  },
+  quickBtnTextActive: {
+    color: '#00E55A',
+    fontSize: 8,
+    fontWeight: '600',
+  },
+  payoutRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  payoutLabel: {
+    color: '#888',
+    fontSize: 7,
+  },
+  payoutValue: {
+    color: '#00E55A',
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  tradeButtonsRow: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  upButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#00E55A',
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 4,
+  },
+  upButtonText: {
+    color: '#000',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  downButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FF4757',
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 4,
+  },
+  downButtonText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  percentText: {
+    color: '#000',
+    fontSize: 8,
+    fontWeight: '600',
+  },
+  percentTextDown: {
+    color: '#FFF',
+    fontSize: 8,
+    fontWeight: '600',
+  },
+  bottomNav: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 6,
+    backgroundColor: '#0A0E17',
+    borderTopWidth: 1,
+    borderTopColor: '#1A1F2E',
+  },
+  navItem: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  navText: {
+    color: '#666',
+    fontSize: 7,
   },
 
   // Hero Text
