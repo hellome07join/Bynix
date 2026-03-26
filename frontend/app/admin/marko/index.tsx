@@ -299,7 +299,7 @@ export default function AdminDashboard() {
         today.setHours(0, 0, 0, 0);
         
         const totalAmount = depositsList
-          .filter((d: any) => d.status === 'completed' || d.status === 'confirmed')
+          .filter((d: any) => d.status === 'completed' || d.status === 'confirmed' || d.status === 'credited')
           .reduce((sum: number, d: any) => sum + (d.amount_usd || 0), 0);
         
         const pendingCount = depositsList
@@ -309,7 +309,7 @@ export default function AdminDashboard() {
         const todayAmount = depositsList
           .filter((d: any) => {
             const createdAt = new Date(d.created_at);
-            return createdAt >= today && (d.status === 'completed' || d.status === 'confirmed');
+            return createdAt >= today && (d.status === 'completed' || d.status === 'confirmed' || d.status === 'credited');
           })
           .reduce((sum: number, d: any) => sum + (d.amount_usd || 0), 0);
         
@@ -3840,7 +3840,7 @@ export default function AdminDashboard() {
             <View key={deposit._id || index} style={styles.depositRow}>
               <View style={styles.depositLeft}>
                 <View style={[styles.depositIcon, { 
-                  backgroundColor: deposit.status === 'completed' || deposit.status === 'confirmed' 
+                  backgroundColor: deposit.status === 'completed' || deposit.status === 'confirmed' || deposit.status === 'credited'
                     ? COLORS.successLight 
                     : deposit.status === 'pending' || deposit.status === 'waiting'
                     ? COLORS.warningLight
@@ -3848,7 +3848,7 @@ export default function AdminDashboard() {
                 }]}>
                   <Ionicons 
                     name={
-                      deposit.status === 'completed' || deposit.status === 'confirmed' 
+                      deposit.status === 'completed' || deposit.status === 'confirmed' || deposit.status === 'credited'
                         ? 'checkmark-circle' 
                         : deposit.status === 'pending' || deposit.status === 'waiting'
                         ? 'time'
@@ -3856,7 +3856,7 @@ export default function AdminDashboard() {
                     } 
                     size={20} 
                     color={
-                      deposit.status === 'completed' || deposit.status === 'confirmed' 
+                      deposit.status === 'completed' || deposit.status === 'confirmed' || deposit.status === 'credited'
                         ? COLORS.success 
                         : deposit.status === 'pending' || deposit.status === 'waiting'
                         ? COLORS.warning
@@ -3876,13 +3876,13 @@ export default function AdminDashboard() {
                   +${(deposit.amount_usd || 0).toFixed(2)}
                 </Text>
                 <Text style={[styles.depositStatus, { 
-                  color: deposit.status === 'completed' || deposit.status === 'confirmed' 
+                  color: deposit.status === 'completed' || deposit.status === 'confirmed' || deposit.status === 'credited'
                     ? COLORS.success 
                     : deposit.status === 'pending' || deposit.status === 'waiting'
                     ? COLORS.warning
                     : COLORS.danger
                 }]}>
-                  {deposit.status?.toUpperCase() || 'UNKNOWN'}
+                  {(deposit.status === 'completed' || deposit.status === 'credited') ? 'COMPLETED' : deposit.status?.toUpperCase() || 'UNKNOWN'}
                 </Text>
               </View>
             </View>

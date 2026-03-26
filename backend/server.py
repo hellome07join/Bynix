@@ -2909,13 +2909,14 @@ async def check_deposit_status(
                 credit_amount = actually_paid if actually_paid > 0 else deposit.get("amount", 0)
                 bonus_amount = deposit.get("bonus_amount", 0)
                 
-                # Update deposit status
-                new_status = "completed" if payment_status == "finished" else "credited"
+                # Update deposit status - always mark as "completed" if payment was received
+                # Both finished and partially_paid should be shown as completed since fund is credited
                 await db.deposits.update_one(
                     {"payment_id": str(payment_id)},
                     {
                         "$set": {
-                            "status": new_status,
+                            "status": "completed",
+                            "payment_status": payment_status,  # Store original NOWPayments status
                             "actually_paid": actually_paid,
                             "credit_amount": credit_amount,
                             "completed_at": datetime.now(timezone.utc)
