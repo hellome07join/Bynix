@@ -200,90 +200,210 @@ export default function Welcome() {
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [countrySearch, setCountrySearch] = useState('');
 
-  // All countries list
+  // All 195 countries with restricted flag
   const ALL_COUNTRIES = [
-    { name: 'Afghanistan', flag: '🇦🇫' },
-    { name: 'Albania', flag: '🇦🇱' },
-    { name: 'Algeria', flag: '🇩🇿' },
-    { name: 'Argentina', flag: '🇦🇷' },
-    { name: 'Australia', flag: '🇦🇺' },
-    { name: 'Austria', flag: '🇦🇹' },
-    { name: 'Bangladesh', flag: '🇧🇩' },
-    { name: 'Belgium', flag: '🇧🇪' },
-    { name: 'Brazil', flag: '🇧🇷' },
-    { name: 'Cambodia', flag: '🇰🇭' },
-    { name: 'Cameroon', flag: '🇨🇲' },
-    { name: 'Chile', flag: '🇨🇱' },
-    { name: 'China', flag: '🇨🇳' },
-    { name: 'Colombia', flag: '🇨🇴' },
-    { name: 'Costa Rica', flag: '🇨🇷' },
-    { name: 'Croatia', flag: '🇭🇷' },
-    { name: 'Czech Republic', flag: '🇨🇿' },
-    { name: 'Denmark', flag: '🇩🇰' },
-    { name: 'Ecuador', flag: '🇪🇨' },
-    { name: 'Egypt', flag: '🇪🇬' },
-    { name: 'Ethiopia', flag: '🇪🇹' },
-    { name: 'Finland', flag: '🇫🇮' },
-    { name: 'France', flag: '🇫🇷' },
-    { name: 'Germany', flag: '🇩🇪' },
-    { name: 'Ghana', flag: '🇬🇭' },
-    { name: 'Greece', flag: '🇬🇷' },
-    { name: 'Hungary', flag: '🇭🇺' },
-    { name: 'India', flag: '🇮🇳' },
-    { name: 'Indonesia', flag: '🇮🇩' },
-    { name: 'Iran', flag: '🇮🇷' },
-    { name: 'Iraq', flag: '🇮🇶' },
-    { name: 'Ireland', flag: '🇮🇪' },
-    { name: 'Israel', flag: '🇮🇱' },
-    { name: 'Italy', flag: '🇮🇹' },
-    { name: 'Japan', flag: '🇯🇵' },
-    { name: 'Jordan', flag: '🇯🇴' },
-    { name: 'Kazakhstan', flag: '🇰🇿' },
-    { name: 'Kenya', flag: '🇰🇪' },
-    { name: 'Kuwait', flag: '🇰🇼' },
-    { name: 'Lebanon', flag: '🇱🇧' },
-    { name: 'Malaysia', flag: '🇲🇾' },
-    { name: 'Mexico', flag: '🇲🇽' },
-    { name: 'Morocco', flag: '🇲🇦' },
-    { name: 'Myanmar', flag: '🇲🇲' },
-    { name: 'Nepal', flag: '🇳🇵' },
-    { name: 'Netherlands', flag: '🇳🇱' },
-    { name: 'New Zealand', flag: '🇳🇿' },
-    { name: 'Nigeria', flag: '🇳🇬' },
-    { name: 'Norway', flag: '🇳🇴' },
-    { name: 'Oman', flag: '🇴🇲' },
-    { name: 'Pakistan', flag: '🇵🇰' },
-    { name: 'Peru', flag: '🇵🇪' },
-    { name: 'Philippines', flag: '🇵🇭' },
-    { name: 'Poland', flag: '🇵🇱' },
-    { name: 'Portugal', flag: '🇵🇹' },
-    { name: 'Qatar', flag: '🇶🇦' },
-    { name: 'Romania', flag: '🇷🇴' },
-    { name: 'Russia', flag: '🇷🇺' },
-    { name: 'Saudi Arabia', flag: '🇸🇦' },
-    { name: 'Singapore', flag: '🇸🇬' },
-    { name: 'South Africa', flag: '🇿🇦' },
-    { name: 'South Korea', flag: '🇰🇷' },
-    { name: 'Spain', flag: '🇪🇸' },
-    { name: 'Sri Lanka', flag: '🇱🇰' },
-    { name: 'Sweden', flag: '🇸🇪' },
-    { name: 'Switzerland', flag: '🇨🇭' },
-    { name: 'Taiwan', flag: '🇹🇼' },
-    { name: 'Tanzania', flag: '🇹🇿' },
-    { name: 'Thailand', flag: '🇹🇭' },
-    { name: 'Turkey', flag: '🇹🇷' },
-    { name: 'UAE', flag: '🇦🇪' },
-    { name: 'Uganda', flag: '🇺🇬' },
-    { name: 'Ukraine', flag: '🇺🇦' },
-    { name: 'United Kingdom', flag: '🇬🇧' },
-    { name: 'United States', flag: '🇺🇸' },
-    { name: 'Uzbekistan', flag: '🇺🇿' },
-    { name: 'Venezuela', flag: '🇻🇪' },
-    { name: 'Vietnam', flag: '🇻🇳' },
-    { name: 'Yemen', flag: '🇾🇪' },
-    { name: 'Zambia', flag: '🇿🇲' },
-    { name: 'Zimbabwe', flag: '🇿🇼' },
+    { name: 'Afghanistan', flag: '🇦🇫', restricted: false },
+    { name: 'Albania', flag: '🇦🇱', restricted: false },
+    { name: 'Algeria', flag: '🇩🇿', restricted: false },
+    { name: 'Andorra', flag: '🇦🇩', restricted: false },
+    { name: 'Angola', flag: '🇦🇴', restricted: false },
+    { name: 'Antigua and Barbuda', flag: '🇦🇬', restricted: false },
+    { name: 'Argentina', flag: '🇦🇷', restricted: false },
+    { name: 'Armenia', flag: '🇦🇲', restricted: false },
+    { name: 'Australia', flag: '🇦🇺', restricted: false },
+    { name: 'Austria', flag: '🇦🇹', restricted: true }, // EEA
+    { name: 'Azerbaijan', flag: '🇦🇿', restricted: false },
+    { name: 'Bahamas', flag: '🇧🇸', restricted: false },
+    { name: 'Bahrain', flag: '🇧🇭', restricted: false },
+    { name: 'Bangladesh', flag: '🇧🇩', restricted: false },
+    { name: 'Barbados', flag: '🇧🇧', restricted: false },
+    { name: 'Belarus', flag: '🇧🇾', restricted: false },
+    { name: 'Belgium', flag: '🇧🇪', restricted: true }, // EEA
+    { name: 'Belize', flag: '🇧🇿', restricted: false },
+    { name: 'Benin', flag: '🇧🇯', restricted: false },
+    { name: 'Bhutan', flag: '🇧🇹', restricted: false },
+    { name: 'Bolivia', flag: '🇧🇴', restricted: false },
+    { name: 'Bosnia and Herzegovina', flag: '🇧🇦', restricted: false },
+    { name: 'Botswana', flag: '🇧🇼', restricted: false },
+    { name: 'Brazil', flag: '🇧🇷', restricted: false },
+    { name: 'Brunei', flag: '🇧🇳', restricted: false },
+    { name: 'Bulgaria', flag: '🇧🇬', restricted: true }, // EEA
+    { name: 'Burkina Faso', flag: '🇧🇫', restricted: false },
+    { name: 'Burundi', flag: '🇧🇮', restricted: false },
+    { name: 'Cambodia', flag: '🇰🇭', restricted: false },
+    { name: 'Cameroon', flag: '🇨🇲', restricted: false },
+    { name: 'Canada', flag: '🇨🇦', restricted: true }, // Restricted
+    { name: 'Cape Verde', flag: '🇨🇻', restricted: false },
+    { name: 'Central African Republic', flag: '🇨🇫', restricted: false },
+    { name: 'Chad', flag: '🇹🇩', restricted: false },
+    { name: 'Chile', flag: '🇨🇱', restricted: false },
+    { name: 'China', flag: '🇨🇳', restricted: false },
+    { name: 'Colombia', flag: '🇨🇴', restricted: false },
+    { name: 'Comoros', flag: '🇰🇲', restricted: false },
+    { name: 'Congo', flag: '🇨🇬', restricted: false },
+    { name: 'Costa Rica', flag: '🇨🇷', restricted: false },
+    { name: 'Croatia', flag: '🇭🇷', restricted: true }, // EEA
+    { name: 'Cuba', flag: '🇨🇺', restricted: false },
+    { name: 'Cyprus', flag: '🇨🇾', restricted: true }, // EEA
+    { name: 'Czech Republic', flag: '🇨🇿', restricted: true }, // EEA
+    { name: 'Denmark', flag: '🇩🇰', restricted: true }, // EEA
+    { name: 'Djibouti', flag: '🇩🇯', restricted: false },
+    { name: 'Dominica', flag: '🇩🇲', restricted: false },
+    { name: 'Dominican Republic', flag: '🇩🇴', restricted: false },
+    { name: 'DR Congo', flag: '🇨🇩', restricted: false },
+    { name: 'East Timor', flag: '🇹🇱', restricted: false },
+    { name: 'Ecuador', flag: '🇪🇨', restricted: false },
+    { name: 'Egypt', flag: '🇪🇬', restricted: false },
+    { name: 'El Salvador', flag: '🇸🇻', restricted: false },
+    { name: 'Equatorial Guinea', flag: '🇬🇶', restricted: false },
+    { name: 'Eritrea', flag: '🇪🇷', restricted: false },
+    { name: 'Estonia', flag: '🇪🇪', restricted: true }, // EEA
+    { name: 'Eswatini', flag: '🇸🇿', restricted: false },
+    { name: 'Ethiopia', flag: '🇪🇹', restricted: false },
+    { name: 'Fiji', flag: '🇫🇯', restricted: false },
+    { name: 'Finland', flag: '🇫🇮', restricted: true }, // EEA
+    { name: 'France', flag: '🇫🇷', restricted: true }, // EEA
+    { name: 'Gabon', flag: '🇬🇦', restricted: false },
+    { name: 'Gambia', flag: '🇬🇲', restricted: false },
+    { name: 'Georgia', flag: '🇬🇪', restricted: false },
+    { name: 'Germany', flag: '🇩🇪', restricted: true }, // EEA
+    { name: 'Ghana', flag: '🇬🇭', restricted: false },
+    { name: 'Greece', flag: '🇬🇷', restricted: true }, // EEA
+    { name: 'Grenada', flag: '🇬🇩', restricted: false },
+    { name: 'Guatemala', flag: '🇬🇹', restricted: false },
+    { name: 'Guinea', flag: '🇬🇳', restricted: false },
+    { name: 'Guinea-Bissau', flag: '🇬🇼', restricted: false },
+    { name: 'Guyana', flag: '🇬🇾', restricted: false },
+    { name: 'Haiti', flag: '🇭🇹', restricted: false },
+    { name: 'Honduras', flag: '🇭🇳', restricted: false },
+    { name: 'Hong Kong', flag: '🇭🇰', restricted: true }, // Restricted
+    { name: 'Hungary', flag: '🇭🇺', restricted: true }, // EEA
+    { name: 'Iceland', flag: '🇮🇸', restricted: true }, // EEA
+    { name: 'India', flag: '🇮🇳', restricted: false },
+    { name: 'Indonesia', flag: '🇮🇩', restricted: false },
+    { name: 'Iran', flag: '🇮🇷', restricted: false },
+    { name: 'Iraq', flag: '🇮🇶', restricted: false },
+    { name: 'Ireland', flag: '🇮🇪', restricted: true }, // EEA
+    { name: 'Israel', flag: '🇮🇱', restricted: true }, // Restricted
+    { name: 'Italy', flag: '🇮🇹', restricted: true }, // EEA
+    { name: 'Ivory Coast', flag: '🇨🇮', restricted: false },
+    { name: 'Jamaica', flag: '🇯🇲', restricted: false },
+    { name: 'Japan', flag: '🇯🇵', restricted: false },
+    { name: 'Jordan', flag: '🇯🇴', restricted: false },
+    { name: 'Kazakhstan', flag: '🇰🇿', restricted: false },
+    { name: 'Kenya', flag: '🇰🇪', restricted: false },
+    { name: 'Kiribati', flag: '🇰🇮', restricted: false },
+    { name: 'Kosovo', flag: '🇽🇰', restricted: false },
+    { name: 'Kuwait', flag: '🇰🇼', restricted: false },
+    { name: 'Kyrgyzstan', flag: '🇰🇬', restricted: false },
+    { name: 'Laos', flag: '🇱🇦', restricted: false },
+    { name: 'Latvia', flag: '🇱🇻', restricted: true }, // EEA
+    { name: 'Lebanon', flag: '🇱🇧', restricted: false },
+    { name: 'Lesotho', flag: '🇱🇸', restricted: false },
+    { name: 'Liberia', flag: '🇱🇷', restricted: false },
+    { name: 'Libya', flag: '🇱🇾', restricted: false },
+    { name: 'Liechtenstein', flag: '🇱🇮', restricted: true }, // EEA
+    { name: 'Lithuania', flag: '🇱🇹', restricted: true }, // EEA
+    { name: 'Luxembourg', flag: '🇱🇺', restricted: true }, // EEA
+    { name: 'Madagascar', flag: '🇲🇬', restricted: false },
+    { name: 'Malawi', flag: '🇲🇼', restricted: false },
+    { name: 'Malaysia', flag: '🇲🇾', restricted: false },
+    { name: 'Maldives', flag: '🇲🇻', restricted: false },
+    { name: 'Mali', flag: '🇲🇱', restricted: false },
+    { name: 'Malta', flag: '🇲🇹', restricted: true }, // EEA
+    { name: 'Marshall Islands', flag: '🇲🇭', restricted: false },
+    { name: 'Mauritania', flag: '🇲🇷', restricted: false },
+    { name: 'Mauritius', flag: '🇲🇺', restricted: false },
+    { name: 'Mexico', flag: '🇲🇽', restricted: false },
+    { name: 'Micronesia', flag: '🇫🇲', restricted: false },
+    { name: 'Moldova', flag: '🇲🇩', restricted: false },
+    { name: 'Monaco', flag: '🇲🇨', restricted: false },
+    { name: 'Mongolia', flag: '🇲🇳', restricted: false },
+    { name: 'Montenegro', flag: '🇲🇪', restricted: false },
+    { name: 'Morocco', flag: '🇲🇦', restricted: false },
+    { name: 'Mozambique', flag: '🇲🇿', restricted: false },
+    { name: 'Myanmar', flag: '🇲🇲', restricted: false },
+    { name: 'Namibia', flag: '🇳🇦', restricted: false },
+    { name: 'Nauru', flag: '🇳🇷', restricted: false },
+    { name: 'Nepal', flag: '🇳🇵', restricted: false },
+    { name: 'Netherlands', flag: '🇳🇱', restricted: true }, // EEA
+    { name: 'New Zealand', flag: '🇳🇿', restricted: false },
+    { name: 'Nicaragua', flag: '🇳🇮', restricted: false },
+    { name: 'Niger', flag: '🇳🇪', restricted: false },
+    { name: 'Nigeria', flag: '🇳🇬', restricted: false },
+    { name: 'North Korea', flag: '🇰🇵', restricted: false },
+    { name: 'North Macedonia', flag: '🇲🇰', restricted: false },
+    { name: 'Norway', flag: '🇳🇴', restricted: true }, // EEA
+    { name: 'Oman', flag: '🇴🇲', restricted: false },
+    { name: 'Pakistan', flag: '🇵🇰', restricted: false },
+    { name: 'Palau', flag: '🇵🇼', restricted: false },
+    { name: 'Palestine', flag: '🇵🇸', restricted: false },
+    { name: 'Panama', flag: '🇵🇦', restricted: false },
+    { name: 'Papua New Guinea', flag: '🇵🇬', restricted: false },
+    { name: 'Paraguay', flag: '🇵🇾', restricted: false },
+    { name: 'Peru', flag: '🇵🇪', restricted: false },
+    { name: 'Philippines', flag: '🇵🇭', restricted: false },
+    { name: 'Poland', flag: '🇵🇱', restricted: true }, // EEA
+    { name: 'Portugal', flag: '🇵🇹', restricted: true }, // EEA
+    { name: 'Qatar', flag: '🇶🇦', restricted: false },
+    { name: 'Romania', flag: '🇷🇴', restricted: true }, // EEA
+    { name: 'Russia', flag: '🇷🇺', restricted: true }, // Restricted
+    { name: 'Rwanda', flag: '🇷🇼', restricted: false },
+    { name: 'Saint Kitts and Nevis', flag: '🇰🇳', restricted: false },
+    { name: 'Saint Lucia', flag: '🇱🇨', restricted: false },
+    { name: 'Saint Vincent', flag: '🇻🇨', restricted: false },
+    { name: 'Samoa', flag: '🇼🇸', restricted: false },
+    { name: 'San Marino', flag: '🇸🇲', restricted: false },
+    { name: 'Sao Tome and Principe', flag: '🇸🇹', restricted: false },
+    { name: 'Saudi Arabia', flag: '🇸🇦', restricted: false },
+    { name: 'Senegal', flag: '🇸🇳', restricted: false },
+    { name: 'Serbia', flag: '🇷🇸', restricted: false },
+    { name: 'Seychelles', flag: '🇸🇨', restricted: false },
+    { name: 'Sierra Leone', flag: '🇸🇱', restricted: false },
+    { name: 'Singapore', flag: '🇸🇬', restricted: false },
+    { name: 'Slovakia', flag: '🇸🇰', restricted: true }, // EEA
+    { name: 'Slovenia', flag: '🇸🇮', restricted: true }, // EEA
+    { name: 'Solomon Islands', flag: '🇸🇧', restricted: false },
+    { name: 'Somalia', flag: '🇸🇴', restricted: false },
+    { name: 'South Africa', flag: '🇿🇦', restricted: false },
+    { name: 'South Korea', flag: '🇰🇷', restricted: false },
+    { name: 'South Sudan', flag: '🇸🇸', restricted: false },
+    { name: 'Spain', flag: '🇪🇸', restricted: true }, // EEA
+    { name: 'Sri Lanka', flag: '🇱🇰', restricted: false },
+    { name: 'Sudan', flag: '🇸🇩', restricted: false },
+    { name: 'Suriname', flag: '🇸🇷', restricted: false },
+    { name: 'Sweden', flag: '🇸🇪', restricted: true }, // EEA
+    { name: 'Switzerland', flag: '🇨🇭', restricted: false },
+    { name: 'Syria', flag: '🇸🇾', restricted: false },
+    { name: 'Taiwan', flag: '🇹🇼', restricted: false },
+    { name: 'Tajikistan', flag: '🇹🇯', restricted: false },
+    { name: 'Tanzania', flag: '🇹🇿', restricted: false },
+    { name: 'Thailand', flag: '🇹🇭', restricted: false },
+    { name: 'Togo', flag: '🇹🇬', restricted: false },
+    { name: 'Tonga', flag: '🇹🇴', restricted: false },
+    { name: 'Trinidad and Tobago', flag: '🇹🇹', restricted: false },
+    { name: 'Tunisia', flag: '🇹🇳', restricted: false },
+    { name: 'Turkey', flag: '🇹🇷', restricted: false },
+    { name: 'Turkmenistan', flag: '🇹🇲', restricted: false },
+    { name: 'Tuvalu', flag: '🇹🇻', restricted: false },
+    { name: 'Uganda', flag: '🇺🇬', restricted: false },
+    { name: 'Ukraine', flag: '🇺🇦', restricted: false },
+    { name: 'United Arab Emirates', flag: '🇦🇪', restricted: false },
+    { name: 'United Kingdom', flag: '🇬🇧', restricted: false },
+    { name: 'United States', flag: '🇺🇸', restricted: true }, // Restricted
+    { name: 'Uruguay', flag: '🇺🇾', restricted: false },
+    { name: 'Uzbekistan', flag: '🇺🇿', restricted: false },
+    { name: 'Vanuatu', flag: '🇻🇺', restricted: false },
+    { name: 'Vatican City', flag: '🇻🇦', restricted: false },
+    { name: 'Venezuela', flag: '🇻🇪', restricted: false },
+    { name: 'Vietnam', flag: '🇻🇳', restricted: false },
+    { name: 'Yemen', flag: '🇾🇪', restricted: false },
+    { name: 'Zambia', flag: '🇿🇲', restricted: false },
+    { name: 'Zimbabwe', flag: '🇿🇼', restricted: false },
   ];
+
+  // Get available (non-restricted) countries count
+  const availableCountriesCount = ALL_COUNTRIES.filter(c => !c.restricted).length;
 
   // Open sidebar with animation
   const openSidebar = (type: 'login' | 'signup') => {
@@ -1255,7 +1375,7 @@ export default function Welcome() {
               <View style={styles.countryModalHeader}>
                 <View>
                   <Text style={styles.countryModalTitle}>Select Country</Text>
-                  <Text style={styles.countryCount}>{ALL_COUNTRIES.length} countries available</Text>
+                  <Text style={styles.countryCount}>{ALL_COUNTRIES.length} countries • {availableCountriesCount} available</Text>
                 </View>
                 <TouchableOpacity onPress={() => { setShowCountryPicker(false); setCountrySearch(''); }}>
                   <Ionicons name="close" size={24} color="#888" />
@@ -1279,6 +1399,14 @@ export default function Welcome() {
                   </TouchableOpacity>
                 )}
               </View>
+
+              {/* Restricted Notice */}
+              <View style={styles.restrictedNotice}>
+                <Ionicons name="information-circle" size={16} color="#FF6B6B" />
+                <Text style={styles.restrictedNoticeText}>
+                  Service unavailable in: USA, Canada, Hong Kong, EEA, Israel, Russia
+                </Text>
+              </View>
               
               <ScrollView style={styles.countryList} showsVerticalScrollIndicator={false}>
                 {ALL_COUNTRIES
@@ -1286,12 +1414,36 @@ export default function Welcome() {
                   .map((country, index) => (
                   <TouchableOpacity
                     key={index}
-                    style={[styles.countryItem, selectedCountry?.name === country.name && styles.countryItemSelected]}
-                    onPress={() => { setSelectedCountry(country); setShowCountryPicker(false); setCountrySearch(''); }}
+                    style={[
+                      styles.countryItem, 
+                      selectedCountry?.name === country.name && styles.countryItemSelected,
+                      country.restricted && styles.countryItemRestricted
+                    ]}
+                    onPress={() => {
+                      if (country.restricted) {
+                        if (Platform.OS === 'web') {
+                          window.alert(`Sorry, our services are not available in ${country.name}. This includes USA, Canada, Hong Kong, EEA countries, Israel, and Russia.`);
+                        } else {
+                          Alert.alert('Restricted Region', `Sorry, our services are not available in ${country.name}. This includes USA, Canada, Hong Kong, EEA countries, Israel, and Russia.`);
+                        }
+                        return;
+                      }
+                      setSelectedCountry(country); 
+                      setShowCountryPicker(false); 
+                      setCountrySearch('');
+                    }}
                   >
                     <Text style={styles.countryFlag}>{country.flag}</Text>
-                    <Text style={styles.countryName}>{country.name}</Text>
-                    {selectedCountry?.name === country.name && <Ionicons name="checkmark-circle" size={18} color="#00E55A" />}
+                    <Text style={[styles.countryName, country.restricted && styles.countryNameRestricted]}>
+                      {country.name}
+                    </Text>
+                    {country.restricted ? (
+                      <View style={styles.restrictedBadge}>
+                        <Text style={styles.restrictedBadgeText}>Restricted</Text>
+                      </View>
+                    ) : selectedCountry?.name === country.name ? (
+                      <Ionicons name="checkmark-circle" size={18} color="#00E55A" />
+                    ) : null}
                   </TouchableOpacity>
                 ))}
                 {ALL_COUNTRIES.filter(country => country.name.toLowerCase().includes(countrySearch.toLowerCase())).length === 0 && (
@@ -2912,6 +3064,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#00E55A15',
     borderRadius: 8,
   },
+  countryItemRestricted: {
+    opacity: 0.5,
+  },
   countryFlag: {
     fontSize: 22,
     marginRight: 12,
@@ -2920,6 +3075,35 @@ const styles = StyleSheet.create({
     flex: 1,
     color: '#FFFFFF',
     fontSize: 15,
+  },
+  countryNameRestricted: {
+    color: '#888',
+  },
+  restrictedNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FF6B6B15',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    gap: 8,
+  },
+  restrictedNoticeText: {
+    flex: 1,
+    color: '#FF6B6B',
+    fontSize: 11,
+  },
+  restrictedBadge: {
+    backgroundColor: '#FF6B6B20',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  restrictedBadgeText: {
+    color: '#FF6B6B',
+    fontSize: 10,
+    fontWeight: '600',
   },
   noResultsContainer: {
     alignItems: 'center',
