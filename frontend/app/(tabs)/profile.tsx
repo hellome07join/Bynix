@@ -164,6 +164,7 @@ export default function Profile() {
   const [backImage, setBackImage] = useState<string | null>(null);
   const [isSubmittingKyc, setIsSubmittingKyc] = useState(false);
   const [kycStatus, setKycStatus] = useState<any>(null);
+  const [showKycRequiredModal, setShowKycRequiredModal] = useState(false);
   const [kycCountdown, setKycCountdown] = useState<number | null>(null);
   
   // Password Change State
@@ -1576,7 +1577,14 @@ export default function Profile() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.financeSubTab, { flex: 1 }]}
-            onPress={() => setShowWithdrawModal(true)}
+            onPress={() => {
+              // Check KYC status before allowing withdrawal
+              if (kycStatus?.status !== 'verified' && kycStatus?.status !== 'approved') {
+                setShowKycRequiredModal(true);
+              } else {
+                setShowWithdrawModal(true);
+              }
+            }}
           >
             <Ionicons name="arrow-up-circle" size={18} color="#666" />
             <Text style={styles.financeSubTabText}>Withdraw</Text>
@@ -2441,6 +2449,98 @@ export default function Profile() {
                 </>
               )}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* KYC Required Modal - Shows when user tries to withdraw without KYC */}
+      <Modal visible={showKycRequiredModal} transparent animationType="fade">
+        <View style={styles.withdrawModalOverlay}>
+          <View style={[styles.withdrawModalContent, { maxHeight: 450, justifyContent: 'center' }]}>
+            {/* Close Button */}
+            <TouchableOpacity 
+              onPress={() => setShowKycRequiredModal(false)} 
+              style={{ position: 'absolute', top: 16, right: 16, zIndex: 10 }}
+            >
+              <Ionicons name="close" size={24} color="#888" />
+            </TouchableOpacity>
+
+            {/* Icon */}
+            <View style={{ alignItems: 'center', marginTop: 20 }}>
+              <View style={{
+                width: 80,
+                height: 80,
+                borderRadius: 40,
+                backgroundColor: 'rgba(255, 184, 0, 0.15)',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 20
+              }}>
+                <Ionicons name="shield-checkmark" size={40} color="#FFB800" />
+              </View>
+              
+              <Text style={{ fontSize: 22, fontWeight: '700', color: '#FFFFFF', textAlign: 'center', marginBottom: 12 }}>
+                KYC Verification Required
+              </Text>
+              
+              <Text style={{ fontSize: 14, color: '#888', textAlign: 'center', paddingHorizontal: 20, lineHeight: 22, marginBottom: 30 }}>
+                To ensure the security of your funds and comply with regulations, please verify your identity before making withdrawals.
+              </Text>
+
+              {/* KYC Status Info */}
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: 'rgba(255, 59, 59, 0.1)',
+                paddingHorizontal: 16,
+                paddingVertical: 10,
+                borderRadius: 10,
+                marginBottom: 30
+              }}>
+                <Ionicons name="information-circle" size={20} color="#FF3B3B" />
+                <Text style={{ color: '#FF3B3B', marginLeft: 8, fontSize: 13 }}>
+                  {kycStatus?.status === 'pending' 
+                    ? 'Your KYC is under review. Please wait for approval.'
+                    : kycStatus?.status === 'rejected'
+                    ? 'Your KYC was rejected. Please re-submit documents.'
+                    : 'Your KYC is not verified yet.'}
+                </Text>
+              </View>
+
+              {/* Verify KYC Button */}
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#FFB800',
+                  paddingVertical: 16,
+                  paddingHorizontal: 40,
+                  borderRadius: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  width: '90%'
+                }}
+                onPress={() => {
+                  setShowKycRequiredModal(false);
+                  setSelectedTab('profile');
+                  // Scroll to KYC section or expand it
+                  setTimeout(() => {
+                    // Could trigger KYC section expansion
+                  }, 300);
+                }}
+              >
+                <Ionicons name="shield-checkmark" size={20} color="#0A0A0A" />
+                <Text style={{ color: '#0A0A0A', fontWeight: '700', fontSize: 16, marginLeft: 10, flex: 1, textAlign: 'center' }}>
+                  {kycStatus?.status === 'pending' ? 'View KYC Status' : 'Verify KYC Now'}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Later Button */}
+              <TouchableOpacity
+                style={{ marginTop: 15, paddingVertical: 10 }}
+                onPress={() => setShowKycRequiredModal(false)}
+              >
+                <Text style={{ color: '#666', fontSize: 14 }}>I'll do it later</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
