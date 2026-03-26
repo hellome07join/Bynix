@@ -356,55 +356,203 @@ export default function Welcome() {
             <PulsingRing size={260} delay={800} />
           </View>
 
-          {/* App Rating Badge */}
-          <View style={styles.appRatingBadge}>
-            <Text style={styles.appRatingLabel}>APP RATING</Text>
-            <Text style={styles.appRatingValue}>4.8</Text>
-            <View style={styles.starsRow}>
-              {[1,2,3,4,5].map((_, i) => (
-                <Ionicons key={i} name="star" size={12} color="#FFD700" />
+          {/* Phone Mockup Section - Matching Reference Design */}
+          <View style={styles.phoneMockupSection}>
+            
+            {/* Floating Bynix Logo Icon - Top Left */}
+            <Animated.View style={[styles.floatingBynixLogo, { transform: [{ translateY: phoneTranslateY }] }]}>
+              <LinearGradient
+                colors={['#FFFFFF', '#E8F4FD']}
+                style={styles.bynixLogoGradient}
+              >
+                <View style={styles.bynixLogoInner}>
+                  <Ionicons name="bar-chart" size={24} color="#4A90E2" />
+                </View>
+              </LinearGradient>
+            </Animated.View>
+
+            {/* Floating Asset Badges - Left Side */}
+            <View style={styles.floatingBadgesLeft}>
+              {[
+                { name: 'Stocks', delay: 0 },
+                { name: 'Indices', delay: 100 },
+                { name: 'Metals', delay: 200 },
+                { name: 'Commodities', delay: 300 },
+                { name: 'ETF', delay: 400 },
+              ].map((item, index) => (
+                <Animated.View 
+                  key={index} 
+                  style={[
+                    styles.floatingBadge,
+                    { transform: [{ translateY: phoneTranslateY }] }
+                  ]}
+                >
+                  <LinearGradient
+                    colors={['#4A90E2', '#2E7BD6']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.floatingBadgeGradient}
+                  >
+                    <Text style={styles.floatingBadgeText}>{item.name}</Text>
+                  </LinearGradient>
+                </Animated.View>
               ))}
             </View>
-          </View>
 
-          {/* Phone Mockup - iPhone 17 Pro Max with Screenshot */}
-          <Animated.View style={[styles.phoneMockupContainer, { transform: [{ translateY: phoneTranslateY }, { rotateY: '-12deg' }, { rotateX: '5deg' }, { rotateZ: '3deg' }] }]}>
-            {/* Phone Outer Frame (Titanium) */}
-            <View style={styles.phoneOuterFrame}>
-              {/* Phone Inner Frame */}
-              <View style={styles.phoneFrame}>
-                {/* Power Button (Right side) */}
-                <View style={styles.phonePowerButton} />
-                
-                {/* Volume Buttons (Left side) */}
-                <View style={styles.phoneVolumeButtons}>
-                  <View style={styles.phoneVolumeBtn} />
-                  <View style={[styles.phoneVolumeBtn, { marginTop: 8 }]} />
-                </View>
+            {/* Floating Company Logos */}
+            {/* Tesla Logo - Top */}
+            <Animated.View style={[styles.floatingCompanyLogo, styles.teslaPosition, { transform: [{ translateY: phoneTranslateY }] }]}>
+              <View style={[styles.companyLogoCircle, { backgroundColor: '#E82127' }]}>
+                <Text style={styles.companyLogoText}>T</Text>
+              </View>
+            </Animated.View>
 
-                {/* Screen with actual screenshot */}
-                <View style={styles.phoneScreenNew}>
-                  {/* Dynamic Island */}
-                  <View style={styles.dynamicIsland}>
-                    <View style={styles.dynamicIslandPill} />
+            {/* Facebook Logo - Right Top */}
+            <Animated.View style={[styles.floatingCompanyLogo, styles.facebookPosition, { transform: [{ translateY: phoneTranslateY }] }]}>
+              <View style={[styles.companyLogoCircle, { backgroundColor: '#1877F2' }]}>
+                <FontAwesome5 name="facebook-f" size={14} color="#FFF" />
+              </View>
+            </Animated.View>
+
+            {/* Apple Logo - Right Middle */}
+            <Animated.View style={[styles.floatingCompanyLogo, styles.applePosition, { transform: [{ translateY: phoneTranslateY }] }]}>
+              <View style={[styles.companyLogoCircle, { backgroundColor: '#A2AAAD' }]}>
+                <Ionicons name="logo-apple" size={16} color="#FFF" />
+              </View>
+            </Animated.View>
+
+            {/* IBM Logo - Bottom Right */}
+            <Animated.View style={[styles.floatingCompanyLogo, styles.ibmPosition, { transform: [{ translateY: phoneTranslateY }] }]}>
+              <View style={[styles.companyLogoCircle, { backgroundColor: '#054ADA' }]}>
+                <Text style={[styles.companyLogoText, { fontSize: 9, fontWeight: '800' }]}>IBM</Text>
+              </View>
+            </Animated.View>
+
+            {/* Google Logo - Bottom Left */}
+            <Animated.View style={[styles.floatingCompanyLogo, styles.googlePosition, { transform: [{ translateY: phoneTranslateY }] }]}>
+              <View style={[styles.companyLogoCircle, { backgroundColor: '#4285F4' }]}>
+                <Text style={[styles.companyLogoText, { color: '#FFF', fontWeight: '700' }]}>G</Text>
+              </View>
+            </Animated.View>
+
+            {/* Netflix Logo - Hidden (next to Indices) */}
+            <Animated.View style={[styles.floatingCompanyLogo, styles.netflixPosition, { transform: [{ translateY: phoneTranslateY }] }]}>
+              <View style={[styles.companyLogoCircle, { backgroundColor: '#E50914' }]}>
+                <Text style={[styles.companyLogoText, { fontWeight: '800' }]}>N</Text>
+              </View>
+            </Animated.View>
+
+            {/* Phone Mockup - iPhone with Screenshot */}
+            <Animated.View style={[styles.phoneMockupContainer, { transform: [{ translateY: phoneTranslateY }, { perspective: 1000 }, { rotateY: '-8deg' }, { rotateX: '2deg' }] }]}>
+              {/* Phone Outer Frame (Titanium) */}
+              <View style={styles.phoneOuterFrame}>
+                {/* Phone Inner Frame */}
+                <View style={styles.phoneFrame}>
+                  {/* Power Button (Right side) */}
+                  <View style={styles.phonePowerButton} />
+                  
+                  {/* Volume Buttons (Left side) */}
+                  <View style={styles.phoneVolumeButtons}>
+                    <View style={styles.phoneVolumeBtn} />
+                    <View style={[styles.phoneVolumeBtn, { marginTop: 8 }]} />
                   </View>
 
-                  {/* Screenshot Image */}
-                  <Image 
-                    source={{ uri: 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/ig4f3f1q_IMG_3393.jpeg' }}
-                    style={styles.screenshotImage}
-                    resizeMode="cover"
-                  />
+                  {/* Screen with Trading UI */}
+                  <View style={styles.phoneScreenNew}>
+                    {/* Dynamic Island */}
+                    <View style={styles.dynamicIsland}>
+                      <View style={styles.dynamicIslandPill} />
+                    </View>
 
-                  {/* Home Indicator */}
-                  <View style={styles.homeIndicator} />
+                    {/* Trading UI Content */}
+                    <View style={styles.tradingUIContent}>
+                      {/* Balance Header */}
+                      <View style={styles.mockBalanceHeader}>
+                        <View style={styles.mockBalanceBox}>
+                          <Text style={styles.mockBalanceAmount}>$1,420.00</Text>
+                          <Text style={styles.mockBalanceLabel}>balance</Text>
+                        </View>
+                        <TouchableOpacity style={styles.mockDepositBtn}>
+                          <Text style={styles.mockDepositText}>Deposit</Text>
+                        </TouchableOpacity>
+                        <View style={styles.mockMenuIcon}>
+                          <Ionicons name="menu" size={18} color="#888" />
+                        </View>
+                      </View>
+
+                      {/* Asset Pair */}
+                      <View style={styles.mockAssetRow}>
+                        <View style={styles.mockAssetIcon}>
+                          <Text style={styles.mockAssetIconText}>T</Text>
+                        </View>
+                        <View>
+                          <Text style={styles.mockAssetName}>Tesla</Text>
+                          <Text style={styles.mockAssetTime}>09:10:00 PM</Text>
+                        </View>
+                      </View>
+
+                      {/* Chart Area with Gradient */}
+                      <View style={styles.mockChartArea}>
+                        <LinearGradient
+                          colors={['#0A3D62', '#0A0E17']}
+                          style={styles.mockChartGradient}
+                        >
+                          {/* Simulated chart line */}
+                          <View style={styles.mockChartLine} />
+                        </LinearGradient>
+                      </View>
+                    </View>
+
+                    {/* Home Indicator */}
+                    <View style={styles.homeIndicator} />
+                  </View>
                 </View>
               </View>
-            </View>
 
-            {/* Glow Effect */}
-            <View style={styles.phoneGlow} />
-          </Animated.View>
+              {/* Glow Effect */}
+              <View style={styles.phoneGlow} />
+            </Animated.View>
+
+            {/* Floating Asset List Card - Right Side */}
+            <Animated.View style={[styles.floatingAssetListCard, { transform: [{ translateY: phoneTranslateY }] }]}>
+              <View style={styles.assetListHeader}>
+                <Text style={styles.assetListTitle}>Asset list</Text>
+                <Ionicons name="close" size={16} color="#888" />
+              </View>
+              
+              <View style={styles.assetListFilter}>
+                <Text style={styles.assetListFilterText}>All</Text>
+                <Ionicons name="chevron-down" size={12} color="#888" />
+              </View>
+
+              <View style={styles.assetListSearch}>
+                <Ionicons name="search" size={12} color="#666" />
+                <Text style={styles.assetListSearchText}>Search</Text>
+              </View>
+
+              {/* Asset Items */}
+              {[
+                { icon: 'T', name: 'Tesla', change: '-0.01%', payout: '85%', color: '#E82127', positive: false },
+                { icon: '🍎', name: 'Apple', change: '-0.01%', payout: '77%', color: '#A2AAAD', positive: false },
+                { icon: 'IBM', name: 'IBM', change: '-0.57%', payout: '75%', color: '#054ADA', positive: false },
+                { icon: 'G', name: 'Google', change: '-0.12%', payout: '77%', color: '#4285F4', positive: false },
+                { icon: 'N', name: 'Netflix', change: '-0.06%', payout: '79%', color: '#E50914', positive: false },
+                { icon: 'f', name: 'Facebook (META)', change: '+1.13%', payout: '76%', color: '#1877F2', positive: true },
+              ].map((asset, index) => (
+                <View key={index} style={styles.assetListItem}>
+                  <View style={[styles.assetListIcon, { backgroundColor: asset.color }]}>
+                    <Text style={styles.assetListIconText}>{asset.icon}</Text>
+                  </View>
+                  <Text style={styles.assetListName}>{asset.name}</Text>
+                  <Text style={[styles.assetListChange, { color: asset.positive ? '#00E55A' : '#FF4757' }]}>
+                    {asset.change}
+                  </Text>
+                  <Text style={styles.assetListPayout}>{asset.payout}</Text>
+                </View>
+              ))}
+            </Animated.View>
+
+          </View>
 
           {/* Hero Text */}
           <View style={styles.heroTextContainer}>
@@ -675,38 +823,302 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  // App Rating Badge
-  appRatingBadge: {
+  // Phone Mockup Section
+  phoneMockupSection: {
+    width: '100%',
+    height: 550,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+  },
+
+  // Floating Bynix Logo
+  floatingBynixLogo: {
     position: 'absolute',
     top: 30,
-    left: 20,
-    backgroundColor: '#4A90E2',
-    borderRadius: 12,
-    padding: 12,
-    alignItems: 'center',
-    zIndex: 10,
+    left: 10,
+    zIndex: 20,
   },
-  appRatingLabel: {
+  bynixLogoGradient: {
+    width: 60,
+    height: 60,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  bynixLogoInner: {
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+    backgroundColor: '#EDF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Floating Asset Badges
+  floatingBadgesLeft: {
+    position: 'absolute',
+    left: -10,
+    top: 120,
+    zIndex: 15,
+    gap: 10,
+  },
+  floatingBadge: {
+    borderRadius: 25,
+    overflow: 'hidden',
+  },
+  floatingBadgeGradient: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+  },
+  floatingBadgeText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  // Floating Company Logos
+  floatingCompanyLogo: {
+    position: 'absolute',
+    zIndex: 15,
+  },
+  companyLogoCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  companyLogoText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  teslaPosition: {
+    top: 0,
+    left: '45%',
+    marginLeft: -18,
+  },
+  facebookPosition: {
+    top: 50,
+    right: 10,
+  },
+  applePosition: {
+    top: 180,
+    right: -5,
+  },
+  ibmPosition: {
+    bottom: 60,
+    right: 0,
+  },
+  googlePosition: {
+    bottom: 20,
+    left: 30,
+  },
+  netflixPosition: {
+    top: 230,
+    left: 100,
+  },
+
+  // Floating Asset List Card
+  floatingAssetListCard: {
+    position: 'absolute',
+    right: -20,
+    top: 100,
+    width: 180,
+    backgroundColor: 'rgba(30, 35, 50, 0.95)',
+    borderRadius: 16,
+    padding: 12,
+    zIndex: 20,
+    borderWidth: 1,
+    borderColor: '#2A3040',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 15,
+  },
+  assetListHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  assetListTitle: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  assetListFilter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1A1F2E',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginBottom: 8,
+    gap: 4,
+  },
+  assetListFilterText: {
+    color: '#888',
+    fontSize: 11,
+  },
+  assetListSearch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1A1F2E',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginBottom: 10,
+    gap: 6,
+  },
+  assetListSearchText: {
+    color: '#666',
+    fontSize: 11,
+  },
+  assetListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#252A3A',
+  },
+  assetListIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 6,
+  },
+  assetListIconText: {
     color: '#FFF',
     fontSize: 9,
-    fontWeight: '600',
-    letterSpacing: 0.5,
+    fontWeight: '700',
   },
-  appRatingValue: {
+  assetListName: {
+    flex: 1,
     color: '#FFF',
-    fontSize: 28,
-    fontWeight: '800',
-    marginVertical: 2,
+    fontSize: 10,
+    fontWeight: '500',
   },
-  starsRow: {
-    flexDirection: 'row',
-    gap: 2,
+  assetListChange: {
+    fontSize: 9,
+    fontWeight: '600',
+    marginRight: 6,
+  },
+  assetListPayout: {
+    color: '#888',
+    fontSize: 9,
   },
 
   // Phone Mockup
   phoneMockupContainer: {
-    marginTop: 20,
-    marginBottom: 20,
+    zIndex: 10,
+  },
+
+  // Trading UI Content inside phone
+  tradingUIContent: {
+    flex: 1,
+    backgroundColor: '#0A0E17',
+    paddingTop: 50,
+  },
+  mockBalanceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  mockBalanceBox: {
+    backgroundColor: '#1A1F2E',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  mockBalanceAmount: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  mockBalanceLabel: {
+    color: '#888',
+    fontSize: 9,
+  },
+  mockDepositBtn: {
+    backgroundColor: '#4A90E2',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  mockDepositText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  mockMenuIcon: {
+    marginLeft: 'auto',
+  },
+  mockAssetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  mockAssetIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#E82127',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mockAssetIconText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  mockAssetName: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  mockAssetTime: {
+    color: '#888',
+    fontSize: 10,
+  },
+  mockChartArea: {
+    flex: 1,
+    margin: 10,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  mockChartGradient: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mockChartLine: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    height: 2,
+    backgroundColor: '#4A90E2',
+    borderRadius: 1,
   },
   phoneOuterFrame: {
     width: width * 0.75,
