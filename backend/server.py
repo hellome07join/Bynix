@@ -2292,6 +2292,162 @@ async def didit_callback(request: Request):
     return HTMLResponse(content=html_content, status_code=200)
 
 
+@api_router.get("/kyc/didit/webhook")
+async def didit_webhook_redirect(request: Request):
+    """Handle GET redirect from Didit after KYC verification - shows success page"""
+    from fastapi.responses import HTMLResponse
+    
+    # Get query parameters from Didit
+    params = dict(request.query_params)
+    session_id = params.get("verificationSessionId", "")
+    status = params.get("status", "").lower()
+    
+    print(f"[DIDIT REDIRECT] Session: {session_id}, Status: {status}")
+    
+    # Determine message based on status
+    if status in ["approved", "completed", "verified"]:
+        title = "Verification Complete!"
+        message = "Your identity has been successfully verified. You can now access all features including withdrawals."
+        icon_color = "#00E55A"
+        icon_svg = '<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>'
+    elif status in ["declined", "rejected", "failed"]:
+        title = "Verification Failed"
+        message = "Unfortunately, your verification was not successful. Please try again with valid documents."
+        icon_color = "#F44336"
+        icon_svg = '<path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>'
+    else:
+        title = "Verification Pending"
+        message = "Your verification is being processed. Please check back later."
+        icon_color = "#FF9800"
+        icon_svg = '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>'
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{title} - Bynix</title>
+        <style>
+            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+            body {{
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+                min-height: 100vh;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                color: white;
+            }}
+            .container {{
+                text-align: center;
+                padding: 40px 20px;
+                max-width: 400px;
+            }}
+            .success-icon {{
+                width: 100px;
+                height: 100px;
+                background: linear-gradient(135deg, {icon_color} 0%, {icon_color}dd 100%);
+                border-radius: 50%;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                margin: 0 auto 30px;
+                animation: pulse 2s infinite;
+            }}
+            .success-icon svg {{
+                width: 50px;
+                height: 50px;
+                fill: white;
+            }}
+            @keyframes pulse {{
+                0%, 100% {{ transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 229, 90, 0.4); }}
+                50% {{ transform: scale(1.05); box-shadow: 0 0 20px 10px rgba(0, 229, 90, 0.2); }}
+            }}
+            h1 {{
+                font-size: 28px;
+                margin-bottom: 15px;
+                background: linear-gradient(90deg, {icon_color}, {icon_color}dd);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            }}
+            p {{
+                color: #888;
+                font-size: 16px;
+                line-height: 1.6;
+                margin-bottom: 30px;
+            }}
+            .btn {{
+                display: inline-block;
+                background: linear-gradient(135deg, #00E55A 0%, #00C853 100%);
+                color: #0a0a0a;
+                padding: 15px 40px;
+                border-radius: 12px;
+                text-decoration: none;
+                font-weight: 600;
+                font-size: 16px;
+                transition: transform 0.2s, box-shadow 0.2s;
+            }}
+            .btn:hover {{
+                transform: translateY(-2px);
+                box-shadow: 0 10px 30px rgba(0, 229, 90, 0.3);
+            }}
+            .redirect-text {{
+                color: #666;
+                font-size: 14px;
+                margin-top: 20px;
+            }}
+            .loader {{
+                width: 20px;
+                height: 20px;
+                border: 2px solid #333;
+                border-top-color: #00E55A;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+                display: inline-block;
+                margin-right: 8px;
+                vertical-align: middle;
+            }}
+            @keyframes spin {{
+                to {{ transform: rotate(360deg); }}
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="success-icon">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    {icon_svg}
+                </svg>
+            </div>
+            <h1>{title}</h1>
+            <p>{message}</p>
+            <a href="/" class="btn">Return to Bynix</a>
+            <p class="redirect-text">
+                <span class="loader"></span>
+                Redirecting automatically in <span id="countdown">5</span> seconds...
+            </p>
+        </div>
+        <script>
+            let count = 5;
+            const countdown = document.getElementById('countdown');
+            const timer = setInterval(() => {{
+                count--;
+                countdown.textContent = count;
+                if (count <= 0) {{
+                    clearInterval(timer);
+                    window.location.href = '/';
+                }}
+            }}, 1000);
+        </script>
+    </body>
+    </html>
+    """
+    
+    return HTMLResponse(content=html_content, status_code=200)
+
+
 @api_router.post("/kyc/didit/webhook")
 async def didit_webhook(request: Request):
     """Handle Didit KYC verification webhook callbacks"""
