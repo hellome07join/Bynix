@@ -13,6 +13,7 @@ import {
   Dimensions,
   Image,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -416,103 +417,119 @@ export default function AdminDashboard() {
     console.log('[APPROVE] Called with:', withdrawalId, userEmail, amount);
     
     if (!token) {
-      Alert.alert('Error', 'Not authenticated');
+      if (Platform.OS === 'web') {
+        window.alert('Error: Not authenticated');
+      } else {
+        Alert.alert('Error', 'Not authenticated');
+      }
       return;
     }
     
     if (!withdrawalId) {
-      Alert.alert('Error', 'Invalid withdrawal ID');
+      if (Platform.OS === 'web') {
+        window.alert('Error: Invalid withdrawal ID');
+      } else {
+        Alert.alert('Error', 'Invalid withdrawal ID');
+      }
       return;
     }
     
-    Alert.alert(
-      'Confirm Approval',
-      `Approve withdrawal of $${amount.toFixed(2)} for ${userEmail}?\n\nWithdrawal ID: ${withdrawalId}`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Approve',
-          style: 'default',
-          onPress: async () => {
-            try {
-              console.log('[APPROVE] Making API call for:', withdrawalId);
-              const response = await fetch(`${API_URL}/admin/withdrawals/${withdrawalId}/approve`, {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json'
-                }
-              });
-              
-              const data = await response.json();
-              console.log('[APPROVE] Response:', data);
-              
-              if (response.ok) {
-                Alert.alert('Success', `Withdrawal of $${amount.toFixed(2)} approved successfully`);
-                fetchDashboardData(); // Refresh data
-              } else {
-                Alert.alert('Error', data.detail || 'Failed to approve withdrawal');
-              }
-            } catch (error) {
-              console.error('Approve withdrawal error:', error);
-              Alert.alert('Error', 'Failed to approve withdrawal');
-            }
-          }
+    // Directly call API without confirmation for better reliability
+    try {
+      console.log('[APPROVE] Making API call for:', withdrawalId);
+      const response = await fetch(`${API_URL}/admin/withdrawals/${withdrawalId}/approve`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-      ]
-    );
+      });
+      
+      const data = await response.json();
+      console.log('[APPROVE] Response:', data);
+      
+      if (response.ok) {
+        if (Platform.OS === 'web') {
+          window.alert(`Success: Withdrawal of $${amount?.toFixed(2) || 0} approved successfully`);
+        } else {
+          Alert.alert('Success', `Withdrawal of $${amount?.toFixed(2) || 0} approved successfully`);
+        }
+        fetchDashboardData(); // Refresh data
+      } else {
+        if (Platform.OS === 'web') {
+          window.alert(`Error: ${data.detail || 'Failed to approve withdrawal'}`);
+        } else {
+          Alert.alert('Error', data.detail || 'Failed to approve withdrawal');
+        }
+      }
+    } catch (error) {
+      console.error('Approve withdrawal error:', error);
+      if (Platform.OS === 'web') {
+        window.alert('Error: Failed to approve withdrawal');
+      } else {
+        Alert.alert('Error', 'Failed to approve withdrawal');
+      }
+    }
   };
 
   const handleRejectWithdrawal = async (withdrawalId: string, userEmail: string, amount: number) => {
     console.log('[REJECT] Called with:', withdrawalId, userEmail, amount);
     
     if (!token) {
-      Alert.alert('Error', 'Not authenticated');
+      if (Platform.OS === 'web') {
+        window.alert('Error: Not authenticated');
+      } else {
+        Alert.alert('Error', 'Not authenticated');
+      }
       return;
     }
     
     if (!withdrawalId) {
-      Alert.alert('Error', 'Invalid withdrawal ID');
+      if (Platform.OS === 'web') {
+        window.alert('Error: Invalid withdrawal ID');
+      } else {
+        Alert.alert('Error', 'Invalid withdrawal ID');
+      }
       return;
     }
     
-    Alert.alert(
-      'Confirm Rejection',
-      `Reject withdrawal of $${amount.toFixed(2)} for ${userEmail}?\n\nWithdrawal ID: ${withdrawalId}`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reject',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              console.log('[REJECT] Making API call for:', withdrawalId);
-              const response = await fetch(`${API_URL}/admin/withdrawals/${withdrawalId}/reject`, {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ reason: 'Rejected by admin' })
-              });
-              
-              const data = await response.json();
-              console.log('[REJECT] Response:', data);
-              
-              if (response.ok) {
-                Alert.alert('Success', `Withdrawal rejected and $${amount.toFixed(2)} refunded to user`);
-                fetchDashboardData(); // Refresh data
-              } else {
-                Alert.alert('Error', data.detail || 'Failed to reject withdrawal');
-              }
-            } catch (error) {
-              console.error('Reject withdrawal error:', error);
-              Alert.alert('Error', 'Failed to reject withdrawal');
-            }
-          }
+    // Directly call API without confirmation for better reliability
+    try {
+      console.log('[REJECT] Making API call for:', withdrawalId);
+      const response = await fetch(`${API_URL}/admin/withdrawals/${withdrawalId}/reject`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ reason: 'Rejected by admin' })
+      });
+      
+      const data = await response.json();
+      console.log('[REJECT] Response:', data);
+      
+      if (response.ok) {
+        if (Platform.OS === 'web') {
+          window.alert(`Success: Withdrawal rejected and $${amount?.toFixed(2) || 0} refunded to user`);
+        } else {
+          Alert.alert('Success', `Withdrawal rejected and $${amount?.toFixed(2) || 0} refunded to user`);
         }
-      ]
-    );
+        fetchDashboardData(); // Refresh data
+      } else {
+        if (Platform.OS === 'web') {
+          window.alert(`Error: ${data.detail || 'Failed to reject withdrawal'}`);
+        } else {
+          Alert.alert('Error', data.detail || 'Failed to reject withdrawal');
+        }
+      }
+    } catch (error) {
+      console.error('Reject withdrawal error:', error);
+      if (Platform.OS === 'web') {
+        window.alert('Error: Failed to reject withdrawal');
+      } else {
+        Alert.alert('Error', 'Failed to reject withdrawal');
+      }
+    }
   };
 
   // Fetch user stats for withdrawal review
@@ -533,18 +550,30 @@ export default function AdminDashboard() {
         setSelectedWithdrawal(withdrawal);
         setShowWithdrawalUserModal(true);
       } else {
-        Alert.alert('Error', 'Failed to fetch user stats');
+        if (Platform.OS === 'web') {
+          window.alert('Error: Failed to fetch user stats');
+        } else {
+          Alert.alert('Error', 'Failed to fetch user stats');
+        }
       }
     } catch (error) {
       console.error('Fetch user stats error:', error);
-      Alert.alert('Error', 'Failed to fetch user stats');
+      if (Platform.OS === 'web') {
+        window.alert('Error: Failed to fetch user stats');
+      } else {
+        Alert.alert('Error', 'Failed to fetch user stats');
+      }
     }
   };
 
   // Lock withdrawal with KYC requirement
   const handleLockWithdrawal = async (withdrawalId: string, kycType: string) => {
     if (!token) {
-      Alert.alert('Error', 'Not authenticated');
+      if (Platform.OS === 'web') {
+        window.alert('Error: Not authenticated');
+      } else {
+        Alert.alert('Error', 'Not authenticated');
+      }
       return;
     }
     
@@ -564,16 +593,28 @@ export default function AdminDashboard() {
       const data = await response.json();
       
       if (response.ok) {
-        Alert.alert('Success', `Withdrawal locked. User must submit: ${kycType}`);
+        if (Platform.OS === 'web') {
+          window.alert(`Success: Withdrawal locked. User must submit: ${kycType}`);
+        } else {
+          Alert.alert('Success', `Withdrawal locked. User must submit: ${kycType}`);
+        }
         setShowKycModal(false);
         setShowWithdrawalUserModal(false);
         fetchDashboardData(); // Refresh data
       } else {
-        Alert.alert('Error', data.detail || 'Failed to lock withdrawal');
+        if (Platform.OS === 'web') {
+          window.alert(`Error: ${data.detail || 'Failed to lock withdrawal'}`);
+        } else {
+          Alert.alert('Error', data.detail || 'Failed to lock withdrawal');
+        }
       }
     } catch (error) {
       console.error('Lock withdrawal error:', error);
-      Alert.alert('Error', 'Failed to lock withdrawal');
+      if (Platform.OS === 'web') {
+        window.alert('Error: Failed to lock withdrawal');
+      } else {
+        Alert.alert('Error', 'Failed to lock withdrawal');
+      }
     }
   };
 
