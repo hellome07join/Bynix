@@ -4162,6 +4162,20 @@ async def admin_get_users(
     
     users = await db.users.find(query).sort("created_at", -1).limit(limit).to_list(limit)
     
+    # Get KYC status for all users
+    user_ids = [u.get("user_id") for u in users]
+    kyc_submissions = await db.kyc_submissions.find(
+        {"user_id": {"$in": user_ids}},
+        sort=[("created_at", -1)]
+    ).to_list(None)
+    
+    # Create a map of user_id -> kyc_status (most recent submission)
+    kyc_status_map = {}
+    for kyc in kyc_submissions:
+        uid = kyc.get("user_id")
+        if uid not in kyc_status_map:  # Only take the latest
+            kyc_status_map[uid] = kyc.get("status", "not_submitted")
+    
     return {
         "users": [
             {
@@ -4178,7 +4192,9 @@ async def admin_get_users(
                 "is_admin": u.get("is_admin", False),
                 "country": u.get("country"),
                 "country_flag": u.get("country_flag"),
-                "created_at": str(u.get("created_at", ""))
+                "created_at": str(u.get("created_at", "")),
+                "kyc_status": kyc_status_map.get(u.get("user_id"), "not_submitted"),
+                "kyc_verified": u.get("kyc_verified", False)
             }
             for u in users
         ]

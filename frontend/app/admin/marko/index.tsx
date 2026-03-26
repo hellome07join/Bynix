@@ -1488,7 +1488,16 @@ export default function AdminDashboard() {
                   </View>
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>KYC Status</Text>
-                    <Text style={styles.infoValue}>{selectedUser?.kyc_status || 'Not Submitted'}</Text>
+                    <Text style={[styles.infoValue, { 
+                      color: selectedUser?.kyc_status === 'verified' ? '#00C853' : 
+                             selectedUser?.kyc_status === 'pending' ? '#FF9800' :
+                             selectedUser?.kyc_status === 'rejected' ? '#F44336' : '#666'
+                    }]}>
+                      {selectedUser?.kyc_status === 'verified' ? 'Verified ✓' :
+                       selectedUser?.kyc_status === 'pending' ? 'Pending' :
+                       selectedUser?.kyc_status === 'rejected' ? 'Rejected' :
+                       selectedUser?.kyc_verified ? 'Verified ✓' : 'Not Submitted'}
+                    </Text>
                   </View>
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>Joined</Text>
