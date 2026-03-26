@@ -5124,7 +5124,11 @@ async def validate_promo_code(authorization: Optional[str] = Header(None), reque
     
     # Check expiry
     if promo.get("expires_at"):
-        if datetime.now(timezone.utc) > promo["expires_at"]:
+        expires_at = promo["expires_at"]
+        # Make sure both are timezone aware
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) > expires_at:
             raise HTTPException(status_code=400, detail="This promo code has expired")
     
     # Check usage limit

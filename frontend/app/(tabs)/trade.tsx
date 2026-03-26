@@ -159,6 +159,15 @@ export default function Trade() {
   const [selectedNetwork, setSelectedNetwork] = useState('USDT (TRC20)');
   const [showNetworkDropdown, setShowNetworkDropdown] = useState(false);
   const [promoCode, setPromoCode] = useState('');
+  const [promoValidation, setPromoValidation] = useState<{
+    valid: boolean;
+    bonus_type: string;
+    bonus_value: number;
+    calculated_bonus: number;
+    total_credit: number;
+    message: string;
+  } | null>(null);
+  const [isValidatingPromo, setIsValidatingPromo] = useState(false);
   const [generatedAddress, setGeneratedAddress] = useState<string | null>(null);
   const [isGeneratingAddress, setIsGeneratingAddress] = useState(false);
   const [paymentId, setPaymentId] = useState<string | null>(null);
@@ -175,6 +184,67 @@ export default function Trade() {
   const [ewalletPayUrl, setEwalletPayUrl] = useState<string | null>(null);
   const [ewalletOrderId, setEwalletOrderId] = useState<string | null>(null);
   const [exchangeRate, setExchangeRate] = useState(120); // USD to BDT
+  
+  // Validate Promo Code - wrapped in useCallback to avoid re-render loops
+  const validatePromoCode = useCallback(async (code: string, amount: string) => {
+    if (!code || !token) {
+      setPromoValidation(null);
+      return;
+    }
+    
+    const depositAmt = parseFloat(amount) || 0;
+    if (depositAmt < 21) {
+      setPromoValidation(null);
+      return;
+    }
+    
+    setIsValidatingPromo(true);
+    try {
+      const response = await fetch(`${API_URL}/promo-codes/validate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          code: code.toUpperCase(),
+          deposit_amount: depositAmt
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.valid) {
+        setPromoValidation({
+          valid: true,
+          bonus_type: data.bonus_type,
+          bonus_value: data.bonus_value,
+          calculated_bonus: data.calculated_bonus,
+          total_credit: data.total_credit,
+          message: data.message
+        });
+      } else {
+        setPromoValidation(null);
+      }
+    } catch (error) {
+      console.log('Promo validation error:', error);
+      setPromoValidation(null);
+    }
+    setIsValidatingPromo(false);
+  }, [token]);
+
+  // Auto-validate promo when code or amount changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (promoCode && showDepositModal) {
+        validatePromoCode(promoCode, depositAmount);
+      } else {
+        setPromoValidation(null);
+      }
+    }, 500); // Debounce 500ms
+    
+    return () => clearTimeout(timer);
+  }, [promoCode, depositAmount, showDepositModal, validatePromoCode]);
   
   // Fetch exchange rate when deposit modal opens
   useEffect(() => {
@@ -2635,13 +2705,62 @@ export default function Trade() {
                     </TouchableOpacity>
                   </View>
 
-                  {/* Promo Info Box */}
-                  <View style={depositModalStyles.promoInfo}>
-                    <Ionicons name="gift" size={20} color="#FFD700" />
-                    <Text style={depositModalStyles.promoInfoText}>
-                      BYNIX: 200% bonus ($100+) - New users only!
-                    </Text>
-                  </View>
+                  {/* Promo Validation Result */}
+                  {promoCode && (
+                    <View style={[depositModalStyles.promoInfo, { 
+                      backgroundColor: promoValidation?.valid ? 'rgba(0, 255, 100, 0.15)' : 'rgba(255, 215, 0, 0.1)',
+                      borderWidth: 1,
+                      borderColor: promoValidation?.valid ? '#00FF64' : '#FFD700'
+                    }]}>
+                      {isValidatingPromo ? (
+                        <>
+                          <ActivityIndicator size="small" color="#FFD700" />
+                          <Text style={depositModalStyles.promoInfoText}>Validating promo code...</Text>
+                        </>
+                      ) : promoValidation?.valid ? (
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                            <Ionicons name="checkmark-circle" size={20} color="#00FF64" />
+                            <Text style={[depositModalStyles.promoInfoText, { color: '#00FF64', marginLeft: 6 }]}>
+                              Promo Code Applied!
+                            </Text>
+                          </View>
+                          <View style={{ backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 8, padding: 12 }}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                              <Text style={{ color: '#888', fontSize: 13 }}>Deposit Amount:</Text>
+                              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>${depositAmount}</Text>
+                            </View>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                              <Text style={{ color: '#888', fontSize: 13 }}>Bonus ({promoValidation.bonus_type === 'percentage' ? `${promoValidation.bonus_value}%` : 'Fixed'}):</Text>
+                              <Text style={{ color: '#00FF64', fontSize: 13, fontWeight: '600' }}>+${promoValidation.calculated_bonus.toFixed(2)}</Text>
+                            </View>
+                            <View style={{ height: 1, backgroundColor: '#333', marginVertical: 6 }} />
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                              <Text style={{ color: '#FFD700', fontSize: 15, fontWeight: '700' }}>Total Credit:</Text>
+                              <Text style={{ color: '#00FF64', fontSize: 17, fontWeight: '700' }}>${promoValidation.total_credit.toFixed(2)}</Text>
+                            </View>
+                          </View>
+                        </View>
+                      ) : (
+                        <>
+                          <Ionicons name="gift" size={20} color="#FFD700" />
+                          <Text style={depositModalStyles.promoInfoText}>
+                            Enter a valid promo code to get bonus!
+                          </Text>
+                        </>
+                      )}
+                    </View>
+                  )}
+
+                  {/* Default Promo Info (when no code entered) */}
+                  {!promoCode && (
+                    <View style={depositModalStyles.promoInfo}>
+                      <Ionicons name="gift" size={20} color="#FFD700" />
+                      <Text style={depositModalStyles.promoInfoText}>
+                        WELCOME50: 50% bonus ($100+) - Use promo codes for extra rewards!
+                      </Text>
+                    </View>
+                  )}
 
                   {/* Generate Address Button */}
                   <TouchableOpacity 
