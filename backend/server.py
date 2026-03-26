@@ -2930,8 +2930,10 @@ async def check_deposit_status(
                     }
                 )
                 
-                # Add to user's real balance (withdrawable) and bonus balance (non-withdrawable)
-                update_fields = {"$inc": {"real_balance": credit_amount}}
+                # Add to user's real balance (deposit amount + bonus for trading)
+                # Note: bonus is also added to bonus_balance separately for tracking
+                total_credit = credit_amount + bonus_amount
+                update_fields = {"$inc": {"real_balance": total_credit}}
                 if bonus_amount > 0:
                     update_fields["$inc"]["bonus_balance"] = bonus_amount
                 
