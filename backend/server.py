@@ -2174,14 +2174,68 @@ async def didit_webhook(request: Request):
         session_id = body.get("session_id") or body.get("id")
         status = body.get("status", "").lower()
         vendor_data = body.get("vendor_data", "")  # This is the user_id we sent
+        decision = body.get("decision", {})
         
         # Map Didit status to our status
+        kyc_status = "pending"
         if status in ["approved", "completed", "verified"]:
             kyc_status = "verified"
         elif status in ["declined", "rejected", "failed"]:
             kyc_status = "rejected"
-        else:
-            kyc_status = "pending"
+            
+            # Check for duplicate user - auto-approve if previous account is deleted
+            if decision and isinstance(decision, dict):
+                id_verifications = decision.get("id_verifications", [])
+                for verification in (id_verifications or []):
+                    warnings = verification.get("warnings", [])
+                    for warning in (warnings or []):
+                        if warning.get("risk") == "POSSIBLE_DUPLICATED_USER":
+                            print(f"[DIDIT] Duplicate user detected for {vendor_data}")
+                            
+                            # Get the duplicated session info
+                            additional_data = warning.get("additional_data", {})
+                            duplicated_session_id = additional_data.get("duplicated_session_id")
+                            
+                            if duplicated_session_id:
+                                # Find the previous KYC submission with this session
+                                prev_kyc = await db.kyc_submissions.find_one({
+                                    "didit_session_id": duplicated_session_id
+                                })
+                                
+                                if prev_kyc:
+                                    prev_user_id = prev_kyc.get("user_id")
+                                    
+                                    # Check if the previous user's account is deleted
+                                    prev_user = await db.users.find_one({"user_id": prev_user_id})
+                                    
+                                    if prev_user and prev_user.get("is_deleted", False):
+                                        print(f"[DIDIT] Previous account {prev_user_id} is deleted - AUTO-APPROVING new user {vendor_data}")
+                                        kyc_status = "verified"
+                                        
+                                        # Send notification about auto-approval
+                                        await create_notification(
+                                            vendor_data,
+                                            "KYC Auto-Approved! ✅",
+                                            "Your identity has been verified. Your previous account was deleted, so we've approved your new verification.",
+                                            "kyc"
+                                        )
+                                    else:
+                                        print(f"[DIDIT] Previous account {prev_user_id} is NOT deleted - keeping as rejected")
+                            
+                            # Also check matches array for duplicate info
+                            matches = verification.get("matches", [])
+                            for match in (matches or []):
+                                match_vendor_data = match.get("vendor_data")
+                                match_session_id = match.get("session_id")
+                                
+                                if match_vendor_data:
+                                    # Check if this user is deleted
+                                    matched_user = await db.users.find_one({"user_id": match_vendor_data})
+                                    
+                                    if matched_user and matched_user.get("is_deleted", False):
+                                        print(f"[DIDIT] Matched user {match_vendor_data} is deleted - AUTO-APPROVING new user {vendor_data}")
+                                        kyc_status = "verified"
+                                        break
         
         # Find and update the KYC record
         update_query = {}
@@ -2216,13 +2270,20 @@ async def didit_webhook(request: Request):
                 {"$set": {"kyc_verified": True, "kyc_verified_at": datetime.now(timezone.utc)}}
             )
             
-            # Send notification
-            await create_notification(
-                vendor_data,
-                "KYC Verified! ✅",
-                "Your identity has been successfully verified. You can now make withdrawals.",
-                "kyc"
-            )
+            # Send notification (if not already sent for auto-approval)
+            existing_notification = await db.notifications.find_one({
+                "user_id": vendor_data,
+                "title": {"$regex": "KYC.*Approved"},
+                "created_at": {"$gte": datetime.now(timezone.utc) - timedelta(minutes=1)}
+            })
+            
+            if not existing_notification:
+                await create_notification(
+                    vendor_data,
+                    "KYC Verified! ✅",
+                    "Your identity has been successfully verified. You can now make withdrawals.",
+                    "kyc"
+                )
         elif kyc_status == "rejected":
             await create_notification(
                 vendor_data,
@@ -2231,10 +2292,13 @@ async def didit_webhook(request: Request):
                 "kyc"
             )
         
+        print(f"[DIDIT] Final KYC status for {vendor_data}: {kyc_status}")
         return {"success": True, "status": kyc_status}
         
     except Exception as e:
         print(f"Didit webhook error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return {"success": False, "error": str(e)}
 
 
