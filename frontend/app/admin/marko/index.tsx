@@ -2168,6 +2168,30 @@ export default function AdminDashboard() {
             </View>
           </View>
         </View>
+        
+        {/* Demo-only assets info */}
+        <View style={{ 
+          backgroundColor: 'rgba(255, 184, 0, 0.08)', 
+          borderRadius: 8, 
+          padding: 12, 
+          marginTop: 12,
+          borderWidth: 1,
+          borderColor: 'rgba(255, 184, 0, 0.2)'
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+            <Ionicons name="lock-closed" size={14} color={COLORS.warning} />
+            <Text style={{ color: COLORS.warning, fontWeight: '700', fontSize: 12, marginLeft: 6 }}>
+              Applies to Demo-Only Assets:
+            </Text>
+          </View>
+          <Text style={{ color: '#94a3b8', fontSize: 11, lineHeight: 16 }}>
+            EUR/USD • GBP/USD • USD/JPY • AUD/USD • NZD/USD • USD/CAD
+          </Text>
+          <Text style={{ color: '#64748b', fontSize: 10, marginTop: 6, fontStyle: 'italic' }}>
+            Other assets use the Real Balance AI Win Rate
+          </Text>
+        </View>
+        
         <View style={styles.presetButtons}>
           {[50, 60, 65, 70, 75, 80, 90].map((preset) => (
             <TouchableOpacity 

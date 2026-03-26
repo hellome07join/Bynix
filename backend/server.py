@@ -853,6 +853,10 @@ async def create_trade(trade: TradeCreate, authorization: Optional[str] = Header
     
     print(f"[TRADE CREATE] account_type={trade.account_type}, ai_enabled={ai_enabled}, ai_win_rate={ai_win_rate}, demo_win_rate={demo_win_rate}")
     
+    # Check if the asset is a demo-only asset
+    is_demo_asset = is_demo_only_asset(trade.asset)
+    print(f"[TRADE CREATE] asset={trade.asset}, is_demo_only_asset={is_demo_asset}")
+    
     if trade.account_type == "demo":
         # Check if there's already an active demo trade for consistency
         existing_active_trade = await db.trades.find_one({
@@ -864,11 +868,20 @@ async def create_trade(trade: TradeCreate, authorization: Optional[str] = Header
         if existing_active_trade and existing_active_trade.get("predetermined_outcome"):
             predetermined_outcome = existing_active_trade["predetermined_outcome"]
         else:
-            # Demo: Use demo_win_rate (separate from real balance win rate)
-            win_probability = demo_win_rate / 100.0 if ai_enabled else 0.90
+            # Demo trades: Use demo_win_rate ONLY for demo-only assets
+            # For other assets (if somehow traded on demo), use ai_win_rate
+            if is_demo_asset:
+                # Demo-only asset on demo account = use demo_win_rate
+                win_probability = demo_win_rate / 100.0 if ai_enabled else 0.90
+                print(f"[TRADE CREATE] Using DEMO WIN RATE ({demo_win_rate}%) for demo-only asset")
+            else:
+                # Non-demo-only asset on demo account = use ai_win_rate
+                win_probability = ai_win_rate / 100.0 if ai_enabled else 0.50
+                print(f"[TRADE CREATE] Using AI WIN RATE ({ai_win_rate}%) for non-demo asset on demo account")
+            
             predetermined_won = random.random() < win_probability
             predetermined_outcome = "won" if predetermined_won else "lost"
-        print(f"[TRADE CREATE] DEMO trade with demo_win_rate={demo_win_rate}%, predetermined_outcome={predetermined_outcome}")
+        print(f"[TRADE CREATE] DEMO trade, predetermined_outcome={predetermined_outcome}")
     elif trade.account_type == "real" and ai_enabled:
         # Real account with AI enabled: Use AI win rate
         win_probability = ai_win_rate / 100.0
