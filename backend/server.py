@@ -21,6 +21,27 @@ from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContent
 from tarspay_service import tarspay_service, fetch_live_exchange_rate, get_current_rate
 from email_service import send_verification_otp, verify_otp as verify_email_otp, resend_otp
 
+# Demo-only assets - These 7 Forex assets are ONLY available for Demo trading
+# Real balance can trade all OTHER assets
+DEMO_ONLY_ASSETS = [
+    "EURUSD", "EUR/USD", "EUR/USD OTC",
+    "GBPUSD", "GBP/USD", "GBP/USD OTC",
+    "USDJPY", "USD/JPY", "USD/JPY OTC",
+    "USDCHF", "USD/CHF", "USD/CHF OTC",
+    "AUDUSD", "AUD/USD", "AUD/USD OTC",
+    "NZDUSD", "NZD/USD", "NZD/USD OTC",
+    "USDCAD", "USD/CAD", "USD/CAD OTC",
+]
+
+def is_demo_only_asset(symbol: str) -> bool:
+    """Check if an asset is demo-only (restricted from real trading)"""
+    clean_symbol = symbol.upper().replace(" ", "").replace("/", "").replace("OTC", "").strip()
+    for demo_asset in DEMO_ONLY_ASSETS:
+        clean_demo = demo_asset.upper().replace(" ", "").replace("/", "").replace("OTC", "").strip()
+        if clean_symbol == clean_demo:
+            return True
+    return False
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -751,6 +772,11 @@ async def get_assets(include_inactive: bool = False):
         assets = await db.assets.find({}, {"_id": 0}).to_list(200)
     else:
         assets = await db.assets.find({"is_active": True}, {"_id": 0}).to_list(100)
+    
+    # Add demo_only flag to each asset
+    for asset in assets:
+        asset["demo_only"] = is_demo_only_asset(asset.get("symbol", ""))
+    
     return assets
 
 @api_router.post("/trades")
@@ -762,6 +788,21 @@ async def create_trade(trade: TradeCreate, authorization: Optional[str] = Header
     god_mode_settings = await db.platform_settings.find_one({"_id": "god_mode"})
     if god_mode_settings and god_mode_settings.get("trading_enabled") == False:
         raise HTTPException(status_code=403, detail="Trading is currently disabled by administrator")
+    
+    # Check asset restrictions based on account type
+    asset_is_demo_only = is_demo_only_asset(trade.symbol)
+    
+    if trade.account_type == "demo" and not asset_is_demo_only:
+        raise HTTPException(
+            status_code=403, 
+            detail="This asset is only available for real balance trading. Please switch to real account or select a demo-available asset."
+        )
+    
+    if trade.account_type == "real" and asset_is_demo_only:
+        raise HTTPException(
+            status_code=403, 
+            detail="This asset is only available for demo trading. Please switch to demo account or select a different asset."
+        )
     
     # Get user document to check bonus_balance
     user_doc = await db.users.find_one({"user_id": user.user_id})

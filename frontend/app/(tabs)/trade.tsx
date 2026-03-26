@@ -94,6 +94,7 @@ export default function Trade() {
   const [trendingAssets, setTrendingAssets] = useState<any[]>([]);
   const [apiPayouts, setApiPayouts] = useState<Record<string, number>>({});
   const [inactiveAssets, setInactiveAssets] = useState<Set<string>>(new Set());
+  const [demoOnlyAssets, setDemoOnlyAssets] = useState<Set<string>>(new Set());
   const [isTradingEnabled, setIsTradingEnabled] = useState(true);
   const [dbAssets, setDbAssets] = useState<any[]>([]); // Assets from database
   const [showAccountPicker, setShowAccountPicker] = useState(false);
@@ -648,6 +649,7 @@ export default function Trade() {
         const assets = await response.json();
         const payoutMap: Record<string, number> = {};
         const inactiveSet = new Set<string>();
+        const demoOnlySet = new Set<string>();
         
         // Convert database assets to format compatible with asset picker
         const formattedAssets = assets
@@ -659,11 +661,26 @@ export default function Trade() {
             payout: asset.payout_percentage || 85,
             category: asset.category || 'forex',
             icon: getCategoryIcon(asset.category, asset.symbol),
+            demo_only: asset.demo_only || false, // Demo-only flag from API
           }));
         
         setDbAssets(formattedAssets);
         
         assets.forEach((asset: any) => {
+          // Track demo-only assets
+          if (asset.demo_only) {
+            if (asset.symbol) {
+              demoOnlySet.add(asset.symbol);
+              demoOnlySet.add(asset.symbol + ' OTC');
+              const noSlash = asset.symbol.replace('/', '');
+              demoOnlySet.add(noSlash);
+              demoOnlySet.add(noSlash + ' OTC');
+            }
+            if (asset.name) {
+              demoOnlySet.add(asset.name);
+            }
+          }
+          
           // Track inactive assets
           if (asset.is_active === false) {
             if (asset.symbol) {
@@ -695,7 +712,8 @@ export default function Trade() {
         
         setApiPayouts(payoutMap);
         setInactiveAssets(inactiveSet);
-        console.log('Loaded', formattedAssets.length, 'assets from API');
+        setDemoOnlyAssets(demoOnlySet);
+        console.log('Loaded', formattedAssets.length, 'assets from API, demo-only:', demoOnlySet.size);
       }
     } catch (error) {
       console.error('Error fetching asset payouts:', error);
@@ -1997,30 +2015,53 @@ export default function Trade() {
                   const payoutB = apiPayouts[b.value] || apiPayouts[b.label] || b.payout || 0;
                   return payoutB - payoutA;
                 })
-                .map((asset) => (
+                .map((asset) => {
+                  // Check if asset is locked based on account type
+                  const isDemoOnlyAsset = demoOnlyAssets.has(asset.value) || demoOnlyAssets.has(asset.label) || demoOnlyAssets.has(asset.symbol || '');
+                  const isLocked = accountType === 'demo' ? !isDemoOnlyAsset : isDemoOnlyAsset;
+                  
+                  return (
                 <TouchableOpacity
                   key={asset.value}
                   style={[
                     styles.assetOption,
-                    selectedAsset === asset.value && styles.assetOptionSelected
+                    selectedAsset === asset.value && styles.assetOptionSelected,
+                    isLocked && styles.assetOptionLocked
                   ]}
                   onPress={() => {
+                    if (isLocked) {
+                      Alert.alert(
+                        'Asset Locked',
+                        accountType === 'demo' 
+                          ? 'This asset is only available for real balance trading. Switch to real account to trade this asset.'
+                          : 'This asset is only available for demo trading. Switch to demo account to trade this asset.',
+                        [{ text: 'OK', style: 'default' }]
+                      );
+                      return;
+                    }
                     setSelectedAsset(asset.value);
                     setShowAssetPicker(false);
                     setAssetSearchQuery(''); // Clear search on selection
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   }}
                 >
-                  <Text style={styles.assetOptionIcon}>{asset.icon}</Text>
+                  <Text style={[styles.assetOptionIcon, isLocked && { opacity: 0.4 }]}>{asset.icon}</Text>
                   <View style={styles.assetOptionInfo}>
-                    <Text style={styles.assetOptionText}>{asset.label}</Text>
-                    <Text style={styles.assetOptionPayout}>Payout: {apiPayouts[asset.value] || apiPayouts[asset.label] || asset.payout}%</Text>
+                    <Text style={[styles.assetOptionText, isLocked && { color: '#666' }]}>{asset.label}</Text>
+                    <Text style={[styles.assetOptionPayout, isLocked && { color: '#555' }]}>
+                      {isLocked 
+                        ? (accountType === 'demo' ? '🔒 Real Only' : '🔒 Demo Only')
+                        : `Payout: ${apiPayouts[asset.value] || apiPayouts[asset.label] || asset.payout}%`
+                      }
+                    </Text>
                   </View>
-                  {selectedAsset === asset.value && (
+                  {isLocked ? (
+                    <Ionicons name="lock-closed" size={18} color="#FF6B6B" />
+                  ) : selectedAsset === asset.value ? (
                     <Ionicons name="checkmark-circle" size={18} color="#00E55A" />
-                  )}
+                  ) : null}
                 </TouchableOpacity>
-              ))}
+                );})
               
               {/* No results message */}
               {currentAssets.filter(asset => {
@@ -5283,6 +5324,11 @@ const styles = StyleSheet.create({
   assetOptionSelected: {
     backgroundColor: 'rgba(0, 229, 90, 0.1)',
     borderColor: 'rgba(0, 229, 90, 0.3)',
+  },
+  assetOptionLocked: {
+    backgroundColor: 'rgba(255, 100, 100, 0.05)',
+    borderColor: 'rgba(255, 100, 100, 0.15)',
+    opacity: 0.7,
   },
   assetOptionIcon: {
     fontSize: 18,
