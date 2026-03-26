@@ -189,6 +189,101 @@ export default function Welcome() {
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
 
+  // Signup form states
+  const [signupEmail, setSignupEmail] = useState('');
+  const [signupPassword, setSignupPassword] = useState('');
+  const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [showSignupConfirmPassword, setShowSignupConfirmPassword] = useState(false);
+  const [signupLoading, setSignupLoading] = useState(false);
+  const [selectedCountry, setSelectedCountry] = useState<{name: string; flag: string} | null>(null);
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+
+  // All countries list
+  const ALL_COUNTRIES = [
+    { name: 'Afghanistan', flag: '🇦🇫' },
+    { name: 'Albania', flag: '🇦🇱' },
+    { name: 'Algeria', flag: '🇩🇿' },
+    { name: 'Argentina', flag: '🇦🇷' },
+    { name: 'Australia', flag: '🇦🇺' },
+    { name: 'Austria', flag: '🇦🇹' },
+    { name: 'Bangladesh', flag: '🇧🇩' },
+    { name: 'Belgium', flag: '🇧🇪' },
+    { name: 'Brazil', flag: '🇧🇷' },
+    { name: 'Cambodia', flag: '🇰🇭' },
+    { name: 'Cameroon', flag: '🇨🇲' },
+    { name: 'Chile', flag: '🇨🇱' },
+    { name: 'China', flag: '🇨🇳' },
+    { name: 'Colombia', flag: '🇨🇴' },
+    { name: 'Costa Rica', flag: '🇨🇷' },
+    { name: 'Croatia', flag: '🇭🇷' },
+    { name: 'Czech Republic', flag: '🇨🇿' },
+    { name: 'Denmark', flag: '🇩🇰' },
+    { name: 'Ecuador', flag: '🇪🇨' },
+    { name: 'Egypt', flag: '🇪🇬' },
+    { name: 'Ethiopia', flag: '🇪🇹' },
+    { name: 'Finland', flag: '🇫🇮' },
+    { name: 'France', flag: '🇫🇷' },
+    { name: 'Germany', flag: '🇩🇪' },
+    { name: 'Ghana', flag: '🇬🇭' },
+    { name: 'Greece', flag: '🇬🇷' },
+    { name: 'Hungary', flag: '🇭🇺' },
+    { name: 'India', flag: '🇮🇳' },
+    { name: 'Indonesia', flag: '🇮🇩' },
+    { name: 'Iran', flag: '🇮🇷' },
+    { name: 'Iraq', flag: '🇮🇶' },
+    { name: 'Ireland', flag: '🇮🇪' },
+    { name: 'Israel', flag: '🇮🇱' },
+    { name: 'Italy', flag: '🇮🇹' },
+    { name: 'Japan', flag: '🇯🇵' },
+    { name: 'Jordan', flag: '🇯🇴' },
+    { name: 'Kazakhstan', flag: '🇰🇿' },
+    { name: 'Kenya', flag: '🇰🇪' },
+    { name: 'Kuwait', flag: '🇰🇼' },
+    { name: 'Lebanon', flag: '🇱🇧' },
+    { name: 'Malaysia', flag: '🇲🇾' },
+    { name: 'Mexico', flag: '🇲🇽' },
+    { name: 'Morocco', flag: '🇲🇦' },
+    { name: 'Myanmar', flag: '🇲🇲' },
+    { name: 'Nepal', flag: '🇳🇵' },
+    { name: 'Netherlands', flag: '🇳🇱' },
+    { name: 'New Zealand', flag: '🇳🇿' },
+    { name: 'Nigeria', flag: '🇳🇬' },
+    { name: 'Norway', flag: '🇳🇴' },
+    { name: 'Oman', flag: '🇴🇲' },
+    { name: 'Pakistan', flag: '🇵🇰' },
+    { name: 'Peru', flag: '🇵🇪' },
+    { name: 'Philippines', flag: '🇵🇭' },
+    { name: 'Poland', flag: '🇵🇱' },
+    { name: 'Portugal', flag: '🇵🇹' },
+    { name: 'Qatar', flag: '🇶🇦' },
+    { name: 'Romania', flag: '🇷🇴' },
+    { name: 'Russia', flag: '🇷🇺' },
+    { name: 'Saudi Arabia', flag: '🇸🇦' },
+    { name: 'Singapore', flag: '🇸🇬' },
+    { name: 'South Africa', flag: '🇿🇦' },
+    { name: 'South Korea', flag: '🇰🇷' },
+    { name: 'Spain', flag: '🇪🇸' },
+    { name: 'Sri Lanka', flag: '🇱🇰' },
+    { name: 'Sweden', flag: '🇸🇪' },
+    { name: 'Switzerland', flag: '🇨🇭' },
+    { name: 'Taiwan', flag: '🇹🇼' },
+    { name: 'Tanzania', flag: '🇹🇿' },
+    { name: 'Thailand', flag: '🇹🇭' },
+    { name: 'Turkey', flag: '🇹🇷' },
+    { name: 'UAE', flag: '🇦🇪' },
+    { name: 'Uganda', flag: '🇺🇬' },
+    { name: 'Ukraine', flag: '🇺🇦' },
+    { name: 'United Kingdom', flag: '🇬🇧' },
+    { name: 'United States', flag: '🇺🇸' },
+    { name: 'Uzbekistan', flag: '🇺🇿' },
+    { name: 'Venezuela', flag: '🇻🇪' },
+    { name: 'Vietnam', flag: '🇻🇳' },
+    { name: 'Yemen', flag: '🇾🇪' },
+    { name: 'Zambia', flag: '🇿🇲' },
+    { name: 'Zimbabwe', flag: '🇿🇼' },
+  ];
+
   // Open sidebar with animation
   const openSidebar = (type: 'login' | 'signup') => {
     if (type === 'login') {
@@ -270,6 +365,58 @@ export default function Welcome() {
   const handleFacebookLogin = () => {
     if (Platform.OS === 'web') window.alert('Facebook login coming soon!');
     else Alert.alert('Coming Soon', 'Facebook login will be available soon!');
+  };
+
+  // Handle sidebar signup
+  const handleSidebarSignup = async () => {
+    if (!signupEmail || !signupPassword || !signupConfirmPassword) {
+      if (Platform.OS === 'web') window.alert('Please fill all fields');
+      else Alert.alert('Error', 'Please fill all fields');
+      return;
+    }
+
+    if (!selectedCountry) {
+      if (Platform.OS === 'web') window.alert('Please select your country');
+      else Alert.alert('Error', 'Please select your country');
+      return;
+    }
+
+    if (signupPassword !== signupConfirmPassword) {
+      if (Platform.OS === 'web') window.alert('Passwords do not match');
+      else Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+
+    if (signupPassword.length < 6) {
+      if (Platform.OS === 'web') window.alert('Password must be at least 6 characters');
+      else Alert.alert('Error', 'Password must be at least 6 characters');
+      return;
+    }
+
+    setSignupLoading(true);
+    try {
+      const response = await api.signup({ 
+        name: signupEmail.split('@')[0], // Use email prefix as name
+        email: signupEmail, 
+        password: signupPassword,
+        country: selectedCountry.name,
+        country_flag: selectedCountry.flag,
+      });
+      
+      if (response.requires_verification) {
+        closeSidebar();
+        router.push(`/(auth)/signup?email=${encodeURIComponent(signupEmail)}&verify=true`);
+      } else if (response.access_token) {
+        await login(response.access_token, response.user);
+        closeSidebar();
+        router.replace('/(tabs)/trade');
+      }
+    } catch (error: any) {
+      if (Platform.OS === 'web') window.alert(error.message || 'Could not create account');
+      else Alert.alert('Signup Failed', error.message || 'Could not create account');
+    } finally {
+      setSignupLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -976,7 +1123,7 @@ export default function Welcome() {
           <TouchableOpacity style={styles.modalBackdrop} onPress={closeSidebar} activeOpacity={1} />
           <Animated.View style={[styles.sidebarContainer, { transform: [{ translateX: sidebarSlide }] }]}>
             
-            <ScrollView contentContainerStyle={styles.sidebarContent} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={styles.sidebarContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               {/* Header */}
               <View style={styles.sidebarHeader}>
                 <Image 
@@ -1009,10 +1156,75 @@ export default function Welcome() {
                 <View style={styles.sidebarDividerLine} />
               </View>
 
-              {/* Proceed with Email Button */}
-              <TouchableOpacity style={styles.sidebarActionBtn} onPress={() => { closeSidebar(); router.push('/(auth)/signup'); }}>
+              {/* Email Input */}
+              <View style={styles.sidebarInputContainer}>
+                <TextInput
+                  style={styles.sidebarInput}
+                  placeholder="Enter your email"
+                  placeholderTextColor="#555"
+                  value={signupEmail}
+                  onChangeText={setSignupEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+
+              {/* Country Selector */}
+              <TouchableOpacity style={styles.sidebarInputContainer} onPress={() => setShowCountryPicker(true)}>
+                <Text style={[styles.sidebarInput, !selectedCountry && { color: '#555' }]}>
+                  {selectedCountry ? `${selectedCountry.flag} ${selectedCountry.name}` : 'Select your country'}
+                </Text>
+                <Ionicons name="chevron-down" size={20} color="#00E55A" />
+              </TouchableOpacity>
+
+              {/* Password Input */}
+              <View style={styles.sidebarInputContainer}>
+                <TextInput
+                  style={styles.sidebarInput}
+                  placeholder="Create a password"
+                  placeholderTextColor="#555"
+                  value={signupPassword}
+                  onChangeText={setSignupPassword}
+                  secureTextEntry={!showSignupPassword}
+                />
+                <TouchableOpacity onPress={() => setShowSignupPassword(!showSignupPassword)}>
+                  <Ionicons name={showSignupPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#00E55A" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Confirm Password Input */}
+              <View style={styles.sidebarInputContainer}>
+                <TextInput
+                  style={styles.sidebarInput}
+                  placeholder="Confirm your password"
+                  placeholderTextColor="#555"
+                  value={signupConfirmPassword}
+                  onChangeText={setSignupConfirmPassword}
+                  secureTextEntry={!showSignupConfirmPassword}
+                />
+                <TouchableOpacity onPress={() => setShowSignupConfirmPassword(!showSignupConfirmPassword)}>
+                  <Ionicons name={showSignupConfirmPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#00E55A" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Password Match Indicator */}
+              {signupConfirmPassword.length > 0 && (
+                <View style={styles.matchRow}>
+                  <Ionicons 
+                    name={signupPassword === signupConfirmPassword ? "checkmark-circle" : "close-circle"} 
+                    size={14} 
+                    color={signupPassword === signupConfirmPassword ? "#00E55A" : "#FF4757"} 
+                  />
+                  <Text style={[styles.matchText, { color: signupPassword === signupConfirmPassword ? "#00E55A" : "#FF4757" }]}>
+                    {signupPassword === signupConfirmPassword ? "Passwords match" : "Passwords don't match"}
+                  </Text>
+                </View>
+              )}
+
+              {/* Create Account Button */}
+              <TouchableOpacity style={styles.sidebarActionBtn} onPress={handleSidebarSignup} disabled={signupLoading}>
                 <LinearGradient colors={['#00E55A', '#00C94D']} style={styles.sidebarActionBtnGradient}>
-                  <Text style={styles.sidebarActionBtnText}>Proceed with email</Text>
+                  {signupLoading ? <ActivityIndicator color="#0D0D0D" /> : <Text style={styles.sidebarActionBtnText}>Create account</Text>}
                 </LinearGradient>
               </TouchableOpacity>
 
@@ -1022,24 +1234,6 @@ export default function Welcome() {
                 <TouchableOpacity onPress={() => { closeSidebar(); setTimeout(() => openSidebar('login'), 300); }}>
                   <Text style={styles.loginLinkText}>Log in</Text>
                 </TouchableOpacity>
-              </View>
-
-              {/* Promo Banner */}
-              <View style={styles.promoBanner}>
-                <LinearGradient colors={['#0A1A10', '#0D0D0D']} style={styles.promoBannerGradient}>
-                  <View style={styles.promoContent}>
-                    <View style={styles.promoTextContainer}>
-                      <Text style={styles.promoLabel}>YOUR TRADING PARTNER</Text>
-                      <View style={styles.promoLogoRow}>
-                        <Image source={{ uri: 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/fhiw6o6y_IMG_3122.png' }} style={styles.promoLogo} resizeMode="contain" />
-                        <Text style={styles.promoLogoText}>Bynix</Text>
-                      </View>
-                    </View>
-                    <View style={styles.promoIconContainer}>
-                      <Ionicons name="trending-up" size={18} color="#00E55A" />
-                    </View>
-                  </View>
-                </LinearGradient>
               </View>
 
               {/* Terms */}
@@ -1052,6 +1246,34 @@ export default function Welcome() {
             </ScrollView>
           </Animated.View>
         </View>
+
+        {/* Country Picker Modal */}
+        <Modal visible={showCountryPicker} transparent animationType="slide">
+          <View style={styles.countryModalOverlay}>
+            <View style={styles.countryModalContent}>
+              <View style={styles.countryModalHeader}>
+                <Text style={styles.countryModalTitle}>Select Country</Text>
+                <TouchableOpacity onPress={() => setShowCountryPicker(false)}>
+                  <Ionicons name="close" size={24} color="#888" />
+                </TouchableOpacity>
+              </View>
+              
+              <ScrollView style={styles.countryList} showsVerticalScrollIndicator={false}>
+                {ALL_COUNTRIES.map((country, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[styles.countryItem, selectedCountry?.name === country.name && styles.countryItemSelected]}
+                    onPress={() => { setSelectedCountry(country); setShowCountryPicker(false); }}
+                  >
+                    <Text style={styles.countryFlag}>{country.flag}</Text>
+                    <Text style={styles.countryName}>{country.name}</Text>
+                    {selectedCountry?.name === country.name && <Ionicons name="checkmark-circle" size={18} color="#00E55A" />}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
       </Modal>
     </View>
   );
@@ -2585,5 +2807,66 @@ const styles = StyleSheet.create({
   },
   termsLink: {
     color: '#00E55A',
+  },
+
+  // Password match indicator
+  matchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: -8,
+    marginBottom: 12,
+    gap: 5,
+  },
+  matchText: {
+    fontSize: 12,
+  },
+
+  // Country Picker Modal
+  countryModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'flex-end',
+  },
+  countryModalContent: {
+    backgroundColor: '#0D0D0D',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: '70%',
+  },
+  countryModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  countryModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  countryList: {
+    maxHeight: 400,
+  },
+  countryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1A1F2E',
+  },
+  countryItemSelected: {
+    backgroundColor: '#00E55A15',
+    borderRadius: 8,
+  },
+  countryFlag: {
+    fontSize: 22,
+    marginRight: 12,
+  },
+  countryName: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 15,
   },
 });
