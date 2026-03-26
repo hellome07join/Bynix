@@ -1072,7 +1072,7 @@ export default function AdminDashboard() {
       }
     };
 
-    const handleBanUser = async (userId, shouldBan) => {
+    const handleBanUser = async (userId: string, shouldBan: boolean) => {
       try {
         const response = await fetch(`${API_URL}/admin/users/${userId}/ban`, {
           method: 'POST',
@@ -1080,15 +1080,76 @@ export default function AdminDashboard() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ banned: shouldBan })
+          body: JSON.stringify({ 
+            banned: shouldBan,
+            reason: 'This account is suspended for violation of company rules'
+          })
         });
         
         if (response.ok) {
+          const successMsg = shouldBan ? 'User banned successfully' : 'User unbanned successfully';
+          if (Platform.OS === 'web') {
+            window.alert(successMsg);
+          } else {
+            Alert.alert('Success', successMsg);
+          }
           fetchDashboardData();
           setShowUserModal(false);
+        } else {
+          const errorMsg = 'Failed to update user ban status';
+          if (Platform.OS === 'web') {
+            window.alert(errorMsg);
+          } else {
+            Alert.alert('Error', errorMsg);
+          }
         }
       } catch (error) {
         console.error('Ban user error:', error);
+        const errorMsg = 'Failed to update user ban status';
+        if (Platform.OS === 'web') {
+          window.alert(errorMsg);
+        } else {
+          Alert.alert('Error', errorMsg);
+        }
+      }
+    };
+
+    const handleDeleteUser = async (userId: string) => {
+      try {
+        const response = await fetch(`${API_URL}/admin/users/${userId}/delete`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ reason: 'This account has been deleted by the owner' })
+        });
+        
+        if (response.ok) {
+          const successMsg = 'User deleted successfully';
+          if (Platform.OS === 'web') {
+            window.alert(successMsg);
+          } else {
+            Alert.alert('Success', successMsg);
+          }
+          fetchDashboardData();
+          setShowUserModal(false);
+        } else {
+          const errorMsg = 'Failed to delete user';
+          if (Platform.OS === 'web') {
+            window.alert(errorMsg);
+          } else {
+            Alert.alert('Error', errorMsg);
+          }
+        }
+      } catch (error) {
+        console.error('Delete user error:', error);
+        const errorMsg = 'Failed to delete user';
+        if (Platform.OS === 'web') {
+          window.alert(errorMsg);
+        } else {
+          Alert.alert('Error', errorMsg);
+        }
       }
     };
 
@@ -1416,32 +1477,25 @@ export default function AdminDashboard() {
                     <TouchableOpacity 
                       style={[styles.actionBtn, { backgroundColor: selectedUser?.is_banned ? COLORS.successLight : COLORS.dangerLight }]}
                       onPress={async () => {
-                        const action = selectedUser?.is_banned ? 'unban' : 'ban';
-                        const message = selectedUser?.is_banned ? 
-                          'Are you sure you want to unban this user?' :
-                          'This will suspend the user. They will see: "This account is suspended for violation of company rules"';
+                        const shouldBan = !selectedUser?.is_banned;
+                        const action = shouldBan ? 'ban' : 'unban';
+                        const message = shouldBan ? 
+                          'This will suspend the user. They will see: "This account is suspended for violation of company rules"' :
+                          'Are you sure you want to unban this user?';
                         
-                        let confirmed = false;
                         if (Platform.OS === 'web') {
-                          confirmed = window.confirm(message);
-                        } else {
-                          // For native, we need a different approach
-                          confirmed = true; // Will be handled by direct API call
-                        }
-                        
-                        if (confirmed || Platform.OS !== 'web') {
-                          if (Platform.OS === 'web' && confirmed) {
-                            await handleBanUser(selectedUser?.user_id, !selectedUser?.is_banned);
-                          } else if (Platform.OS !== 'web') {
-                            Alert.alert(
-                              selectedUser?.is_banned ? 'Unban User' : 'Ban User',
-                              message,
-                              [
-                                { text: 'Cancel', style: 'cancel' },
-                                { text: action === 'ban' ? 'Ban' : 'Unban', style: 'destructive', onPress: () => handleBanUser(selectedUser?.user_id, !selectedUser?.is_banned) }
-                              ]
-                            );
+                          if (window.confirm(message)) {
+                            await handleBanUser(selectedUser?.user_id, shouldBan);
                           }
+                        } else {
+                          Alert.alert(
+                            shouldBan ? 'Ban User' : 'Unban User',
+                            message,
+                            [
+                              { text: 'Cancel', style: 'cancel' },
+                              { text: action.charAt(0).toUpperCase() + action.slice(1), style: 'destructive', onPress: () => handleBanUser(selectedUser?.user_id, shouldBan) }
+                            ]
+                          );
                         }
                       }}
                     >
@@ -1476,55 +1530,19 @@ export default function AdminDashboard() {
                     onPress={async () => {
                       const message = 'Are you sure you want to delete this user? They will see: "This account has been deleted by the owner" when trying to login.';
                       
-                      let confirmed = false;
                       if (Platform.OS === 'web') {
-                        confirmed = window.confirm(message);
-                      }
-                      
-                      if (confirmed || Platform.OS !== 'web') {
-                        const doDelete = async () => {
-                          try {
-                            const response = await fetch(`${API_URL}/admin/users/${selectedUser?.user_id}/delete`, {
-                              method: 'POST',
-                              headers: headers,
-                              body: JSON.stringify({ reason: 'This account has been deleted by the owner' })
-                            });
-                            if (response.ok) {
-                              if (Platform.OS === 'web') {
-                                window.alert('User deleted successfully');
-                              } else {
-                                Alert.alert('Success', 'User deleted successfully');
-                              }
-                              fetchDashboardData();
-                              setShowUserModal(false);
-                            } else {
-                              if (Platform.OS === 'web') {
-                                window.alert('Failed to delete user');
-                              } else {
-                                Alert.alert('Error', 'Failed to delete user');
-                              }
-                            }
-                          } catch (error) {
-                            if (Platform.OS === 'web') {
-                              window.alert('Failed to delete user');
-                            } else {
-                              Alert.alert('Error', 'Failed to delete user');
-                            }
-                          }
-                        };
-                        
-                        if (Platform.OS === 'web' && confirmed) {
-                          await doDelete();
-                        } else if (Platform.OS !== 'web') {
-                          Alert.alert(
-                            '⚠️ Delete User',
-                            message,
-                            [
-                              { text: 'Cancel', style: 'cancel' },
-                              { text: 'Delete', style: 'destructive', onPress: doDelete }
-                            ]
-                          );
+                        if (window.confirm(message)) {
+                          await handleDeleteUser(selectedUser?.user_id);
                         }
+                      } else {
+                        Alert.alert(
+                          '⚠️ Delete User',
+                          message,
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'Delete', style: 'destructive', onPress: () => handleDeleteUser(selectedUser?.user_id) }
+                          ]
+                        );
                       }
                     }}
                   >
@@ -1539,55 +1557,19 @@ export default function AdminDashboard() {
                       onPress={async () => {
                         const message = 'Are you sure you want to unban this user? They will be able to login again.';
                         
-                        let confirmed = false;
                         if (Platform.OS === 'web') {
-                          confirmed = window.confirm(message);
-                        }
-                        
-                        if (confirmed || Platform.OS !== 'web') {
-                          const doUnban = async () => {
-                            try {
-                              const response = await fetch(`${API_URL}/admin/users/${selectedUser?.user_id}/ban`, {
-                                method: 'POST',
-                                headers: headers,
-                                body: JSON.stringify({ banned: false })
-                              });
-                              if (response.ok) {
-                                if (Platform.OS === 'web') {
-                                  window.alert('User unbanned successfully');
-                                } else {
-                                  Alert.alert('Success', 'User unbanned successfully');
-                                }
-                                fetchDashboardData();
-                                setShowUserModal(false);
-                              } else {
-                                if (Platform.OS === 'web') {
-                                  window.alert('Failed to unban user');
-                                } else {
-                                  Alert.alert('Error', 'Failed to unban user');
-                                }
-                              }
-                            } catch (error) {
-                              if (Platform.OS === 'web') {
-                                window.alert('Failed to unban user');
-                              } else {
-                                Alert.alert('Error', 'Failed to unban user');
-                              }
-                            }
-                          };
-                          
-                          if (Platform.OS === 'web' && confirmed) {
-                            await doUnban();
-                          } else if (Platform.OS !== 'web') {
-                            Alert.alert(
-                              '✅ Unban User',
-                              message,
-                              [
-                                { text: 'Cancel', style: 'cancel' },
-                                { text: 'Unban', onPress: doUnban }
-                              ]
-                            );
+                          if (window.confirm(message)) {
+                            await handleBanUser(selectedUser?.user_id, false);
                           }
+                        } else {
+                          Alert.alert(
+                            '✅ Unban User',
+                            message,
+                            [
+                              { text: 'Cancel', style: 'cancel' },
+                              { text: 'Unban', onPress: () => handleBanUser(selectedUser?.user_id, false) }
+                            ]
+                          );
                         }
                       }}
                     >
