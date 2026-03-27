@@ -4515,15 +4515,6 @@ export default function AdminDashboard() {
       {/* Tab Content */}
       {affiliateSubTab === 'list' && (
         <>
-          {/* Create Affiliate Button */}
-          <TouchableOpacity 
-            style={styles.createAffiliateBtn}
-            onPress={() => setShowCreateAffiliateModal(true)}
-          >
-            <Ionicons name="add-circle" size={22} color="#FFF" />
-            <Text style={styles.createAffiliateBtnText}>Create New Affiliate</Text>
-          </TouchableOpacity>
-
           {/* Affiliates List */}
           <View style={[styles.sectionCard, { marginBottom: 20 }]}>
             <View style={styles.sectionHeader}>
@@ -4712,28 +4703,40 @@ export default function AdminDashboard() {
 
       {/* Support Chat Tab */}
       {affiliateSubTab === 'chat' && (
-        <View style={[styles.sectionCard, { marginBottom: 20 }]}>
-          <Text style={styles.sectionTitle}>💬 Support Chats ({supportChats.filter((c: any) => c.unread_count > 0).length} unread)</Text>
-          {supportChats.length > 0 ? (
-            supportChats.map((chat: any) => (
-              <TouchableOpacity key={chat._id} style={styles.chatItem}>
-                <View style={styles.chatInfo}>
-                  <Text style={styles.chatName}>{chat.affiliate_name}</Text>
-                  <Text style={styles.chatLastMessage} numberOfLines={1}>{chat.last_message}</Text>
-                </View>
-                {chat.unread_count > 0 && (
-                  <View style={styles.chatUnreadBadge}>
-                    <Text style={styles.chatUnreadText}>{chat.unread_count}</Text>
+        <View style={{ marginBottom: 20 }}>
+          {/* Create Affiliate Button */}
+          <TouchableOpacity 
+            style={styles.createAffiliateBtn}
+            onPress={() => setShowCreateAffiliateModal(true)}
+          >
+            <Ionicons name="add-circle" size={22} color="#FFF" />
+            <Text style={styles.createAffiliateBtnText}>Create New Affiliate</Text>
+          </TouchableOpacity>
+          
+          {/* Support Chats */}
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>💬 Support Chats ({supportChats.filter((c: any) => c.unread_count > 0).length} unread)</Text>
+            {supportChats.length > 0 ? (
+              supportChats.map((chat: any) => (
+                <TouchableOpacity key={chat._id} style={styles.chatItem}>
+                  <View style={styles.chatInfo}>
+                    <Text style={styles.chatName}>{chat.affiliate_name}</Text>
+                    <Text style={styles.chatLastMessage} numberOfLines={1}>{chat.last_message}</Text>
                   </View>
-                )}
-              </TouchableOpacity>
-            ))
-          ) : (
-            <View style={styles.emptyState}>
-              <Ionicons name="chatbubbles" size={48} color={COLORS.textMuted} />
-              <Text style={styles.emptyStateText}>No support chats</Text>
-            </View>
-          )}
+                  {chat.unread_count > 0 && (
+                    <View style={styles.chatUnreadBadge}>
+                      <Text style={styles.chatUnreadText}>{chat.unread_count}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))
+            ) : (
+              <View style={styles.emptyState}>
+                <Ionicons name="chatbubbles" size={48} color={COLORS.textMuted} />
+                <Text style={styles.emptyStateText}>No support chats</Text>
+              </View>
+            )}
+          </View>
         </View>
       )}
 
@@ -6366,26 +6369,36 @@ const styles = StyleSheet.create({
   // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    backgroundColor: 'rgba(0,0,0,0.9)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   modalContent: {
-    backgroundColor: COLORS.card,
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     width: '100%',
     maxWidth: 500,
     maxHeight: '90%',
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 20,
   },
   userModalContent: {
-    backgroundColor: COLORS.card,
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     width: '100%',
     maxWidth: 500,
     maxHeight: '90%',
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 20,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -7746,7 +7759,7 @@ const styles = StyleSheet.create({
 
   // Payout Modal Styles
   payoutModalContent: {
-    backgroundColor: COLORS.card,
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     width: '100%',
     maxWidth: 400,
