@@ -594,8 +594,14 @@ export default function Leaderboard() {
               </View>
               
               <View style={styles.myStatsRow}>
-                <View style={styles.myStatsAvatar}>
-                  <Text style={styles.myStatsFlag}>{myStats.country_flag || '🌍'}</Text>
+                <View style={styles.myStatsAvatarContainer}>
+                  {myStats.picture ? (
+                    <Image source={{ uri: myStats.picture }} style={styles.myStatsAvatarImage} />
+                  ) : (
+                    <View style={styles.myStatsAvatar}>
+                      <Text style={styles.myStatsFlag}>{myStats.country_flag || '🌍'}</Text>
+                    </View>
+                  )}
                 </View>
                 <View style={styles.myStatsInfo}>
                   <Text style={styles.myStatsName}>{myStats.name}</Text>
@@ -605,31 +611,21 @@ export default function Leaderboard() {
                   styles.myStatsProfit,
                   { color: myStats.profit >= 0 ? '#00E55A' : '#FF3B3B' }
                 ]}>
-                  {myStats.profit >= 0 ? '+' : ''}{formatProfit(myStats.profit, myStats.profit >= 0)}
+                  {formatProfit(myStats.profit, myStats.profit >= 0)}
                 </Text>
               </View>
             </LinearGradient>
           </View>
         )}
 
-        {/* How it Works Section */}
-        <View style={styles.howItWorksSection}>
-          <Text style={styles.howItWorksTitle}>How it Works</Text>
-          <View style={styles.howItWorksList}>
-            <View style={styles.howItWorksItem}>
-              <View style={styles.howItWorksDot} />
-              <Text style={styles.howItWorksText}>Rankings based on last 24h profit</Text>
-            </View>
-            <View style={styles.howItWorksItem}>
-              <View style={[styles.howItWorksDot, { backgroundColor: '#00E55A' }]} />
-              <Text style={styles.howItWorksText}>Green = Profit, Red = Loss</Text>
-            </View>
-            <View style={styles.howItWorksItem}>
-              <View style={styles.howItWorksDot} />
-              <Text style={styles.howItWorksText}>Resets daily at midnight UTC</Text>
-            </View>
-          </View>
-        </View>
+        {/* How it Works Button - Small Compact */}
+        <TouchableOpacity 
+          style={styles.howItWorksBtn}
+          onPress={() => setShowInfoModal(true)}
+        >
+          <Ionicons name="information-circle" size={14} color="#00E55A" />
+          <Text style={styles.howItWorksBtnText}>How it Works</Text>
+        </TouchableOpacity>
 
         {/* Rest of Leaderboard List */}
         <View style={styles.listSection}>
@@ -904,11 +900,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   leaderboardTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#888',
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: 10,
   },
   podiumRow: {
     flexDirection: 'row',
@@ -1062,20 +1058,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  myStatsAvatarContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  myStatsAvatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
   myStatsAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#1A1F2E',
     justifyContent: 'center',
     alignItems: 'center',
   },
   myStatsFlag: {
-    fontSize: 24,
+    fontSize: 20,
   },
   myStatsInfo: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 10,
   },
   myStatsName: {
     fontSize: 14,
@@ -1092,39 +1099,26 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // How it Works Section
-  howItWorksSection: {
-    marginHorizontal: 12,
-    marginTop: 10,
-    padding: 10,
-    backgroundColor: '#0D1117',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#1A1F2E',
-  },
-  howItWorksTitle: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#888',
-    marginBottom: 6,
-  },
-  howItWorksList: {
-    gap: 4,
-  },
-  howItWorksItem: {
+  // How it Works Button
+  howItWorksBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+    alignSelf: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#0D1117',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#1A1F2E',
+    marginTop: 8,
+    marginBottom: 4,
   },
-  howItWorksDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: '#00E55A',
-  },
-  howItWorksText: {
-    fontSize: 10,
-    color: '#666',
+  howItWorksBtnText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#888',
   },
 
   // List Section

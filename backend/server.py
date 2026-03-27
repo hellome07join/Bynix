@@ -1401,7 +1401,7 @@ async def get_leaderboard():
     for i, result in enumerate(results):
         user = await db.users.find_one(
             {"user_id": result["_id"]},
-            {"_id": 0, "user_id": 1, "name": 1, "full_name": 1, "nickname": 1, "account_id": 1, "country": 1, "country_flag": 1}
+            {"_id": 0, "user_id": 1, "name": 1, "full_name": 1, "nickname": 1, "account_id": 1, "country": 1, "country_flag": 1, "picture": 1, "profile_picture": 1}
         )
         
         if user:
@@ -1411,12 +1411,15 @@ async def get_leaderboard():
             if not display_name:
                 account_id = user.get("account_id", result['_id'][-8:])
                 display_name = f"ID: {account_id}"
+            # Get profile picture - check both picture and profile_picture fields
+            profile_pic = user.get("picture") or user.get("profile_picture")
             leaderboard.append({
                 "rank": i + 1,
                 "user_id": result["_id"],
                 "name": display_name,
                 "country": user.get("country", "Unknown"),
                 "country_flag": user.get("country_flag", "🌍"),
+                "picture": profile_pic,
                 "profit": round(result["total_profit"], 2),
                 "is_profit": result["total_profit"] >= 0,  # True for profit, False for loss
                 "total_trades": result["total_trades"],
@@ -1438,7 +1441,7 @@ async def get_my_leaderboard_stats(authorization: Optional[str] = Header(None), 
     # Get user's profile for nickname and country
     user_doc = await db.users.find_one(
         {"user_id": user.user_id},
-        {"nickname": 1, "account_id": 1, "country": 1, "country_flag": 1, "name": 1, "full_name": 1}
+        {"nickname": 1, "account_id": 1, "country": 1, "country_flag": 1, "name": 1, "full_name": 1, "picture": 1, "profile_picture": 1}
     )
     
     # Determine display name (nickname or ID: account_id)
@@ -1451,6 +1454,7 @@ async def get_my_leaderboard_stats(authorization: Optional[str] = Header(None), 
             display_name = user_doc.get("full_name") or user_doc.get("name") or user.name
     
     country_flag = user_doc.get("country_flag", "🌍") if user_doc else "🌍"
+    profile_pic = user_doc.get("picture") or user_doc.get("profile_picture") if user_doc else None
     
     # Calculate the time 24 hours ago
     time_24h_ago = datetime.now(timezone.utc) - timedelta(hours=24)
@@ -1484,6 +1488,7 @@ async def get_my_leaderboard_stats(authorization: Optional[str] = Header(None), 
             "user_id": user.user_id,
             "name": display_name,
             "country_flag": country_flag,
+            "picture": profile_pic,
             "profit": 0,
             "total_trades": 0,
             "win_rate": 0,
@@ -1528,6 +1533,7 @@ async def get_my_leaderboard_stats(authorization: Optional[str] = Header(None), 
         "user_id": user.user_id,
         "name": display_name,
         "country_flag": country_flag,
+        "picture": profile_pic,
         "profit": round(user_stats["total_profit"], 2),
         "total_trades": user_stats["total_trades"],
         "win_rate": round(win_rate, 1),
