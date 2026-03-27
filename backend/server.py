@@ -352,20 +352,47 @@ async def signup(user: UserCreate):
     
     await db.users.insert_one(new_user)
     
-    # If referred by affiliate, track the registration
+    # If referred by affiliate, track the registration properly
     if user.referred_by:
         affiliate = await db.affiliates.find_one({"ref_code": user.referred_by})
         if affiliate:
-            # Increment affiliate's registration count
+            # Increment affiliate's referral count
             await db.affiliates.update_one(
                 {"ref_code": user.referred_by},
-                {"$inc": {"total_registrations": 1}}
+                {"$inc": {"total_referrals": 1, "total_registrations": 1}}
             )
             # Also update the link if it was used
             await db.affiliate_links.update_one(
                 {"code": user.referred_by},
                 {"$inc": {"registrations": 1}}
             )
+            
+            # Create referral record in referrals collection
+            referral_doc = {
+                "referral_id": f"ref_{uuid.uuid4().hex[:12]}",
+                "affiliate_id": affiliate.get("affiliate_id"),
+                "referred_user_id": user_id,
+                "user_email": user.email,
+                "is_ftd": False,
+                "total_deposited": 0,
+                "total_traded": 0,
+                "commission_earned": 0,
+                "created_at": datetime.now(timezone.utc)
+            }
+            await db.referrals.insert_one(referral_doc)
+            
+            # Also create entry in affiliate_referrals for tracking
+            aff_ref_doc = {
+                "user_id": user_id,
+                "affiliate_id": affiliate.get("affiliate_id"),
+                "program": affiliate.get("commission_type", "revenue_share"),
+                "has_deposited": False,
+                "total_deposits": 0,
+                "commission_earned": 0,
+                "total_volume": 0,
+                "created_at": datetime.now(timezone.utc)
+            }
+            await db.affiliate_referrals.insert_one(aff_ref_doc)
     
     # Send OTP email
     success, message = send_verification_otp(user.email)
