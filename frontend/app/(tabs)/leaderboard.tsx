@@ -363,7 +363,7 @@ const MoneyGunEffect = ({ size = 60, isFirst = false }: { size?: number; isFirst
 const BynixLogo = () => (
   <Image 
     source={require('../../assets/images/bynix-logo.png')}
-    style={{ width: 90, height: 28, resizeMode: 'contain' }}
+    style={{ width: 140, height: 50, resizeMode: 'contain' }}
   />
 );
 
