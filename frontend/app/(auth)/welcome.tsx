@@ -893,11 +893,11 @@ export default function Welcome() {
             <PulsingRing size={260} delay={800} />
           </View>
 
-          {/* Phone Mockup Section - New Trading App Image */}
+          {/* Phone Mockup Section - New Trading App Image with Animation */}
           <View style={styles.phoneMockupSection}>
-            <Image 
+            <Animated.Image 
               source={{ uri: 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/uk03ij0f_IMG_3443.png' }}
-              style={styles.heroMockupImage}
+              style={[styles.heroMockupImage, { transform: [{ translateY: phoneTranslateY }, { scale: 1.02 }] }]}
               resizeMode="contain"
             />
           </View>
@@ -1589,18 +1589,19 @@ const styles = StyleSheet.create({
   // Phone Mockup Section
   phoneMockupSection: {
     width: '100%',
-    height: 550,
+    height: 650,
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20,
+    marginTop: 10,
+    marginBottom: -30,
   },
   
   // Hero Mockup Image
   heroMockupImage: {
     width: '100%',
     height: '100%',
-    maxWidth: 600,
+    maxWidth: 750,
   },
 
   // Floating Bynix Logo
