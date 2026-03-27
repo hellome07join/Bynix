@@ -536,12 +536,12 @@ const circularStyles = StyleSheet.create({
   profitRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    marginTop: 2,
+    gap: 4,
+    marginTop: 4,
   },
   profitText: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
   },
   emptyName: {
     fontSize: 11,
@@ -1345,8 +1345,8 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   myStatsProfit: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
   },
 
   // How it Works Button
@@ -1446,12 +1446,12 @@ const styles = StyleSheet.create({
   listProfitRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    marginTop: 2,
+    gap: 4,
+    marginTop: 3,
   },
   listProfit: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
   },
   listRankCircle: {
     width: 32,
