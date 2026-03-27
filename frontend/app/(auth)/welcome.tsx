@@ -918,7 +918,7 @@ export default function Welcome() {
           <Animated.View style={{ transform: [{ scale: heroScale }] }}>
             <TouchableOpacity 
               style={styles.ctaButton}
-              onPress={handleStartDemo}
+              onPress={openSignupSidebar}
               disabled={isLoading}
             >
               <LinearGradient
