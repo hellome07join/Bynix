@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from bson import ObjectId
 import os
 import logging
 from pathlib import Path
@@ -8177,6 +8178,112 @@ async def admin_update_payout_settings(
     )
     
     return {"message": "Payout settings updated"}
+
+@api_router.get("/admin/affiliates/withdrawal/{withdrawal_id}/details")
+async def admin_get_withdrawal_details(
+    withdrawal_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get detailed withdrawal info including commission breakdown"""
+    user = await get_current_user(authorization, request)
+    
+    # Get withdrawal
+    withdrawal = await db.affiliate_withdrawals.find_one({"_id": ObjectId(withdrawal_id)})
+    if not withdrawal:
+        raise HTTPException(status_code=404, detail="Withdrawal not found")
+    
+    withdrawal["_id"] = str(withdrawal["_id"])
+    
+    # Get affiliate details
+    affiliate = await db.affiliates.find_one({"affiliate_id": withdrawal.get("affiliate_id")})
+    affiliate_info = {}
+    if affiliate:
+        # Calculate fraud score
+        fraud_score_raw = affiliate.get("fraud_score", {})
+        if isinstance(fraud_score_raw, dict):
+            total_score = sum(fraud_score_raw.values()) if fraud_score_raw else 0
+            max_possible = len(fraud_score_raw) * 10 if fraud_score_raw else 100
+            fraud_percentage = min(100, int((total_score / max_possible) * 100)) if max_possible > 0 else 0
+        else:
+            fraud_percentage = int(fraud_score_raw) if fraud_score_raw else 0
+        
+        affiliate_info = {
+            "name": affiliate.get("name", "Unknown"),
+            "email": affiliate.get("email", ""),
+            "ref_code": affiliate.get("ref_code", ""),
+            "level": affiliate.get("level", "starter"),
+            "total_earnings": affiliate.get("total_earnings", 0),
+            "paid_earnings": affiliate.get("paid_earnings", 0),
+            "balance": affiliate.get("balance", 0),
+            "pending_earnings": affiliate.get("pending_earnings", 0),
+            "total_referrals": affiliate.get("total_referrals", 0),
+            "total_ftds": affiliate.get("total_ftds", 0),
+            "fraud_score": fraud_percentage,
+            "fraud_details": fraud_score_raw if isinstance(fraud_score_raw, dict) else {},
+            "is_active": affiliate.get("is_active", True),
+            "created_at": affiliate.get("created_at", "").isoformat() if affiliate.get("created_at") else None,
+            "wallets": affiliate.get("wallets", []),
+        }
+    
+    # Get commission breakdown for this affiliate (last 30 days or related to this withdrawal)
+    commission_query = {"affiliate_id": withdrawal.get("affiliate_id")}
+    commissions = await db.affiliate_commissions.find(commission_query).sort("created_at", -1).limit(50).to_list(50)
+    
+    commission_breakdown = []
+    for comm in commissions:
+        # Get source user info
+        source_user = await db.users.find_one({"user_id": comm.get("source_user_id")})
+        commission_breakdown.append({
+            "commission_id": str(comm.get("_id")),
+            "amount": comm.get("amount", 0),
+            "type": comm.get("type", "revenue_share"),  # revenue_share, cpa, turnover
+            "source_user": {
+                "user_id": comm.get("source_user_id"),
+                "email": source_user.get("email", "Unknown") if source_user else "Unknown",
+                "name": source_user.get("name", "User") if source_user else "User",
+            },
+            "trade_id": comm.get("trade_id"),
+            "trade_amount": comm.get("trade_amount", 0),
+            "created_at": comm.get("created_at", "").isoformat() if comm.get("created_at") else None,
+        })
+    
+    # Get referrals list for this affiliate
+    referrals = await db.referrals.find({"affiliate_id": withdrawal.get("affiliate_id")}).sort("created_at", -1).limit(50).to_list(50)
+    
+    referral_list = []
+    for ref in referrals:
+        ref_user = await db.users.find_one({"user_id": ref.get("referred_user_id")})
+        referral_list.append({
+            "referral_id": ref.get("referral_id"),
+            "user_id": ref.get("referred_user_id"),
+            "email": ref_user.get("email", "Unknown") if ref_user else "Unknown",
+            "name": ref_user.get("name", "User") if ref_user else "User",
+            "is_ftd": ref.get("is_ftd", False),
+            "total_deposited": ref.get("total_deposited", 0),
+            "total_traded": ref.get("total_traded", 0),
+            "commission_earned": ref.get("commission_earned", 0),
+            "created_at": ref.get("created_at", "").isoformat() if ref.get("created_at") else None,
+        })
+    
+    # Calculate summary stats
+    total_commission_from_trades = sum(c.get("amount", 0) for c in commissions if c.get("type") == "revenue_share")
+    total_cpa_commission = sum(c.get("amount", 0) for c in commissions if c.get("type") == "cpa")
+    total_turnover_commission = sum(c.get("amount", 0) for c in commissions if c.get("type") == "turnover")
+    
+    return {
+        "withdrawal": withdrawal,
+        "affiliate": affiliate_info,
+        "commission_breakdown": commission_breakdown,
+        "referrals": referral_list,
+        "summary": {
+            "total_commission_from_trades": total_commission_from_trades,
+            "total_cpa_commission": total_cpa_commission,
+            "total_turnover_commission": total_turnover_commission,
+            "total_referrals": len(referral_list),
+            "total_ftds": len([r for r in referral_list if r.get("is_ftd")]),
+        }
+    }
 
 # ============= AFFILIATE SUPPORT CHAT =============
 

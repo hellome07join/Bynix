@@ -266,6 +266,12 @@ export default function AdminDashboard() {
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
   const [adjustmentData, setAdjustmentData] = useState({ type: 'add', amount: 0, reason: '' });
   const [payoutSettings, setPayoutSettings] = useState({ hold_period_days: 7, min_payout: 50, negative_balance_carryover: true });
+  
+  // Withdrawal Detail Modal States (for Affiliate Withdrawals)
+  const [showWithdrawalDetailModal, setShowWithdrawalDetailModal] = useState(false);
+  const [withdrawalDetails, setWithdrawalDetails] = useState<any>(null);
+  const [withdrawalDetailsLoading, setWithdrawalDetailsLoading] = useState(false);
+  const [selectedAffiliateWithdrawal, setSelectedAffiliateWithdrawal] = useState<any>(null);
 
   // Auth check
   useEffect(() => {
@@ -599,12 +605,48 @@ export default function AdminDashboard() {
         body: JSON.stringify({ payout_id: payoutId, action })
       });
       if (res.ok) {
-        Alert.alert('Success', `Payout ${action}ed`);
+        if (Platform.OS === 'web') {
+          window.alert(`Payout ${action}ed successfully`);
+        } else {
+          Alert.alert('Success', `Payout ${action}ed`);
+        }
         fetchAffiliateData();
+        setShowWithdrawalDetailModal(false);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to process payout');
+      if (Platform.OS === 'web') {
+        window.alert('Failed to process payout');
+      } else {
+        Alert.alert('Error', 'Failed to process payout');
+      }
     }
+  };
+
+  // Fetch withdrawal details with commission breakdown
+  const fetchWithdrawalDetails = async (withdrawalId: string) => {
+    setWithdrawalDetailsLoading(true);
+    try {
+      const adminToken = await AsyncStorage.getItem('token') || await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
+      const res = await fetch(`${API_URL}/admin/affiliates/withdrawal/${withdrawalId}/details`, {
+        headers: { 'Authorization': `Bearer ${adminToken}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setWithdrawalDetails(data);
+      }
+    } catch (error) {
+      console.error('Error fetching withdrawal details:', error);
+    } finally {
+      setWithdrawalDetailsLoading(false);
+    }
+  };
+
+  // Open withdrawal detail modal
+  const openWithdrawalDetailModal = (payout: any) => {
+    setSelectedAffiliateWithdrawal(payout);
+    setWithdrawalDetails(null);
+    setShowWithdrawalDetailModal(true);
+    fetchWithdrawalDetails(payout._id);
   };
 
   // Resolve fraud alert
@@ -4734,9 +4776,17 @@ export default function AdminDashboard() {
             <Text style={styles.sectionTitle}>💸 Pending Withdrawals ({affiliatePayouts.filter((p: any) => p.status === 'pending').length})</Text>
             {affiliatePayouts.length > 0 ? (
               affiliatePayouts.map((payout: any) => (
-                <View key={payout._id} style={styles.payoutItem}>
+                <TouchableOpacity 
+                  key={payout._id} 
+                  style={styles.payoutItem}
+                  onPress={() => openWithdrawalDetailModal(payout)}
+                  activeOpacity={0.7}
+                >
                   <View style={styles.payoutInfo}>
-                    <Text style={styles.payoutName}>{payout.affiliate_name || 'Unknown'}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                      <Text style={styles.payoutName}>{payout.affiliate_name || 'Unknown'}</Text>
+                      <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} style={{ marginLeft: 8 }} />
+                    </View>
                     <Text style={styles.payoutEmail}>{payout.affiliate_email}</Text>
                     <Text style={styles.payoutCode}>ID: {payout.affiliate_ref_code}</Text>
                     <Text style={styles.payoutAmount}>${(payout.amount || 0).toLocaleString()}</Text>
@@ -4749,19 +4799,19 @@ export default function AdminDashboard() {
                     <View style={styles.payoutActions}>
                       <TouchableOpacity 
                         style={[styles.payoutBtn, { backgroundColor: COLORS.success }]}
-                        onPress={() => handleProcessPayout(payout._id, 'approve')}
+                        onPress={(e) => { e.stopPropagation(); handleProcessPayout(payout._id, 'approve'); }}
                       >
                         <Text style={styles.payoutBtnText}>Approve</Text>
                       </TouchableOpacity>
                       <TouchableOpacity 
                         style={[styles.payoutBtn, { backgroundColor: COLORS.danger }]}
-                        onPress={() => handleProcessPayout(payout._id, 'reject')}
+                        onPress={(e) => { e.stopPropagation(); handleProcessPayout(payout._id, 'reject'); }}
                       >
                         <Text style={styles.payoutBtnText}>Reject</Text>
                       </TouchableOpacity>
                     </View>
                   )}
-                </View>
+                </TouchableOpacity>
               ))
             ) : (
               <View style={styles.emptyState}>
@@ -4772,6 +4822,257 @@ export default function AdminDashboard() {
           </View>
         </>
       )}
+
+      {/* Withdrawal Detail Modal */}
+      <Modal
+        visible={showWithdrawalDetailModal}
+        transparent={true}
+        animationType="none"
+        onRequestClose={() => setShowWithdrawalDetailModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxWidth: 700, maxHeight: '90%' }]}>
+            {/* Header */}
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>📋 Withdrawal Details</Text>
+                <Text style={styles.modalSubtitle}>Review commission sources and fraud risk</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowWithdrawalDetailModal(false)}>
+                <Ionicons name="close-circle" size={28} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+              {withdrawalDetailsLoading ? (
+                <View style={{ padding: 40, alignItems: 'center' }}>
+                  <ActivityIndicator size="large" color={COLORS.primary} />
+                  <Text style={{ color: COLORS.textMuted, marginTop: 12 }}>Loading details...</Text>
+                </View>
+              ) : withdrawalDetails ? (
+                <>
+                  {/* Withdrawal Info Card */}
+                  <View style={[styles.sectionCard, { marginBottom: 16 }]}>
+                    <Text style={[styles.sectionTitle, { marginBottom: 12 }]}>💰 Withdrawal Request</Text>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Amount</Text>
+                      <Text style={[styles.detailValue, { color: COLORS.success, fontWeight: '700', fontSize: 18 }]}>
+                        ${(withdrawalDetails.withdrawal?.amount || 0).toLocaleString()}
+                      </Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Payment Method</Text>
+                      <Text style={styles.detailValue}>{withdrawalDetails.withdrawal?.payment_method || 'N/A'}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Wallet Address</Text>
+                      <Text style={[styles.detailValue, { fontSize: 11 }]} numberOfLines={2}>
+                        {withdrawalDetails.withdrawal?.wallet_address || 'N/A'}
+                      </Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Status</Text>
+                      <View style={[styles.statusBadge, { 
+                        backgroundColor: withdrawalDetails.withdrawal?.status === 'pending' ? COLORS.warningLight : 
+                                        withdrawalDetails.withdrawal?.status === 'approved' ? COLORS.successLight : COLORS.dangerLight 
+                      }]}>
+                        <Text style={[styles.statusBadgeText, { 
+                          color: withdrawalDetails.withdrawal?.status === 'pending' ? COLORS.warning : 
+                                 withdrawalDetails.withdrawal?.status === 'approved' ? COLORS.success : COLORS.danger 
+                        }]}>{withdrawalDetails.withdrawal?.status}</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Affiliate Info & Fraud Score */}
+                  <View style={[styles.sectionCard, { marginBottom: 16 }]}>
+                    <Text style={[styles.sectionTitle, { marginBottom: 12 }]}>👤 Affiliate Profile</Text>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Name</Text>
+                      <Text style={styles.detailValue}>{withdrawalDetails.affiliate?.name || 'Unknown'}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Email</Text>
+                      <Text style={styles.detailValue}>{withdrawalDetails.affiliate?.email || 'N/A'}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Ref Code</Text>
+                      <Text style={[styles.detailValue, { color: COLORS.primary, fontWeight: '600' }]}>
+                        {withdrawalDetails.affiliate?.ref_code || 'N/A'}
+                      </Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Level</Text>
+                      <Text style={[styles.detailValue, { textTransform: 'capitalize' }]}>
+                        {withdrawalDetails.affiliate?.level || 'Starter'}
+                      </Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Total Earnings</Text>
+                      <Text style={styles.detailValue}>${(withdrawalDetails.affiliate?.total_earnings || 0).toLocaleString()}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Already Paid</Text>
+                      <Text style={styles.detailValue}>${(withdrawalDetails.affiliate?.paid_earnings || 0).toLocaleString()}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Current Balance</Text>
+                      <Text style={[styles.detailValue, { fontWeight: '600' }]}>${(withdrawalDetails.affiliate?.balance || 0).toLocaleString()}</Text>
+                    </View>
+                    
+                    {/* Fraud Score */}
+                    <View style={[styles.detailRow, { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: COLORS.border }]}>
+                      <Text style={styles.detailLabel}>🛡️ Fraud Score</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <View style={[styles.fraudScoreBadge, { 
+                          backgroundColor: (withdrawalDetails.affiliate?.fraud_score || 0) > 70 ? COLORS.dangerLight :
+                                          (withdrawalDetails.affiliate?.fraud_score || 0) > 40 ? COLORS.warningLight : COLORS.successLight
+                        }]}>
+                          <Text style={[styles.fraudScoreText, {
+                            color: (withdrawalDetails.affiliate?.fraud_score || 0) > 70 ? COLORS.danger :
+                                   (withdrawalDetails.affiliate?.fraud_score || 0) > 40 ? COLORS.warning : COLORS.success
+                          }]}>{withdrawalDetails.affiliate?.fraud_score || 0}%</Text>
+                        </View>
+                        <Text style={{ marginLeft: 8, fontSize: 12, color: COLORS.textMuted }}>
+                          {(withdrawalDetails.affiliate?.fraud_score || 0) > 70 ? 'High Risk' :
+                           (withdrawalDetails.affiliate?.fraud_score || 0) > 40 ? 'Medium Risk' : 'Low Risk'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Commission Sources Summary */}
+                  <View style={[styles.sectionCard, { marginBottom: 16 }]}>
+                    <Text style={[styles.sectionTitle, { marginBottom: 12 }]}>📊 Commission Summary</Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+                      <View style={[styles.miniStatCard, { flex: 1, minWidth: 120 }]}>
+                        <Text style={styles.miniStatValue}>{withdrawalDetails.summary?.total_referrals || 0}</Text>
+                        <Text style={styles.miniStatLabel}>Total Referrals</Text>
+                      </View>
+                      <View style={[styles.miniStatCard, { flex: 1, minWidth: 120 }]}>
+                        <Text style={[styles.miniStatValue, { color: COLORS.success }]}>{withdrawalDetails.summary?.total_ftds || 0}</Text>
+                        <Text style={styles.miniStatLabel}>FTDs</Text>
+                      </View>
+                      <View style={[styles.miniStatCard, { flex: 1, minWidth: 120 }]}>
+                        <Text style={[styles.miniStatValue, { color: COLORS.primary }]}>${(withdrawalDetails.summary?.total_commission_from_trades || 0).toLocaleString()}</Text>
+                        <Text style={styles.miniStatLabel}>From Trades</Text>
+                      </View>
+                      <View style={[styles.miniStatCard, { flex: 1, minWidth: 120 }]}>
+                        <Text style={[styles.miniStatValue, { color: COLORS.purple }]}>${(withdrawalDetails.summary?.total_cpa_commission || 0).toLocaleString()}</Text>
+                        <Text style={styles.miniStatLabel}>CPA Commission</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Commission Breakdown */}
+                  <View style={[styles.sectionCard, { marginBottom: 16 }]}>
+                    <Text style={[styles.sectionTitle, { marginBottom: 12 }]}>💵 Commission History (From Users)</Text>
+                    {withdrawalDetails.commission_breakdown && withdrawalDetails.commission_breakdown.length > 0 ? (
+                      withdrawalDetails.commission_breakdown.slice(0, 10).map((comm: any, index: number) => (
+                        <View key={index} style={[styles.commissionItem, index > 0 && { borderTopWidth: 1, borderTopColor: COLORS.border }]}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.commissionUser}>{comm.source_user?.email || 'Unknown User'}</Text>
+                            <Text style={styles.commissionMeta}>
+                              {comm.type === 'revenue_share' ? '📈 Trade Revenue' : comm.type === 'cpa' ? '🎯 CPA' : '💹 Turnover'}
+                              {comm.trade_amount ? ` • Trade: $${comm.trade_amount}` : ''}
+                            </Text>
+                          </View>
+                          <Text style={[styles.commissionAmount, { color: COLORS.success }]}>+${(comm.amount || 0).toFixed(2)}</Text>
+                        </View>
+                      ))
+                    ) : (
+                      <View style={{ padding: 20, alignItems: 'center' }}>
+                        <Ionicons name="receipt-outline" size={32} color={COLORS.textMuted} />
+                        <Text style={{ color: COLORS.textMuted, marginTop: 8 }}>No commission records found</Text>
+                        <Text style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 4 }}>Commission history will appear when referrals trade</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Referrals List */}
+                  <View style={[styles.sectionCard, { marginBottom: 16 }]}>
+                    <Text style={[styles.sectionTitle, { marginBottom: 12 }]}>👥 Referred Users</Text>
+                    {withdrawalDetails.referrals && withdrawalDetails.referrals.length > 0 ? (
+                      withdrawalDetails.referrals.slice(0, 10).map((ref: any, index: number) => (
+                        <View key={index} style={[styles.referralItem, index > 0 && { borderTopWidth: 1, borderTopColor: COLORS.border }]}>
+                          <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <Text style={styles.referralUser}>{ref.email || 'Unknown'}</Text>
+                              {ref.is_ftd && (
+                                <View style={[styles.ftdBadge, { marginLeft: 8 }]}>
+                                  <Text style={styles.ftdBadgeText}>FTD ✓</Text>
+                                </View>
+                              )}
+                            </View>
+                            <Text style={styles.referralMeta}>
+                              Deposited: ${(ref.total_deposited || 0).toLocaleString()} • Traded: ${(ref.total_traded || 0).toLocaleString()}
+                            </Text>
+                          </View>
+                          <Text style={[styles.referralCommission, { color: COLORS.success }]}>
+                            +${(ref.commission_earned || 0).toFixed(2)}
+                          </Text>
+                        </View>
+                      ))
+                    ) : (
+                      <View style={{ padding: 20, alignItems: 'center' }}>
+                        <Ionicons name="people-outline" size={32} color={COLORS.textMuted} />
+                        <Text style={{ color: COLORS.textMuted, marginTop: 8 }}>No referrals found</Text>
+                      </View>
+                    )}
+                  </View>
+                </>
+              ) : (
+                <View style={{ padding: 40, alignItems: 'center' }}>
+                  <Ionicons name="alert-circle-outline" size={48} color={COLORS.textMuted} />
+                  <Text style={{ color: COLORS.textMuted, marginTop: 12 }}>Failed to load details</Text>
+                </View>
+              )}
+            </ScrollView>
+
+            {/* Action Buttons */}
+            {selectedAffiliateWithdrawal?.status === 'pending' && (
+              <View style={[styles.modalActions, { borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 16 }]}>
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: COLORS.danger, flex: 1, marginRight: 8 }]}
+                  onPress={() => {
+                    if (Platform.OS === 'web') {
+                      if (window.confirm('Are you sure you want to REJECT this withdrawal?')) {
+                        handleProcessPayout(selectedAffiliateWithdrawal._id, 'reject');
+                      }
+                    } else {
+                      Alert.alert('Reject Withdrawal', 'Are you sure?', [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Reject', style: 'destructive', onPress: () => handleProcessPayout(selectedAffiliateWithdrawal._id, 'reject') }
+                      ]);
+                    }
+                  }}
+                >
+                  <Ionicons name="close-circle" size={18} color="#FFF" />
+                  <Text style={styles.actionBtnText}>Reject</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: COLORS.success, flex: 1, marginLeft: 8 }]}
+                  onPress={() => {
+                    if (Platform.OS === 'web') {
+                      if (window.confirm('Are you sure you want to APPROVE this withdrawal?')) {
+                        handleProcessPayout(selectedAffiliateWithdrawal._id, 'approve');
+                      }
+                    } else {
+                      Alert.alert('Approve Withdrawal', 'Are you sure?', [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Approve', onPress: () => handleProcessPayout(selectedAffiliateWithdrawal._id, 'approve') }
+                      ]);
+                    }
+                  }}
+                >
+                  <Ionicons name="checkmark-circle" size={18} color="#FFF" />
+                  <Text style={styles.actionBtnText}>Approve</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* Fraud Control Tab */}
       {affiliateSubTab === 'fraud' && (
@@ -8009,6 +8310,108 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 11,
     fontWeight: '600',
+  },
+  // Withdrawal Detail Modal Styles
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  detailLabel: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+  },
+  detailValue: {
+    fontSize: 13,
+    color: COLORS.text,
+    fontWeight: '500',
+    maxWidth: '60%',
+    textAlign: 'right',
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+  },
+  fraudScoreBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  fraudScoreText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  miniStatCard: {
+    backgroundColor: COLORS.bgSecondary,
+    padding: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  miniStatValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  miniStatLabel: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginTop: 4,
+  },
+  commissionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  commissionUser: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  commissionMeta: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  commissionAmount: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  referralItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  referralUser: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  referralMeta: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  referralCommission: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  ftdBadge: {
+    backgroundColor: COLORS.successLight,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  ftdBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.success,
   },
   fraudAlertItem: {
     padding: 14,
