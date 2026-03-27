@@ -10605,6 +10605,9 @@ async def get_affiliate_dashboard(authorization: str = Header(None), days: int =
                 "revenue_share": revenue_share,
                 "turnover_share": turnover_share,
                 "balance": affiliate.get("balance", 0),
+                "hold_balance": affiliate.get("hold_balance", 0),
+                "hold_balance_revenue": affiliate.get("hold_balance_revenue", 0),
+                "hold_balance_turnover": affiliate.get("hold_balance_turnover", 0),
                 "total_earnings": affiliate.get("total_earnings", 0),
                 "total_ftds": total_ftds
             },
