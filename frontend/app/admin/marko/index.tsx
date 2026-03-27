@@ -4456,30 +4456,41 @@ export default function AdminDashboard() {
       </View>
 
       {/* Sub Tabs */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.affiliateSubTabs}>
-        {[
-          { id: 'list', label: 'All Affiliates', icon: 'people' },
-          { id: 'leaderboard', label: 'Leaderboard', icon: 'trophy' },
-          { id: 'payouts', label: 'Payouts', icon: 'wallet' },
-          { id: 'fraud', label: 'Fraud Control', icon: 'shield-checkmark' },
-          { id: 'chat', label: 'Support Chat', icon: 'chatbubbles' },
-        ].map(tab => (
-          <TouchableOpacity
-            key={tab.id}
-            style={[styles.affiliateSubTab, affiliateSubTab === tab.id && styles.affiliateSubTabActive]}
-            onPress={() => setAffiliateSubTab(tab.id)}
-          >
-            <Ionicons 
-              name={tab.icon as any} 
-              size={16} 
-              color={affiliateSubTab === tab.id ? COLORS.primary : COLORS.textMuted} 
-            />
-            <Text style={[styles.affiliateSubTabText, affiliateSubTab === tab.id && styles.affiliateSubTabTextActive]}>
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <View style={styles.affiliateSubTabsContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.affiliateSubTabs}>
+          {[
+            { id: 'list', label: 'All Affiliates', icon: 'people' },
+            { id: 'leaderboard', label: 'Leaderboard', icon: 'trophy' },
+            { id: 'payouts', label: 'Payouts', icon: 'wallet' },
+            { id: 'fraud', label: 'Fraud Control', icon: 'shield-checkmark' },
+            { id: 'chat', label: 'Support Chat', icon: 'chatbubbles' },
+          ].map(tab => (
+            <TouchableOpacity
+              key={tab.id}
+              style={[styles.affiliateSubTab, affiliateSubTab === tab.id && styles.affiliateSubTabActive]}
+              onPress={() => setAffiliateSubTab(tab.id)}
+            >
+              <Ionicons 
+                name={tab.icon as any} 
+                size={16} 
+                color={affiliateSubTab === tab.id ? COLORS.primary : COLORS.textMuted} 
+              />
+              <Text style={[styles.affiliateSubTabText, affiliateSubTab === tab.id && styles.affiliateSubTabTextActive]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        
+        {/* Edit Levels Button - Next to tabs */}
+        <TouchableOpacity 
+          style={styles.editLevelsBtn}
+          onPress={() => setShowEditSettingsModal(true)}
+        >
+          <Ionicons name="settings-outline" size={18} color={COLORS.primary} />
+          <Text style={styles.editLevelsBtnText}>Edit Levels</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Search Bar */}
       {affiliateSubTab === 'list' && (
@@ -4508,12 +4519,6 @@ export default function AdminDashboard() {
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Affiliate Levels</Text>
-              <TouchableOpacity 
-                style={styles.editSettingsBtn}
-                onPress={() => setShowEditSettingsModal(true)}
-              >
-                <Ionicons name="pencil" size={16} color={COLORS.primary} />
-              </TouchableOpacity>
             </View>
             
             {/* Level-wise Commission List - Matching Affiliate Dashboard Design */}
@@ -7390,10 +7395,16 @@ const styles = StyleSheet.create({
   },
 
   // Affiliate Sub Tabs & New Features
+  affiliateSubTabsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
   affiliateSubTabs: {
     flexDirection: 'row',
-    marginBottom: 16,
     paddingHorizontal: 4,
+    flex: 1,
   },
   affiliateSubTab: {
     flexDirection: 'row',
@@ -7419,6 +7430,23 @@ const styles = StyleSheet.create({
   affiliateSubTabTextActive: {
     color: COLORS.primary,
     fontWeight: '600',
+  },
+  editLevelsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: COLORS.primaryLight,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    marginLeft: 8,
+  },
+  editLevelsBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.primary,
+    marginLeft: 6,
   },
   affiliateSearchBar: {
     flexDirection: 'row',
