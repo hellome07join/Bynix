@@ -64,8 +64,8 @@ interface UserProfile {
   max_trade_amount: number;
 }
 
-// Animated Fire Component
-const FireAnimation = ({ size = 60 }: { size?: number }) => {
+// Animated Fire Component for Background
+const FireBackground = ({ size = 50 }: { size?: number }) => {
   const flameAnim = useRef(new Animated.Value(0)).current;
   
   useEffect(() => {
@@ -73,13 +73,13 @@ const FireAnimation = ({ size = 60 }: { size?: number }) => {
       Animated.sequence([
         Animated.timing(flameAnim, {
           toValue: 1,
-          duration: 500,
+          duration: 600,
           easing: Easing.ease,
           useNativeDriver: true,
         }),
         Animated.timing(flameAnim, {
           toValue: 0,
-          duration: 500,
+          duration: 600,
           easing: Easing.ease,
           useNativeDriver: true,
         }),
@@ -89,22 +89,211 @@ const FireAnimation = ({ size = 60 }: { size?: number }) => {
 
   const scale = flameAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [1, 1.15],
+    outputRange: [1, 1.2],
   });
 
   const opacity = flameAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.8, 1],
+    outputRange: [0.6, 1],
   });
 
   return (
-    <Animated.View style={[{ transform: [{ scale }], opacity }]}>
+    <Animated.View style={[{ transform: [{ scale }], opacity, position: 'absolute' }]}>
       <Text style={{ fontSize: size }}>🔥</Text>
     </Animated.View>
   );
 };
 
-// Podium Card Component for Top 3
+// Bynix Logo Component
+const BynixLogo = () => (
+  <Image 
+    source={require('../../assets/images/bynix-logo.png')}
+    style={{ width: 90, height: 28, resizeMode: 'contain' }}
+  />
+);
+
+// Compact Circular Podium Item
+const CircularPodiumItem = ({ 
+  trader, 
+  rank, 
+  onPress 
+}: { 
+  trader: LeaderboardUser | null; 
+  rank: 1 | 2 | 3;
+  onPress: () => void;
+}) => {
+  const isFirst = rank === 1;
+  const isSecond = rank === 2;
+  const isThird = rank === 3;
+  
+  // Circle colors based on rank
+  const circleColors = isFirst 
+    ? ['#FFD700', '#FFA500']
+    : isSecond 
+    ? ['#C0C0C0', '#8A8A8A']
+    : ['#CD7F32', '#8B4513'];
+
+  const borderColor = isFirst ? '#FFD700' : isSecond ? '#C0C0C0' : '#CD7F32';
+  const circleSize = isFirst ? 70 : 55;
+
+  if (!trader) {
+    return (
+      <View style={[circularStyles.itemContainer, isFirst && circularStyles.firstPlaceContainer]}>
+        <View style={[circularStyles.circleAvatar, { width: circleSize, height: circleSize, borderColor, opacity: 0.3 }]}>
+          <Ionicons name="person" size={24} color="#444" />
+        </View>
+        <Text style={circularStyles.emptyName}>-</Text>
+      </View>
+    );
+  }
+
+  return (
+    <TouchableOpacity 
+      style={[circularStyles.itemContainer, isFirst && circularStyles.firstPlaceContainer]}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      {/* Rank Badge */}
+      <View style={[circularStyles.rankBadge, { backgroundColor: borderColor }]}>
+        <Text style={circularStyles.rankText}>{rank}</Text>
+        <Text style={circularStyles.rankSuffix}>{isFirst ? 'st' : isSecond ? 'nd' : 'rd'}</Text>
+      </View>
+
+      {/* Crown for 1st place */}
+      {isFirst && (
+        <View style={circularStyles.crownContainer}>
+          <Text style={circularStyles.crownEmoji}>👑</Text>
+        </View>
+      )}
+
+      {/* Circle Avatar with Fire Background */}
+      <View style={circularStyles.avatarWrapper}>
+        {/* Fire Behind */}
+        <View style={circularStyles.fireContainer}>
+          <FireBackground size={isFirst ? 55 : 40} />
+        </View>
+        
+        {/* Circular Avatar */}
+        <LinearGradient
+          colors={circleColors}
+          style={[circularStyles.circleAvatar, { width: circleSize, height: circleSize, borderColor }]}
+        >
+          {trader.picture ? (
+            <Image source={{ uri: trader.picture }} style={{ width: '100%', height: '100%', borderRadius: circleSize/2 }} />
+          ) : (
+            <Text style={[circularStyles.avatarInitial, { fontSize: isFirst ? 28 : 22 }]}>
+              {trader.name.charAt(0).toUpperCase()}
+            </Text>
+          )}
+        </LinearGradient>
+      </View>
+
+      {/* Name */}
+      <Text style={circularStyles.traderName} numberOfLines={1}>
+        {trader.name}
+      </Text>
+
+      {/* Profit/Loss */}
+      <View style={circularStyles.profitRow}>
+        <Ionicons 
+          name={trader.is_profit ? "trending-up" : "trending-down"} 
+          size={12} 
+          color={trader.is_profit ? "#00E55A" : "#FF3B3B"} 
+        />
+        <Text style={[circularStyles.profitText, { color: trader.is_profit ? "#00E55A" : "#FF3B3B" }]}>
+          {trader.is_profit ? '+' : '-'}${Math.abs(trader.profit).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+// Circular styles
+const circularStyles = StyleSheet.create({
+  itemContainer: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  firstPlaceContainer: {
+    marginBottom: 10,
+  },
+  rankBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginBottom: 4,
+  },
+  rankText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0A0E17',
+  },
+  rankSuffix: {
+    fontSize: 8,
+    fontWeight: '600',
+    color: '#0A0E17',
+    marginTop: -2,
+  },
+  crownContainer: {
+    position: 'absolute',
+    top: -8,
+    zIndex: 10,
+  },
+  crownEmoji: {
+    fontSize: 20,
+  },
+  avatarWrapper: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  fireContainer: {
+    position: 'absolute',
+    zIndex: -1,
+  },
+  circleAvatar: {
+    borderRadius: 100,
+    borderWidth: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  avatarInitial: {
+    fontWeight: '800',
+    color: '#FFF',
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  traderName: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginTop: 4,
+    maxWidth: 80,
+    textAlign: 'center',
+  },
+  profitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginTop: 2,
+  },
+  profitText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  emptyName: {
+    fontSize: 12,
+    color: '#444',
+    marginTop: 8,
+  },
+});
+
+// Old PodiumCard - keeping for backward compatibility but not using
 const PodiumCard = ({ 
   trader, 
   rank, 
@@ -331,17 +520,22 @@ export default function Leaderboard() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Podium Section - Top 3 */}
+        {/* Podium Section - Top 3 - Compact Circular Design */}
         <View style={styles.podiumSection}>
           <LinearGradient
             colors={['#0A1A2E', '#0A1A0F']}
             style={styles.podiumGradient}
           >
-            {/* Simple Flex Row for Podium */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end', paddingHorizontal: 5 }}>
+            {/* Bynix Logo at top */}
+            <View style={{ alignItems: 'center', marginBottom: 10 }}>
+              <BynixLogo />
+            </View>
+            
+            {/* Compact Circular Podium Row */}
+            <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end' }}>
               {/* 2nd Place - Left */}
-              <View style={{ width: '30%', alignItems: 'center' }}>
-                <PodiumCard 
+              <View style={{ flex: 1, alignItems: 'center' }}>
+                <CircularPodiumItem 
                   trader={second} 
                   rank={2}
                   onPress={() => second && fetchUserProfile(second.user_id)}
@@ -349,8 +543,8 @@ export default function Leaderboard() {
               </View>
               
               {/* 1st Place - Center (Elevated) */}
-              <View style={{ width: '34%', alignItems: 'center', marginBottom: 15 }}>
-                <PodiumCard 
+              <View style={{ flex: 1.2, alignItems: 'center' }}>
+                <CircularPodiumItem 
                   trader={first} 
                   rank={1}
                   onPress={() => first && fetchUserProfile(first.user_id)}
@@ -358,8 +552,8 @@ export default function Leaderboard() {
               </View>
               
               {/* 3rd Place - Right */}
-              <View style={{ width: '30%', alignItems: 'center' }}>
-                <PodiumCard 
+              <View style={{ flex: 1, alignItems: 'center' }}>
+                <CircularPodiumItem 
                   trader={third} 
                   rank={3}
                   onPress={() => third && fetchUserProfile(third.user_id)}
@@ -665,14 +859,14 @@ const styles = StyleSheet.create({
   // Podium Section
   podiumSection: {
     marginHorizontal: 12,
-    marginTop: 16,
-    borderRadius: 20,
+    marginTop: 12,
+    borderRadius: 16,
   },
   podiumGradient: {
-    padding: 10,
-    paddingTop: 40,
-    paddingBottom: 16,
-    borderRadius: 20,
+    padding: 12,
+    paddingTop: 12,
+    paddingBottom: 12,
+    borderRadius: 16,
   },
   podiumRow: {
     flexDirection: 'row',
