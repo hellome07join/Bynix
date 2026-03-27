@@ -893,202 +893,13 @@ export default function Welcome() {
             <PulsingRing size={260} delay={800} />
           </View>
 
-          {/* Phone Mockup Section - Matching Reference Design */}
+          {/* Phone Mockup Section - New Trading App Image */}
           <View style={styles.phoneMockupSection}>
-            
-            {/* Floating Bynix Logo Icon - Top Left */}
-            <Animated.View style={[styles.floatingBynixLogo, { transform: [{ translateY: phoneTranslateY }] }]}>
-              <LinearGradient
-                colors={['#FFFFFF', '#E8F4FD']}
-                style={styles.bynixLogoGradient}
-              >
-                <View style={styles.bynixLogoInner}>
-                  <Ionicons name="bar-chart" size={24} color="#4A90E2" />
-                </View>
-              </LinearGradient>
-            </Animated.View>
-
-            {/* Floating Asset Badges - Left Side */}
-            <View style={styles.floatingBadgesLeft}>
-              {[
-                { name: 'Stocks', delay: 0 },
-                { name: 'Indices', delay: 100 },
-                { name: 'Metals', delay: 200 },
-                { name: 'Commodities', delay: 300 },
-                { name: 'ETF', delay: 400 },
-              ].map((item, index) => (
-                <Animated.View 
-                  key={index} 
-                  style={[
-                    styles.floatingBadge,
-                    { transform: [{ translateY: phoneTranslateY }] }
-                  ]}
-                >
-                  <LinearGradient
-                    colors={['#4A90E2', '#2E7BD6']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.floatingBadgeGradient}
-                  >
-                    <Text style={styles.floatingBadgeText}>{item.name}</Text>
-                  </LinearGradient>
-                </Animated.View>
-              ))}
-            </View>
-
-            {/* Floating Company Logos */}
-            {/* Tesla Logo - Top */}
-            <Animated.View style={[styles.floatingCompanyLogo, styles.teslaPosition, { transform: [{ translateY: phoneTranslateY }] }]}>
-              <View style={[styles.companyLogoCircle, { backgroundColor: '#E82127' }]}>
-                <Text style={styles.companyLogoText}>T</Text>
-              </View>
-            </Animated.View>
-
-            {/* Facebook Logo - Right Top */}
-            <Animated.View style={[styles.floatingCompanyLogo, styles.facebookPosition, { transform: [{ translateY: phoneTranslateY }] }]}>
-              <View style={[styles.companyLogoCircle, { backgroundColor: '#1877F2' }]}>
-                <FontAwesome5 name="facebook-f" size={14} color="#FFF" />
-              </View>
-            </Animated.View>
-
-            {/* Apple Logo - Right Middle */}
-            <Animated.View style={[styles.floatingCompanyLogo, styles.applePosition, { transform: [{ translateY: phoneTranslateY }] }]}>
-              <View style={[styles.companyLogoCircle, { backgroundColor: '#A2AAAD' }]}>
-                <Ionicons name="logo-apple" size={16} color="#FFF" />
-              </View>
-            </Animated.View>
-
-            {/* IBM Logo - Bottom Right */}
-            <Animated.View style={[styles.floatingCompanyLogo, styles.ibmPosition, { transform: [{ translateY: phoneTranslateY }] }]}>
-              <View style={[styles.companyLogoCircle, { backgroundColor: '#054ADA' }]}>
-                <Text style={[styles.companyLogoText, { fontSize: 9, fontWeight: '800' }]}>IBM</Text>
-              </View>
-            </Animated.View>
-
-            {/* Google Logo - Bottom Left */}
-            <Animated.View style={[styles.floatingCompanyLogo, styles.googlePosition, { transform: [{ translateY: phoneTranslateY }] }]}>
-              <View style={[styles.companyLogoCircle, { backgroundColor: '#4285F4' }]}>
-                <Text style={[styles.companyLogoText, { color: '#FFF', fontWeight: '700' }]}>G</Text>
-              </View>
-            </Animated.View>
-
-            {/* Netflix Logo - Hidden (next to Indices) */}
-            <Animated.View style={[styles.floatingCompanyLogo, styles.netflixPosition, { transform: [{ translateY: phoneTranslateY }] }]}>
-              <View style={[styles.companyLogoCircle, { backgroundColor: '#E50914' }]}>
-                <Text style={[styles.companyLogoText, { fontWeight: '800' }]}>N</Text>
-              </View>
-            </Animated.View>
-
-            {/* Phone Mockup - iPhone with Screenshot */}
-            <Animated.View style={[styles.phoneMockupContainer, { transform: [{ translateY: phoneTranslateY }, { perspective: 1000 }, { rotateY: '-8deg' }, { rotateX: '2deg' }] }]}>
-              {/* Phone Outer Frame (Titanium) */}
-              <View style={styles.phoneOuterFrame}>
-                {/* Phone Inner Frame */}
-                <View style={styles.phoneFrame}>
-                  {/* Power Button (Right side) */}
-                  <View style={styles.phonePowerButton} />
-                  
-                  {/* Volume Buttons (Left side) */}
-                  <View style={styles.phoneVolumeButtons}>
-                    <View style={styles.phoneVolumeBtn} />
-                    <View style={[styles.phoneVolumeBtn, { marginTop: 8 }]} />
-                  </View>
-
-                  {/* Screen with Trading UI */}
-                  <View style={styles.phoneScreenNew}>
-                    {/* Dynamic Island */}
-                    <View style={styles.dynamicIsland}>
-                      <View style={styles.dynamicIslandPill} />
-                    </View>
-
-                    {/* Trading UI Content */}
-                    <View style={styles.tradingUIContent}>
-                      {/* Balance Header */}
-                      <View style={styles.mockBalanceHeader}>
-                        <View style={styles.mockBalanceBox}>
-                          <Text style={styles.mockBalanceAmount}>$1,420.00</Text>
-                          <Text style={styles.mockBalanceLabel}>balance</Text>
-                        </View>
-                        <TouchableOpacity style={styles.mockDepositBtn}>
-                          <Text style={styles.mockDepositText}>Deposit</Text>
-                        </TouchableOpacity>
-                        <View style={styles.mockMenuIcon}>
-                          <Ionicons name="menu" size={18} color="#888" />
-                        </View>
-                      </View>
-
-                      {/* Asset Pair */}
-                      <View style={styles.mockAssetRow}>
-                        <View style={styles.mockAssetIcon}>
-                          <Text style={styles.mockAssetIconText}>T</Text>
-                        </View>
-                        <View>
-                          <Text style={styles.mockAssetName}>Tesla</Text>
-                          <Text style={styles.mockAssetTime}>09:10:00 PM</Text>
-                        </View>
-                      </View>
-
-                      {/* Chart Area with Gradient */}
-                      <View style={styles.mockChartArea}>
-                        <LinearGradient
-                          colors={['#0A3D62', '#0A0E17']}
-                          style={styles.mockChartGradient}
-                        >
-                          {/* Simulated chart line */}
-                          <View style={styles.mockChartLine} />
-                        </LinearGradient>
-                      </View>
-                    </View>
-
-                    {/* Home Indicator */}
-                    <View style={styles.homeIndicator} />
-                  </View>
-                </View>
-              </View>
-
-              {/* Glow Effect */}
-              <View style={styles.phoneGlow} />
-            </Animated.View>
-
-            {/* Floating Asset List Card - Right Side */}
-            <Animated.View style={[styles.floatingAssetListCard, { transform: [{ translateY: phoneTranslateY }] }]}>
-              <View style={styles.assetListHeader}>
-                <Text style={styles.assetListTitle}>Asset list</Text>
-                <Ionicons name="close" size={16} color="#888" />
-              </View>
-              
-              <View style={styles.assetListFilter}>
-                <Text style={styles.assetListFilterText}>All</Text>
-                <Ionicons name="chevron-down" size={12} color="#888" />
-              </View>
-
-              <View style={styles.assetListSearch}>
-                <Ionicons name="search" size={12} color="#666" />
-                <Text style={styles.assetListSearchText}>Search</Text>
-              </View>
-
-              {/* Asset Items */}
-              {[
-                { icon: 'T', name: 'Tesla', change: '-0.01%', payout: '85%', color: '#E82127', positive: false },
-                { icon: '🍎', name: 'Apple', change: '-0.01%', payout: '77%', color: '#A2AAAD', positive: false },
-                { icon: 'IBM', name: 'IBM', change: '-0.57%', payout: '75%', color: '#054ADA', positive: false },
-                { icon: 'G', name: 'Google', change: '-0.12%', payout: '77%', color: '#4285F4', positive: false },
-                { icon: 'N', name: 'Netflix', change: '-0.06%', payout: '79%', color: '#E50914', positive: false },
-                { icon: 'f', name: 'Facebook (META)', change: '+1.13%', payout: '76%', color: '#1877F2', positive: true },
-              ].map((asset, index) => (
-                <View key={index} style={styles.assetListItem}>
-                  <View style={[styles.assetListIcon, { backgroundColor: asset.color }]}>
-                    <Text style={styles.assetListIconText}>{asset.icon}</Text>
-                  </View>
-                  <Text style={styles.assetListName}>{asset.name}</Text>
-                  <Text style={[styles.assetListChange, { color: asset.positive ? '#00E55A' : '#FF4757' }]}>
-                    {asset.change}
-                  </Text>
-                  <Text style={styles.assetListPayout}>{asset.payout}</Text>
-                </View>
-              ))}
-            </Animated.View>
-
+            <Image 
+              source={{ uri: 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/uk03ij0f_IMG_3443.png' }}
+              style={styles.heroMockupImage}
+              resizeMode="contain"
+            />
           </View>
 
           {/* Hero Text */}
@@ -1783,6 +1594,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 20,
+  },
+  
+  // Hero Mockup Image
+  heroMockupImage: {
+    width: '100%',
+    height: '100%',
+    maxWidth: 600,
   },
 
   // Floating Bynix Logo
