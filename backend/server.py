@@ -9966,27 +9966,83 @@ def get_affiliate_level(total_ftds: int) -> dict:
             level = lvl
     return {"level": level, **AFFILIATE_LEVELS[level]}
 
-def calculate_commission(affiliate_id: str, affiliate_level: dict, trade_amount: float, trade_result: str, program_type: str = "revenue_sharing") -> float:
+async def calculate_commission_with_cap(
+    db_instance, 
+    affiliate_id: str, 
+    source_user_id: str,
+    affiliate_level: dict, 
+    trade_amount: float, 
+    trade_result: str, 
+    program_type: str = "revenue_sharing"
+) -> float:
     """
-    Calculate commission based on trade
+    Calculate commission based on trade with TURNOVER CAP
     
     Revenue Share Model:
     - Affiliate earns commission ONLY when referred user LOSES
     - Commission = User's Loss × (Revenue Share % / 100)
-    - Example: Level 1 (50%) - User loses $100 → Affiliate earns $50
+    - NO CAP - unlimited earnings from losses
     
     Turnover Model:
     - Affiliate earns commission on EVERY trade regardless of win/loss
     - Commission = Trade Volume × (Turnover % / 100)
-    - Example: Level 1 (2%) - User trades $100 → Affiliate earns $2
+    - CAP: Maximum 50% of user's TOTAL DEPOSIT
+    - Once cap reached, no more commission from that user
     """
     if program_type == "revenue_sharing":
-        # Revenue Share: Only earn on user LOSSES
+        # Revenue Share: Only earn on user LOSSES - NO CAP
         if trade_result == "lost":
             return trade_amount * (affiliate_level["revenue_share"] / 100)
         return 0.0
     else:
-        # Turnover: Earn on ALL trades
+        # Turnover Model with 50% DEPOSIT CAP
+        
+        # Get user's total deposits
+        referral = await db_instance.referrals.find_one({
+            "referred_user_id": source_user_id,
+            "affiliate_id": affiliate_id
+        })
+        
+        if not referral:
+            # Check affiliate_referrals as fallback
+            referral = await db_instance.affiliate_referrals.find_one({
+                "user_id": source_user_id,
+                "affiliate_id": affiliate_id
+            })
+        
+        total_deposited = referral.get("total_deposited", 0) if referral else 0
+        commission_earned_from_user = referral.get("commission_earned", 0) if referral else 0
+        
+        # Calculate max commission cap (50% of total deposits)
+        max_commission_cap = total_deposited * 0.50
+        
+        # Calculate potential commission
+        potential_commission = trade_amount * (affiliate_level["turnover_share"] / 100)
+        
+        # Check if already at cap
+        if commission_earned_from_user >= max_commission_cap:
+            return 0.0  # Already reached cap, no more commission
+        
+        # Check if this commission would exceed the cap
+        remaining_cap = max_commission_cap - commission_earned_from_user
+        
+        if potential_commission > remaining_cap:
+            # Only give what's remaining until cap
+            return remaining_cap
+        
+        return potential_commission
+
+
+def calculate_commission(affiliate_id: str, affiliate_level: dict, trade_amount: float, trade_result: str, program_type: str = "revenue_sharing") -> float:
+    """
+    Simple commission calculation without cap check (for backward compatibility)
+    Use calculate_commission_with_cap for proper turnover cap handling
+    """
+    if program_type == "revenue_sharing":
+        if trade_result == "lost":
+            return trade_amount * (affiliate_level["revenue_share"] / 100)
+        return 0.0
+    else:
         return trade_amount * (affiliate_level["turnover_share"] / 100)
 
 
@@ -10647,11 +10703,46 @@ async def get_affiliate_referrals(authorization: str = Header(None), limit: int 
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         affiliate_id = payload.get("sub")
         
-        referrals = await db.affiliate_referrals.find(
+        # Get affiliate info for commission type
+        affiliate = await db.affiliates.find_one({"affiliate_id": affiliate_id})
+        commission_type = affiliate.get("commission_type", "revenue_share") if affiliate else "revenue_share"
+        
+        # Get referrals from referrals collection (more complete data)
+        referrals_raw = await db.referrals.find(
             {"affiliate_id": affiliate_id}
         ).sort("created_at", -1).limit(limit).to_list(limit)
         
-        return {"referrals": referrals}
+        referrals = []
+        for ref in referrals_raw:
+            ref_data = {
+                "referral_id": ref.get("referral_id"),
+                "user_id": ref.get("referred_user_id"),
+                "email": ref.get("user_email", "Unknown"),
+                "is_ftd": ref.get("is_ftd", False),
+                "total_deposited": ref.get("total_deposited", 0),
+                "total_traded": ref.get("total_traded", 0),
+                "commission_earned": ref.get("commission_earned", 0),
+                "created_at": ref.get("created_at"),
+            }
+            
+            # For Turnover model - add cap info
+            if commission_type == "turnover":
+                total_deposited = ref.get("total_deposited", 0)
+                max_cap = total_deposited * 0.5  # 50% cap
+                commission_earned = ref.get("commission_earned", 0)
+                
+                ref_data["commission_cap"] = max_cap
+                ref_data["cap_remaining"] = max(0, max_cap - commission_earned)
+                ref_data["cap_percentage_used"] = (commission_earned / max_cap * 100) if max_cap > 0 else 0
+                ref_data["cap_reached"] = commission_earned >= max_cap
+            
+            referrals.append(ref_data)
+        
+        return {
+            "referrals": referrals,
+            "commission_type": commission_type,
+            "has_turnover_cap": commission_type == "turnover"
+        }
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:

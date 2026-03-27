@@ -4993,26 +4993,63 @@ export default function AdminDashboard() {
                   <View style={[styles.sectionCard, { marginBottom: 16 }]}>
                     <Text style={[styles.sectionTitle, { marginBottom: 12 }]}>👥 Referred Users</Text>
                     {withdrawalDetails.referrals && withdrawalDetails.referrals.length > 0 ? (
-                      withdrawalDetails.referrals.slice(0, 10).map((ref: any, index: number) => (
-                        <View key={index} style={[styles.referralItem, index > 0 && { borderTopWidth: 1, borderTopColor: COLORS.border }]}>
-                          <View style={{ flex: 1 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                              <Text style={styles.referralUser}>{ref.email || 'Unknown'}</Text>
-                              {ref.is_ftd && (
-                                <View style={[styles.ftdBadge, { marginLeft: 8 }]}>
-                                  <Text style={styles.ftdBadgeText}>FTD ✓</Text>
+                      withdrawalDetails.referrals.slice(0, 10).map((ref: any, index: number) => {
+                        // Calculate cap info for turnover model
+                        const totalDeposited = ref.total_deposited || 0;
+                        const maxCap = totalDeposited * 0.5;  // 50% cap
+                        const commissionEarned = ref.commission_earned || 0;
+                        const capRemaining = Math.max(0, maxCap - commissionEarned);
+                        const capPercentage = maxCap > 0 ? (commissionEarned / maxCap * 100) : 0;
+                        const capReached = commissionEarned >= maxCap && maxCap > 0;
+                        const isTurnover = withdrawalDetails.affiliate?.commission_type === 'turnover' || 
+                                          (withdrawalDetails.summary?.total_turnover_commission || 0) > 0;
+                        
+                        return (
+                          <View key={index} style={[styles.referralItem, index > 0 && { borderTopWidth: 1, borderTopColor: COLORS.border }]}>
+                            <View style={{ flex: 1 }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
+                                <Text style={styles.referralUser}>{ref.email || 'Unknown'}</Text>
+                                {ref.is_ftd && (
+                                  <View style={[styles.ftdBadge, { marginLeft: 8 }]}>
+                                    <Text style={styles.ftdBadgeText}>FTD ✓</Text>
+                                  </View>
+                                )}
+                                {isTurnover && capReached && (
+                                  <View style={[styles.capBadge, { marginLeft: 8, backgroundColor: COLORS.dangerLight }]}>
+                                    <Text style={[styles.capBadgeText, { color: COLORS.danger }]}>CAP REACHED</Text>
+                                  </View>
+                                )}
+                              </View>
+                              <Text style={styles.referralMeta}>
+                                Deposited: ${totalDeposited.toLocaleString()} • Traded: ${(ref.total_traded || 0).toLocaleString()}
+                              </Text>
+                              {isTurnover && totalDeposited > 0 && (
+                                <View style={{ marginTop: 6 }}>
+                                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                                    <Text style={{ fontSize: 10, color: COLORS.textMuted }}>
+                                      Cap: ${commissionEarned.toFixed(2)} / ${maxCap.toFixed(2)} ({capPercentage.toFixed(0)}%)
+                                    </Text>
+                                    <Text style={{ fontSize: 10, color: capReached ? COLORS.danger : COLORS.success }}>
+                                      {capReached ? 'No more commission' : `$${capRemaining.toFixed(2)} remaining`}
+                                    </Text>
+                                  </View>
+                                  <View style={{ height: 4, backgroundColor: COLORS.bgSecondary, borderRadius: 2, overflow: 'hidden' }}>
+                                    <View style={{ 
+                                      height: '100%', 
+                                      width: `${Math.min(100, capPercentage)}%`, 
+                                      backgroundColor: capReached ? COLORS.danger : COLORS.success,
+                                      borderRadius: 2
+                                    }} />
+                                  </View>
                                 </View>
                               )}
                             </View>
-                            <Text style={styles.referralMeta}>
-                              Deposited: ${(ref.total_deposited || 0).toLocaleString()} • Traded: ${(ref.total_traded || 0).toLocaleString()}
+                            <Text style={[styles.referralCommission, { color: COLORS.success }]}>
+                              +${commissionEarned.toFixed(2)}
                             </Text>
                           </View>
-                          <Text style={[styles.referralCommission, { color: COLORS.success }]}>
-                            +${(ref.commission_earned || 0).toFixed(2)}
-                          </Text>
-                        </View>
-                      ))
+                        );
+                      })
                     ) : (
                       <View style={{ padding: 20, alignItems: 'center' }}>
                         <Ionicons name="people-outline" size={32} color={COLORS.textMuted} />
@@ -8412,6 +8449,15 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: COLORS.success,
+  },
+  capBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  capBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
   },
   fraudAlertItem: {
     padding: 14,
