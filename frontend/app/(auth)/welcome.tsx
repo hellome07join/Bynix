@@ -1576,8 +1576,9 @@ const styles = StyleSheet.create({
   // Hero Section
   heroSection: {
     paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingTop: 0,
     alignItems: 'center',
+    marginTop: -20,
   },
   heroGlowContainer: {
     position: 'absolute',
@@ -1589,19 +1590,19 @@ const styles = StyleSheet.create({
   // Phone Mockup Section
   phoneMockupSection: {
     width: '100%',
-    height: 650,
+    height: 550,
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 10,
-    marginBottom: -30,
+    marginTop: -10,
+    marginBottom: -50,
   },
   
   // Hero Mockup Image
   heroMockupImage: {
     width: '100%',
     height: '100%',
-    maxWidth: 750,
+    maxWidth: 700,
   },
 
   // Floating Bynix Logo
@@ -2505,8 +2506,8 @@ const styles = StyleSheet.create({
   // Hero Text
   heroTextContainer: {
     alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 20,
+    marginTop: -10,
+    marginBottom: 15,
   },
   heroTitle: {
     fontSize: 32,
