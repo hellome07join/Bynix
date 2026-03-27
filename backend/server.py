@@ -10639,6 +10639,14 @@ async def get_affiliate_statistics(authorization: str = Header(None), days: int 
                 "total_deposited": total_deposited,
                 "total_traded": ref.get("total_traded", 0),
                 "commission": commission_earned,
+                # Live user balance data
+                "balance": user.get("real_balance", 0) if user else 0,
+                "demo_balance": user.get("demo_balance", 0) if user else 0,
+                "bonus_balance": user.get("bonus_balance", 0) if user else 0,
+                "deposits_count": user.get("total_deposits_count", 0) if user else 0,
+                "deposits_sum": user.get("total_deposits", 0) if user else total_deposited,
+                "withdrawals": user.get("total_withdrawals", 0) if user else 0,
+                "bonuses": user.get("bonus_balance", 0) if user else 0,
             }
             
             # Add cap info for turnover model
