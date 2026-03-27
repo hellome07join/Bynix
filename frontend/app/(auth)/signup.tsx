@@ -70,7 +70,7 @@ export default function Signup() {
   const [otp, setOTP] = useState(['', '', '', '', '', '']);
   const [verifyingOTP, setVerifyingOTP] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
-  const otpInputRefs = useRef<Array<TextInput | null>>([]);
+  const otpInputRefs = useRef<(TextInput | null)[]>([]);
 
   // Load referral code
   useEffect(() => {

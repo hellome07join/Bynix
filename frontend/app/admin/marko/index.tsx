@@ -199,6 +199,15 @@ export default function AdminDashboard() {
   });
   const [promoLoading, setPromoLoading] = useState(false);
 
+  // Affiliate Levels Configuration
+  const AFFILIATE_LEVELS = [
+    { id: 'bronze', name: 'Bronze', color: '#CD7F32', minReferrals: 0 },
+    { id: 'silver', name: 'Silver', color: '#C0C0C0', minReferrals: 10 },
+    { id: 'gold', name: 'Gold', color: '#FFD700', minReferrals: 50 },
+    { id: 'platinum', name: 'Platinum', color: '#E5E4E2', minReferrals: 100 },
+    { id: 'diamond', name: 'Diamond', color: '#B9F2FF', minReferrals: 500 },
+  ];
+
   // Affiliate States
   const [affiliateStats, setAffiliateStats] = useState<any>({
     total_affiliates: 0,
@@ -206,9 +215,13 @@ export default function AdminDashboard() {
     total_paid: 0,
     pending_payouts: 0,
     commission_settings: {
-      revenue_share: 50,
-      turnover_commission: 2,
-      cpa_amount: 50
+      levels: {
+        bronze: { revenue_share: 30, turnover_commission: 1 },
+        silver: { revenue_share: 40, turnover_commission: 1.5 },
+        gold: { revenue_share: 50, turnover_commission: 2 },
+        platinum: { revenue_share: 60, turnover_commission: 2.5 },
+        diamond: { revenue_share: 70, turnover_commission: 3 },
+      }
     }
   });
   const [affiliates, setAffiliates] = useState<any[]>([]);
@@ -221,14 +234,18 @@ export default function AdminDashboard() {
     email: '',
     phone: '',
     company: '',
-    commission_rate: 50,
-    turnover_rate: 2,
-    cpa_amount: 50
+    level: 'bronze',
+    commission_rate: 30,
+    turnover_rate: 1
   });
   const [editSettings, setEditSettings] = useState({
-    revenue_share: 50,
-    turnover_commission: 2,
-    cpa_amount: 50
+    levels: {
+      bronze: { revenue_share: 30, turnover_commission: 1 },
+      silver: { revenue_share: 40, turnover_commission: 1.5 },
+      gold: { revenue_share: 50, turnover_commission: 2 },
+      platinum: { revenue_share: 60, turnover_commission: 2.5 },
+      diamond: { revenue_share: 70, turnover_commission: 3 },
+    }
   });
   const [affiliateLoading, setAffiliateLoading] = useState(false);
   const [affiliateSubTab, setAffiliateSubTab] = useState('list'); // list, leaderboard, payouts, fraud, chat
@@ -402,9 +419,13 @@ export default function AdminDashboard() {
         const statsData = await statsRes.json();
         setAffiliateStats(statsData);
         setEditSettings(statsData.commission_settings || {
-          revenue_share: 50,
-          turnover_commission: 2,
-          cpa_amount: 50
+          levels: {
+            bronze: { revenue_share: 30, turnover_commission: 1 },
+            silver: { revenue_share: 40, turnover_commission: 1.5 },
+            gold: { revenue_share: 50, turnover_commission: 2 },
+            platinum: { revenue_share: 60, turnover_commission: 2.5 },
+            diamond: { revenue_share: 70, turnover_commission: 3 },
+          }
         });
       }
       
@@ -4475,10 +4496,10 @@ export default function AdminDashboard() {
       {/* Tab Content */}
       {affiliateSubTab === 'list' && (
         <>
-          {/* Commission Settings */}
+          {/* Commission Settings - Level Based */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Commission Settings</Text>
+              <Text style={styles.sectionTitle}>Commission Settings by Level</Text>
               <TouchableOpacity 
                 style={styles.editSettingsBtn}
                 onPress={() => setShowEditSettingsModal(true)}
@@ -4486,32 +4507,57 @@ export default function AdminDashboard() {
                 <Ionicons name="pencil" size={16} color={COLORS.primary} />
               </TouchableOpacity>
             </View>
-            <View style={styles.commissionRow}>
-              <View style={styles.commissionInfo}>
-                <Text style={styles.commissionLabel}>Revenue Share</Text>
-                <Text style={styles.commissionDesc}>Percentage of trading losses</Text>
+            
+            {/* Level-wise Commission Table */}
+            <View style={styles.levelCommissionTable}>
+              {/* Header Row */}
+              <View style={[styles.levelCommissionRow, styles.levelCommissionHeader]}>
+                <View style={[styles.levelCommissionCell, { flex: 1.5 }]}>
+                  <Text style={styles.levelCommissionHeaderText}>Level</Text>
+                </View>
+                <View style={styles.levelCommissionCell}>
+                  <Text style={styles.levelCommissionHeaderText}>Rev Share</Text>
+                </View>
+                <View style={styles.levelCommissionCell}>
+                  <Text style={styles.levelCommissionHeaderText}>Turnover</Text>
+                </View>
+                <View style={styles.levelCommissionCell}>
+                  <Text style={styles.levelCommissionHeaderText}>Min Refs</Text>
+                </View>
               </View>
-              <View style={styles.commissionValue}>
-                <Text style={styles.commissionValueText}>{affiliateStats.commission_settings?.revenue_share || 50}%</Text>
-              </View>
+              
+              {/* Level Rows */}
+              {AFFILIATE_LEVELS.map((level) => {
+                const levelSettings = affiliateStats.commission_settings?.levels?.[level.id] || 
+                  editSettings.levels?.[level.id as keyof typeof editSettings.levels] || 
+                  { revenue_share: 30, turnover_commission: 1 };
+                return (
+                  <View key={level.id} style={styles.levelCommissionRow}>
+                    <View style={[styles.levelCommissionCell, { flex: 1.5, flexDirection: 'row', alignItems: 'center' }]}>
+                      <View style={[styles.levelBadge, { backgroundColor: level.color + '30', borderColor: level.color }]}>
+                        <Text style={[styles.levelBadgeText, { color: level.color === '#E5E4E2' ? '#666' : level.color }]}>{level.name}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.levelCommissionCell}>
+                      <Text style={styles.levelCommissionValue}>{levelSettings.revenue_share}%</Text>
+                    </View>
+                    <View style={styles.levelCommissionCell}>
+                      <Text style={styles.levelCommissionValue}>{levelSettings.turnover_commission}%</Text>
+                    </View>
+                    <View style={styles.levelCommissionCell}>
+                      <Text style={styles.levelCommissionMinRefs}>{level.minReferrals}+</Text>
+                    </View>
+                  </View>
+                );
+              })}
             </View>
-            <View style={styles.commissionRow}>
-              <View style={styles.commissionInfo}>
-                <Text style={styles.commissionLabel}>Turnover Commission</Text>
-                <Text style={styles.commissionDesc}>Percentage of trade volume</Text>
-              </View>
-              <View style={styles.commissionValue}>
-                <Text style={styles.commissionValueText}>{affiliateStats.commission_settings?.turnover_commission || 2}%</Text>
-              </View>
-            </View>
-            <View style={styles.commissionRow}>
-              <View style={styles.commissionInfo}>
-                <Text style={styles.commissionLabel}>CPA (Per FTD)</Text>
-                <Text style={styles.commissionDesc}>Fixed amount per first deposit</Text>
-              </View>
-              <View style={styles.commissionValue}>
-                <Text style={styles.commissionValueText}>${affiliateStats.commission_settings?.cpa_amount || 50}</Text>
-              </View>
+            
+            {/* Info Text */}
+            <View style={styles.levelInfoBox}>
+              <Ionicons name="information-circle" size={16} color={COLORS.info} />
+              <Text style={styles.levelInfoText}>
+                Affiliates automatically upgrade to higher levels based on total referrals
+              </Text>
             </View>
           </View>
 
@@ -4787,35 +4833,48 @@ export default function AdminDashboard() {
                 onChangeText={(text) => setNewAffiliate({...newAffiliate, company: text})}
               />
               
-              <Text style={styles.inputLabel}>Revenue Share (%)</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="50"
-                placeholderTextColor={COLORS.textMuted}
-                keyboardType="numeric"
-                value={String(newAffiliate.commission_rate)}
-                onChangeText={(text) => setNewAffiliate({...newAffiliate, commission_rate: Number(text) || 0})}
-              />
+              <Text style={styles.inputLabel}>Affiliate Level</Text>
+              <View style={styles.levelSelectorContainer}>
+                {AFFILIATE_LEVELS.map((level) => {
+                  const isSelected = newAffiliate.level === level.id;
+                  const levelSettings = editSettings.levels?.[level.id as keyof typeof editSettings.levels];
+                  return (
+                    <TouchableOpacity
+                      key={level.id}
+                      style={[
+                        styles.levelSelectorOption,
+                        isSelected && { borderColor: level.color, backgroundColor: level.color + '15' }
+                      ]}
+                      onPress={() => setNewAffiliate({
+                        ...newAffiliate, 
+                        level: level.id,
+                        commission_rate: levelSettings?.revenue_share || 30,
+                        turnover_rate: levelSettings?.turnover_commission || 1
+                      })}
+                    >
+                      <View style={[styles.levelSelectorBadge, { backgroundColor: level.color + '30', borderColor: level.color }]}>
+                        <Text style={[styles.levelSelectorBadgeText, { color: level.color === '#E5E4E2' ? '#666' : level.color }]}>
+                          {level.name}
+                        </Text>
+                      </View>
+                      <Text style={styles.levelSelectorRates}>
+                        {levelSettings?.revenue_share || 30}% / {levelSettings?.turnover_commission || 1}%
+                      </Text>
+                      {isSelected && (
+                        <Ionicons name="checkmark-circle" size={18} color={COLORS.success} style={{ position: 'absolute', top: 4, right: 4 }} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
               
-              <Text style={styles.inputLabel}>Turnover Commission (%)</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="2"
-                placeholderTextColor={COLORS.textMuted}
-                keyboardType="numeric"
-                value={String(newAffiliate.turnover_rate)}
-                onChangeText={(text) => setNewAffiliate({...newAffiliate, turnover_rate: Number(text) || 0})}
-              />
-              
-              <Text style={styles.inputLabel}>CPA Amount ($)</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="50"
-                placeholderTextColor={COLORS.textMuted}
-                keyboardType="numeric"
-                value={String(newAffiliate.cpa_amount)}
-                onChangeText={(text) => setNewAffiliate({...newAffiliate, cpa_amount: Number(text) || 0})}
-              />
+              <View style={styles.selectedLevelInfo}>
+                <Ionicons name="information-circle" size={16} color={COLORS.info} />
+                <Text style={styles.selectedLevelInfoText}>
+                  Selected: {AFFILIATE_LEVELS.find(l => l.id === newAffiliate.level)?.name || 'Bronze'} - 
+                  Revenue Share: {newAffiliate.commission_rate}%, Turnover: {newAffiliate.turnover_rate}%
+                </Text>
+              </View>
             </ScrollView>
             
             <View style={styles.modalFooter}>
@@ -4841,48 +4900,74 @@ export default function AdminDashboard() {
         </View>
       </Modal>
 
-      {/* Edit Settings Modal */}
+      {/* Edit Settings Modal - Level Based */}
       <Modal visible={showEditSettingsModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { maxHeight: '85%' }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Commission Settings</Text>
+              <Text style={styles.modalTitle}>Edit Level Commission Settings</Text>
               <TouchableOpacity onPress={() => setShowEditSettingsModal(false)}>
                 <Ionicons name="close" size={24} color={COLORS.text} />
               </TouchableOpacity>
             </View>
             
-            <View style={styles.modalBody}>
-              <Text style={styles.inputLabel}>Revenue Share (%)</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="50"
-                placeholderTextColor={COLORS.textMuted}
-                keyboardType="numeric"
-                value={String(editSettings.revenue_share)}
-                onChangeText={(text) => setEditSettings({...editSettings, revenue_share: Number(text) || 0})}
-              />
-              
-              <Text style={styles.inputLabel}>Turnover Commission (%)</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="2"
-                placeholderTextColor={COLORS.textMuted}
-                keyboardType="numeric"
-                value={String(editSettings.turnover_commission)}
-                onChangeText={(text) => setEditSettings({...editSettings, turnover_commission: Number(text) || 0})}
-              />
-              
-              <Text style={styles.inputLabel}>CPA Amount ($)</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="50"
-                placeholderTextColor={COLORS.textMuted}
-                keyboardType="numeric"
-                value={String(editSettings.cpa_amount)}
-                onChangeText={(text) => setEditSettings({...editSettings, cpa_amount: Number(text) || 0})}
-              />
-            </View>
+            <ScrollView style={styles.modalBody}>
+              {AFFILIATE_LEVELS.map((level) => (
+                <View key={level.id} style={styles.levelEditSection}>
+                  <View style={styles.levelEditHeader}>
+                    <View style={[styles.levelBadgeLarge, { backgroundColor: level.color + '30', borderColor: level.color }]}>
+                      <Text style={[styles.levelBadgeLargeText, { color: level.color === '#E5E4E2' ? '#666' : level.color }]}>
+                        {level.name}
+                      </Text>
+                    </View>
+                    <Text style={styles.levelMinRefsText}>Min {level.minReferrals}+ referrals</Text>
+                  </View>
+                  
+                  <View style={styles.levelEditInputRow}>
+                    <View style={styles.levelEditInputContainer}>
+                      <Text style={styles.levelEditInputLabel}>Revenue Share (%)</Text>
+                      <TextInput
+                        style={styles.levelEditInput}
+                        placeholder="30"
+                        placeholderTextColor={COLORS.textMuted}
+                        keyboardType="numeric"
+                        value={String(editSettings.levels?.[level.id as keyof typeof editSettings.levels]?.revenue_share || 30)}
+                        onChangeText={(text) => setEditSettings({
+                          ...editSettings,
+                          levels: {
+                            ...editSettings.levels,
+                            [level.id]: {
+                              ...editSettings.levels?.[level.id as keyof typeof editSettings.levels],
+                              revenue_share: Number(text) || 0
+                            }
+                          }
+                        })}
+                      />
+                    </View>
+                    <View style={styles.levelEditInputContainer}>
+                      <Text style={styles.levelEditInputLabel}>Turnover (%)</Text>
+                      <TextInput
+                        style={styles.levelEditInput}
+                        placeholder="1"
+                        placeholderTextColor={COLORS.textMuted}
+                        keyboardType="numeric"
+                        value={String(editSettings.levels?.[level.id as keyof typeof editSettings.levels]?.turnover_commission || 1)}
+                        onChangeText={(text) => setEditSettings({
+                          ...editSettings,
+                          levels: {
+                            ...editSettings.levels,
+                            [level.id]: {
+                              ...editSettings.levels?.[level.id as keyof typeof editSettings.levels],
+                              turnover_commission: Number(text) || 0
+                            }
+                          }
+                        })}
+                      />
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
             
             <View style={styles.modalFooter}>
               <TouchableOpacity 
@@ -8160,5 +8245,167 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: COLORS.textMuted,
     marginTop: 2,
+  },
+  
+  // Level-based Commission Styles
+  levelCommissionTable: {
+    marginTop: 8,
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  levelCommissionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  levelCommissionHeader: {
+    backgroundColor: COLORS.bgSecondary,
+  },
+  levelCommissionCell: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  levelCommissionHeaderText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+    textTransform: 'uppercase',
+  },
+  levelBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  levelBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  levelCommissionValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  levelCommissionMinRefs: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: COLORS.textMuted,
+  },
+  levelInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    padding: 10,
+    backgroundColor: COLORS.infoLight,
+    borderRadius: 8,
+    gap: 8,
+  },
+  levelInfoText: {
+    fontSize: 12,
+    color: COLORS.info,
+    flex: 1,
+  },
+  
+  // Level Edit Modal Styles
+  levelEditSection: {
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  levelEditHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  levelBadgeLarge: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 2,
+  },
+  levelBadgeLargeText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  levelMinRefsText: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+  },
+  levelEditInputRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  levelEditInputContainer: {
+    flex: 1,
+  },
+  levelEditInputLabel: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  levelEditInput: {
+    backgroundColor: COLORS.bgSecondary,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  
+  // Level Selector Styles (Create Affiliate Modal)
+  levelSelectorContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 12,
+  },
+  levelSelectorOption: {
+    width: '48%',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surfaceLight,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  levelSelectorBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    marginBottom: 6,
+  },
+  levelSelectorBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  levelSelectorRates: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+  },
+  selectedLevelInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    backgroundColor: COLORS.infoLight,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 8,
+  },
+  selectedLevelInfoText: {
+    fontSize: 11,
+    color: COLORS.info,
+    flex: 1,
   },
 });

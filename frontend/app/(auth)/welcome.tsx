@@ -205,7 +205,7 @@ export default function Welcome() {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [verifyingOTP, setVerifyingOTP] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
-  const otpInputRefs = useRef<Array<any>>([]);
+  const otpInputRefs = useRef<any[]>([]);
 
   // OTP Cooldown timer
   useEffect(() => {
