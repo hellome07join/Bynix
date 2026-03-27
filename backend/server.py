@@ -7506,8 +7506,19 @@ async def admin_get_affiliate_stats(authorization: Optional[str] = Header(None),
     user = await get_current_user(authorization, request)
     
     total_affiliates = await db.affiliates.count_documents({})
-    active_affiliates = await db.affiliates.count_documents({"status": "active"})
-    pending_affiliates = await db.affiliates.count_documents({"status": "pending"})
+    # Check both is_active and status fields for backwards compatibility
+    active_affiliates = await db.affiliates.count_documents({
+        "$or": [
+            {"is_active": True},
+            {"status": "active"}
+        ]
+    })
+    pending_affiliates = await db.affiliates.count_documents({
+        "$or": [
+            {"is_active": False},
+            {"status": "pending"}
+        ]
+    })
     
     total_referrals = await db.affiliate_referrals.count_documents({})
     

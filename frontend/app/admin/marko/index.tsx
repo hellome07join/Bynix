@@ -20,6 +20,7 @@ import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../../stores/authStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BYNIX_LOGO = null; // Using text logo instead
@@ -415,7 +416,7 @@ export default function AdminDashboard() {
   // Affiliate Data Fetcher
   const fetchAffiliateData = useCallback(async () => {
     try {
-      const adminToken = await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
+      const adminToken = await AsyncStorage.getItem('token') || await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
       
       // Fetch stats
       const statsRes = await fetch(`${API_URL}/admin/affiliates/stats`, {
@@ -500,7 +501,7 @@ export default function AdminDashboard() {
   const fetchAffiliateProfile = async (affiliateId: string) => {
     setAffiliateLoading(true);
     try {
-      const adminToken = await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
+      const adminToken = await AsyncStorage.getItem('token') || await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
       const res = await fetch(`${API_URL}/admin/affiliates/${affiliateId}/profile`, {
         headers: { 'Authorization': `Bearer ${adminToken}` }
       });
@@ -521,7 +522,7 @@ export default function AdminDashboard() {
     if (!selectedAffiliate) return;
     setAffiliateLoading(true);
     try {
-      const adminToken = await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
+      const adminToken = await AsyncStorage.getItem('token') || await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
       const res = await fetch(`${API_URL}/admin/affiliates/${selectedAffiliate.affiliate_id}/commission-adjustment`, {
         method: 'POST',
         headers: {
@@ -546,7 +547,7 @@ export default function AdminDashboard() {
   // Process payout
   const handleProcessPayout = async (payoutId: string, action: string) => {
     try {
-      const adminToken = await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
+      const adminToken = await AsyncStorage.getItem('token') || await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
       const res = await fetch(`${API_URL}/admin/affiliates/payouts/process`, {
         method: 'POST',
         headers: {
@@ -567,7 +568,7 @@ export default function AdminDashboard() {
   // Resolve fraud alert
   const handleResolveFraudAlert = async (alertId: string, action: string) => {
     try {
-      const adminToken = await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
+      const adminToken = await AsyncStorage.getItem('token') || await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
       const res = await fetch(`${API_URL}/admin/affiliates/fraud-alerts/${alertId}/resolve`, {
         method: 'POST',
         headers: {
@@ -4309,7 +4310,7 @@ export default function AdminDashboard() {
     
     setAffiliateLoading(true);
     try {
-      const token = await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
+      const token = await AsyncStorage.getItem('token') || await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
       const res = await fetch(`${API_URL}/admin/affiliates/create`, {
         method: 'POST',
         headers: {
@@ -4347,7 +4348,7 @@ export default function AdminDashboard() {
   const handleUpdateSettings = async () => {
     setAffiliateLoading(true);
     try {
-      const token = await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
+      const token = await AsyncStorage.getItem('token') || await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
       const res = await fetch(`${API_URL}/admin/affiliates/settings`, {
         method: 'PUT',
         headers: {
@@ -4382,7 +4383,7 @@ export default function AdminDashboard() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const token = await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
+              const token = await AsyncStorage.getItem('token') || await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
               const res = await fetch(`${API_URL}/admin/affiliates/${affiliateId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -4406,7 +4407,7 @@ export default function AdminDashboard() {
     
     setAffiliateLoading(true);
     try {
-      const token = await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
+      const token = await AsyncStorage.getItem('token') || await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
       const res = await fetch(`${API_URL}/admin/affiliates/${selectedAffiliate.affiliate_id}`, {
         method: 'PUT',
         headers: {
