@@ -378,6 +378,44 @@ export default function AdminDashboard() {
     }
   }, [token, fetchDashboardData]);
 
+  // Affiliate Data Fetcher
+  const fetchAffiliateData = useCallback(async () => {
+    try {
+      const adminToken = await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
+      
+      // Fetch stats
+      const statsRes = await fetch(`${API_URL}/admin/affiliates/stats`, {
+        headers: { 'Authorization': `Bearer ${adminToken}` }
+      });
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        setAffiliateStats(statsData);
+        setEditSettings(statsData.commission_settings || {
+          revenue_share: 50,
+          turnover_commission: 2,
+          cpa_amount: 50
+        });
+      }
+      
+      // Fetch affiliates list
+      const affRes = await fetch(`${API_URL}/admin/affiliates`, {
+        headers: { 'Authorization': `Bearer ${adminToken}` }
+      });
+      if (affRes.ok) {
+        const affData = await affRes.json();
+        setAffiliates(affData.affiliates || []);
+      }
+    } catch (error) {
+      console.error('Error fetching affiliate data:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeMenu === 'affiliates') {
+      fetchAffiliateData();
+    }
+  }, [activeMenu, fetchAffiliateData]);
+
   const onRefresh = () => {
     setRefreshing(true);
     fetchDashboardData();
@@ -4093,44 +4131,7 @@ export default function AdminDashboard() {
     </ScrollView>
   );
 
-  // Affiliates Content - Functions
-  const fetchAffiliateData = useCallback(async () => {
-    try {
-      const token = await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
-      
-      // Fetch stats
-      const statsRes = await fetch(`${API_URL}/admin/affiliates/stats`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (statsRes.ok) {
-        const statsData = await statsRes.json();
-        setAffiliateStats(statsData);
-        setEditSettings(statsData.commission_settings || {
-          revenue_share: 50,
-          turnover_commission: 2,
-          cpa_amount: 50
-        });
-      }
-      
-      // Fetch affiliates list
-      const affRes = await fetch(`${API_URL}/admin/affiliates`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (affRes.ok) {
-        const affData = await affRes.json();
-        setAffiliates(affData.affiliates || []);
-      }
-    } catch (error) {
-      console.error('Error fetching affiliate data:', error);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === 'affiliates') {
-      fetchAffiliateData();
-    }
-  }, [activeTab, fetchAffiliateData]);
-
+  // Affiliates Content - Handler Functions
   const handleCreateAffiliate = async () => {
     if (!newAffiliate.name || !newAffiliate.email) {
       Alert.alert('Error', 'Name and email are required');
