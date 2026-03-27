@@ -4544,7 +4544,7 @@ export default function AdminDashboard() {
           {[
             { id: 'list', label: 'All Affiliates', icon: 'people' },
             { id: 'leaderboard', label: 'Leaderboard', icon: 'trophy' },
-            { id: 'payouts', label: 'Payouts', icon: 'wallet' },
+            { id: 'withdrawals', label: 'Withdrawals', icon: 'wallet' },
             { id: 'fraud', label: 'Fraud Control', icon: 'shield-checkmark' },
             { id: 'chat', label: 'Support Chat', icon: 'chatbubbles' },
           ].map(tab => (
@@ -4710,18 +4710,18 @@ export default function AdminDashboard() {
       )}
 
       {/* Payouts Tab */}
-      {affiliateSubTab === 'payouts' && (
+      {affiliateSubTab === 'withdrawals' && (
         <>
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Payout Settings</Text>
+              <Text style={styles.sectionTitle}>Withdrawal Settings</Text>
             </View>
             <View style={styles.commissionRow}>
               <Text style={styles.commissionLabel}>Hold Period</Text>
               <Text style={styles.commissionValueText}>{payoutSettings.hold_period_days} days</Text>
             </View>
             <View style={styles.commissionRow}>
-              <Text style={styles.commissionLabel}>Min Payout</Text>
+              <Text style={styles.commissionLabel}>Min Withdrawal</Text>
               <Text style={styles.commissionValueText}>${payoutSettings.min_payout}</Text>
             </View>
             <View style={styles.commissionRow}>
@@ -4731,14 +4731,19 @@ export default function AdminDashboard() {
           </View>
 
           <View style={[styles.sectionCard, { marginBottom: 20 }]}>
-            <Text style={styles.sectionTitle}>Pending Payouts ({affiliatePayouts.filter((p: any) => p.status === 'pending').length})</Text>
+            <Text style={styles.sectionTitle}>💸 Pending Withdrawals ({affiliatePayouts.filter((p: any) => p.status === 'pending').length})</Text>
             {affiliatePayouts.length > 0 ? (
               affiliatePayouts.map((payout: any) => (
                 <View key={payout._id} style={styles.payoutItem}>
                   <View style={styles.payoutInfo}>
-                    <Text style={styles.payoutName}>{payout.affiliate_name}</Text>
+                    <Text style={styles.payoutName}>{payout.affiliate_name || 'Unknown'}</Text>
+                    <Text style={styles.payoutEmail}>{payout.affiliate_email}</Text>
+                    <Text style={styles.payoutCode}>ID: {payout.affiliate_ref_code}</Text>
                     <Text style={styles.payoutAmount}>${(payout.amount || 0).toLocaleString()}</Text>
-                    <Text style={styles.payoutStatus}>{payout.status}</Text>
+                    <Text style={styles.payoutMethod}>{payout.payment_method} - {payout.wallet_address?.substring(0, 20)}...</Text>
+                    <View style={[styles.payoutStatusBadge, { backgroundColor: payout.status === 'pending' ? COLORS.warningLight : payout.status === 'approved' ? COLORS.successLight : COLORS.dangerLight }]}>
+                      <Text style={[styles.payoutStatusText, { color: payout.status === 'pending' ? COLORS.warning : payout.status === 'approved' ? COLORS.success : COLORS.danger }]}>{payout.status}</Text>
+                    </View>
                   </View>
                   {payout.status === 'pending' && (
                     <View style={styles.payoutActions}>
@@ -4759,7 +4764,10 @@ export default function AdminDashboard() {
                 </View>
               ))
             ) : (
-              <Text style={styles.emptyStateText}>No payout requests</Text>
+              <View style={styles.emptyState}>
+                <Ionicons name="wallet-outline" size={48} color={COLORS.textMuted} />
+                <Text style={styles.emptyStateText}>No withdrawal requests</Text>
+              </View>
             )}
           </View>
         </>
