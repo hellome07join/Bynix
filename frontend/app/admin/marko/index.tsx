@@ -199,13 +199,15 @@ export default function AdminDashboard() {
   });
   const [promoLoading, setPromoLoading] = useState(false);
 
-  // Affiliate Levels Configuration
+  // Affiliate Levels Configuration - Matching Affiliate Dashboard
   const AFFILIATE_LEVELS = [
-    { id: 'bronze', name: 'Bronze', color: '#CD7F32', minReferrals: 0 },
-    { id: 'silver', name: 'Silver', color: '#C0C0C0', minReferrals: 10 },
-    { id: 'gold', name: 'Gold', color: '#FFD700', minReferrals: 50 },
-    { id: 'platinum', name: 'Platinum', color: '#E5E4E2', minReferrals: 100 },
-    { id: 'diamond', name: 'Diamond', color: '#B9F2FF', minReferrals: 500 },
+    { id: 'starter', name: 'Starter', icon: 'star-outline', color: '#6B7280', minFTDs: 0 },
+    { id: 'advanced', name: 'Advanced', icon: 'star', color: '#3B82F6', minFTDs: 15 },
+    { id: 'professional', name: 'Professional', icon: 'star', color: '#8B5CF6', minFTDs: 50 },
+    { id: 'expert', name: 'Expert', icon: 'diamond', color: '#EC4899', minFTDs: 100 },
+    { id: 'master', name: 'Master', icon: 'trophy', color: '#F59E0B', minFTDs: 200 },
+    { id: 'guru', name: 'Guru', icon: 'trophy', color: '#EF4444', minFTDs: 400 },
+    { id: 'legend', name: 'Legend', icon: 'trophy', color: '#FCD34D', minFTDs: 700 },
   ];
 
   // Affiliate States
@@ -216,11 +218,13 @@ export default function AdminDashboard() {
     pending_payouts: 0,
     commission_settings: {
       levels: {
-        bronze: { revenue_share: 30, turnover_commission: 1 },
-        silver: { revenue_share: 40, turnover_commission: 1.5 },
-        gold: { revenue_share: 50, turnover_commission: 2 },
-        platinum: { revenue_share: 60, turnover_commission: 2.5 },
-        diamond: { revenue_share: 70, turnover_commission: 3 },
+        starter: { revenue_share: 50, turnover_commission: 2 },
+        advanced: { revenue_share: 55, turnover_commission: 2.5 },
+        professional: { revenue_share: 60, turnover_commission: 3 },
+        expert: { revenue_share: 65, turnover_commission: 3.5 },
+        master: { revenue_share: 70, turnover_commission: 4 },
+        guru: { revenue_share: 75, turnover_commission: 4.5 },
+        legend: { revenue_share: 85, turnover_commission: 5.5 },
       }
     }
   });
@@ -234,17 +238,19 @@ export default function AdminDashboard() {
     email: '',
     phone: '',
     company: '',
-    level: 'bronze',
-    commission_rate: 30,
-    turnover_rate: 1
+    level: 'starter',
+    commission_rate: 50,
+    turnover_rate: 2
   });
   const [editSettings, setEditSettings] = useState({
     levels: {
-      bronze: { revenue_share: 30, turnover_commission: 1 },
-      silver: { revenue_share: 40, turnover_commission: 1.5 },
-      gold: { revenue_share: 50, turnover_commission: 2 },
-      platinum: { revenue_share: 60, turnover_commission: 2.5 },
-      diamond: { revenue_share: 70, turnover_commission: 3 },
+      starter: { revenue_share: 50, turnover_commission: 2 },
+      advanced: { revenue_share: 55, turnover_commission: 2.5 },
+      professional: { revenue_share: 60, turnover_commission: 3 },
+      expert: { revenue_share: 65, turnover_commission: 3.5 },
+      master: { revenue_share: 70, turnover_commission: 4 },
+      guru: { revenue_share: 75, turnover_commission: 4.5 },
+      legend: { revenue_share: 85, turnover_commission: 5.5 },
     }
   });
   const [affiliateLoading, setAffiliateLoading] = useState(false);
@@ -420,11 +426,13 @@ export default function AdminDashboard() {
         setAffiliateStats(statsData);
         setEditSettings(statsData.commission_settings || {
           levels: {
-            bronze: { revenue_share: 30, turnover_commission: 1 },
-            silver: { revenue_share: 40, turnover_commission: 1.5 },
-            gold: { revenue_share: 50, turnover_commission: 2 },
-            platinum: { revenue_share: 60, turnover_commission: 2.5 },
-            diamond: { revenue_share: 70, turnover_commission: 3 },
+            starter: { revenue_share: 50, turnover_commission: 2 },
+            advanced: { revenue_share: 55, turnover_commission: 2.5 },
+            professional: { revenue_share: 60, turnover_commission: 3 },
+            expert: { revenue_share: 65, turnover_commission: 3.5 },
+            master: { revenue_share: 70, turnover_commission: 4 },
+            guru: { revenue_share: 75, turnover_commission: 4.5 },
+            legend: { revenue_share: 85, turnover_commission: 5.5 },
           }
         });
       }
@@ -4499,7 +4507,7 @@ export default function AdminDashboard() {
           {/* Commission Settings - Level Based */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Commission Settings by Level</Text>
+              <Text style={styles.sectionTitle}>Affiliate Levels</Text>
               <TouchableOpacity 
                 style={styles.editSettingsBtn}
                 onPress={() => setShowEditSettingsModal(true)}
@@ -4508,44 +4516,54 @@ export default function AdminDashboard() {
               </TouchableOpacity>
             </View>
             
-            {/* Level-wise Commission Table */}
-            <View style={styles.levelCommissionTable}>
-              {/* Header Row */}
-              <View style={[styles.levelCommissionRow, styles.levelCommissionHeader]}>
-                <View style={[styles.levelCommissionCell, { flex: 1.5 }]}>
-                  <Text style={styles.levelCommissionHeaderText}>Level</Text>
-                </View>
-                <View style={styles.levelCommissionCell}>
-                  <Text style={styles.levelCommissionHeaderText}>Rev Share</Text>
-                </View>
-                <View style={styles.levelCommissionCell}>
-                  <Text style={styles.levelCommissionHeaderText}>Turnover</Text>
-                </View>
-                <View style={styles.levelCommissionCell}>
-                  <Text style={styles.levelCommissionHeaderText}>Min Refs</Text>
-                </View>
-              </View>
-              
-              {/* Level Rows */}
-              {AFFILIATE_LEVELS.map((level) => {
+            {/* Level-wise Commission List - Matching Affiliate Dashboard Design */}
+            <View style={styles.levelListContainer}>
+              {AFFILIATE_LEVELS.map((level, index) => {
                 const levelSettings = affiliateStats.commission_settings?.levels?.[level.id] || 
                   editSettings.levels?.[level.id as keyof typeof editSettings.levels] || 
-                  { revenue_share: 30, turnover_commission: 1 };
+                  { revenue_share: 50, turnover_commission: 2 };
+                const isFirst = index === 0;
+                
+                // Get icon based on level
+                const getIcon = () => {
+                  switch(level.icon) {
+                    case 'star-outline': return 'star-outline';
+                    case 'star': return 'star';
+                    case 'diamond': return 'diamond';
+                    case 'trophy': return 'trophy';
+                    default: return 'star';
+                  }
+                };
+                
                 return (
-                  <View key={level.id} style={styles.levelCommissionRow}>
-                    <View style={[styles.levelCommissionCell, { flex: 1.5, flexDirection: 'row', alignItems: 'center' }]}>
-                      <View style={[styles.levelBadge, { backgroundColor: level.color + '30', borderColor: level.color }]}>
-                        <Text style={[styles.levelBadgeText, { color: level.color === '#E5E4E2' ? '#666' : level.color }]}>{level.name}</Text>
+                  <View 
+                    key={level.id} 
+                    style={[
+                      styles.levelListItem,
+                      isFirst && styles.levelListItemCurrent
+                    ]}
+                  >
+                    <View style={styles.levelListLeft}>
+                      <View style={[styles.levelIconCircle, { backgroundColor: level.color + '20' }]}>
+                        <Ionicons name={getIcon() as any} size={20} color={level.color} />
+                      </View>
+                      <View style={styles.levelListInfo}>
+                        <Text style={[styles.levelListName, { color: isFirst ? COLORS.success : COLORS.text }]}>
+                          {level.name}
+                        </Text>
+                        <Text style={styles.levelListFTDs}>{level.minFTDs}+ FTDs</Text>
                       </View>
                     </View>
-                    <View style={styles.levelCommissionCell}>
-                      <Text style={styles.levelCommissionValue}>{levelSettings.revenue_share}%</Text>
-                    </View>
-                    <View style={styles.levelCommissionCell}>
-                      <Text style={styles.levelCommissionValue}>{levelSettings.turnover_commission}%</Text>
-                    </View>
-                    <View style={styles.levelCommissionCell}>
-                      <Text style={styles.levelCommissionMinRefs}>{level.minReferrals}+</Text>
+                    <View style={styles.levelListRight}>
+                      {isFirst && (
+                        <Text style={styles.levelCurrentLabel}>CURRENT</Text>
+                      )}
+                      <Text style={[styles.levelListRevShare, { color: level.color }]}>
+                        {levelSettings.revenue_share}%
+                      </Text>
+                      <Text style={styles.levelListTurnover}>
+                        {levelSettings.turnover_commission}% TO
+                      </Text>
                     </View>
                   </View>
                 );
@@ -4556,7 +4574,7 @@ export default function AdminDashboard() {
             <View style={styles.levelInfoBox}>
               <Ionicons name="information-circle" size={16} color={COLORS.info} />
               <Text style={styles.levelInfoText}>
-                Affiliates automatically upgrade to higher levels based on total referrals
+                Affiliates automatically upgrade to higher levels based on total FTDs (First Time Deposits)
               </Text>
             </View>
           </View>
@@ -4838,6 +4856,18 @@ export default function AdminDashboard() {
                 {AFFILIATE_LEVELS.map((level) => {
                   const isSelected = newAffiliate.level === level.id;
                   const levelSettings = editSettings.levels?.[level.id as keyof typeof editSettings.levels];
+                  
+                  // Get icon for level
+                  const getIcon = () => {
+                    switch(level.icon) {
+                      case 'star-outline': return 'star-outline';
+                      case 'star': return 'star';
+                      case 'diamond': return 'diamond';
+                      case 'trophy': return 'trophy';
+                      default: return 'star';
+                    }
+                  };
+                  
                   return (
                     <TouchableOpacity
                       key={level.id}
@@ -4848,17 +4878,21 @@ export default function AdminDashboard() {
                       onPress={() => setNewAffiliate({
                         ...newAffiliate, 
                         level: level.id,
-                        commission_rate: levelSettings?.revenue_share || 30,
-                        turnover_rate: levelSettings?.turnover_commission || 1
+                        commission_rate: levelSettings?.revenue_share || 50,
+                        turnover_rate: levelSettings?.turnover_commission || 2
                       })}
                     >
-                      <View style={[styles.levelSelectorBadge, { backgroundColor: level.color + '30', borderColor: level.color }]}>
-                        <Text style={[styles.levelSelectorBadgeText, { color: level.color === '#E5E4E2' ? '#666' : level.color }]}>
-                          {level.name}
-                        </Text>
+                      <View style={[styles.levelIconSmall, { backgroundColor: level.color + '20' }]}>
+                        <Ionicons name={getIcon() as any} size={16} color={level.color} />
                       </View>
+                      <Text style={[styles.levelSelectorName, { color: level.color }]}>
+                        {level.name}
+                      </Text>
+                      <Text style={styles.levelSelectorFTDs}>
+                        {level.minFTDs}+ FTDs
+                      </Text>
                       <Text style={styles.levelSelectorRates}>
-                        {levelSettings?.revenue_share || 30}% / {levelSettings?.turnover_commission || 1}%
+                        {levelSettings?.revenue_share || 50}% / {levelSettings?.turnover_commission || 2}% TO
                       </Text>
                       {isSelected && (
                         <Ionicons name="checkmark-circle" size={18} color={COLORS.success} style={{ position: 'absolute', top: 4, right: 4 }} />
@@ -4871,7 +4905,7 @@ export default function AdminDashboard() {
               <View style={styles.selectedLevelInfo}>
                 <Ionicons name="information-circle" size={16} color={COLORS.info} />
                 <Text style={styles.selectedLevelInfoText}>
-                  Selected: {AFFILIATE_LEVELS.find(l => l.id === newAffiliate.level)?.name || 'Bronze'} - 
+                  Selected: {AFFILIATE_LEVELS.find(l => l.id === newAffiliate.level)?.name || 'Starter'} - 
                   Revenue Share: {newAffiliate.commission_rate}%, Turnover: {newAffiliate.turnover_rate}%
                 </Text>
               </View>
@@ -4920,7 +4954,7 @@ export default function AdminDashboard() {
                         {level.name}
                       </Text>
                     </View>
-                    <Text style={styles.levelMinRefsText}>Min {level.minReferrals}+ referrals</Text>
+                    <Text style={styles.levelMinRefsText}>{level.minFTDs}+ FTDs</Text>
                   </View>
                   
                   <View style={styles.levelEditInputRow}>
@@ -8407,5 +8441,90 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: COLORS.info,
     flex: 1,
+  },
+  
+  // New Level List Styles - Matching Affiliate Dashboard
+  levelListContainer: {
+    marginTop: 8,
+  },
+  levelListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  levelListItemCurrent: {
+    backgroundColor: COLORS.successLight,
+    borderRadius: 12,
+    marginBottom: 4,
+    borderBottomWidth: 0,
+  },
+  levelListLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  levelIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  levelListInfo: {
+    flex: 1,
+  },
+  levelListName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 2,
+  },
+  levelListFTDs: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+  },
+  levelListRight: {
+    alignItems: 'flex-end',
+  },
+  levelCurrentLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.success,
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  levelListRevShare: {
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  levelListTurnover: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  
+  // Level Icon Small (Create Modal)
+  levelIconSmall: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  levelSelectorName: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  levelSelectorFTDs: {
+    fontSize: 10,
+    color: COLORS.textMuted,
+    marginBottom: 4,
   },
 });
