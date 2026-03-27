@@ -7398,37 +7398,6 @@ async def admin_set_affiliate_commission(
     
     return {"success": True}
 
-@api_router.get("/admin/affiliates/payouts")
-async def admin_get_affiliate_payouts(
-    status: str = None,
-    authorization: Optional[str] = Header(None),
-    request: Request = None
-):
-    """Get affiliate payout requests"""
-    user = await get_current_user(authorization, request)
-    
-    query = {}
-    if status:
-        query["status"] = status
-    
-    payouts = await db.affiliate_payouts.find(query).sort("created_at", -1).to_list(200)
-    
-    result = []
-    for p in payouts:
-        affiliate = await db.affiliates.find_one({"affiliate_id": p.get("affiliate_id")})
-        result.append({
-            "payout_id": p.get("payout_id"),
-            "affiliate_id": p.get("affiliate_id"),
-            "affiliate_email": affiliate.get("email") if affiliate else "Unknown",
-            "amount": p.get("amount"),
-            "payment_method": p.get("payment_method"),
-            "wallet_address": p.get("wallet_address"),
-            "status": p.get("status"),
-            "created_at": str(p.get("created_at", ""))
-        })
-    
-    return {"payouts": result}
-
 @api_router.post("/admin/affiliates/payouts/{payout_id}/approve")
 async def admin_approve_payout(
     payout_id: str,
@@ -7530,13 +7499,16 @@ async def admin_get_affiliate_stats(authorization: Optional[str] = Header(None),
     paid_result = await db.affiliate_commissions.aggregate(pipeline).to_list(1)
     total_paid = paid_result[0]["total"] if paid_result else 0
     
-    # Pending payouts amount
+    # Pending payouts amount - from affiliate_withdrawals collection
     pending_pipeline = [
         {"$match": {"status": "pending"}},
         {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
     ]
-    pending_result = await db.affiliate_payouts.aggregate(pending_pipeline).to_list(1)
+    pending_result = await db.affiliate_withdrawals.aggregate(pending_pipeline).to_list(1)
     pending_payouts_amount = pending_result[0]["total"] if pending_result else 0
+    
+    # Count pending requests
+    pending_count = await db.affiliate_withdrawals.count_documents({"status": "pending"})
     
     # Get commission settings
     settings = await db.affiliate_settings.find_one({"type": "commission"})
@@ -7554,6 +7526,7 @@ async def admin_get_affiliate_stats(authorization: Optional[str] = Header(None),
         "total_referrals": total_referrals,
         "total_paid": total_paid,
         "pending_payouts": pending_payouts_amount,
+        "pending_payout_count": pending_count,
         "commission_settings": {
             "revenue_share": settings.get("revenue_share", 50),
             "turnover_commission": settings.get("turnover_commission", 2),
@@ -8036,8 +8009,8 @@ async def admin_adjust_affiliate_commission(
         "amount": amount,
         "reason": reason,
         "client_id": client_id,
-        "previous_balance": current_pending,
-        "new_balance": new_pending,
+        "previous_balance": current_balance,
+        "new_balance": new_balance,
         "adjusted_by": user.user_id,
         "created_at": datetime.now(timezone.utc)
     }
@@ -8100,7 +8073,8 @@ async def admin_get_affiliate_payouts(
     if affiliate_id:
         query["affiliate_id"] = affiliate_id
     
-    payouts = await db.affiliate_payouts.find(query).sort("created_at", -1).limit(limit).to_list(length=limit)
+    # Fetch from affiliate_withdrawals collection (where actual withdrawal requests are stored)
+    payouts = await db.affiliate_withdrawals.find(query).sort("created_at", -1).limit(limit).to_list(length=limit)
     
     result = []
     for payout in payouts:
@@ -8110,7 +8084,7 @@ async def admin_get_affiliate_payouts(
         if affiliate:
             payout["affiliate_name"] = affiliate.get("name", "")
             payout["affiliate_email"] = affiliate.get("email", "")
-        result.append(payout)
+            payout["affiliate_ref_code"] = affiliate.get("ref_code", "")
     
     # Get payout settings
     settings = await db.affiliate_settings.find_one({"type": "payout"})
@@ -8139,13 +8113,18 @@ async def admin_process_affiliate_payout(
     action = data.get("action")  # approve, reject, hold
     notes = data.get("notes", "")
     
-    payout = await db.affiliate_payouts.find_one({"_id": ObjectId(payout_id)})
+    # Try to find in affiliate_withdrawals first (where actual requests are)
+    payout = await db.affiliate_withdrawals.find_one({"_id": ObjectId(payout_id)})
+    if not payout:
+        # Fallback to affiliate_payouts for backward compatibility
+        payout = await db.affiliate_payouts.find_one({"_id": ObjectId(payout_id)})
     if not payout:
         raise HTTPException(status_code=404, detail="Payout not found")
     
     new_status = "approved" if action == "approve" else "rejected" if action == "reject" else "on_hold"
+    collection_name = "affiliate_withdrawals" if await db.affiliate_withdrawals.find_one({"_id": ObjectId(payout_id)}) else "affiliate_payouts"
     
-    await db.affiliate_payouts.update_one(
+    await db[collection_name].update_one(
         {"_id": ObjectId(payout_id)},
         {
             "$set": {
@@ -8157,13 +8136,14 @@ async def admin_process_affiliate_payout(
         }
     )
     
-    # If approved, update affiliate paid earnings
+    # If approved, update affiliate balance
     if action == "approve":
         await db.affiliates.update_one(
             {"affiliate_id": payout.get("affiliate_id")},
             {
                 "$inc": {
                     "paid_earnings": payout.get("amount", 0),
+                    "balance": -payout.get("amount", 0),
                     "pending_earnings": -payout.get("amount", 0)
                 }
             }
