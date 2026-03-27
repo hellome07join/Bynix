@@ -5,7 +5,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://api.bynix.io/api/:path*"
+      "destination": "https://bynix-markets.preview.emergentagent.com/api/:path*"
     },
     {
       "source": "/(.*)",
