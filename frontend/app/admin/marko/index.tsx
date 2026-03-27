@@ -231,6 +231,17 @@ export default function AdminDashboard() {
     cpa_amount: 50
   });
   const [affiliateLoading, setAffiliateLoading] = useState(false);
+  const [affiliateSubTab, setAffiliateSubTab] = useState('list'); // list, leaderboard, payouts, fraud, chat
+  const [affiliateSearch, setAffiliateSearch] = useState('');
+  const [topAffiliates, setTopAffiliates] = useState<any>({ top_by_earnings: [], top_by_referrals: [], top_by_ftds: [] });
+  const [affiliatePayouts, setAffiliatePayouts] = useState<any[]>([]);
+  const [fraudAlerts, setFraudAlerts] = useState<any[]>([]);
+  const [supportChats, setSupportChats] = useState<any[]>([]);
+  const [showAffiliateProfileModal, setShowAffiliateProfileModal] = useState(false);
+  const [affiliateProfile, setAffiliateProfile] = useState<any>(null);
+  const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+  const [adjustmentData, setAdjustmentData] = useState({ type: 'add', amount: 0, reason: '' });
+  const [payoutSettings, setPayoutSettings] = useState({ hold_period_days: 7, min_payout: 50, negative_balance_carryover: true });
 
   // Auth check
   useEffect(() => {
@@ -397,24 +408,153 @@ export default function AdminDashboard() {
         });
       }
       
-      // Fetch affiliates list
-      const affRes = await fetch(`${API_URL}/admin/affiliates`, {
+      // Fetch affiliates list with search
+      const searchParam = affiliateSearch ? `&search=${encodeURIComponent(affiliateSearch)}` : '';
+      const affRes = await fetch(`${API_URL}/admin/affiliates/list?limit=50${searchParam}`, {
         headers: { 'Authorization': `Bearer ${adminToken}` }
       });
       if (affRes.ok) {
         const affData = await affRes.json();
         setAffiliates(affData.affiliates || []);
       }
+      
+      // Fetch top affiliates
+      const topRes = await fetch(`${API_URL}/admin/affiliates/top?limit=10`, {
+        headers: { 'Authorization': `Bearer ${adminToken}` }
+      });
+      if (topRes.ok) {
+        const topData = await topRes.json();
+        setTopAffiliates(topData);
+      }
+      
+      // Fetch payouts
+      const payoutsRes = await fetch(`${API_URL}/admin/affiliates/payouts`, {
+        headers: { 'Authorization': `Bearer ${adminToken}` }
+      });
+      if (payoutsRes.ok) {
+        const payoutsData = await payoutsRes.json();
+        setAffiliatePayouts(payoutsData.payouts || []);
+        if (payoutsData.settings) {
+          setPayoutSettings(payoutsData.settings);
+        }
+      }
+      
+      // Fetch fraud alerts
+      const fraudRes = await fetch(`${API_URL}/admin/affiliates/fraud-alerts?limit=50`, {
+        headers: { 'Authorization': `Bearer ${adminToken}` }
+      });
+      if (fraudRes.ok) {
+        const fraudData = await fraudRes.json();
+        setFraudAlerts(fraudData.alerts || []);
+      }
+      
+      // Fetch support chats
+      const chatsRes = await fetch(`${API_URL}/admin/affiliates/support-chats`, {
+        headers: { 'Authorization': `Bearer ${adminToken}` }
+      });
+      if (chatsRes.ok) {
+        const chatsData = await chatsRes.json();
+        setSupportChats(chatsData.chats || []);
+      }
     } catch (error) {
       console.error('Error fetching affiliate data:', error);
     }
-  }, []);
+  }, [affiliateSearch]);
 
   useEffect(() => {
     if (activeMenu === 'affiliates') {
       fetchAffiliateData();
     }
   }, [activeMenu, fetchAffiliateData]);
+
+  // Fetch affiliate profile
+  const fetchAffiliateProfile = async (affiliateId: string) => {
+    setAffiliateLoading(true);
+    try {
+      const adminToken = await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
+      const res = await fetch(`${API_URL}/admin/affiliates/${affiliateId}/profile`, {
+        headers: { 'Authorization': `Bearer ${adminToken}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAffiliateProfile(data);
+        setShowAffiliateProfileModal(true);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to fetch affiliate profile');
+    } finally {
+      setAffiliateLoading(false);
+    }
+  };
+
+  // Handle commission adjustment
+  const handleCommissionAdjustment = async () => {
+    if (!selectedAffiliate) return;
+    setAffiliateLoading(true);
+    try {
+      const adminToken = await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
+      const res = await fetch(`${API_URL}/admin/affiliates/${selectedAffiliate.affiliate_id}/commission-adjustment`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${adminToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(adjustmentData)
+      });
+      if (res.ok) {
+        Alert.alert('Success', 'Commission adjusted successfully');
+        setShowAdjustmentModal(false);
+        setAdjustmentData({ type: 'add', amount: 0, reason: '' });
+        fetchAffiliateData();
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to adjust commission');
+    } finally {
+      setAffiliateLoading(false);
+    }
+  };
+
+  // Process payout
+  const handleProcessPayout = async (payoutId: string, action: string) => {
+    try {
+      const adminToken = await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
+      const res = await fetch(`${API_URL}/admin/affiliates/payouts/process`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${adminToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ payout_id: payoutId, action })
+      });
+      if (res.ok) {
+        Alert.alert('Success', `Payout ${action}ed`);
+        fetchAffiliateData();
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to process payout');
+    }
+  };
+
+  // Resolve fraud alert
+  const handleResolveFraudAlert = async (alertId: string, action: string) => {
+    try {
+      const adminToken = await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
+      const res = await fetch(`${API_URL}/admin/affiliates/fraud-alerts/${alertId}/resolve`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${adminToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ action, notes: '' })
+      });
+      if (res.ok) {
+        Alert.alert('Success', 'Alert resolved');
+        fetchAffiliateData();
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to resolve alert');
+    }
+  };
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -4286,60 +4426,109 @@ export default function AdminDashboard() {
         </View>
       </View>
 
-      {/* Commission Settings */}
-      <View style={styles.sectionCard}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Commission Settings</Text>
-          <TouchableOpacity 
-            style={styles.editSettingsBtn}
-            onPress={() => setShowEditSettingsModal(true)}
+      {/* Sub Tabs */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.affiliateSubTabs}>
+        {[
+          { id: 'list', label: 'All Affiliates', icon: 'people' },
+          { id: 'leaderboard', label: 'Leaderboard', icon: 'trophy' },
+          { id: 'payouts', label: 'Payouts', icon: 'wallet' },
+          { id: 'fraud', label: 'Fraud Control', icon: 'shield-checkmark' },
+          { id: 'chat', label: 'Support Chat', icon: 'chatbubbles' },
+        ].map(tab => (
+          <TouchableOpacity
+            key={tab.id}
+            style={[styles.affiliateSubTab, affiliateSubTab === tab.id && styles.affiliateSubTabActive]}
+            onPress={() => setAffiliateSubTab(tab.id)}
           >
-            <Ionicons name="pencil" size={16} color={COLORS.primary} />
+            <Ionicons 
+              name={tab.icon as any} 
+              size={16} 
+              color={affiliateSubTab === tab.id ? COLORS.primary : COLORS.textMuted} 
+            />
+            <Text style={[styles.affiliateSubTabText, affiliateSubTab === tab.id && styles.affiliateSubTabTextActive]}>
+              {tab.label}
+            </Text>
           </TouchableOpacity>
-        </View>
-        <View style={styles.commissionRow}>
-          <View style={styles.commissionInfo}>
-            <Text style={styles.commissionLabel}>Revenue Share</Text>
-            <Text style={styles.commissionDesc}>Percentage of trading losses</Text>
-          </View>
-          <View style={styles.commissionValue}>
-            <Text style={styles.commissionValueText}>{affiliateStats.commission_settings?.revenue_share || 50}%</Text>
-          </View>
-        </View>
-        <View style={styles.commissionRow}>
-          <View style={styles.commissionInfo}>
-            <Text style={styles.commissionLabel}>Turnover Commission</Text>
-            <Text style={styles.commissionDesc}>Percentage of trade volume</Text>
-          </View>
-          <View style={styles.commissionValue}>
-            <Text style={styles.commissionValueText}>{affiliateStats.commission_settings?.turnover_commission || 2}%</Text>
-          </View>
-        </View>
-        <View style={styles.commissionRow}>
-          <View style={styles.commissionInfo}>
-            <Text style={styles.commissionLabel}>CPA (Per FTD)</Text>
-            <Text style={styles.commissionDesc}>Fixed amount per first deposit</Text>
-          </View>
-          <View style={styles.commissionValue}>
-            <Text style={styles.commissionValueText}>${affiliateStats.commission_settings?.cpa_amount || 50}</Text>
-          </View>
-        </View>
-      </View>
+        ))}
+      </ScrollView>
 
-      {/* Create Affiliate Button */}
-      <TouchableOpacity 
-        style={styles.createAffiliateBtn}
-        onPress={() => setShowCreateAffiliateModal(true)}
-      >
-        <Ionicons name="add-circle" size={22} color="#FFF" />
-        <Text style={styles.createAffiliateBtnText}>Create New Affiliate</Text>
-      </TouchableOpacity>
-
-      {/* Affiliates List */}
-      <View style={[styles.sectionCard, { marginBottom: 40 }]}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Affiliate Partners ({affiliates.length})</Text>
+      {/* Search Bar */}
+      {affiliateSubTab === 'list' && (
+        <View style={styles.affiliateSearchBar}>
+          <Ionicons name="search" size={18} color={COLORS.textMuted} />
+          <TextInput
+            style={styles.affiliateSearchInput}
+            placeholder="Search by UID, Email, or Link ID..."
+            placeholderTextColor={COLORS.textMuted}
+            value={affiliateSearch}
+            onChangeText={setAffiliateSearch}
+            onSubmitEditing={fetchAffiliateData}
+          />
+          {affiliateSearch ? (
+            <TouchableOpacity onPress={() => { setAffiliateSearch(''); fetchAffiliateData(); }}>
+              <Ionicons name="close-circle" size={18} color={COLORS.textMuted} />
+            </TouchableOpacity>
+          ) : null}
         </View>
+      )}
+
+      {/* Tab Content */}
+      {affiliateSubTab === 'list' && (
+        <>
+          {/* Commission Settings */}
+          <View style={styles.sectionCard}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Commission Settings</Text>
+              <TouchableOpacity 
+                style={styles.editSettingsBtn}
+                onPress={() => setShowEditSettingsModal(true)}
+              >
+                <Ionicons name="pencil" size={16} color={COLORS.primary} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.commissionRow}>
+              <View style={styles.commissionInfo}>
+                <Text style={styles.commissionLabel}>Revenue Share</Text>
+                <Text style={styles.commissionDesc}>Percentage of trading losses</Text>
+              </View>
+              <View style={styles.commissionValue}>
+                <Text style={styles.commissionValueText}>{affiliateStats.commission_settings?.revenue_share || 50}%</Text>
+              </View>
+            </View>
+            <View style={styles.commissionRow}>
+              <View style={styles.commissionInfo}>
+                <Text style={styles.commissionLabel}>Turnover Commission</Text>
+                <Text style={styles.commissionDesc}>Percentage of trade volume</Text>
+              </View>
+              <View style={styles.commissionValue}>
+                <Text style={styles.commissionValueText}>{affiliateStats.commission_settings?.turnover_commission || 2}%</Text>
+              </View>
+            </View>
+            <View style={styles.commissionRow}>
+              <View style={styles.commissionInfo}>
+                <Text style={styles.commissionLabel}>CPA (Per FTD)</Text>
+                <Text style={styles.commissionDesc}>Fixed amount per first deposit</Text>
+              </View>
+              <View style={styles.commissionValue}>
+                <Text style={styles.commissionValueText}>${affiliateStats.commission_settings?.cpa_amount || 50}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Create Affiliate Button */}
+          <TouchableOpacity 
+            style={styles.createAffiliateBtn}
+            onPress={() => setShowCreateAffiliateModal(true)}
+          >
+            <Ionicons name="add-circle" size={22} color="#FFF" />
+            <Text style={styles.createAffiliateBtnText}>Create New Affiliate</Text>
+          </TouchableOpacity>
+
+          {/* Affiliates List */}
+          <View style={[styles.sectionCard, { marginBottom: 20 }]}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Affiliate Partners ({affiliates.length})</Text>
+            </View>
         
         {affiliates.length === 0 ? (
           <View style={styles.emptyState}>
@@ -4393,6 +4582,160 @@ export default function AdminDashboard() {
           ))
         )}
       </View>
+        </>
+      )}
+
+      {/* Leaderboard Tab */}
+      {affiliateSubTab === 'leaderboard' && (
+        <View style={[styles.sectionCard, { marginBottom: 20 }]}>
+          <Text style={styles.sectionTitle}>🏆 Top Affiliates by Earnings</Text>
+          {topAffiliates.top_by_earnings?.length > 0 ? (
+            topAffiliates.top_by_earnings.map((aff: any, index: number) => (
+              <TouchableOpacity 
+                key={aff.affiliate_id} 
+                style={styles.topAffiliateItem}
+                onPress={() => fetchAffiliateProfile(aff.affiliate_id)}
+              >
+                <View style={styles.topAffiliateRank}>
+                  <Text style={styles.topAffiliateRankText}>#{index + 1}</Text>
+                </View>
+                <View style={styles.topAffiliateInfo}>
+                  <Text style={styles.topAffiliateName}>{aff.name}</Text>
+                  <Text style={styles.topAffiliateStats}>{aff.total_referrals || 0} refs • {aff.total_ftds || 0} FTDs</Text>
+                </View>
+                <Text style={styles.topAffiliateEarnings}>${(aff.total_earnings || 0).toLocaleString()}</Text>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <Text style={styles.emptyStateText}>No affiliates yet</Text>
+          )}
+        </View>
+      )}
+
+      {/* Payouts Tab */}
+      {affiliateSubTab === 'payouts' && (
+        <>
+          <View style={styles.sectionCard}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Payout Settings</Text>
+            </View>
+            <View style={styles.commissionRow}>
+              <Text style={styles.commissionLabel}>Hold Period</Text>
+              <Text style={styles.commissionValueText}>{payoutSettings.hold_period_days} days</Text>
+            </View>
+            <View style={styles.commissionRow}>
+              <Text style={styles.commissionLabel}>Min Payout</Text>
+              <Text style={styles.commissionValueText}>${payoutSettings.min_payout}</Text>
+            </View>
+            <View style={styles.commissionRow}>
+              <Text style={styles.commissionLabel}>Negative Carryover</Text>
+              <Text style={styles.commissionValueText}>{payoutSettings.negative_balance_carryover ? 'Yes' : 'No'}</Text>
+            </View>
+          </View>
+
+          <View style={[styles.sectionCard, { marginBottom: 20 }]}>
+            <Text style={styles.sectionTitle}>Pending Payouts ({affiliatePayouts.filter((p: any) => p.status === 'pending').length})</Text>
+            {affiliatePayouts.length > 0 ? (
+              affiliatePayouts.map((payout: any) => (
+                <View key={payout._id} style={styles.payoutItem}>
+                  <View style={styles.payoutInfo}>
+                    <Text style={styles.payoutName}>{payout.affiliate_name}</Text>
+                    <Text style={styles.payoutAmount}>${(payout.amount || 0).toLocaleString()}</Text>
+                    <Text style={styles.payoutStatus}>{payout.status}</Text>
+                  </View>
+                  {payout.status === 'pending' && (
+                    <View style={styles.payoutActions}>
+                      <TouchableOpacity 
+                        style={[styles.payoutBtn, { backgroundColor: COLORS.success }]}
+                        onPress={() => handleProcessPayout(payout._id, 'approve')}
+                      >
+                        <Text style={styles.payoutBtnText}>Approve</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[styles.payoutBtn, { backgroundColor: COLORS.danger }]}
+                        onPress={() => handleProcessPayout(payout._id, 'reject')}
+                      >
+                        <Text style={styles.payoutBtnText}>Reject</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              ))
+            ) : (
+              <Text style={styles.emptyStateText}>No payout requests</Text>
+            )}
+          </View>
+        </>
+      )}
+
+      {/* Fraud Control Tab */}
+      {affiliateSubTab === 'fraud' && (
+        <View style={[styles.sectionCard, { marginBottom: 20 }]}>
+          <Text style={styles.sectionTitle}>🛡️ Fraud Alerts ({fraudAlerts.filter((a: any) => !a.resolved).length} active)</Text>
+          {fraudAlerts.length > 0 ? (
+            fraudAlerts.map((alert: any) => (
+              <View key={alert._id} style={[styles.fraudAlertItem, { borderLeftColor: alert.severity === 'high' ? COLORS.danger : alert.severity === 'medium' ? COLORS.warning : COLORS.success }]}>
+                <View style={styles.fraudAlertHeader}>
+                  <Text style={styles.fraudAlertType}>{alert.type?.replace('_', ' ').toUpperCase()}</Text>
+                  <View style={[styles.fraudSeverityBadge, { backgroundColor: alert.severity === 'high' ? COLORS.danger + '20' : alert.severity === 'medium' ? COLORS.warning + '20' : COLORS.success + '20' }]}>
+                    <Text style={[styles.fraudSeverityText, { color: alert.severity === 'high' ? COLORS.danger : alert.severity === 'medium' ? COLORS.warning : COLORS.success }]}>{alert.severity}</Text>
+                  </View>
+                </View>
+                <Text style={styles.fraudAlertMessage}>{alert.message}</Text>
+                <Text style={styles.fraudAlertAffiliate}>Affiliate: {alert.affiliate_name}</Text>
+                {!alert.resolved && (
+                  <View style={styles.fraudAlertActions}>
+                    <TouchableOpacity 
+                      style={[styles.fraudBtn, { backgroundColor: COLORS.success }]}
+                      onPress={() => handleResolveFraudAlert(alert._id, 'dismiss')}
+                    >
+                      <Text style={styles.fraudBtnText}>Dismiss</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.fraudBtn, { backgroundColor: COLORS.danger }]}
+                      onPress={() => handleResolveFraudAlert(alert._id, 'ban_affiliate')}
+                    >
+                      <Text style={styles.fraudBtnText}>Ban Affiliate</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            ))
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons name="shield-checkmark" size={48} color={COLORS.success} />
+              <Text style={styles.emptyStateText}>No fraud alerts</Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Support Chat Tab */}
+      {affiliateSubTab === 'chat' && (
+        <View style={[styles.sectionCard, { marginBottom: 20 }]}>
+          <Text style={styles.sectionTitle}>💬 Support Chats ({supportChats.filter((c: any) => c.unread_count > 0).length} unread)</Text>
+          {supportChats.length > 0 ? (
+            supportChats.map((chat: any) => (
+              <TouchableOpacity key={chat._id} style={styles.chatItem}>
+                <View style={styles.chatInfo}>
+                  <Text style={styles.chatName}>{chat.affiliate_name}</Text>
+                  <Text style={styles.chatLastMessage} numberOfLines={1}>{chat.last_message}</Text>
+                </View>
+                {chat.unread_count > 0 && (
+                  <View style={styles.chatUnreadBadge}>
+                    <Text style={styles.chatUnreadText}>{chat.unread_count}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons name="chatbubbles" size={48} color={COLORS.textMuted} />
+              <Text style={styles.emptyStateText}>No support chats</Text>
+            </View>
+          )}
+        </View>
+      )}
 
       {/* Create Affiliate Modal */}
       <Modal visible={showCreateAffiliateModal} transparent animationType="fade">
@@ -6925,6 +7268,222 @@ const styles = StyleSheet.create({
   },
   statusOptionTextSuspended: {
     color: COLORS.danger,
+  },
+
+  // Affiliate Sub Tabs & New Features
+  affiliateSubTabs: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  affiliateSubTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginRight: 8,
+    borderRadius: 20,
+    backgroundColor: COLORS.surfaceLight,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  affiliateSubTabActive: {
+    backgroundColor: COLORS.primaryLight,
+    borderColor: COLORS.primary,
+  },
+  affiliateSubTabText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: COLORS.textMuted,
+    marginLeft: 6,
+  },
+  affiliateSubTabTextActive: {
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  affiliateSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  affiliateSearchInput: {
+    flex: 1,
+    color: COLORS.text,
+    fontSize: 14,
+    marginLeft: 8,
+    marginRight: 8,
+  },
+  topAffiliateItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  topAffiliateRank: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.primary + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  topAffiliateRankText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  topAffiliateInfo: {
+    flex: 1,
+  },
+  topAffiliateName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  topAffiliateStats: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  topAffiliateEarnings: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.success,
+  },
+  payoutItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  payoutInfo: {
+    flex: 1,
+  },
+  payoutName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  payoutAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.success,
+    marginTop: 2,
+  },
+  payoutStatus: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    textTransform: 'capitalize',
+    marginTop: 2,
+  },
+  payoutActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  payoutBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  payoutBtnText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  fraudAlertItem: {
+    padding: 14,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 10,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+  },
+  fraudAlertHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  fraudAlertType: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  fraudSeverityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  fraudSeverityText: {
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  fraudAlertMessage: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  fraudAlertAffiliate: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+  },
+  fraudAlertActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  fraudBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  fraudBtnText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  chatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  chatInfo: {
+    flex: 1,
+  },
+  chatName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  chatLastMessage: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  chatUnreadBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: COLORS.danger,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  chatUnreadText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
 
   // Staff Styles

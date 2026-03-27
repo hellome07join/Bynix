@@ -7679,6 +7679,635 @@ async def admin_update_affiliate(
     
     return {"message": "Affiliate updated successfully"}
 
+# ============= COMPREHENSIVE AFFILIATE MANAGEMENT SYSTEM =============
+
+@api_router.get("/admin/affiliates/list")
+async def admin_get_affiliates_list(
+    search: str = None,
+    status: str = None,
+    sort_by: str = "total_earnings",
+    sort_order: str = "desc",
+    limit: int = 50,
+    offset: int = 0,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get all affiliates with search and filters"""
+    user = await get_current_user(authorization, request)
+    
+    query = {}
+    
+    if search:
+        query["$or"] = [
+            {"name": {"$regex": search, "$options": "i"}},
+            {"email": {"$regex": search, "$options": "i"}},
+            {"ref_code": {"$regex": search, "$options": "i"}},
+            {"affiliate_id": {"$regex": search, "$options": "i"}}
+        ]
+    
+    if status:
+        query["status"] = status
+    
+    # Sort direction
+    sort_dir = -1 if sort_order == "desc" else 1
+    
+    affiliates = await db.affiliates.find(query).sort(sort_by, sort_dir).skip(offset).limit(limit).to_list(length=limit)
+    total = await db.affiliates.count_documents(query)
+    
+    # Process affiliates
+    result = []
+    for aff in affiliates:
+        aff["_id"] = str(aff["_id"])
+        # Calculate fraud score
+        fraud_score = await calculate_affiliate_fraud_score(aff.get("affiliate_id"))
+        aff["fraud_score"] = fraud_score
+        result.append(aff)
+    
+    return {
+        "affiliates": result,
+        "total": total,
+        "limit": limit,
+        "offset": offset
+    }
+
+@api_router.get("/admin/affiliates/top")
+async def admin_get_top_affiliates(
+    limit: int = 10,
+    period: str = "all",  # all, month, week
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get top performing affiliates"""
+    user = await get_current_user(authorization, request)
+    
+    # Date filter
+    date_filter = {}
+    if period == "month":
+        date_filter = {"created_at": {"$gte": datetime.now(timezone.utc) - timedelta(days=30)}}
+    elif period == "week":
+        date_filter = {"created_at": {"$gte": datetime.now(timezone.utc) - timedelta(days=7)}}
+    
+    # Get top by earnings
+    top_by_earnings = await db.affiliates.find(date_filter).sort("total_earnings", -1).limit(limit).to_list(length=limit)
+    
+    # Get top by referrals
+    top_by_referrals = await db.affiliates.find(date_filter).sort("total_referrals", -1).limit(limit).to_list(length=limit)
+    
+    # Get top by FTDs
+    top_by_ftds = await db.affiliates.find(date_filter).sort("total_ftds", -1).limit(limit).to_list(length=limit)
+    
+    return {
+        "top_by_earnings": [{**a, "_id": str(a["_id"])} for a in top_by_earnings],
+        "top_by_referrals": [{**a, "_id": str(a["_id"])} for a in top_by_referrals],
+        "top_by_ftds": [{**a, "_id": str(a["_id"])} for a in top_by_ftds]
+    }
+
+@api_router.get("/admin/affiliates/{affiliate_id}/profile")
+async def admin_get_affiliate_profile(
+    affiliate_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get detailed affiliate profile with referred clients"""
+    user = await get_current_user(authorization, request)
+    
+    affiliate = await db.affiliates.find_one({"affiliate_id": affiliate_id})
+    if not affiliate:
+        raise HTTPException(status_code=404, detail="Affiliate not found")
+    
+    affiliate["_id"] = str(affiliate["_id"])
+    
+    # Get referred clients
+    referred_users = await db.users.find(
+        {"referred_by": affiliate.get("ref_code")}
+    ).to_list(length=500)
+    
+    # Calculate commission for each client
+    clients_with_commission = []
+    total_commission = 0
+    
+    for ref_user in referred_users:
+        # Get trades for this user
+        user_trades = await db.trades.find({
+            "user_id": ref_user["user_id"],
+            "status": {"$in": ["won", "lost"]}
+        }).to_list(length=1000)
+        
+        user_commission = 0
+        user_volume = 0
+        
+        for trade in user_trades:
+            user_volume += abs(trade.get("amount", 0))
+            # Commission from losses (revenue share)
+            if trade.get("status") == "lost":
+                user_commission += abs(trade.get("profit", 0)) * (affiliate.get("commission_rate", 50) / 100)
+            # Turnover commission
+            user_commission += abs(trade.get("amount", 0)) * (affiliate.get("turnover_rate", 2) / 100)
+        
+        # Check if FTD (first time deposit)
+        first_deposit = await db.deposits.find_one({
+            "user_id": ref_user["user_id"],
+            "status": "completed"
+        }, sort=[("created_at", 1)])
+        
+        is_ftd = first_deposit is not None
+        if is_ftd:
+            user_commission += affiliate.get("cpa_amount", 50)
+        
+        total_commission += user_commission
+        
+        clients_with_commission.append({
+            "user_id": ref_user["user_id"],
+            "email": ref_user.get("email", ""),
+            "name": ref_user.get("name", ref_user.get("nickname", "")),
+            "registered_at": ref_user.get("created_at"),
+            "is_ftd": is_ftd,
+            "total_volume": round(user_volume, 2),
+            "commission_earned": round(user_commission, 2),
+            "country": ref_user.get("country", "Unknown"),
+            "country_flag": ref_user.get("country_flag", "🌍")
+        })
+    
+    # Calculate fraud score
+    fraud_score = await calculate_affiliate_fraud_score(affiliate_id)
+    
+    # Get fraud alerts
+    fraud_alerts = await db.affiliate_fraud_alerts.find(
+        {"affiliate_id": affiliate_id}
+    ).sort("created_at", -1).limit(20).to_list(length=20)
+    
+    # Get payout history
+    payouts = await db.affiliate_payouts.find(
+        {"affiliate_id": affiliate_id}
+    ).sort("created_at", -1).limit(50).to_list(length=50)
+    
+    return {
+        "affiliate": affiliate,
+        "referred_clients": clients_with_commission,
+        "total_clients": len(clients_with_commission),
+        "total_commission_earned": round(total_commission, 2),
+        "fraud_score": fraud_score,
+        "fraud_alerts": [{**a, "_id": str(a["_id"])} for a in fraud_alerts],
+        "payouts": [{**p, "_id": str(p["_id"])} for p in payouts]
+    }
+
+async def calculate_affiliate_fraud_score(affiliate_id: str) -> dict:
+    """Calculate fraud score for an affiliate"""
+    score = 0
+    alerts = []
+    
+    affiliate = await db.affiliates.find_one({"affiliate_id": affiliate_id})
+    if not affiliate:
+        return {"score": 0, "level": "low", "alerts": []}
+    
+    ref_code = affiliate.get("ref_code")
+    
+    # Get referred users
+    referred_users = await db.users.find({"referred_by": ref_code}).to_list(length=500)
+    
+    if not referred_users:
+        return {"score": 0, "level": "low", "alerts": []}
+    
+    # 1. Self-referral detection (same email domain, IP)
+    affiliate_email = affiliate.get("email", "")
+    affiliate_domain = affiliate_email.split("@")[-1] if "@" in affiliate_email else ""
+    
+    same_domain_count = 0
+    for ref_user in referred_users:
+        user_email = ref_user.get("email", "")
+        user_domain = user_email.split("@")[-1] if "@" in user_email else ""
+        if user_domain == affiliate_domain and affiliate_domain:
+            same_domain_count += 1
+    
+    if same_domain_count > 3:
+        score += 25
+        alerts.append({
+            "type": "self_referral",
+            "message": f"{same_domain_count} referrals with same email domain",
+            "severity": "high"
+        })
+    
+    # 2. Same IP tracking
+    user_ips = [u.get("registration_ip", u.get("last_ip")) for u in referred_users if u.get("registration_ip") or u.get("last_ip")]
+    ip_counts = {}
+    for ip in user_ips:
+        if ip:
+            ip_counts[ip] = ip_counts.get(ip, 0) + 1
+    
+    duplicate_ips = [ip for ip, count in ip_counts.items() if count > 2]
+    if duplicate_ips:
+        score += 20
+        alerts.append({
+            "type": "same_ip",
+            "message": f"{len(duplicate_ips)} IPs used by multiple referrals",
+            "severity": "medium"
+        })
+    
+    # 3. Fake volume filtering (very quick trades, same amounts)
+    suspicious_trades = 0
+    for ref_user in referred_users[:20]:  # Check first 20
+        trades = await db.trades.find({
+            "user_id": ref_user["user_id"],
+            "status": {"$in": ["won", "lost"]}
+        }).limit(50).to_list(length=50)
+        
+        # Check for suspicious patterns
+        trade_amounts = [t.get("amount", 0) for t in trades]
+        if trade_amounts:
+            # All same amount
+            if len(set(trade_amounts)) == 1 and len(trade_amounts) > 5:
+                suspicious_trades += 1
+    
+    if suspicious_trades > 3:
+        score += 30
+        alerts.append({
+            "type": "fake_volume",
+            "message": f"{suspicious_trades} users with suspicious trading patterns",
+            "severity": "high"
+        })
+    
+    # 4. Abnormal trading pattern (all losses for commission farming)
+    high_loss_users = 0
+    for ref_user in referred_users[:20]:
+        trades = await db.trades.find({
+            "user_id": ref_user["user_id"],
+            "status": {"$in": ["won", "lost"]}
+        }).to_list(length=100)
+        
+        if len(trades) > 5:
+            losses = sum(1 for t in trades if t.get("status") == "lost")
+            if losses / len(trades) > 0.9:  # 90%+ losses
+                high_loss_users += 1
+    
+    if high_loss_users > 2:
+        score += 25
+        alerts.append({
+            "type": "abnormal_pattern",
+            "message": f"{high_loss_users} users with 90%+ loss rate",
+            "severity": "high"
+        })
+    
+    # Determine level
+    if score >= 60:
+        level = "critical"
+    elif score >= 40:
+        level = "high"
+    elif score >= 20:
+        level = "medium"
+    else:
+        level = "low"
+    
+    return {
+        "score": min(score, 100),
+        "level": level,
+        "alerts": alerts
+    }
+
+@api_router.post("/admin/affiliates/{affiliate_id}/commission-adjustment")
+async def admin_adjust_affiliate_commission(
+    affiliate_id: str,
+    data: dict,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Manually adjust affiliate commission"""
+    user = await get_current_user(authorization, request)
+    
+    affiliate = await db.affiliates.find_one({"affiliate_id": affiliate_id})
+    if not affiliate:
+        raise HTTPException(status_code=404, detail="Affiliate not found")
+    
+    adjustment_type = data.get("type", "add")  # add, subtract, set
+    amount = data.get("amount", 0)
+    reason = data.get("reason", "")
+    client_id = data.get("client_id")  # Optional - specific client adjustment
+    
+    current_pending = affiliate.get("pending_earnings", 0)
+    
+    if adjustment_type == "add":
+        new_pending = current_pending + amount
+    elif adjustment_type == "subtract":
+        new_pending = current_pending - amount
+    else:  # set
+        new_pending = amount
+    
+    # Update affiliate
+    await db.affiliates.update_one(
+        {"affiliate_id": affiliate_id},
+        {
+            "$set": {"pending_earnings": new_pending},
+            "$inc": {"total_earnings": amount if adjustment_type == "add" else -amount if adjustment_type == "subtract" else 0}
+        }
+    )
+    
+    # Log adjustment
+    adjustment_doc = {
+        "affiliate_id": affiliate_id,
+        "type": adjustment_type,
+        "amount": amount,
+        "reason": reason,
+        "client_id": client_id,
+        "previous_balance": current_pending,
+        "new_balance": new_pending,
+        "adjusted_by": user.user_id,
+        "created_at": datetime.now(timezone.utc)
+    }
+    await db.affiliate_adjustments.insert_one(adjustment_doc)
+    
+    return {
+        "message": "Commission adjusted successfully",
+        "previous_balance": current_pending,
+        "new_balance": new_pending
+    }
+
+# ============= AFFILIATE PAYOUT MANAGEMENT =============
+
+@api_router.get("/admin/affiliates/payouts")
+async def admin_get_affiliate_payouts(
+    status: str = None,
+    affiliate_id: str = None,
+    limit: int = 50,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get all affiliate payout requests"""
+    user = await get_current_user(authorization, request)
+    
+    query = {}
+    if status:
+        query["status"] = status
+    if affiliate_id:
+        query["affiliate_id"] = affiliate_id
+    
+    payouts = await db.affiliate_payouts.find(query).sort("created_at", -1).limit(limit).to_list(length=limit)
+    
+    result = []
+    for payout in payouts:
+        payout["_id"] = str(payout["_id"])
+        # Get affiliate info
+        affiliate = await db.affiliates.find_one({"affiliate_id": payout.get("affiliate_id")})
+        if affiliate:
+            payout["affiliate_name"] = affiliate.get("name", "")
+            payout["affiliate_email"] = affiliate.get("email", "")
+        result.append(payout)
+    
+    # Get payout settings
+    settings = await db.affiliate_settings.find_one({"type": "payout"})
+    if not settings:
+        settings = {
+            "hold_period_days": 7,
+            "min_payout": 50,
+            "negative_balance_carryover": True
+        }
+    
+    return {
+        "payouts": result,
+        "settings": settings
+    }
+
+@api_router.post("/admin/affiliates/payouts/process")
+async def admin_process_affiliate_payout(
+    data: dict,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Process/approve affiliate payout"""
+    user = await get_current_user(authorization, request)
+    
+    payout_id = data.get("payout_id")
+    action = data.get("action")  # approve, reject, hold
+    notes = data.get("notes", "")
+    
+    payout = await db.affiliate_payouts.find_one({"_id": ObjectId(payout_id)})
+    if not payout:
+        raise HTTPException(status_code=404, detail="Payout not found")
+    
+    new_status = "approved" if action == "approve" else "rejected" if action == "reject" else "on_hold"
+    
+    await db.affiliate_payouts.update_one(
+        {"_id": ObjectId(payout_id)},
+        {
+            "$set": {
+                "status": new_status,
+                "processed_by": user.user_id,
+                "processed_at": datetime.now(timezone.utc),
+                "admin_notes": notes
+            }
+        }
+    )
+    
+    # If approved, update affiliate paid earnings
+    if action == "approve":
+        await db.affiliates.update_one(
+            {"affiliate_id": payout.get("affiliate_id")},
+            {
+                "$inc": {
+                    "paid_earnings": payout.get("amount", 0),
+                    "pending_earnings": -payout.get("amount", 0)
+                }
+            }
+        )
+    
+    return {"message": f"Payout {new_status}"}
+
+@api_router.put("/admin/affiliates/payout-settings")
+async def admin_update_payout_settings(
+    data: dict,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Update affiliate payout settings"""
+    user = await get_current_user(authorization, request)
+    
+    await db.affiliate_settings.update_one(
+        {"type": "payout"},
+        {
+            "$set": {
+                "type": "payout",
+                "hold_period_days": data.get("hold_period_days", 7),
+                "min_payout": data.get("min_payout", 50),
+                "negative_balance_carryover": data.get("negative_balance_carryover", True),
+                "updated_at": datetime.now(timezone.utc),
+                "updated_by": user.user_id
+            }
+        },
+        upsert=True
+    )
+    
+    return {"message": "Payout settings updated"}
+
+# ============= AFFILIATE SUPPORT CHAT =============
+
+@api_router.get("/admin/affiliates/support-chats")
+async def admin_get_affiliate_support_chats(
+    status: str = None,
+    affiliate_id: str = None,
+    limit: int = 50,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get affiliate support chat conversations"""
+    user = await get_current_user(authorization, request)
+    
+    query = {}
+    if status:
+        query["status"] = status
+    if affiliate_id:
+        query["affiliate_id"] = affiliate_id
+    
+    chats = await db.affiliate_support_chats.find(query).sort("last_message_at", -1).limit(limit).to_list(length=limit)
+    
+    result = []
+    for chat in chats:
+        chat["_id"] = str(chat["_id"])
+        # Get unread count
+        unread = await db.affiliate_chat_messages.count_documents({
+            "chat_id": chat.get("chat_id"),
+            "sender_type": "affiliate",
+            "read": False
+        })
+        chat["unread_count"] = unread
+        
+        # Get affiliate info
+        affiliate = await db.affiliates.find_one({"affiliate_id": chat.get("affiliate_id")})
+        if affiliate:
+            chat["affiliate_name"] = affiliate.get("name", "")
+            chat["affiliate_email"] = affiliate.get("email", "")
+        
+        result.append(chat)
+    
+    return {"chats": result}
+
+@api_router.get("/admin/affiliates/support-chats/{chat_id}/messages")
+async def admin_get_chat_messages(
+    chat_id: str,
+    limit: int = 100,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get messages for a specific chat"""
+    user = await get_current_user(authorization, request)
+    
+    messages = await db.affiliate_chat_messages.find(
+        {"chat_id": chat_id}
+    ).sort("created_at", 1).limit(limit).to_list(length=limit)
+    
+    # Mark as read
+    await db.affiliate_chat_messages.update_many(
+        {"chat_id": chat_id, "sender_type": "affiliate"},
+        {"$set": {"read": True}}
+    )
+    
+    return {"messages": [{**m, "_id": str(m["_id"])} for m in messages]}
+
+@api_router.post("/admin/affiliates/support-chats/{chat_id}/reply")
+async def admin_reply_to_chat(
+    chat_id: str,
+    data: dict,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Reply to affiliate support chat"""
+    user = await get_current_user(authorization, request)
+    
+    message = data.get("message", "")
+    
+    msg_doc = {
+        "chat_id": chat_id,
+        "message": message,
+        "sender_type": "admin",
+        "sender_id": user.user_id,
+        "created_at": datetime.now(timezone.utc),
+        "read": True
+    }
+    
+    await db.affiliate_chat_messages.insert_one(msg_doc)
+    
+    # Update chat last message
+    await db.affiliate_support_chats.update_one(
+        {"chat_id": chat_id},
+        {
+            "$set": {
+                "last_message": message,
+                "last_message_at": datetime.now(timezone.utc),
+                "status": "active"
+            }
+        }
+    )
+    
+    return {"message": "Reply sent"}
+
+# ============= AFFILIATE FRAUD ALERTS =============
+
+@api_router.get("/admin/affiliates/fraud-alerts")
+async def admin_get_fraud_alerts(
+    severity: str = None,
+    affiliate_id: str = None,
+    resolved: bool = None,
+    limit: int = 50,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get all fraud alerts"""
+    user = await get_current_user(authorization, request)
+    
+    query = {}
+    if severity:
+        query["severity"] = severity
+    if affiliate_id:
+        query["affiliate_id"] = affiliate_id
+    if resolved is not None:
+        query["resolved"] = resolved
+    
+    alerts = await db.affiliate_fraud_alerts.find(query).sort("created_at", -1).limit(limit).to_list(length=limit)
+    
+    result = []
+    for alert in alerts:
+        alert["_id"] = str(alert["_id"])
+        affiliate = await db.affiliates.find_one({"affiliate_id": alert.get("affiliate_id")})
+        if affiliate:
+            alert["affiliate_name"] = affiliate.get("name", "")
+        result.append(alert)
+    
+    return {"alerts": result}
+
+@api_router.post("/admin/affiliates/fraud-alerts/{alert_id}/resolve")
+async def admin_resolve_fraud_alert(
+    alert_id: str,
+    data: dict,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Resolve a fraud alert"""
+    user = await get_current_user(authorization, request)
+    
+    action = data.get("action", "dismiss")  # dismiss, ban_affiliate, deduct_commission
+    notes = data.get("notes", "")
+    
+    await db.affiliate_fraud_alerts.update_one(
+        {"_id": ObjectId(alert_id)},
+        {
+            "$set": {
+                "resolved": True,
+                "resolution_action": action,
+                "resolution_notes": notes,
+                "resolved_by": user.user_id,
+                "resolved_at": datetime.now(timezone.utc)
+            }
+        }
+    )
+    
+    alert = await db.affiliate_fraud_alerts.find_one({"_id": ObjectId(alert_id)})
+    
+    # Take action
+    if action == "ban_affiliate" and alert:
+        await db.affiliates.update_one(
+            {"affiliate_id": alert.get("affiliate_id")},
+            {"$set": {"status": "banned"}}
+        )
+    
+    return {"message": "Alert resolved"}
+
 # ============= ADVANCED USER MANAGEMENT SYSTEM =============
 
 @api_router.get("/admin/users/detailed")
