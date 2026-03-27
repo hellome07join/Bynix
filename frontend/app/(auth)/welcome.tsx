@@ -15,12 +15,13 @@ import {
   Modal,
   TextInput,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5, FontAwesome } from '@expo/vector-icons';
 import { useAuthStore } from '../../stores/authStore';
 import { API_URL, api } from '../../utils/api';
 import * as WebBrowser from 'expo-web-browser';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 declare const window: any;
 
@@ -173,10 +174,14 @@ const AnimatedChartLine = () => {
 
 export default function Welcome() {
   const router = useRouter();
+  const { ref: urlRefCode, lid: urlLinkId } = useLocalSearchParams<{ ref?: string; lid?: string }>();
   const { login } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const heroScale = useRef(new Animated.Value(1)).current;
   const phoneRotate = useRef(new Animated.Value(0)).current;
+  
+  // CRITICAL: Referral tracking state
+  const [referralCode, setReferralCode] = useState<string | null>(null);
   
   // Sidebar modal states
   const [showLoginSidebar, setShowLoginSidebar] = useState(false);
@@ -206,6 +211,60 @@ export default function Welcome() {
   const [verifyingOTP, setVerifyingOTP] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const otpInputRefs = useRef<any[]>([]);
+
+  // CRITICAL: Capture and persist referral code from multiple sources
+  useEffect(() => {
+    const captureReferralCode = async () => {
+      let capturedCode: string | null = null;
+      
+      // 1. First check URL params from expo-router hook
+      if (urlRefCode) {
+        capturedCode = urlRefCode;
+        console.log('[Welcome] Referral from expo-router params:', capturedCode);
+      } else if (urlLinkId) {
+        capturedCode = urlLinkId;
+        console.log('[Welcome] Link ID from expo-router params:', capturedCode);
+      }
+      
+      // 2. If on web, also check window.location directly (backup)
+      if (!capturedCode && Platform.OS === 'web' && typeof window !== 'undefined') {
+        try {
+          const urlParams = new URLSearchParams(window.location.search);
+          capturedCode = urlParams.get('ref') || urlParams.get('lid');
+          if (capturedCode) {
+            console.log('[Welcome] Referral from window.location:', capturedCode);
+          }
+        } catch (e) {
+          console.warn('[Welcome] Error reading window.location:', e);
+        }
+      }
+      
+      // 3. Fallback to AsyncStorage
+      if (!capturedCode) {
+        try {
+          capturedCode = await AsyncStorage.getItem('pending_referral_code');
+          if (capturedCode) {
+            console.log('[Welcome] Referral from AsyncStorage:', capturedCode);
+          }
+        } catch (e) {
+          console.warn('[Welcome] Error reading AsyncStorage:', e);
+        }
+      }
+      
+      // 4. Save to state and AsyncStorage
+      if (capturedCode) {
+        setReferralCode(capturedCode);
+        try {
+          await AsyncStorage.setItem('pending_referral_code', capturedCode);
+          console.log('[Welcome] Saved referral code to AsyncStorage:', capturedCode);
+        } catch (e) {
+          console.warn('[Welcome] Error saving to AsyncStorage:', e);
+        }
+      }
+    };
+    
+    captureReferralCode();
+  }, [urlRefCode, urlLinkId]);
 
   // OTP Cooldown timer
   useEffect(() => {
@@ -531,20 +590,26 @@ export default function Welcome() {
 
     setSignupLoading(true);
     try {
+      console.log('[Welcome] Signup with referral code:', referralCode);
       const response = await api.signup({ 
         name: signupEmail.split('@')[0], // Use email prefix as name
         email: signupEmail, 
         password: signupPassword,
         country: selectedCountry.name,
         country_flag: selectedCountry.flag,
+        referred_by: referralCode || undefined,
       });
       
       if (response.requires_verification) {
         // Show OTP verification within sidebar
         setShowOTPVerification(true);
         setResendCooldown(60);
+        // Clear referral code from storage after successful signup initiation
+        AsyncStorage.removeItem('pending_referral_code');
       } else if (response.access_token) {
         await login(response.access_token, response.user);
+        // Clear referral code from storage
+        AsyncStorage.removeItem('pending_referral_code');
         closeSidebar();
         router.replace('/(tabs)/trade');
       }
@@ -690,19 +755,24 @@ export default function Welcome() {
       const demoEmail = `demo_${timestamp}@bynix.com`;
       const demoPassword = `demo_${timestamp}`;
       
+      console.log('[Welcome] Demo signup with referral code:', referralCode);
       const signupResponse = await fetch(`${API_URL}/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: demoEmail,
           password: demoPassword,
-          name: 'Demo Trader'
+          name: 'Demo Trader',
+          referred_by: referralCode || undefined,
         })
       });
       
       if (!signupResponse.ok) throw new Error('Failed to create demo account');
       
       const signupData = await signupResponse.json();
+      
+      // Clear referral code after demo account creation
+      AsyncStorage.removeItem('pending_referral_code');
       
       await login(signupData.access_token, {
         user_id: signupData.user.user_id,

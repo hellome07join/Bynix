@@ -60,7 +60,23 @@ export default function Index() {
       if (user) {
         router.replace('/(tabs)/home');
       } else {
-        router.replace('/(auth)/welcome');
+        // CRITICAL: Pass referral code in URL to welcome page so it persists
+        let refCodeToPass = capturedRefCode;
+        
+        // Try to get from URL again if not already captured
+        if (!refCodeToPass && Platform.OS === 'web' && typeof window !== 'undefined') {
+          try {
+            const urlParams = new URLSearchParams(window.location.search);
+            refCodeToPass = urlParams.get('ref') || urlParams.get('lid') || null;
+          } catch (e) {}
+        }
+        
+        if (refCodeToPass) {
+          console.log('[Index] Redirecting to welcome WITH referral code:', refCodeToPass);
+          router.replace(`/(auth)/welcome?ref=${refCodeToPass}`);
+        } else {
+          router.replace('/(auth)/welcome');
+        }
       }
     }
   }, [user, isLoading]);
