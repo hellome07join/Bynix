@@ -8280,9 +8280,8 @@ async def admin_get_withdrawal_details(
             "created_at": ref.get("created_at", "").isoformat() if ref.get("created_at") else None,
         })
     
-    # Calculate summary stats
-    total_commission_from_trades = sum(c.get("amount", 0) for c in commissions if c.get("type") == "revenue_share")
-    total_cpa_commission = sum(c.get("amount", 0) for c in commissions if c.get("type") == "cpa")
+    # Calculate summary stats (Revenue Share and Turnover only - no CPA)
+    total_revenue_share = sum(c.get("amount", 0) for c in commissions if c.get("type") == "revenue_share")
     total_turnover_commission = sum(c.get("amount", 0) for c in commissions if c.get("type") == "turnover")
     
     return {
@@ -8291,8 +8290,7 @@ async def admin_get_withdrawal_details(
         "commission_breakdown": commission_breakdown,
         "referrals": referral_list,
         "summary": {
-            "total_commission_from_trades": total_commission_from_trades,
-            "total_cpa_commission": total_cpa_commission,
+            "total_revenue_share": total_revenue_share,
             "total_turnover_commission": total_turnover_commission,
             "total_referrals": len(referral_list),
             "total_ftds": len([r for r in referral_list if r.get("is_ftd")]),

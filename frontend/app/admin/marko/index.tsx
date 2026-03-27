@@ -4954,12 +4954,12 @@ export default function AdminDashboard() {
                         <Text style={styles.miniStatLabel}>FTDs</Text>
                       </View>
                       <View style={[styles.miniStatCard, { flex: 1, minWidth: 120 }]}>
-                        <Text style={[styles.miniStatValue, { color: COLORS.primary }]}>${(withdrawalDetails.summary?.total_commission_from_trades || 0).toLocaleString()}</Text>
-                        <Text style={styles.miniStatLabel}>From Trades</Text>
+                        <Text style={[styles.miniStatValue, { color: COLORS.primary }]}>${(withdrawalDetails.summary?.total_revenue_share || 0).toLocaleString()}</Text>
+                        <Text style={styles.miniStatLabel}>Revenue Share</Text>
                       </View>
                       <View style={[styles.miniStatCard, { flex: 1, minWidth: 120 }]}>
-                        <Text style={[styles.miniStatValue, { color: COLORS.purple }]}>${(withdrawalDetails.summary?.total_cpa_commission || 0).toLocaleString()}</Text>
-                        <Text style={styles.miniStatLabel}>CPA Commission</Text>
+                        <Text style={[styles.miniStatValue, { color: COLORS.purple }]}>${(withdrawalDetails.summary?.total_turnover_commission || 0).toLocaleString()}</Text>
+                        <Text style={styles.miniStatLabel}>Turnover</Text>
                       </View>
                     </View>
                   </View>
@@ -4973,7 +4973,7 @@ export default function AdminDashboard() {
                           <View style={{ flex: 1 }}>
                             <Text style={styles.commissionUser}>{comm.source_user?.email || 'Unknown User'}</Text>
                             <Text style={styles.commissionMeta}>
-                              {comm.type === 'revenue_share' ? '📈 Trade Revenue' : comm.type === 'cpa' ? '🎯 CPA' : '💹 Turnover'}
+                              {comm.type === 'revenue_share' ? '📈 Revenue Share' : '💹 Turnover'}
                               {comm.trade_amount ? ` • Trade: $${comm.trade_amount}` : ''}
                             </Text>
                           </View>
