@@ -1150,15 +1150,18 @@ async def settle_trade(trade_id: str, settle_data: TradeSettle, authorization: O
                     program_type
                 )
                 
-                if commission > 0:
-                    # Credit commission to affiliate's HOLD balance (released on Monday 6 AM SGT)
+                # Handle both positive (user loss) and negative (user win) commissions
+                if commission != 0:
+                    # Credit/Debit commission to affiliate's HOLD balance (released on Monday 6 AM SGT)
                     # Track turnover and revenue commissions separately
                     if program_type == "turnover":
+                        # Turnover is always positive
                         await db.affiliates.update_one(
                             {"affiliate_id": affiliate["affiliate_id"]},
                             {"$inc": {"hold_balance": commission, "hold_balance_turnover": commission, "total_earnings": commission}}
                         )
                     else:
+                        # Revenue share: positive when user loses, negative when user wins
                         await db.affiliates.update_one(
                             {"affiliate_id": affiliate["affiliate_id"]},
                             {"$inc": {"hold_balance": commission, "hold_balance_revenue": commission, "total_earnings": commission}}
@@ -1171,7 +1174,7 @@ async def settle_trade(trade_id: str, settle_data: TradeSettle, authorization: O
                             {"$inc": {"commission_earned": commission, "total_volume": trade["amount"]}}
                         )
                     
-                    # Log commission transaction
+                    # Log commission transaction (including negative ones)
                     await db.affiliate_commissions.insert_one({
                         "commission_id": str(uuid.uuid4()),
                         "affiliate_id": affiliate["affiliate_id"],
@@ -1183,6 +1186,7 @@ async def settle_trade(trade_id: str, settle_data: TradeSettle, authorization: O
                         "affiliate_level": level_info["level"],
                         "commission_rate": level_info["revenue_share"] if program_type == "revenue_sharing" else level_info["turnover_share"],
                         "commission_amount": commission,
+                        "is_deduction": commission < 0,  # Flag for negative commission
                         "created_at": datetime.now(timezone.utc)
                     })
     
@@ -10089,12 +10093,23 @@ def calculate_commission(affiliate_id: str, affiliate_level: dict, trade_amount:
     """
     Simple commission calculation without cap check (for backward compatibility)
     Use calculate_commission_with_cap for proper turnover cap handling
+    
+    Revenue Share model:
+    - User LOSES → Affiliate gets POSITIVE commission (% of loss)
+    - User WINS → Affiliate gets NEGATIVE commission (deducted from earnings)
+    
+    Turnover model:
+    - Always POSITIVE based on trade volume (regardless of win/loss)
     """
     if program_type == "revenue_sharing":
         if trade_result == "lost":
+            # User lost - affiliate earns positive commission
             return trade_amount * (affiliate_level["revenue_share"] / 100)
-        return 0.0
+        else:
+            # User won - affiliate gets negative commission (deducted)
+            return -(trade_amount * (affiliate_level["revenue_share"] / 100))
     else:
+        # Turnover model - always positive based on volume
         return trade_amount * (affiliate_level["turnover_share"] / 100)
 
 
