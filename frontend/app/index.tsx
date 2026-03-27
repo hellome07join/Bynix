@@ -1,14 +1,62 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, ImageBackground } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../stores/authStore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Declare window for TypeScript
+declare const window: any;
+
+// CRITICAL: Capture referral code BEFORE any redirect happens
+// This runs synchronously when the module loads on web
+const captureReferralCodeFromURL = () => {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const refCode = urlParams.get('ref') || urlParams.get('lid');
+      if (refCode) {
+        console.log('[Index] Captured referral code from URL on load:', refCode);
+        // Store immediately - this happens before React even mounts
+        AsyncStorage.setItem('pending_referral_code', refCode);
+        return refCode;
+      }
+    } catch (e) {
+      console.warn('[Index] Error capturing referral code:', e);
+    }
+  }
+  return null;
+};
+
+// Execute immediately when module loads
+const capturedRefCode = captureReferralCodeFromURL();
 
 export default function Index() {
   const router = useRouter();
   const { user, isLoading } = useAuthStore();
+  const hasRedirected = useRef(false);
+
+  // Double-check and save referral code when component mounts
+  useEffect(() => {
+    const saveReferralCode = async () => {
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        try {
+          const urlParams = new URLSearchParams(window.location.search);
+          const refCode = urlParams.get('ref') || urlParams.get('lid');
+          if (refCode) {
+            console.log('[Index] useEffect - Saving referral code:', refCode);
+            await AsyncStorage.setItem('pending_referral_code', refCode);
+          }
+        } catch (e) {
+          console.warn('[Index] Error in useEffect referral capture:', e);
+        }
+      }
+    };
+    saveReferralCode();
+  }, []);
 
   useEffect(() => {
-    if (!isLoading) {
+    if (!isLoading && !hasRedirected.current) {
+      hasRedirected.current = true;
       if (user) {
         router.replace('/(tabs)/home');
       } else {
