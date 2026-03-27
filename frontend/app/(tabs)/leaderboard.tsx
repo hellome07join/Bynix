@@ -421,14 +421,8 @@ const CircularPodiumItem = ({
         </View>
       )}
 
-      {/* Avatar with Money Gun Effect */}
+      {/* Avatar */}
       <View style={circularStyles.avatarWrapper}>
-        {/* Falling Money from Sky */}
-        <FallingMoney containerWidth={100} containerHeight={70} />
-        
-        {/* Money Gun Effect with Hands */}
-        <MoneyGunEffect size={circleSize} isFirst={isFirst} />
-        
         {/* Circular Avatar */}
         <LinearGradient
           colors={circleColors}
