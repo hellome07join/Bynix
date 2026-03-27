@@ -1127,8 +1127,16 @@ async def settle_trade(trade_id: str, settle_data: TradeSettle, authorization: O
         referred_by = user_data.get("referred_by") if user_data else None
         
         if referred_by:
-            # Find the affiliate
+            # Find the affiliate by ref_code or link code
             affiliate = await db.affiliates.find_one({"ref_code": referred_by})
+            
+            # If not found by ref_code, check affiliate_links
+            if not affiliate:
+                link = await db.affiliate_links.find_one({"code": referred_by})
+                if link:
+                    affiliate = await db.affiliates.find_one({"affiliate_id": link.get("affiliate_id")})
+                    print(f"[COMMISSION] Found affiliate via link code {referred_by}: {affiliate.get('affiliate_id') if affiliate else 'None'}")
+            
             if affiliate:
                 # Get affiliate's level based on FTDs
                 total_ftds = affiliate.get("total_ftds", 0)
