@@ -1150,53 +1150,65 @@ async def settle_trade(trade_id: str, settle_data: TradeSettle, authorization: O
                 program_type = referral.get("program", "revenue_sharing") if referral else "revenue_sharing"
                 
                 # Calculate commission based on program type
-                commission = calculate_commission(
-                    affiliate["affiliate_id"],
-                    level_info,
-                    trade["amount"],
-                    status,
-                    program_type
-                )
+                # IMPORTANT: Commission is only calculated on REAL deposit amount
+                # NOT on bonus amount - affiliate only earns from actual deposits
+                trade_amount_for_commission = trade.get("deducted_from_real", trade["amount"])
                 
-                # Handle both positive (user loss) and negative (user win) commissions
-                if commission != 0:
-                    # Credit/Debit commission to affiliate's HOLD balance (released on Monday 6 AM SGT)
-                    # Track turnover and revenue commissions separately
-                    if program_type == "turnover":
-                        # Turnover is always positive
-                        await db.affiliates.update_one(
-                            {"affiliate_id": affiliate["affiliate_id"]},
-                            {"$inc": {"hold_balance": commission, "hold_balance_turnover": commission, "total_earnings": commission}}
-                        )
-                    else:
-                        # Revenue share: positive when user loses, negative when user wins
-                        await db.affiliates.update_one(
-                            {"affiliate_id": affiliate["affiliate_id"]},
-                            {"$inc": {"hold_balance": commission, "hold_balance_revenue": commission, "total_earnings": commission}}
-                        )
+                # If trade was from demo account or no real balance was used, skip commission
+                if trade.get("account_type") == "demo" or trade_amount_for_commission <= 0:
+                    print(f"[COMMISSION] Skipping - demo account or no real balance used")
+                else:
+                    commission = calculate_commission(
+                        affiliate["affiliate_id"],
+                        level_info,
+                        trade_amount_for_commission,  # Only real deposit portion
+                        status,
+                        program_type
+                    )
                     
-                    # Update referral commission earned
-                    if referral:
-                        await db.affiliate_referrals.update_one(
-                            {"user_id": user.user_id, "affiliate_id": affiliate["affiliate_id"]},
-                            {"$inc": {"commission_earned": commission, "total_volume": trade["amount"]}}
-                        )
-                    
-                    # Log commission transaction (including negative ones)
-                    await db.affiliate_commissions.insert_one({
-                        "commission_id": str(uuid.uuid4()),
-                        "affiliate_id": affiliate["affiliate_id"],
-                        "user_id": user.user_id,
-                        "trade_id": trade_id,
-                        "trade_amount": trade["amount"],
-                        "trade_result": status,
-                        "program_type": program_type,
-                        "affiliate_level": level_info["level"],
-                        "commission_rate": level_info["revenue_share"] if program_type == "revenue_sharing" else level_info["turnover_share"],
-                        "commission_amount": commission,
-                        "is_deduction": commission < 0,  # Flag for negative commission
-                        "created_at": datetime.now(timezone.utc)
-                    })
+                    # Handle both positive (user loss) and negative (user win) commissions
+                    if commission != 0:
+                        # Credit/Debit commission to affiliate's HOLD balance (released on Monday 6 AM SGT)
+                        # Track turnover and revenue commissions separately
+                        if program_type == "turnover":
+                            # Turnover is always positive
+                            await db.affiliates.update_one(
+                                {"affiliate_id": affiliate["affiliate_id"]},
+                                {"$inc": {"hold_balance": commission, "hold_balance_turnover": commission, "total_earnings": commission}}
+                            )
+                        else:
+                            # Revenue share: positive when user loses, negative when user wins
+                            await db.affiliates.update_one(
+                                {"affiliate_id": affiliate["affiliate_id"]},
+                                {"$inc": {"hold_balance": commission, "hold_balance_revenue": commission, "total_earnings": commission}}
+                            )
+                        
+                        # Update referral commission earned
+                        if referral:
+                            await db.affiliate_referrals.update_one(
+                                {"user_id": user.user_id, "affiliate_id": affiliate["affiliate_id"]},
+                                {"$inc": {"commission_earned": commission, "total_volume": trade_amount_for_commission}}
+                            )
+                        
+                        # Log commission transaction (including negative ones)
+                        await db.affiliate_commissions.insert_one({
+                            "commission_id": str(uuid.uuid4()),
+                            "affiliate_id": affiliate["affiliate_id"],
+                            "user_id": user.user_id,
+                            "trade_id": trade_id,
+                            "trade_amount": trade["amount"],
+                            "real_amount_used": trade_amount_for_commission,
+                            "bonus_amount_used": trade.get("deducted_from_bonus", 0),
+                            "trade_result": status,
+                            "program_type": program_type,
+                            "affiliate_level": level_info["level"],
+                            "commission_rate": level_info["revenue_share"] if program_type == "revenue_sharing" else level_info["turnover_share"],
+                            "commission_amount": commission,
+                            "is_deduction": commission < 0,
+                            "created_at": datetime.now(timezone.utc)
+                        })
+                        
+                        print(f"[COMMISSION] Affiliate {affiliate['affiliate_id']}: ${commission:.2f} (from ${trade_amount_for_commission} real, ${trade.get('deducted_from_bonus', 0)} bonus skipped)")
     
     return {"message": "Trade settled", "status": status, "profit_loss": profit_loss, "exit_price": exit_price, "entry_price": entry_price}
 
