@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,19 @@ import {
   TouchableOpacity,
   Modal,
   Image,
+  Animated,
+  Easing,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../stores/authStore';
 import { API_URL } from '../../utils/api';
 import AnimatedLoader from '../../components/AnimatedLoader';
+
+const { width } = Dimensions.get('window');
 
 interface LeaderboardUser {
   rank: number;
@@ -28,6 +34,7 @@ interface LeaderboardUser {
   total_trades: number;
   win_rate: number;
   volume: number;
+  picture?: string;
 }
 
 interface MyStats {
@@ -57,28 +64,142 @@ interface UserProfile {
   max_trade_amount: number;
 }
 
-// Country flag mapping
-const COUNTRY_FLAGS: { [key: string]: string } = {
-  'Bangladesh': '🇧🇩',
-  'India': '🇮🇳',
-  'United States': '🇺🇸',
-  'United Kingdom': '🇬🇧',
-  'Germany': '🇩🇪',
-  'Japan': '🇯🇵',
-  'China': '🇨🇳',
-  'Russia': '🇷🇺',
-  'Brazil': '🇧🇷',
-  'France': '🇫🇷',
-  'Pakistan': '🇵🇰',
-  'Nepal': '🇳🇵',
-  'UAE': '🇦🇪',
-  'Saudi Arabia': '🇸🇦',
-  'Turkey': '🇹🇷',
-  'Indonesia': '🇮🇩',
-  'Malaysia': '🇲🇾',
-  'Singapore': '🇸🇬',
-  'Australia': '🇦🇺',
-  'Canada': '🇨🇦',
+// Animated Fire Component
+const FireAnimation = ({ size = 60 }: { size?: number }) => {
+  const flameAnim = useRef(new Animated.Value(0)).current;
+  
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(flameAnim, {
+          toValue: 1,
+          duration: 500,
+          easing: Easing.ease,
+          useNativeDriver: true,
+        }),
+        Animated.timing(flameAnim, {
+          toValue: 0,
+          duration: 500,
+          easing: Easing.ease,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  const scale = flameAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.15],
+  });
+
+  const opacity = flameAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.8, 1],
+  });
+
+  return (
+    <Animated.View style={[{ transform: [{ scale }], opacity }]}>
+      <Text style={{ fontSize: size }}>🔥</Text>
+    </Animated.View>
+  );
+};
+
+// Podium Card Component for Top 3
+const PodiumCard = ({ 
+  trader, 
+  rank, 
+  onPress 
+}: { 
+  trader: LeaderboardUser | null; 
+  rank: 1 | 2 | 3;
+  onPress: () => void;
+}) => {
+  const isFirst = rank === 1;
+  const isSecond = rank === 2;
+  const isThird = rank === 3;
+  
+  const cardStyle = isFirst 
+    ? { backgroundColor: '#1A1A3E', borderColor: '#FFD700' }
+    : isSecond 
+    ? { backgroundColor: '#1A2A3E', borderColor: '#C0C0C0' }
+    : { backgroundColor: '#2A1A1A', borderColor: '#CD7F32' };
+
+  const wreathColor = isFirst ? '#FFD700' : isSecond ? '#C0C0C0' : '#CD7F32';
+
+  if (!trader) {
+    return (
+      <View style={[styles.podiumCard, { opacity: 0.3 }, cardStyle, isFirst && styles.podiumCardFirst]}>
+        <View style={styles.podiumEmptyAvatar}>
+          <Ionicons name="person" size={30} color="#444" />
+        </View>
+        <Text style={styles.podiumEmptyText}>-</Text>
+      </View>
+    );
+  }
+
+  return (
+    <TouchableOpacity 
+      style={[styles.podiumCard, cardStyle, isFirst && styles.podiumCardFirst]}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      {/* Rank Badge with Wreath */}
+      <View style={styles.wreathContainer}>
+        <Text style={[styles.wreathText, { color: wreathColor }]}>
+          {isFirst ? '🏆' : isSecond ? '🥈' : '🥉'}
+        </Text>
+        <View style={[styles.rankCircle, { backgroundColor: wreathColor }]}>
+          <Text style={styles.rankCircleText}>{rank}</Text>
+          {isFirst && <Text style={styles.rankSuffix}>st</Text>}
+          {isSecond && <Text style={styles.rankSuffix}>nd</Text>}
+          {isThird && <Text style={styles.rankSuffix}>rd</Text>}
+        </View>
+      </View>
+
+      {/* Crown for 1st place */}
+      {isFirst && (
+        <View style={styles.crownContainer}>
+          <Text style={styles.crownEmoji}>👑</Text>
+        </View>
+      )}
+
+      {/* Avatar */}
+      <View style={[styles.podiumAvatar, { borderColor: wreathColor }]}>
+        {trader.picture ? (
+          <Image source={{ uri: trader.picture }} style={styles.podiumAvatarImage} />
+        ) : (
+          <LinearGradient
+            colors={isFirst ? ['#FFD700', '#FFA500'] : isSecond ? ['#C0C0C0', '#808080'] : ['#CD7F32', '#8B4513']}
+            style={styles.podiumAvatarGradient}
+          >
+            <Text style={styles.podiumAvatarInitial}>
+              {trader.name.charAt(0).toUpperCase()}
+            </Text>
+          </LinearGradient>
+        )}
+      </View>
+
+      {/* Fire Animation for Top 3 */}
+      <View style={styles.fireContainer}>
+        <FireAnimation size={isFirst ? 24 : 18} />
+      </View>
+
+      {/* Name */}
+      <Text style={styles.podiumName} numberOfLines={1}>{trader.name}</Text>
+
+      {/* Profit */}
+      <View style={styles.podiumProfitContainer}>
+        <Ionicons 
+          name={trader.is_profit ? "trending-up" : "trending-down"} 
+          size={14} 
+          color={trader.is_profit ? "#00E55A" : "#FF3B3B"} 
+        />
+        <Text style={[styles.podiumProfit, { color: trader.is_profit ? "#00E55A" : "#FF3B3B" }]}>
+          {trader.is_profit ? '+' : '-'}${Math.abs(trader.profit).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
 };
 
 export default function Leaderboard() {
@@ -167,18 +288,20 @@ export default function Leaderboard() {
     setRefreshing(false);
   };
 
-  const getRankBadge = (rank: number) => {
-    if (rank === 1) return { bg: '#FFD700', text: '#0A1A0F' };
-    if (rank === 2) return { bg: '#C0C0C0', text: '#0A1A0F' };
-    if (rank === 3) return { bg: '#CD7F32', text: '#FFFFFF' };
-    return { bg: 'transparent', text: '#888' };
-  };
-
   const formatProfit = (profit: number, isProfit: boolean) => {
     const absValue = Math.abs(profit);
     const formatted = `$${absValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     return isProfit ? `+${formatted}` : `-${formatted}`;
   };
+
+  // Get top 3 traders
+  const top3 = leaderboard.slice(0, 3);
+  const first = top3[0] || null;
+  const second = top3[1] || null;
+  const third = top3[2] || null;
+
+  // Get rest of traders (4th onwards)
+  const restOfTraders = leaderboard.slice(3, 20);
 
   if (loading) {
     return <AnimatedLoader message="Loading Leaderboard" />;
@@ -191,13 +314,9 @@ export default function Leaderboard() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
-        <Image 
-          source={require('../../assets/images/bynix-logo.png')}
-          style={styles.headerLogo}
-          resizeMode="contain"
-        />
-        <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
-          <Ionicons name="close" size={24} color="#666" />
+        <Text style={styles.headerTitle}>Leaderboard</Text>
+        <TouchableOpacity onPress={() => setShowInfoModal(true)} style={styles.infoBtn}>
+          <Ionicons name="information-circle-outline" size={24} color="#888" />
         </TouchableOpacity>
       </View>
 
@@ -212,112 +331,132 @@ export default function Leaderboard() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Leader Board of the Day Title - RIGHT AFTER HEADER */}
-        <View style={styles.sectionTitleContainer}>
-          <Ionicons name="trophy" size={24} color="#FFB800" />
-          <Text style={styles.sectionTitle}>Leader Board of the Day</Text>
+        {/* Podium Section - Top 3 */}
+        <View style={styles.podiumSection}>
+          <LinearGradient
+            colors={['#0A1A2E', '#0A1A0F']}
+            style={styles.podiumGradient}
+          >
+            {/* Podium Cards - 2nd, 1st, 3rd layout */}
+            <View style={styles.podiumRow}>
+              {/* 2nd Place - Left */}
+              <PodiumCard 
+                trader={second} 
+                rank={2}
+                onPress={() => second && fetchUserProfile(second.user_id)}
+              />
+              
+              {/* 1st Place - Center (Elevated) */}
+              <PodiumCard 
+                trader={first} 
+                rank={1}
+                onPress={() => first && fetchUserProfile(first.user_id)}
+              />
+              
+              {/* 3rd Place - Right */}
+              <PodiumCard 
+                trader={third} 
+                rank={3}
+                onPress={() => third && fetchUserProfile(third.user_id)}
+              />
+            </View>
+          </LinearGradient>
         </View>
 
-        {/* My Stats Card - User ID/Name and Profit/Loss */}
+        {/* User's Own Stats Section */}
         {token && myStats && (
-          <View style={styles.myStatsCard}>
-            <View style={styles.myStatsLeft}>
-              <Text style={styles.countryFlag}>{myStats.country_flag || '🌍'}</Text>
-              <Text style={styles.myStatsName}>{myStats.name}</Text>
-            </View>
-            <Text style={[
-              styles.myStatsProfit,
-              { color: myStats.profit >= 0 ? '#00E55A' : '#FF3B3B' }
-            ]}>
-              {myStats.profit >= 0 ? '+' : '-'}${Math.abs(myStats.profit).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </Text>
+          <View style={styles.myStatsSection}>
+            <LinearGradient
+              colors={['#1A2A1A', '#0A1A0F']}
+              style={styles.myStatsGradient}
+            >
+              <View style={styles.myStatsHeader}>
+                <Text style={styles.myStatsSectionTitle}>Your Performance</Text>
+                <View style={styles.myRankBadge}>
+                  <Text style={styles.myRankText}>#{myStats.position}</Text>
+                </View>
+              </View>
+              
+              <View style={styles.myStatsRow}>
+                <View style={styles.myStatsAvatar}>
+                  <Text style={styles.myStatsFlag}>{myStats.country_flag || '🌍'}</Text>
+                </View>
+                <View style={styles.myStatsInfo}>
+                  <Text style={styles.myStatsName}>{myStats.name}</Text>
+                  <Text style={styles.myStatsTrades}>{myStats.total_trades} trades • {myStats.win_rate.toFixed(0)}% win rate</Text>
+                </View>
+                <Text style={[
+                  styles.myStatsProfit,
+                  { color: myStats.profit >= 0 ? '#00E55A' : '#FF3B3B' }
+                ]}>
+                  {myStats.profit >= 0 ? '+' : ''}{formatProfit(myStats.profit, myStats.profit >= 0)}
+                </Text>
+              </View>
+            </LinearGradient>
           </View>
         )}
 
-        {/* My Position/Ranking */}
-        {token && myStats && (
-          <View style={styles.myPositionRow}>
-            <Text style={styles.positionLabel}>Your Ranking:</Text>
-            <Text style={styles.positionValue}>#{myStats.position}</Text>
+        {/* Rest of Leaderboard List */}
+        <View style={styles.listSection}>
+          <View style={styles.listHeader}>
+            <View style={styles.listHeaderLine} />
+            <Text style={styles.listHeaderText}>Rankings</Text>
+            <View style={styles.listHeaderLine} />
           </View>
-        )}
 
-        {/* How Rating Works */}
-        <TouchableOpacity 
-          style={styles.infoButton}
-          onPress={() => setShowInfoModal(true)}
-        >
-          <Ionicons name="podium" size={20} color="#FFB800" />
-          <Text style={styles.infoButtonText}>How does this rating work?</Text>
-        </TouchableOpacity>
-
-        {/* Leaderboard List - Top 20 */}
-        <View style={styles.leaderboardList}>
-          {leaderboard.length === 0 ? (
+          {restOfTraders.length === 0 && leaderboard.length <= 3 ? (
             <View style={styles.emptyState}>
-              <Ionicons name="trophy-outline" size={48} color="#444" />
-              <Text style={styles.emptyText}>No traders yet today</Text>
-              <Text style={styles.emptySubtext}>Start trading to appear on the leaderboard!</Text>
+              <Text style={styles.emptyText}>More traders coming soon!</Text>
             </View>
           ) : (
-            leaderboard.slice(0, 20).map((trader) => {
-              const rankStyle = getRankBadge(trader.rank);
-              const isTopThree = trader.rank <= 3;
-
-              return (
-                <TouchableOpacity 
-                  key={trader.user_id} 
-                  style={[
-                    styles.traderRow,
-                    isTopThree && styles.traderRowTopThree,
-                  ]}
-                  onPress={() => fetchUserProfile(trader.user_id)}
-                  activeOpacity={0.7}
-                >
-                  {/* Rank */}
-                  <View style={styles.rankContainer}>
-                    {isTopThree ? (
-                      <View style={[styles.rankBadge, { backgroundColor: rankStyle.bg }]}>
-                        <Text style={[styles.rankBadgeText, { color: rankStyle.text }]}>
-                          {trader.rank}
-                        </Text>
-                      </View>
+            restOfTraders.map((trader) => (
+              <TouchableOpacity 
+                key={trader.user_id} 
+                style={styles.listItem}
+                onPress={() => fetchUserProfile(trader.user_id)}
+                activeOpacity={0.7}
+              >
+                {/* Avatar with Country Flag */}
+                <View style={styles.listAvatarContainer}>
+                  <View style={styles.listAvatar}>
+                    {trader.picture ? (
+                      <Image source={{ uri: trader.picture }} style={styles.listAvatarImage} />
                     ) : (
-                      <Text style={styles.rankNumber}>{trader.rank}</Text>
+                      <LinearGradient
+                        colors={['#2A3A4A', '#1A2A3A']}
+                        style={styles.listAvatarGradient}
+                      >
+                        <Text style={styles.listAvatarInitial}>
+                          {trader.name.charAt(0).toUpperCase()}
+                        </Text>
+                      </LinearGradient>
                     )}
                   </View>
+                  <Text style={styles.listFlag}>{trader.country_flag || '🌍'}</Text>
+                </View>
 
-                  {/* User Info */}
-                  <View style={styles.userInfo}>
-                    <View style={styles.flagAvatar}>
-                      <Text style={styles.flag}>{trader.country_flag || '🌍'}</Text>
-                      <View style={styles.avatarCircle}>
-                        {trader.picture ? (
-                          <Image 
-                            source={{ uri: trader.picture }} 
-                            style={styles.avatarImage}
-                          />
-                        ) : (
-                          <Ionicons name="person" size={14} color="#00E55A" />
-                        )}
-                      </View>
-                    </View>
-                    <Text style={styles.userName} numberOfLines={1}>{trader.name}</Text>
-                    {trader.win_rate >= 70 && (
-                      <Ionicons name="star" size={14} color="#FFD700" style={styles.vipStar} />
-                    )}
+                {/* User Info */}
+                <View style={styles.listInfo}>
+                  <Text style={styles.listName} numberOfLines={1}>{trader.name}</Text>
+                  <View style={styles.listProfitRow}>
+                    <Ionicons 
+                      name={trader.is_profit ? "trending-up" : "trending-down"} 
+                      size={12} 
+                      color={trader.is_profit ? "#00E55A" : "#FF3B3B"} 
+                    />
+                    <Text style={[styles.listProfit, { color: trader.is_profit ? "#00E55A" : "#FF3B3B" }]}>
+                      {formatProfit(trader.profit, trader.is_profit)}
+                    </Text>
                   </View>
+                </View>
 
-                  {/* Profit */}
-                  <Text style={[
-                    styles.profitAmount,
-                    { color: trader.is_profit ? '#00E55A' : '#FF3B3B' }
-                  ]}>
-                    {formatProfit(trader.profit, trader.is_profit)}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })
+                {/* Rank Circle */}
+                <View style={styles.listRankCircle}>
+                  <Text style={styles.listRankNumber}>{trader.rank}</Text>
+                  <Text style={styles.listRankSuffix}>th</Text>
+                </View>
+              </TouchableOpacity>
+            ))
           )}
         </View>
 
@@ -438,7 +577,6 @@ export default function Leaderboard() {
 
                 {/* Stats Grid */}
                 <View style={styles.statsGrid}>
-                  {/* Row 1 */}
                   <View style={styles.statsRow}>
                     <View style={styles.statItem}>
                       <Text style={styles.statValue}>{selectedUserProfile.trades_count}</Text>
@@ -450,7 +588,6 @@ export default function Leaderboard() {
                     </View>
                   </View>
 
-                  {/* Row 2 */}
                   <View style={styles.statsRow}>
                     <View style={styles.statItem}>
                       <Text style={[styles.statValue, { color: selectedUserProfile.trades_profit >= 0 ? '#00E55A' : '#FF3B3B' }]}>
@@ -466,7 +603,6 @@ export default function Leaderboard() {
                     </View>
                   </View>
 
-                  {/* Row 3 */}
                   <View style={styles.statsRow}>
                     <View style={styles.statItem}>
                       <Text style={styles.statValue}>
@@ -494,292 +630,394 @@ export default function Leaderboard() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A1A0F',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    color: '#888',
-    marginTop: 8,
-    fontSize: 11,
+    backgroundColor: '#0A0E17',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.1)',
   },
   backBtn: {
-    padding: 2,
-  },
-  headerTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  headerLogo: {
-    width: 36,
-    height: 36,
-  },
-  headerTextContainer: {
-    alignItems: 'flex-start',
+    padding: 4,
   },
   headerTitle: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 18,
+    fontWeight: '700',
     color: '#FFFFFF',
   },
-  headerSubtitle: {
-    fontSize: 9,
-    color: '#888',
-    marginTop: 1,
-  },
-  closeBtn: {
-    padding: 2,
+  infoBtn: {
+    padding: 4,
   },
   content: {
     flex: 1,
   },
-  sectionTitleContainer: {
+
+  // Podium Section
+  podiumSection: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  podiumGradient: {
+    padding: 16,
+    paddingTop: 20,
+  },
+  podiumRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 12,
-    marginTop: 10,
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  podiumCard: {
+    width: (width - 80) / 3,
+    backgroundColor: '#1A2A3E',
+    borderRadius: 16,
+    padding: 12,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#333',
+  },
+  podiumCardFirst: {
+    transform: [{ translateY: -20 }],
+    paddingVertical: 16,
+  },
+  wreathContainer: {
+    alignItems: 'center',
     marginBottom: 8,
-    gap: 6,
   },
-  sectionTitle: {
-    fontSize: 13,
+  wreathText: {
+    fontSize: 28,
+  },
+  rankCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: -12,
+    flexDirection: 'row',
+  },
+  rankCircleText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0A0E17',
+  },
+  rankSuffix: {
+    fontSize: 8,
+    fontWeight: '600',
+    color: '#0A0E17',
+    marginTop: -4,
+  },
+  crownContainer: {
+    position: 'absolute',
+    top: -5,
+    zIndex: 10,
+  },
+  crownEmoji: {
+    fontSize: 24,
+  },
+  podiumAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 3,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  podiumAvatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  podiumAvatarGradient: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  podiumAvatarInitial: {
+    fontSize: 24,
     fontWeight: '700',
-    color: '#FFB800',
-    textAlign: 'center',
+    color: '#FFF',
   },
-  myStatsCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#1B2838',
-    marginHorizontal: 12,
-    marginTop: 10,
-    padding: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+  fireContainer: {
+    marginVertical: 4,
   },
-  myStatsLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  countryFlag: {
-    fontSize: 16,
-  },
-  myStatsName: {
+  podiumName: {
     fontSize: 12,
     fontWeight: '600',
     color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 4,
   },
-  myStatsProfit: {
+  podiumProfitContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  podiumProfit: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  podiumEmptyAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#1A1F2E',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  podiumEmptyText: {
     fontSize: 14,
+    color: '#444',
+  },
+
+  // My Stats Section
+  myStatsSection: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  myStatsGradient: {
+    padding: 16,
+  },
+  myStatsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  myStatsSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#00E55A',
+  },
+  myRankBadge: {
+    backgroundColor: '#00E55A20',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#00E55A40',
+  },
+  myRankText: {
+    fontSize: 12,
     fontWeight: '700',
     color: '#00E55A',
   },
-  myPositionRow: {
+  myStatsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 12,
-    marginTop: 6,
-    gap: 6,
   },
-  positionLabel: {
-    fontSize: 10,
-    color: '#888',
+  myStatsAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#1A1F2E',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  positionValue: {
-    fontSize: 12,
+  myStatsFlag: {
+    fontSize: 24,
+  },
+  myStatsInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  myStatsName: {
+    fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  infoButton: {
+  myStatsTrades: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 2,
+  },
+  myStatsProfit: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+
+  // List Section
+  listSection: {
+    marginHorizontal: 16,
+    marginTop: 20,
+  },
+  listHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1B2838',
-    marginHorizontal: 12,
-    marginTop: 10,
-    marginBottom: 6,
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255,184,0,0.3)',
+    marginBottom: 16,
   },
-  infoButtonText: {
-    fontSize: 11,
+  listHeaderLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#1A1F2E',
+  },
+  listHeaderText: {
+    fontSize: 12,
     fontWeight: '600',
-    color: '#FFB800',
+    color: '#666',
+    marginHorizontal: 12,
   },
-  leaderboardList: {
-    paddingHorizontal: 12,
-    paddingTop: 4,
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0D1117',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#1A1F2E',
+  },
+  listAvatarContainer: {
+    position: 'relative',
+  },
+  listAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    overflow: 'hidden',
+  },
+  listAvatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  listAvatarGradient: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  listAvatarInitial: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  listFlag: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    fontSize: 16,
+    backgroundColor: '#0D1117',
+    borderRadius: 8,
+  },
+  listInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  listName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  listProfitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  listProfit: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  listRankCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: '#FFD700',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  listRankNumber: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFD700',
+  },
+  listRankSuffix: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#FFD700',
+    marginTop: -2,
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 40,
+    paddingVertical: 30,
   },
   emptyText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#888',
-    marginTop: 10,
-  },
-  emptySubtext: {
-    fontSize: 11,
     color: '#666',
-    marginTop: 4,
-    textAlign: 'center',
   },
-  traderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
-  },
-  traderRowTopThree: {
-    backgroundColor: 'rgba(255,255,255,0.02)',
-    marginHorizontal: -6,
-    paddingHorizontal: 6,
-    borderRadius: 6,
-  },
-  rankContainer: {
-    width: 28,
-    alignItems: 'center',
-  },
-  rankBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  rankBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  rankNumber: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#888',
-  },
-  userInfo: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 6,
-  },
-  flagAvatar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  flag: {
-    fontSize: 14,
-  },
-  avatarCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: 'rgba(0,229,90,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: -4,
-    overflow: 'hidden',
-  },
-  avatarImage: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-  },
-  userName: {
-    flex: 1,
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginLeft: 6,
-  },
-  vipStar: {
-    marginLeft: 2,
-  },
-  profitAmount: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#00E55A',
-  },
+
+  // Footer
   footer: {
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingBottom: 60,
+    paddingVertical: 20,
+    paddingBottom: 80,
   },
   footerText: {
-    fontSize: 10,
+    fontSize: 12,
     color: '#666',
   },
   footerSubtext: {
-    fontSize: 9,
+    fontSize: 11,
     color: '#555',
-    marginTop: 2,
+    marginTop: 4,
   },
+
+  // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.8)',
+    backgroundColor: 'rgba(0,0,0,0.85)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
+    padding: 20,
   },
   modalContent: {
     backgroundColor: '#111827',
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 16,
+    padding: 20,
     width: '100%',
-    maxWidth: 320,
+    maxWidth: 340,
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    marginBottom: 14,
+    gap: 8,
+    marginBottom: 20,
   },
   modalTitle: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   infoItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 10,
-    gap: 8,
+    marginBottom: 14,
+    gap: 10,
   },
   infoDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: '#00E55A',
     marginTop: 4,
   },
   infoText: {
     flex: 1,
-    fontSize: 11,
+    fontSize: 13,
     color: '#AAA',
-    lineHeight: 16,
+    lineHeight: 20,
   },
   infoHighlight: {
     color: '#00E55A',
@@ -787,106 +1025,112 @@ const styles = StyleSheet.create({
   },
   modalCloseBtn: {
     backgroundColor: '#00E55A',
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingVertical: 14,
+    borderRadius: 10,
     alignItems: 'center',
-    marginTop: 6,
+    marginTop: 8,
   },
   modalCloseBtnText: {
-    color: '#0A1A0F',
-    fontSize: 12,
+    color: '#0A0E17',
+    fontSize: 14,
     fontWeight: '700',
   },
-  // User Profile Modal Styles
+
+  // Profile Modal
   profileModalContent: {
-    backgroundColor: '#1B2838',
-    borderRadius: 14,
-    padding: 14,
-    marginHorizontal: 16,
+    backgroundColor: '#1A1F2E',
+    borderRadius: 16,
+    padding: 20,
+    marginHorizontal: 20,
     width: '90%',
-    maxWidth: 300,
+    maxWidth: 320,
   },
   profileCloseBtn: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 12,
+    right: 12,
     zIndex: 1,
-    padding: 2,
+    padding: 4,
   },
   profileLoading: {
     alignItems: 'center',
-    paddingVertical: 30,
+    paddingVertical: 40,
+  },
+  loadingText: {
+    color: '#888',
+    marginTop: 12,
+    fontSize: 13,
   },
   profileHeader: {
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   profilePicContainer: {
-    marginBottom: 8,
+    marginBottom: 12,
   },
   profilePic: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderWidth: 2,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    borderWidth: 3,
     borderColor: '#00E55A',
   },
   profilePicPlaceholder: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     backgroundColor: '#0A1A0F',
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: '#00E55A',
     justifyContent: 'center',
     alignItems: 'center',
   },
   profileCountry: {
-    fontSize: 11,
+    fontSize: 13,
     color: '#888',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   profileNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   profileName: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   levelBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
     borderWidth: 1,
   },
   levelBadgeText: {
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: '600',
   },
   statsGrid: {
     backgroundColor: '#0A1A0F',
-    borderRadius: 10,
-    padding: 10,
+    borderRadius: 12,
+    padding: 14,
   },
   statsRow: {
     flexDirection: 'row',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   statItem: {
     flex: 1,
     alignItems: 'flex-start',
   },
   statValue: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
     marginBottom: 2,
   },
   statLabel: {
-    fontSize: 9,
+    fontSize: 11,
     color: '#666',
   },
 });
