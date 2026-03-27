@@ -825,7 +825,7 @@ export default function Leaderboard() {
             </View>
             
             {/* Leaderboard of the Day text */}
-            <Text style={styles.leaderboardTitle}>Traders Leaderboard of the Day</Text>
+            <Text style={styles.leaderboardTitle}>🏆  Today's Top Traders Leaderboard  🏆</Text>
           </LinearGradient>
         </View>
 
