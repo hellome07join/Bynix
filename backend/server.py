@@ -1152,10 +1152,17 @@ async def settle_trade(trade_id: str, settle_data: TradeSettle, authorization: O
                 
                 if commission > 0:
                     # Credit commission to affiliate's HOLD balance (released on Monday 6 AM SGT)
-                    await db.affiliates.update_one(
-                        {"affiliate_id": affiliate["affiliate_id"]},
-                        {"$inc": {"hold_balance": commission, "total_earnings": commission}}
-                    )
+                    # Track turnover and revenue commissions separately
+                    if program_type == "turnover":
+                        await db.affiliates.update_one(
+                            {"affiliate_id": affiliate["affiliate_id"]},
+                            {"$inc": {"hold_balance": commission, "hold_balance_turnover": commission, "total_earnings": commission}}
+                        )
+                    else:
+                        await db.affiliates.update_one(
+                            {"affiliate_id": affiliate["affiliate_id"]},
+                            {"$inc": {"hold_balance": commission, "hold_balance_revenue": commission, "total_earnings": commission}}
+                        )
                     
                     # Update referral commission earned
                     if referral:
@@ -11097,6 +11104,8 @@ async def get_affiliate_balance_info(authorization: str = Header(None)):
         return {
             "available_balance": affiliate.get("balance", 0),
             "hold_balance": affiliate.get("hold_balance", 0),
+            "hold_balance_revenue": affiliate.get("hold_balance_revenue", 0),
+            "hold_balance_turnover": affiliate.get("hold_balance_turnover", 0),
             "total_earnings": affiliate.get("total_earnings", 0),
             "last_payout_date": affiliate.get("last_payout_date"),
             "next_payout_date": next_payout.isoformat(),
@@ -11257,6 +11266,8 @@ async def admin_release_all_hold_balances(authorization: str = Header(None)):
                     {"$set": {
                         "balance": new_available,
                         "hold_balance": 0,
+                        "hold_balance_revenue": 0,
+                        "hold_balance_turnover": 0,
                         "last_payout_date": datetime.now(timezone.utc)
                     }}
                 )
@@ -11312,6 +11323,8 @@ async def check_monday_payout():
                             {"$set": {
                                 "balance": new_available,
                                 "hold_balance": 0,
+                                "hold_balance_revenue": 0,
+                                "hold_balance_turnover": 0,
                                 "last_payout_date": datetime.now(timezone.utc)
                             }}
                         )

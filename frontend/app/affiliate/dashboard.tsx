@@ -641,7 +641,7 @@ export default function AffiliateDashboard() {
           </View>
         </LinearGradient>
         
-        {/* Hold Balance Card */}
+        {/* Hold Balance Card - Split into Revenue & Turnover */}
         <View style={styles.holdBalanceCard}>
           <View style={styles.holdBalanceHeader}>
             <View style={styles.holdBalanceIconContainer}>
@@ -649,17 +649,42 @@ export default function AffiliateDashboard() {
             </View>
             <View style={styles.holdBalanceInfo}>
               <Text style={styles.holdBalanceLabel}>Hold Balance</Text>
-              <Text style={styles.holdBalanceAmount}>{formatMoney(affiliate?.hold_balance || 0)}</Text>
+              <Text style={styles.holdBalanceAmount}>{formatMoney((affiliate?.hold_balance_revenue || 0) + (affiliate?.hold_balance_turnover || 0))}</Text>
             </View>
           </View>
+          
+          {/* Separate Revenue & Turnover Balances */}
+          <View style={styles.holdBalanceBreakdown}>
+            <View style={styles.holdBalanceBreakdownItem}>
+              <View style={[styles.holdBalanceBreakdownIcon, { backgroundColor: '#E8F5E9' }]}>
+                <Ionicons name="trending-down" size={16} color="#4CAF50" />
+              </View>
+              <View style={styles.holdBalanceBreakdownInfo}>
+                <Text style={styles.holdBalanceBreakdownLabel}>Revenue Commission</Text>
+                <Text style={[styles.holdBalanceBreakdownValue, { color: '#4CAF50' }]}>
+                  {formatMoney(affiliate?.hold_balance_revenue || 0)}
+                </Text>
+              </View>
+            </View>
+            
+            <View style={styles.holdBalanceBreakdownDivider} />
+            
+            <View style={styles.holdBalanceBreakdownItem}>
+              <View style={[styles.holdBalanceBreakdownIcon, { backgroundColor: '#E3F2FD' }]}>
+                <Ionicons name="swap-horizontal" size={16} color="#2196F3" />
+              </View>
+              <View style={styles.holdBalanceBreakdownInfo}>
+                <Text style={styles.holdBalanceBreakdownLabel}>Turnover Commission</Text>
+                <Text style={[styles.holdBalanceBreakdownValue, { color: '#2196F3' }]}>
+                  {formatMoney(affiliate?.hold_balance_turnover || 0)}
+                </Text>
+              </View>
+            </View>
+          </View>
+          
           <View style={styles.holdBalanceFooter}>
             <Ionicons name="calendar-outline" size={14} color={COLORS.textSecondary} />
-            <Text style={styles.holdBalanceRelease}>Released every Monday 6 AM (SGT)</Text>
-          </View>
-          <View style={styles.holdBalanceNote}>
-            <Text style={styles.holdBalanceNoteText}>
-              New commissions are held until next Monday payout
-            </Text>
+            <Text style={styles.holdBalanceRelease}>Auto-released every Monday 6 AM (SGT)</Text>
           </View>
         </View>
       </View>
@@ -3286,6 +3311,15 @@ const styles = StyleSheet.create({
   holdBalanceRelease: { color: '#B8860B', fontSize: 12, marginLeft: 6 },
   holdBalanceNote: { backgroundColor: '#FFF0D4', borderRadius: 8, padding: 10, marginTop: 10 },
   holdBalanceNoteText: { color: '#B8860B', fontSize: 11, textAlign: 'center', fontStyle: 'italic' },
+  
+  // Hold Balance Breakdown (Revenue vs Turnover)
+  holdBalanceBreakdown: { marginTop: 16, marginBottom: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#FFE4B5' },
+  holdBalanceBreakdownItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
+  holdBalanceBreakdownIcon: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  holdBalanceBreakdownInfo: { flex: 1 },
+  holdBalanceBreakdownLabel: { fontSize: 12, color: '#8B7355', marginBottom: 2 },
+  holdBalanceBreakdownValue: { fontSize: 18, fontWeight: '700' },
+  holdBalanceBreakdownDivider: { height: 1, backgroundColor: '#FFE4B5', marginVertical: 4 },
   
   // Level Progress
   levelProgressCard: { backgroundColor: COLORS.white, borderRadius: 16, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: COLORS.border },
