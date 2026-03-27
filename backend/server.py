@@ -333,6 +333,7 @@ async def signup(user: UserCreate):
     new_user = {
         "user_id": user_id,
         "account_id": str(account_id),
+        "display_id": str(account_id),  # Store display_id for easy lookup
         "email": user.email,
         "name": user.name,
         "full_name": user.name,

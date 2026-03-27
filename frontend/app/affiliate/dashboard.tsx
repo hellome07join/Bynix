@@ -811,13 +811,25 @@ export default function AffiliateDashboard() {
       
       setIsSearching(true);
       
-      // Search in traders data
-      const found = tradersData.find((t: any) => 
-        t.id?.toString().includes(traderSearchQuery) ||
-        t.display_id?.toString().includes(traderSearchQuery) ||
-        t.user_id?.toString().includes(traderSearchQuery) ||
-        t.user_id === traderSearchQuery
-      );
+      console.log('[Affiliate] Searching for trader:', traderSearchQuery);
+      console.log('[Affiliate] tradersData count:', tradersData.length);
+      console.log('[Affiliate] tradersData IDs:', tradersData.map((t: any) => t.id || t.display_id));
+      
+      // Search in traders data - exact match for ID
+      const searchTerm = traderSearchQuery.trim();
+      const found = tradersData.find((t: any) => {
+        const id = t.id?.toString() || '';
+        const displayId = t.display_id?.toString() || '';
+        const userId = t.user_id?.toString() || '';
+        
+        return id === searchTerm || 
+               displayId === searchTerm || 
+               id.includes(searchTerm) ||
+               displayId.includes(searchTerm) ||
+               userId.includes(searchTerm);
+      });
+      
+      console.log('[Affiliate] Search result:', found ? found.id : 'NOT FOUND');
       
       if (found) {
         setSearchedTrader(found);
