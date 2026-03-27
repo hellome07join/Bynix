@@ -10560,17 +10560,37 @@ async def get_affiliate_statistics(authorization: str = Header(None), days: int 
             "affiliate_id": affiliate_id
         }).sort("created_at", -1).limit(100).to_list(100)
         
+        # Get all referrals to assign sequential display IDs
+        all_referrals = await db.referrals.find({
+            "affiliate_id": affiliate_id
+        }).sort("created_at", 1).to_list(1000)
+        
+        # Create a mapping of user_id to display_id (starting from 10000001)
+        user_display_ids = {}
+        for idx, ref in enumerate(all_referrals):
+            user_display_ids[ref.get("referred_user_id")] = f"1000{str(idx + 1).zfill(4)}"
+        
         for ref in referrals_raw:
             # Get user details
             user = await db.users.find_one({"user_id": ref.get("referred_user_id")})
-            user_country = user.get("country", "Unknown") if user else "Unknown"
-            user_flag = user.get("country_flag", "🌍") if user else "🌍"
+            
+            # Get country and flag from user record
+            user_country = "Unknown"
+            user_flag = "🌍"
+            link_code = ""
+            
+            if user:
+                user_country = user.get("country") or user.get("country_name") or "Unknown"
+                user_flag = user.get("country_flag") or user.get("flag") or "🌍"
+                link_code = user.get("referred_by") or ""
             
             # Get the link that was used (from affiliate_links)
-            link_used = await db.affiliate_links.find_one({
-                "affiliate_id": affiliate_id,
-                "code": user.get("referred_by") if user else None
-            })
+            link_used = None
+            if link_code:
+                link_used = await db.affiliate_links.find_one({
+                    "affiliate_id": affiliate_id,
+                    "code": link_code
+                })
             
             # Calculate commission cap info for turnover model
             affiliate = await db.affiliates.find_one({"affiliate_id": affiliate_id})
@@ -10579,13 +10599,22 @@ async def get_affiliate_statistics(authorization: str = Header(None), days: int 
             total_deposited = ref.get("total_deposited", 0)
             commission_earned = ref.get("commission_earned", 0)
             
+            # Generate display ID (10000xxx format)
+            raw_user_id = ref.get("referred_user_id", "")
+            display_id = user_display_ids.get(raw_user_id, raw_user_id)
+            
+            # If user has a custom display_id stored, use that
+            if user and user.get("display_id"):
+                display_id = user.get("display_id")
+            
             trader_data = {
-                "id": ref.get("referred_user_id"),
-                "user_id": ref.get("referred_user_id"),
+                "id": display_id,  # Show display ID (10000xxx format)
+                "user_id": raw_user_id,  # Keep original for reference
+                "display_id": display_id,
                 "email": ref.get("user_email", "Unknown"),
                 "date": ref.get("created_at").strftime("%Y-%m-%d") if ref.get("created_at") else "",
                 "type": "Turnover" if commission_type == "turnover" else "Revenue",
-                "linkId": user.get("referred_by") if user else "",
+                "linkId": link_code or affiliate.get("ref_code", "") if affiliate else "",  # Use ref code if no specific link
                 "country": user_country,
                 "flag": user_flag,
                 "is_ftd": ref.get("is_ftd", False),
