@@ -4788,7 +4788,7 @@ export default function AdminDashboard() {
                       <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} style={{ marginLeft: 8 }} />
                     </View>
                     <Text style={styles.payoutEmail}>{payout.affiliate_email}</Text>
-                    <Text style={styles.payoutCode}>ID: {payout.affiliate_ref_code}</Text>
+                    <Text style={styles.payoutCode}>Affiliate ID: {payout.affiliate_ref_code}</Text>
                     <Text style={styles.payoutAmount}>${(payout.amount || 0).toLocaleString()}</Text>
                     <Text style={styles.payoutMethod}>{payout.payment_method} - {payout.wallet_address?.substring(0, 20)}...</Text>
                     <View style={[styles.payoutStatusBadge, { backgroundColor: payout.status === 'pending' ? COLORS.warningLight : payout.status === 'approved' ? COLORS.successLight : COLORS.dangerLight }]}>
@@ -4896,7 +4896,7 @@ export default function AdminDashboard() {
                       <Text style={styles.detailValue}>{withdrawalDetails.affiliate?.email || 'N/A'}</Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Ref Code</Text>
+                      <Text style={styles.detailLabel}>Affiliate ID</Text>
                       <Text style={[styles.detailValue, { color: COLORS.primary, fontWeight: '600' }]}>
                         {withdrawalDetails.affiliate?.ref_code || 'N/A'}
                       </Text>
