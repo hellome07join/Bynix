@@ -134,13 +134,13 @@ const CircularPodiumItem = ({
     : ['#CD7F32', '#8B4513'];
 
   const borderColor = isFirst ? '#FFD700' : isSecond ? '#C0C0C0' : '#CD7F32';
-  const circleSize = isFirst ? 70 : 55;
+  const circleSize = isFirst ? 60 : 48;
 
   if (!trader) {
     return (
       <View style={[circularStyles.itemContainer, isFirst && circularStyles.firstPlaceContainer]}>
         <View style={[circularStyles.circleAvatar, { width: circleSize, height: circleSize, borderColor, opacity: 0.3 }]}>
-          <Ionicons name="person" size={24} color="#444" />
+          <Ionicons name="person" size={20} color="#444" />
         </View>
         <Text style={circularStyles.emptyName}>-</Text>
       </View>
@@ -170,7 +170,7 @@ const CircularPodiumItem = ({
       <View style={circularStyles.avatarWrapper}>
         {/* Fire Behind */}
         <View style={circularStyles.fireContainer}>
-          <FireBackground size={isFirst ? 55 : 40} />
+          <FireBackground size={isFirst ? 45 : 35} />
         </View>
         
         {/* Circular Avatar */}
@@ -181,11 +181,18 @@ const CircularPodiumItem = ({
           {trader.picture ? (
             <Image source={{ uri: trader.picture }} style={{ width: '100%', height: '100%', borderRadius: circleSize/2 }} />
           ) : (
-            <Text style={[circularStyles.avatarInitial, { fontSize: isFirst ? 28 : 22 }]}>
+            <Text style={[circularStyles.avatarInitial, { fontSize: isFirst ? 24 : 18 }]}>
               {trader.name.charAt(0).toUpperCase()}
             </Text>
           )}
         </LinearGradient>
+        
+        {/* Country Flag on Avatar */}
+        {trader.country_flag && (
+          <View style={circularStyles.flagBadge}>
+            <Text style={circularStyles.flagText}>{trader.country_flag}</Text>
+          </View>
+        )}
       </View>
 
       {/* Name */}
@@ -197,7 +204,7 @@ const CircularPodiumItem = ({
       <View style={circularStyles.profitRow}>
         <Ionicons 
           name={trader.is_profit ? "trending-up" : "trending-down"} 
-          size={12} 
+          size={10} 
           color={trader.is_profit ? "#00E55A" : "#FF3B3B"} 
         />
         <Text style={[circularStyles.profitText, { color: trader.is_profit ? "#00E55A" : "#FF3B3B" }]}>
@@ -283,13 +290,24 @@ const circularStyles = StyleSheet.create({
     marginTop: 2,
   },
   profitText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
   },
   emptyName: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#444',
-    marginTop: 8,
+    marginTop: 6,
+  },
+  flagBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#0A0E17',
+    borderRadius: 8,
+    padding: 1,
+  },
+  flagText: {
+    fontSize: 12,
   },
 });
 
@@ -498,12 +516,12 @@ export default function Leaderboard() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
+      {/* Header with Bynix Logo */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Leaderboard</Text>
+        <BynixLogo />
         <TouchableOpacity onPress={() => setShowInfoModal(true)} style={styles.infoBtn}>
           <Ionicons name="information-circle-outline" size={24} color="#888" />
         </TouchableOpacity>
@@ -526,11 +544,6 @@ export default function Leaderboard() {
             colors={['#0A1A2E', '#0A1A0F']}
             style={styles.podiumGradient}
           >
-            {/* Bynix Logo at top */}
-            <View style={{ alignItems: 'center', marginBottom: 10 }}>
-              <BynixLogo />
-            </View>
-            
             {/* Compact Circular Podium Row */}
             <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end' }}>
               {/* 2nd Place - Left */}
@@ -560,6 +573,9 @@ export default function Leaderboard() {
                 />
               </View>
             </View>
+            
+            {/* Leaderboard of the Day text */}
+            <Text style={styles.leaderboardTitle}>Leaderboard of the Day</Text>
           </LinearGradient>
         </View>
 
@@ -595,6 +611,25 @@ export default function Leaderboard() {
             </LinearGradient>
           </View>
         )}
+
+        {/* How it Works Section */}
+        <View style={styles.howItWorksSection}>
+          <Text style={styles.howItWorksTitle}>How it Works</Text>
+          <View style={styles.howItWorksList}>
+            <View style={styles.howItWorksItem}>
+              <View style={styles.howItWorksDot} />
+              <Text style={styles.howItWorksText}>Rankings based on last 24h profit</Text>
+            </View>
+            <View style={styles.howItWorksItem}>
+              <View style={[styles.howItWorksDot, { backgroundColor: '#00E55A' }]} />
+              <Text style={styles.howItWorksText}>Green = Profit, Red = Loss</Text>
+            </View>
+            <View style={styles.howItWorksItem}>
+              <View style={styles.howItWorksDot} />
+              <Text style={styles.howItWorksText}>Resets daily at midnight UTC</Text>
+            </View>
+          </View>
+        </View>
 
         {/* Rest of Leaderboard List */}
         <View style={styles.listSection}>
@@ -863,10 +898,17 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   podiumGradient: {
-    padding: 12,
-    paddingTop: 12,
-    paddingBottom: 12,
+    padding: 10,
+    paddingTop: 8,
+    paddingBottom: 10,
     borderRadius: 16,
+  },
+  leaderboardTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#888',
+    textAlign: 'center',
+    marginTop: 8,
   },
   podiumRow: {
     flexDirection: 'row',
@@ -984,28 +1026,28 @@ const styles = StyleSheet.create({
 
   // My Stats Section
   myStatsSection: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 16,
+    marginHorizontal: 12,
+    marginTop: 10,
+    borderRadius: 12,
     overflow: 'hidden',
   },
   myStatsGradient: {
-    padding: 16,
+    padding: 10,
   },
   myStatsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   myStatsSectionTitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: '#00E55A',
   },
   myRankBadge: {
     backgroundColor: '#00E55A20',
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
@@ -1036,29 +1078,64 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   myStatsName: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   myStatsTrades: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#888',
-    marginTop: 2,
+    marginTop: 1,
   },
   myStatsProfit: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '700',
+  },
+
+  // How it Works Section
+  howItWorksSection: {
+    marginHorizontal: 12,
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: '#0D1117',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#1A1F2E',
+  },
+  howItWorksTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#888',
+    marginBottom: 6,
+  },
+  howItWorksList: {
+    gap: 4,
+  },
+  howItWorksItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  howItWorksDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#00E55A',
+  },
+  howItWorksText: {
+    fontSize: 10,
+    color: '#666',
   },
 
   // List Section
   listSection: {
-    marginHorizontal: 16,
-    marginTop: 20,
+    marginHorizontal: 12,
+    marginTop: 10,
   },
   listHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   listHeaderLine: {
     flex: 1,
@@ -1066,18 +1143,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#1A1F2E',
   },
   listHeaderText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
     color: '#666',
-    marginHorizontal: 12,
+    marginHorizontal: 10,
   },
   listItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#0D1117',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 5,
     borderWidth: 1,
     borderColor: '#1A1F2E',
   },
@@ -1085,9 +1162,9 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   listAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     overflow: 'hidden',
   },
   listAvatarImage: {
@@ -1101,41 +1178,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   listAvatarInitial: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '700',
     color: '#FFF',
   },
   listFlag: {
     position: 'absolute',
-    bottom: -4,
-    right: -4,
-    fontSize: 16,
+    bottom: -3,
+    right: -3,
+    fontSize: 12,
     backgroundColor: '#0D1117',
-    borderRadius: 8,
+    borderRadius: 6,
   },
   listInfo: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 10,
   },
   listName: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: '#FFFFFF',
   },
   listProfitRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
+    gap: 3,
+    marginTop: 2,
   },
   listProfit: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '600',
   },
   listRankCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     borderWidth: 2,
     borderColor: '#FFD700',
     justifyContent: 'center',
@@ -1143,39 +1220,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   listRankNumber: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: '800',
     color: '#FFD700',
   },
   listRankSuffix: {
-    fontSize: 10,
+    fontSize: 7,
     fontWeight: '600',
     color: '#FFD700',
     marginTop: -2,
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 30,
+    paddingVertical: 20,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#666',
   },
 
   // Footer
   footer: {
     alignItems: 'center',
-    paddingVertical: 20,
-    paddingBottom: 80,
+    paddingVertical: 12,
+    paddingBottom: 60,
   },
   footerText: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#666',
   },
   footerSubtext: {
-    fontSize: 11,
+    fontSize: 9,
     color: '#555',
-    marginTop: 4,
+    marginTop: 2,
   },
 
   // Modal Styles
