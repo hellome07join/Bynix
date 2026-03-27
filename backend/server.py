@@ -8085,6 +8085,7 @@ async def admin_get_affiliate_payouts(
             payout["affiliate_name"] = affiliate.get("name", "")
             payout["affiliate_email"] = affiliate.get("email", "")
             payout["affiliate_ref_code"] = affiliate.get("ref_code", "")
+        result.append(payout)
     
     # Get payout settings
     settings = await db.affiliate_settings.find_one({"type": "payout"})

@@ -4534,7 +4534,7 @@ export default function AdminDashboard() {
         </View>
         <View style={[styles.affiliateStatCard, { borderLeftColor: COLORS.danger }]}>
           <Text style={styles.affiliateStatValue}>${affiliateStats.pending_payouts?.toLocaleString() || 0}</Text>
-          <Text style={styles.affiliateStatLabel}>Pending Payouts</Text>
+          <Text style={styles.affiliateStatLabel}>Pending Withdrawals</Text>
         </View>
       </View>
 
@@ -7961,7 +7961,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: COLORS.success,
+    marginTop: 4,
+  },
+  payoutEmail: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
     marginTop: 2,
+  },
+  payoutCode: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  payoutMethod: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginTop: 4,
+  },
+  payoutStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+    marginTop: 6,
+  },
+  payoutStatusText: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'capitalize',
   },
   payoutStatus: {
     fontSize: 11,
