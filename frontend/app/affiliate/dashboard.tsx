@@ -641,44 +641,35 @@ export default function AffiliateDashboard() {
           </View>
         </LinearGradient>
         
-        {/* Hold Balance Card - Split into Revenue & Turnover */}
+        {/* Hold Balance Card - Revenue & Turnover Only */}
         <View style={styles.holdBalanceCard}>
-          <View style={styles.holdBalanceHeader}>
-            <View style={styles.holdBalanceIconContainer}>
-              <Ionicons name="time-outline" size={20} color="#FFA500" />
+          {/* Revenue Commission */}
+          <View style={styles.holdBalanceBreakdownItem}>
+            <View style={[styles.holdBalanceBreakdownIcon, { backgroundColor: '#E8F5E9' }]}>
+              <Ionicons name="trending-down" size={18} color="#4CAF50" />
             </View>
-            <View style={styles.holdBalanceInfo}>
-              <Text style={styles.holdBalanceLabel}>Hold Balance</Text>
-              <Text style={styles.holdBalanceAmount}>{formatMoney((affiliate?.hold_balance_revenue || 0) + (affiliate?.hold_balance_turnover || 0))}</Text>
+            <View style={styles.holdBalanceBreakdownInfo}>
+              <Text style={styles.holdBalanceBreakdownLabel}>Revenue Commission</Text>
+              <Text style={styles.holdBalanceHoldTag}>HOLD</Text>
+              <Text style={[styles.holdBalanceBreakdownValue, { color: '#4CAF50' }]}>
+                {formatMoney(affiliate?.hold_balance_revenue || 0)}
+              </Text>
             </View>
           </View>
           
-          {/* Separate Revenue & Turnover Balances */}
-          <View style={styles.holdBalanceBreakdown}>
-            <View style={styles.holdBalanceBreakdownItem}>
-              <View style={[styles.holdBalanceBreakdownIcon, { backgroundColor: '#E8F5E9' }]}>
-                <Ionicons name="trending-down" size={16} color="#4CAF50" />
-              </View>
-              <View style={styles.holdBalanceBreakdownInfo}>
-                <Text style={styles.holdBalanceBreakdownLabel}>Revenue Commission</Text>
-                <Text style={[styles.holdBalanceBreakdownValue, { color: '#4CAF50' }]}>
-                  {formatMoney(affiliate?.hold_balance_revenue || 0)}
-                </Text>
-              </View>
+          <View style={styles.holdBalanceBreakdownDivider} />
+          
+          {/* Turnover Commission */}
+          <View style={styles.holdBalanceBreakdownItem}>
+            <View style={[styles.holdBalanceBreakdownIcon, { backgroundColor: '#E3F2FD' }]}>
+              <Ionicons name="swap-horizontal" size={18} color="#2196F3" />
             </View>
-            
-            <View style={styles.holdBalanceBreakdownDivider} />
-            
-            <View style={styles.holdBalanceBreakdownItem}>
-              <View style={[styles.holdBalanceBreakdownIcon, { backgroundColor: '#E3F2FD' }]}>
-                <Ionicons name="swap-horizontal" size={16} color="#2196F3" />
-              </View>
-              <View style={styles.holdBalanceBreakdownInfo}>
-                <Text style={styles.holdBalanceBreakdownLabel}>Turnover Commission</Text>
-                <Text style={[styles.holdBalanceBreakdownValue, { color: '#2196F3' }]}>
-                  {formatMoney(affiliate?.hold_balance_turnover || 0)}
-                </Text>
-              </View>
+            <View style={styles.holdBalanceBreakdownInfo}>
+              <Text style={styles.holdBalanceBreakdownLabel}>Turnover Commission</Text>
+              <Text style={styles.holdBalanceHoldTag}>HOLD</Text>
+              <Text style={[styles.holdBalanceBreakdownValue, { color: '#2196F3' }]}>
+                {formatMoney(affiliate?.hold_balance_turnover || 0)}
+              </Text>
             </View>
           </View>
           
@@ -3314,11 +3305,12 @@ const styles = StyleSheet.create({
   
   // Hold Balance Breakdown (Revenue vs Turnover)
   holdBalanceBreakdown: { marginTop: 16, marginBottom: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#FFE4B5' },
-  holdBalanceBreakdownItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
-  holdBalanceBreakdownIcon: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  holdBalanceBreakdownItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
+  holdBalanceBreakdownIcon: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
   holdBalanceBreakdownInfo: { flex: 1 },
-  holdBalanceBreakdownLabel: { fontSize: 12, color: '#8B7355', marginBottom: 2 },
-  holdBalanceBreakdownValue: { fontSize: 18, fontWeight: '700' },
+  holdBalanceBreakdownLabel: { fontSize: 14, color: '#8B7355', fontWeight: '500' },
+  holdBalanceHoldTag: { fontSize: 10, fontWeight: '800', color: '#B8860B', letterSpacing: 1, marginTop: 2, marginBottom: 2 },
+  holdBalanceBreakdownValue: { fontSize: 24, fontWeight: '800' },
   holdBalanceBreakdownDivider: { height: 1, backgroundColor: '#FFE4B5', marginVertical: 4 },
   
   // Level Progress
