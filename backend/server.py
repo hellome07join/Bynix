@@ -7509,26 +7509,175 @@ async def admin_get_affiliate_stats(authorization: Optional[str] = Header(None),
     active_affiliates = await db.affiliates.count_documents({"status": "active"})
     pending_affiliates = await db.affiliates.count_documents({"status": "pending"})
     
-    total_referrals = await db.referrals.count_documents({})
+    total_referrals = await db.affiliate_referrals.count_documents({})
     
-    # Calculate total commissions
+    # Calculate total commissions paid
     pipeline = [
+        {"$match": {"status": "paid"}},
         {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
     ]
-    comm_result = await db.commissions.aggregate(pipeline).to_list(1)
-    total_commissions = comm_result[0]["total"] if comm_result else 0
+    paid_result = await db.affiliate_commissions.aggregate(pipeline).to_list(1)
+    total_paid = paid_result[0]["total"] if paid_result else 0
     
-    # Pending payouts
-    pending_payouts = await db.affiliate_payouts.count_documents({"status": "pending"})
+    # Pending payouts amount
+    pending_pipeline = [
+        {"$match": {"status": "pending"}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]
+    pending_result = await db.affiliate_payouts.aggregate(pending_pipeline).to_list(1)
+    pending_payouts_amount = pending_result[0]["total"] if pending_result else 0
+    
+    # Get commission settings
+    settings = await db.affiliate_settings.find_one({"type": "commission"})
+    if not settings:
+        settings = {
+            "revenue_share": 50,
+            "turnover_commission": 2,
+            "cpa_amount": 50
+        }
     
     return {
         "total_affiliates": total_affiliates,
         "active_affiliates": active_affiliates,
         "pending_affiliates": pending_affiliates,
         "total_referrals": total_referrals,
-        "total_commissions_paid": total_commissions,
-        "pending_payouts": pending_payouts
+        "total_paid": total_paid,
+        "pending_payouts": pending_payouts_amount,
+        "commission_settings": {
+            "revenue_share": settings.get("revenue_share", 50),
+            "turnover_commission": settings.get("turnover_commission", 2),
+            "cpa_amount": settings.get("cpa_amount", 50)
+        }
     }
+
+@api_router.put("/admin/affiliates/settings")
+async def admin_update_affiliate_settings(
+    settings: dict,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Update affiliate commission settings"""
+    user = await get_current_user(authorization, request)
+    
+    await db.affiliate_settings.update_one(
+        {"type": "commission"},
+        {"$set": {
+            "type": "commission",
+            "revenue_share": settings.get("revenue_share", 50),
+            "turnover_commission": settings.get("turnover_commission", 2),
+            "cpa_amount": settings.get("cpa_amount", 50),
+            "updated_at": datetime.now(timezone.utc),
+            "updated_by": user.user_id
+        }},
+        upsert=True
+    )
+    
+    return {"message": "Settings updated successfully"}
+
+@api_router.post("/admin/affiliates/create")
+async def admin_create_affiliate(
+    data: dict,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Create a new affiliate partner"""
+    user = await get_current_user(authorization, request)
+    
+    # Generate unique affiliate code
+    import secrets
+    affiliate_code = f"BNX{secrets.token_hex(4).upper()}"
+    affiliate_id = f"aff_{secrets.token_hex(8)}"
+    
+    affiliate_doc = {
+        "affiliate_id": affiliate_id,
+        "name": data.get("name", ""),
+        "email": data.get("email", ""),
+        "phone": data.get("phone", ""),
+        "company": data.get("company", ""),
+        "ref_code": affiliate_code,
+        "status": "active",
+        "commission_rate": data.get("commission_rate", 50),
+        "turnover_rate": data.get("turnover_rate", 2),
+        "cpa_amount": data.get("cpa_amount", 50),
+        "total_referrals": 0,
+        "total_ftds": 0,
+        "total_deposits": 0,
+        "total_earnings": 0,
+        "pending_earnings": 0,
+        "paid_earnings": 0,
+        "created_at": datetime.now(timezone.utc),
+        "created_by": user.user_id
+    }
+    
+    await db.affiliates.insert_one(affiliate_doc)
+    
+    return {
+        "message": "Affiliate created successfully",
+        "affiliate": {
+            "affiliate_id": affiliate_id,
+            "ref_code": affiliate_code,
+            "name": data.get("name"),
+            "email": data.get("email")
+        }
+    }
+
+@api_router.delete("/admin/affiliates/{affiliate_id}")
+async def admin_delete_affiliate(
+    affiliate_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Delete an affiliate"""
+    user = await get_current_user(authorization, request)
+    
+    result = await db.affiliates.delete_one({"affiliate_id": affiliate_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Affiliate not found")
+    
+    return {"message": "Affiliate deleted successfully"}
+
+@api_router.put("/admin/affiliates/{affiliate_id}")
+async def admin_update_affiliate(
+    affiliate_id: str,
+    data: dict,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Update affiliate details"""
+    user = await get_current_user(authorization, request)
+    
+    update_data = {
+        "updated_at": datetime.now(timezone.utc),
+        "updated_by": user.user_id
+    }
+    
+    if "name" in data:
+        update_data["name"] = data["name"]
+    if "email" in data:
+        update_data["email"] = data["email"]
+    if "phone" in data:
+        update_data["phone"] = data["phone"]
+    if "company" in data:
+        update_data["company"] = data["company"]
+    if "commission_rate" in data:
+        update_data["commission_rate"] = data["commission_rate"]
+    if "turnover_rate" in data:
+        update_data["turnover_rate"] = data["turnover_rate"]
+    if "cpa_amount" in data:
+        update_data["cpa_amount"] = data["cpa_amount"]
+    if "status" in data:
+        update_data["status"] = data["status"]
+    
+    result = await db.affiliates.update_one(
+        {"affiliate_id": affiliate_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Affiliate not found")
+    
+    return {"message": "Affiliate updated successfully"}
 
 # ============= ADVANCED USER MANAGEMENT SYSTEM =============
 

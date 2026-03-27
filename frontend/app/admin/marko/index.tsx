@@ -199,6 +199,39 @@ export default function AdminDashboard() {
   });
   const [promoLoading, setPromoLoading] = useState(false);
 
+  // Affiliate States
+  const [affiliateStats, setAffiliateStats] = useState<any>({
+    total_affiliates: 0,
+    active_affiliates: 0,
+    total_paid: 0,
+    pending_payouts: 0,
+    commission_settings: {
+      revenue_share: 50,
+      turnover_commission: 2,
+      cpa_amount: 50
+    }
+  });
+  const [affiliates, setAffiliates] = useState<any[]>([]);
+  const [showCreateAffiliateModal, setShowCreateAffiliateModal] = useState(false);
+  const [showEditAffiliateModal, setShowEditAffiliateModal] = useState(false);
+  const [showEditSettingsModal, setShowEditSettingsModal] = useState(false);
+  const [selectedAffiliate, setSelectedAffiliate] = useState<any>(null);
+  const [newAffiliate, setNewAffiliate] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    company: '',
+    commission_rate: 50,
+    turnover_rate: 2,
+    cpa_amount: 50
+  });
+  const [editSettings, setEditSettings] = useState({
+    revenue_share: 50,
+    turnover_commission: 2,
+    cpa_amount: 50
+  });
+  const [affiliateLoading, setAffiliateLoading] = useState(false);
+
   // Auth check
   useEffect(() => {
     const checkAuth = async () => {
@@ -4060,7 +4093,171 @@ export default function AdminDashboard() {
     </ScrollView>
   );
 
-  // Affiliates Content
+  // Affiliates Content - Functions
+  const fetchAffiliateData = useCallback(async () => {
+    try {
+      const token = await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
+      
+      // Fetch stats
+      const statsRes = await fetch(`${API_URL}/admin/affiliates/stats`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        setAffiliateStats(statsData);
+        setEditSettings(statsData.commission_settings || {
+          revenue_share: 50,
+          turnover_commission: 2,
+          cpa_amount: 50
+        });
+      }
+      
+      // Fetch affiliates list
+      const affRes = await fetch(`${API_URL}/admin/affiliates`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (affRes.ok) {
+        const affData = await affRes.json();
+        setAffiliates(affData.affiliates || []);
+      }
+    } catch (error) {
+      console.error('Error fetching affiliate data:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'affiliates') {
+      fetchAffiliateData();
+    }
+  }, [activeTab, fetchAffiliateData]);
+
+  const handleCreateAffiliate = async () => {
+    if (!newAffiliate.name || !newAffiliate.email) {
+      Alert.alert('Error', 'Name and email are required');
+      return;
+    }
+    
+    setAffiliateLoading(true);
+    try {
+      const token = await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
+      const res = await fetch(`${API_URL}/admin/affiliates/create`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(newAffiliate)
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        Alert.alert('Success', `Affiliate created!\nRef Code: ${data.affiliate.ref_code}`);
+        setShowCreateAffiliateModal(false);
+        setNewAffiliate({
+          name: '',
+          email: '',
+          phone: '',
+          company: '',
+          commission_rate: 50,
+          turnover_rate: 2,
+          cpa_amount: 50
+        });
+        fetchAffiliateData();
+      } else {
+        const error = await res.json();
+        Alert.alert('Error', error.detail || 'Failed to create affiliate');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to create affiliate');
+    } finally {
+      setAffiliateLoading(false);
+    }
+  };
+
+  const handleUpdateSettings = async () => {
+    setAffiliateLoading(true);
+    try {
+      const token = await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
+      const res = await fetch(`${API_URL}/admin/affiliates/settings`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(editSettings)
+      });
+      
+      if (res.ok) {
+        Alert.alert('Success', 'Commission settings updated');
+        setShowEditSettingsModal(false);
+        fetchAffiliateData();
+      } else {
+        Alert.alert('Error', 'Failed to update settings');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update settings');
+    } finally {
+      setAffiliateLoading(false);
+    }
+  };
+
+  const handleDeleteAffiliate = async (affiliateId: string) => {
+    Alert.alert(
+      'Delete Affiliate',
+      'Are you sure you want to delete this affiliate?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const token = await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
+              const res = await fetch(`${API_URL}/admin/affiliates/${affiliateId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+              });
+              
+              if (res.ok) {
+                Alert.alert('Success', 'Affiliate deleted');
+                fetchAffiliateData();
+              }
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete affiliate');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleUpdateAffiliate = async () => {
+    if (!selectedAffiliate) return;
+    
+    setAffiliateLoading(true);
+    try {
+      const token = await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
+      const res = await fetch(`${API_URL}/admin/affiliates/${selectedAffiliate.affiliate_id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(selectedAffiliate)
+      });
+      
+      if (res.ok) {
+        Alert.alert('Success', 'Affiliate updated');
+        setShowEditAffiliateModal(false);
+        fetchAffiliateData();
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update affiliate');
+    } finally {
+      setAffiliateLoading(false);
+    }
+  };
+
   const AffiliatesContent = () => (
     <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
       <View style={styles.pageHeader}>
@@ -4071,33 +4268,41 @@ export default function AdminDashboard() {
       {/* Affiliate Stats */}
       <View style={styles.affiliateStatsGrid}>
         <View style={[styles.affiliateStatCard, { borderLeftColor: COLORS.primary }]}>
-          <Text style={styles.affiliateStatValue}>0</Text>
+          <Text style={styles.affiliateStatValue}>{affiliateStats.total_affiliates}</Text>
           <Text style={styles.affiliateStatLabel}>Total Affiliates</Text>
         </View>
         <View style={[styles.affiliateStatCard, { borderLeftColor: COLORS.success }]}>
-          <Text style={styles.affiliateStatValue}>0</Text>
+          <Text style={styles.affiliateStatValue}>{affiliateStats.active_affiliates}</Text>
           <Text style={styles.affiliateStatLabel}>Active</Text>
         </View>
         <View style={[styles.affiliateStatCard, { borderLeftColor: COLORS.warning }]}>
-          <Text style={styles.affiliateStatValue}>$0</Text>
+          <Text style={styles.affiliateStatValue}>${affiliateStats.total_paid?.toLocaleString() || 0}</Text>
           <Text style={styles.affiliateStatLabel}>Total Paid</Text>
         </View>
         <View style={[styles.affiliateStatCard, { borderLeftColor: COLORS.danger }]}>
-          <Text style={styles.affiliateStatValue}>$0</Text>
+          <Text style={styles.affiliateStatValue}>${affiliateStats.pending_payouts?.toLocaleString() || 0}</Text>
           <Text style={styles.affiliateStatLabel}>Pending Payouts</Text>
         </View>
       </View>
 
       {/* Commission Settings */}
       <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>Commission Settings</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Commission Settings</Text>
+          <TouchableOpacity 
+            style={styles.editSettingsBtn}
+            onPress={() => setShowEditSettingsModal(true)}
+          >
+            <Ionicons name="pencil" size={16} color={COLORS.primary} />
+          </TouchableOpacity>
+        </View>
         <View style={styles.commissionRow}>
           <View style={styles.commissionInfo}>
             <Text style={styles.commissionLabel}>Revenue Share</Text>
             <Text style={styles.commissionDesc}>Percentage of trading losses</Text>
           </View>
           <View style={styles.commissionValue}>
-            <Text style={styles.commissionValueText}>50%</Text>
+            <Text style={styles.commissionValueText}>{affiliateStats.commission_settings?.revenue_share || 50}%</Text>
           </View>
         </View>
         <View style={styles.commissionRow}>
@@ -4106,7 +4311,7 @@ export default function AdminDashboard() {
             <Text style={styles.commissionDesc}>Percentage of trade volume</Text>
           </View>
           <View style={styles.commissionValue}>
-            <Text style={styles.commissionValueText}>2%</Text>
+            <Text style={styles.commissionValueText}>{affiliateStats.commission_settings?.turnover_commission || 2}%</Text>
           </View>
         </View>
         <View style={styles.commissionRow}>
@@ -4115,13 +4320,16 @@ export default function AdminDashboard() {
             <Text style={styles.commissionDesc}>Fixed amount per first deposit</Text>
           </View>
           <View style={styles.commissionValue}>
-            <Text style={styles.commissionValueText}>$50</Text>
+            <Text style={styles.commissionValueText}>${affiliateStats.commission_settings?.cpa_amount || 50}</Text>
           </View>
         </View>
       </View>
 
       {/* Create Affiliate Button */}
-      <TouchableOpacity style={styles.createAffiliateBtn}>
+      <TouchableOpacity 
+        style={styles.createAffiliateBtn}
+        onPress={() => setShowCreateAffiliateModal(true)}
+      >
         <Ionicons name="add-circle" size={22} color="#FFF" />
         <Text style={styles.createAffiliateBtnText}>Create New Affiliate</Text>
       </TouchableOpacity>
@@ -4129,15 +4337,307 @@ export default function AdminDashboard() {
       {/* Affiliates List */}
       <View style={[styles.sectionCard, { marginBottom: 40 }]}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Affiliate Partners</Text>
+          <Text style={styles.sectionTitle}>Affiliate Partners ({affiliates.length})</Text>
         </View>
         
-        <View style={styles.emptyState}>
-          <Ionicons name="git-network" size={48} color={COLORS.textMuted} />
-          <Text style={styles.emptyStateText}>No affiliates yet</Text>
-          <Text style={styles.emptyStateSubtext}>Create your first affiliate partner</Text>
-        </View>
+        {affiliates.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="git-network" size={48} color={COLORS.textMuted} />
+            <Text style={styles.emptyStateText}>No affiliates yet</Text>
+            <Text style={styles.emptyStateSubtext}>Create your first affiliate partner</Text>
+          </View>
+        ) : (
+          affiliates.map((aff, index) => (
+            <View key={aff.affiliate_id || index} style={styles.affiliateItem}>
+              <View style={styles.affiliateItemLeft}>
+                <View style={[styles.affiliateAvatar, { backgroundColor: COLORS.primary + '20' }]}>
+                  <Text style={styles.affiliateAvatarText}>{aff.name?.charAt(0) || 'A'}</Text>
+                </View>
+                <View style={styles.affiliateInfo}>
+                  <Text style={styles.affiliateName}>{aff.name}</Text>
+                  <Text style={styles.affiliateEmail}>{aff.email}</Text>
+                  <Text style={styles.affiliateCode}>Code: {aff.ref_code}</Text>
+                </View>
+              </View>
+              <View style={styles.affiliateItemRight}>
+                <View style={[styles.affiliateStatusBadge, { backgroundColor: aff.status === 'active' ? COLORS.success + '20' : COLORS.warning + '20' }]}>
+                  <Text style={[styles.affiliateStatusText, { color: aff.status === 'active' ? COLORS.success : COLORS.warning }]}>
+                    {aff.status || 'Active'}
+                  </Text>
+                </View>
+                <View style={styles.affiliateStats}>
+                  <Text style={styles.affiliateStatSmall}>Referrals: {aff.total_referrals || 0}</Text>
+                  <Text style={styles.affiliateStatSmall}>FTDs: {aff.total_ftds || 0}</Text>
+                  <Text style={styles.affiliateStatSmall}>Earnings: ${aff.total_earnings?.toLocaleString() || 0}</Text>
+                </View>
+                <View style={styles.affiliateActions}>
+                  <TouchableOpacity 
+                    style={styles.affiliateActionBtn}
+                    onPress={() => {
+                      setSelectedAffiliate(aff);
+                      setShowEditAffiliateModal(true);
+                    }}
+                  >
+                    <Ionicons name="pencil" size={16} color={COLORS.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.affiliateActionBtn, { marginLeft: 8 }]}
+                    onPress={() => handleDeleteAffiliate(aff.affiliate_id)}
+                  >
+                    <Ionicons name="trash" size={16} color={COLORS.danger} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          ))
+        )}
       </View>
+
+      {/* Create Affiliate Modal */}
+      <Modal visible={showCreateAffiliateModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Create New Affiliate</Text>
+              <TouchableOpacity onPress={() => setShowCreateAffiliateModal(false)}>
+                <Ionicons name="close" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.modalBody}>
+              <Text style={styles.inputLabel}>Name *</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Affiliate name"
+                placeholderTextColor={COLORS.textMuted}
+                value={newAffiliate.name}
+                onChangeText={(text) => setNewAffiliate({...newAffiliate, name: text})}
+              />
+              
+              <Text style={styles.inputLabel}>Email *</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Email address"
+                placeholderTextColor={COLORS.textMuted}
+                keyboardType="email-address"
+                value={newAffiliate.email}
+                onChangeText={(text) => setNewAffiliate({...newAffiliate, email: text})}
+              />
+              
+              <Text style={styles.inputLabel}>Phone</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Phone number"
+                placeholderTextColor={COLORS.textMuted}
+                keyboardType="phone-pad"
+                value={newAffiliate.phone}
+                onChangeText={(text) => setNewAffiliate({...newAffiliate, phone: text})}
+              />
+              
+              <Text style={styles.inputLabel}>Company</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Company name"
+                placeholderTextColor={COLORS.textMuted}
+                value={newAffiliate.company}
+                onChangeText={(text) => setNewAffiliate({...newAffiliate, company: text})}
+              />
+              
+              <Text style={styles.inputLabel}>Revenue Share (%)</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="50"
+                placeholderTextColor={COLORS.textMuted}
+                keyboardType="numeric"
+                value={String(newAffiliate.commission_rate)}
+                onChangeText={(text) => setNewAffiliate({...newAffiliate, commission_rate: Number(text) || 0})}
+              />
+              
+              <Text style={styles.inputLabel}>Turnover Commission (%)</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="2"
+                placeholderTextColor={COLORS.textMuted}
+                keyboardType="numeric"
+                value={String(newAffiliate.turnover_rate)}
+                onChangeText={(text) => setNewAffiliate({...newAffiliate, turnover_rate: Number(text) || 0})}
+              />
+              
+              <Text style={styles.inputLabel}>CPA Amount ($)</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="50"
+                placeholderTextColor={COLORS.textMuted}
+                keyboardType="numeric"
+                value={String(newAffiliate.cpa_amount)}
+                onChangeText={(text) => setNewAffiliate({...newAffiliate, cpa_amount: Number(text) || 0})}
+              />
+            </ScrollView>
+            
+            <View style={styles.modalFooter}>
+              <TouchableOpacity 
+                style={[styles.modalBtn, styles.modalBtnSecondary]}
+                onPress={() => setShowCreateAffiliateModal(false)}
+              >
+                <Text style={styles.modalBtnSecondaryText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalBtn, styles.modalBtnPrimary]}
+                onPress={handleCreateAffiliate}
+                disabled={affiliateLoading}
+              >
+                {affiliateLoading ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <Text style={styles.modalBtnPrimaryText}>Create Affiliate</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Settings Modal */}
+      <Modal visible={showEditSettingsModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit Commission Settings</Text>
+              <TouchableOpacity onPress={() => setShowEditSettingsModal(false)}>
+                <Ionicons name="close" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.modalBody}>
+              <Text style={styles.inputLabel}>Revenue Share (%)</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="50"
+                placeholderTextColor={COLORS.textMuted}
+                keyboardType="numeric"
+                value={String(editSettings.revenue_share)}
+                onChangeText={(text) => setEditSettings({...editSettings, revenue_share: Number(text) || 0})}
+              />
+              
+              <Text style={styles.inputLabel}>Turnover Commission (%)</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="2"
+                placeholderTextColor={COLORS.textMuted}
+                keyboardType="numeric"
+                value={String(editSettings.turnover_commission)}
+                onChangeText={(text) => setEditSettings({...editSettings, turnover_commission: Number(text) || 0})}
+              />
+              
+              <Text style={styles.inputLabel}>CPA Amount ($)</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="50"
+                placeholderTextColor={COLORS.textMuted}
+                keyboardType="numeric"
+                value={String(editSettings.cpa_amount)}
+                onChangeText={(text) => setEditSettings({...editSettings, cpa_amount: Number(text) || 0})}
+              />
+            </View>
+            
+            <View style={styles.modalFooter}>
+              <TouchableOpacity 
+                style={[styles.modalBtn, styles.modalBtnSecondary]}
+                onPress={() => setShowEditSettingsModal(false)}
+              >
+                <Text style={styles.modalBtnSecondaryText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalBtn, styles.modalBtnPrimary]}
+                onPress={handleUpdateSettings}
+                disabled={affiliateLoading}
+              >
+                {affiliateLoading ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <Text style={styles.modalBtnPrimaryText}>Save Settings</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Affiliate Modal */}
+      <Modal visible={showEditAffiliateModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit Affiliate</Text>
+              <TouchableOpacity onPress={() => setShowEditAffiliateModal(false)}>
+                <Ionicons name="close" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+            
+            {selectedAffiliate && (
+              <ScrollView style={styles.modalBody}>
+                <Text style={styles.inputLabel}>Name</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={selectedAffiliate.name}
+                  onChangeText={(text) => setSelectedAffiliate({...selectedAffiliate, name: text})}
+                />
+                
+                <Text style={styles.inputLabel}>Email</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={selectedAffiliate.email}
+                  onChangeText={(text) => setSelectedAffiliate({...selectedAffiliate, email: text})}
+                />
+                
+                <Text style={styles.inputLabel}>Status</Text>
+                <View style={styles.statusToggle}>
+                  <TouchableOpacity 
+                    style={[styles.statusOption, selectedAffiliate.status === 'active' && styles.statusOptionActive]}
+                    onPress={() => setSelectedAffiliate({...selectedAffiliate, status: 'active'})}
+                  >
+                    <Text style={[styles.statusOptionText, selectedAffiliate.status === 'active' && styles.statusOptionTextActive]}>Active</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.statusOption, selectedAffiliate.status === 'suspended' && styles.statusOptionSuspended]}
+                    onPress={() => setSelectedAffiliate({...selectedAffiliate, status: 'suspended'})}
+                  >
+                    <Text style={[styles.statusOptionText, selectedAffiliate.status === 'suspended' && styles.statusOptionTextSuspended]}>Suspended</Text>
+                  </TouchableOpacity>
+                </View>
+                
+                <Text style={styles.inputLabel}>Revenue Share (%)</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  keyboardType="numeric"
+                  value={String(selectedAffiliate.commission_rate || 50)}
+                  onChangeText={(text) => setSelectedAffiliate({...selectedAffiliate, commission_rate: Number(text) || 0})}
+                />
+              </ScrollView>
+            )}
+            
+            <View style={styles.modalFooter}>
+              <TouchableOpacity 
+                style={[styles.modalBtn, styles.modalBtnSecondary]}
+                onPress={() => setShowEditAffiliateModal(false)}
+              >
+                <Text style={styles.modalBtnSecondaryText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalBtn, styles.modalBtnPrimary]}
+                onPress={handleUpdateAffiliate}
+                disabled={affiliateLoading}
+              >
+                {affiliateLoading ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <Text style={styles.modalBtnPrimaryText}>Save Changes</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 
@@ -6305,6 +6805,125 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 12,
     marginTop: 4,
+  },
+  editSettingsBtn: {
+    padding: 8,
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: 8,
+  },
+  affiliateItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    padding: 14,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  affiliateItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  affiliateAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  affiliateAvatarText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  affiliateInfo: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  affiliateName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  affiliateEmail: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  affiliateCode: {
+    fontSize: 11,
+    color: COLORS.primary,
+    marginTop: 4,
+    fontWeight: '600',
+  },
+  affiliateItemRight: {
+    alignItems: 'flex-end',
+  },
+  affiliateStatusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  affiliateStatusText: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+  },
+  affiliateStats: {
+    marginTop: 8,
+    alignItems: 'flex-end',
+  },
+  affiliateStatSmall: {
+    fontSize: 10,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  affiliateActions: {
+    flexDirection: 'row',
+    marginTop: 8,
+  },
+  affiliateActionBtn: {
+    padding: 8,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  statusToggle: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  statusOption: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceLight,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  statusOptionActive: {
+    backgroundColor: COLORS.success + '20',
+    borderColor: COLORS.success,
+  },
+  statusOptionSuspended: {
+    backgroundColor: COLORS.danger + '20',
+    borderColor: COLORS.danger,
+  },
+  statusOptionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  statusOptionTextActive: {
+    color: COLORS.success,
+  },
+  statusOptionTextSuspended: {
+    color: COLORS.danger,
   },
 
   // Staff Styles
