@@ -194,6 +194,10 @@ export default function TradingViewChart({
   const initialScaleRef = useRef(1);
   const lastPinchCenterRef = useRef({ x: 0, y: 0 });
   
+  // Smooth scroll animation refs
+  const scrollAnimationRef = useRef<number | null>(null);
+  const targetScrollRef = useRef(0);
+  
   // Smooth price animation refs
   const displayPriceRef = useRef(internalPrice);
   const targetPriceRef = useRef(internalPrice);
@@ -213,19 +217,23 @@ export default function TradingViewChart({
   const MIN_SCALE = 0.3;
   const MAX_SCALE = 4;
   
-  // Smooth animation for scale transitions
+  // Smooth animation for scale transitions with better easing
   useEffect(() => {
     let animFrame: number;
     let isAnimating = true;
     
+    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+    
     const animate = () => {
       if (!isAnimating) return;
       
-      // Smooth scale transition with easing
+      // Smooth scale transition with cubic easing
       setScale(prev => {
         const diff = targetScale - prev;
         if (Math.abs(diff) < 0.001) return targetScale;
-        return prev + diff * 0.2; // Smooth easing factor
+        // Smoother easing factor for zoom
+        const easedDiff = diff * 0.15;
+        return prev + easedDiff;
       });
       
       animFrame = requestAnimationFrame(animate);
@@ -238,6 +246,32 @@ export default function TradingViewChart({
       cancelAnimationFrame(animFrame);
     };
   }, [targetScale]);
+  
+  // Smooth scroll animation
+  useEffect(() => {
+    let animFrame: number;
+    let isAnimating = true;
+    
+    const animate = () => {
+      if (!isAnimating) return;
+      
+      setScrollOffset(prev => {
+        const diff = targetScrollRef.current - prev;
+        if (Math.abs(diff) < 0.5) return targetScrollRef.current;
+        // Smooth easing for scroll
+        return prev + diff * 0.12;
+      });
+      
+      animFrame = requestAnimationFrame(animate);
+    };
+    
+    animFrame = requestAnimationFrame(animate);
+    
+    return () => {
+      isAnimating = false;
+      cancelAnimationFrame(animFrame);
+    };
+  }, []);
 
   // Smooth price animation - interpolate to target price
   useEffect(() => {
@@ -1630,15 +1664,25 @@ export default function TradingViewChart({
               document.removeEventListener('mousemove', onMouseMove);
               document.removeEventListener('mouseup', onMouseUp);
               
+              // Smooth momentum scrolling with deceleration
+              const friction = 0.92; // Smoother friction
+              const minVelocity = 0.3;
+              
               const applyMomentum = () => {
-                if (Math.abs(scrollVelocityRef.current) > 0.5) {
-                  setScrollOffset(prev => prev + scrollVelocityRef.current);
-                  scrollVelocityRef.current *= 0.95;
+                if (Math.abs(scrollVelocityRef.current) > minVelocity) {
+                  setScrollOffset(prev => {
+                    const newOffset = prev + scrollVelocityRef.current;
+                    // Smooth boundary handling
+                    return Math.max(0, newOffset);
+                  });
+                  scrollVelocityRef.current *= friction;
                   animationFrameRef.current = requestAnimationFrame(applyMomentum);
+                } else {
+                  scrollVelocityRef.current = 0;
                 }
               };
               
-              if (Math.abs(scrollVelocityRef.current) > 1) {
+              if (Math.abs(scrollVelocityRef.current) > 0.5) {
                 animationFrameRef.current = requestAnimationFrame(applyMomentum);
               }
             };
@@ -1732,15 +1776,24 @@ export default function TradingViewChart({
                 document.removeEventListener('touchmove', onTouchMove);
                 document.removeEventListener('touchend', onTouchEnd);
                 
+                // Smooth momentum scrolling for touch
+                const friction = 0.92;
+                const minVelocity = 0.3;
+                
                 const applyMomentum = () => {
-                  if (Math.abs(scrollVelocityRef.current) > 0.5) {
-                    setScrollOffset(prev => prev + scrollVelocityRef.current);
-                    scrollVelocityRef.current *= 0.92;
+                  if (Math.abs(scrollVelocityRef.current) > minVelocity) {
+                    setScrollOffset(prev => {
+                      const newOffset = prev + scrollVelocityRef.current;
+                      return Math.max(0, newOffset);
+                    });
+                    scrollVelocityRef.current *= friction;
                     animationFrameRef.current = requestAnimationFrame(applyMomentum);
+                  } else {
+                    scrollVelocityRef.current = 0;
                   }
                 };
                 
-                if (Math.abs(scrollVelocityRef.current) > 1) {
+                if (Math.abs(scrollVelocityRef.current) > 0.5) {
                   animationFrameRef.current = requestAnimationFrame(applyMomentum);
                 }
               };
