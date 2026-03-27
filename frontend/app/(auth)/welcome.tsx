@@ -1080,7 +1080,7 @@ export default function Welcome() {
               BYNIX TRADING LTD.
             </Text>
             <Text style={styles.companyAddress}>
-              Address: 71-75 Shelton Street, Covent Garden, London, WC2H 9JQ, United Kingdom
+              Address: Suite 305, Griffith Corporate Centre, P.O. Box 1510, Beachmont, Kingstown, Saint Vincent and the Grenadines
             </Text>
           </View>
 
@@ -1100,10 +1100,10 @@ export default function Welcome() {
           {/* Copyright */}
           <View style={styles.copyrightSection}>
             <Text style={styles.copyrightText}>
-              BYNIX TRADING LTD is the owner of the bynix.com domain.
+              BYNIX TRADING LTD is the owner of the bynix.io domain.
             </Text>
             <Text style={styles.copyrightText}>
-              Copyright © 2024 Bynix. All rights reserved
+              Copyright © 2025 Bynix. All rights reserved
             </Text>
           </View>
         </View>
