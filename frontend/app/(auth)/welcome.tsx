@@ -196,9 +196,24 @@ export default function Welcome() {
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [showSignupConfirmPassword, setShowSignupConfirmPassword] = useState(false);
   const [signupLoading, setSignupLoading] = useState(false);
-  const [selectedCountry, setSelectedCountry] = useState<{name: string; flag: string} | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState<{name: string; flag: string; restricted?: boolean} | null>(null);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [countrySearch, setCountrySearch] = useState('');
+  
+  // OTP verification states
+  const [showOTPVerification, setShowOTPVerification] = useState(false);
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [verifyingOTP, setVerifyingOTP] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const otpInputRefs = useRef<Array<any>>([]);
+
+  // OTP Cooldown timer
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCooldown]);
 
   // All 195 countries with restricted flag
   const ALL_COUNTRIES = [
@@ -525,8 +540,9 @@ export default function Welcome() {
       });
       
       if (response.requires_verification) {
-        closeSidebar();
-        router.push(`/(auth)/signup?email=${encodeURIComponent(signupEmail)}&verify=true`);
+        // Show OTP verification within sidebar
+        setShowOTPVerification(true);
+        setResendCooldown(60);
       } else if (response.access_token) {
         await login(response.access_token, response.user);
         closeSidebar();
@@ -538,6 +554,88 @@ export default function Welcome() {
     } finally {
       setSignupLoading(false);
     }
+  };
+
+  // OTP handlers
+  const handleOTPChange = (value: string, index: number) => {
+    if (value.length > 1) {
+      const digits = value.replace(/\D/g, '').slice(0, 6).split('');
+      const newOTP = [...otp];
+      digits.forEach((digit, i) => {
+        if (index + i < 6) newOTP[index + i] = digit;
+      });
+      setOtp(newOTP);
+      const lastIndex = Math.min(index + digits.length, 5);
+      otpInputRefs.current[lastIndex]?.focus();
+    } else {
+      const newOTP = [...otp];
+      newOTP[index] = value;
+      setOtp(newOTP);
+      if (value && index < 5) otpInputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOTPKeyPress = (e: any, index: number) => {
+    if (e.nativeEvent.key === 'Backspace' && !otp[index] && index > 0) {
+      otpInputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleVerifyOTP = async () => {
+    const otpCode = otp.join('');
+    if (otpCode.length !== 6) {
+      if (Platform.OS === 'web') window.alert('Please enter 6-digit verification code');
+      else Alert.alert('Error', 'Please enter 6-digit verification code');
+      return;
+    }
+
+    setVerifyingOTP(true);
+    try {
+      const response = await api.verifyEmail({ email: signupEmail, otp: otpCode });
+      if (response.access_token) {
+        await login(response.access_token, response.user);
+        closeSidebar();
+        resetSignupForm();
+        router.replace('/(tabs)/trade');
+      }
+    } catch (error: any) {
+      if (Platform.OS === 'web') window.alert(error.message || 'Invalid verification code');
+      else Alert.alert('Verification Failed', error.message || 'Invalid verification code');
+      setOtp(['', '', '', '', '', '']);
+      otpInputRefs.current[0]?.focus();
+    } finally {
+      setVerifyingOTP(false);
+    }
+  };
+
+  const handleResendOTP = async () => {
+    if (resendCooldown > 0) return;
+    setSignupLoading(true);
+    try {
+      await api.resendOTP({ email: signupEmail });
+      setResendCooldown(60);
+      if (Platform.OS === 'web') window.alert('New verification code sent!');
+      else Alert.alert('Success', 'New verification code sent to your email!');
+    } catch (error: any) {
+      if (Platform.OS === 'web') window.alert(error.message || 'Failed to resend code');
+      else Alert.alert('Error', error.message || 'Failed to resend code');
+    } finally {
+      setSignupLoading(false);
+    }
+  };
+
+  const resetSignupForm = () => {
+    setSignupEmail('');
+    setSignupPassword('');
+    setSignupConfirmPassword('');
+    setSelectedCountry(null);
+    setShowOTPVerification(false);
+    setOtp(['', '', '', '', '', '']);
+  };
+
+  const handleBackFromOTP = () => {
+    setShowOTPVerification(false);
+    setOtp(['', '', '', '', '', '']);
   };
 
   useEffect(() => {
@@ -1241,129 +1339,196 @@ export default function Welcome() {
       {/* Signup Sidebar Modal */}
       <Modal visible={showSignupSidebar} transparent animationType="none">
         <View style={styles.modalOverlay}>
-          <TouchableOpacity style={styles.modalBackdrop} onPress={closeSidebar} activeOpacity={1} />
+          <TouchableOpacity style={styles.modalBackdrop} onPress={() => { closeSidebar(); resetSignupForm(); }} activeOpacity={1} />
           <Animated.View style={[styles.sidebarContainer, { transform: [{ translateX: sidebarSlide }] }]}>
             
             <ScrollView contentContainerStyle={styles.sidebarContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               {/* Header */}
               <View style={styles.sidebarHeader}>
-                <Image 
-                  source={{ uri: 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/fhiw6o6y_IMG_3122.png' }}
-                  style={{ width: 28, height: 28 }}
-                  resizeMode="contain"
-                />
-                <TouchableOpacity style={styles.sidebarCloseBtn} onPress={closeSidebar}>
+                {showOTPVerification ? (
+                  <TouchableOpacity style={styles.sidebarBackBtn} onPress={handleBackFromOTP}>
+                    <Ionicons name="arrow-back" size={22} color="#FFF" />
+                  </TouchableOpacity>
+                ) : (
+                  <Image 
+                    source={{ uri: 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/fhiw6o6y_IMG_3122.png' }}
+                    style={{ width: 28, height: 28 }}
+                    resizeMode="contain"
+                  />
+                )}
+                <TouchableOpacity style={styles.sidebarCloseBtn} onPress={() => { closeSidebar(); resetSignupForm(); }}>
                   <Ionicons name="close" size={22} color="#888" />
                 </TouchableOpacity>
               </View>
 
-              {/* Content */}
-              <Text style={styles.sidebarGreeting}>Get started now</Text>
-              <Text style={styles.sidebarTitle}>Create an account</Text>
+              {showOTPVerification ? (
+                /* OTP Verification UI */
+                <>
+                  {/* Email Icon */}
+                  <View style={styles.otpIconContainer}>
+                    <Ionicons name="mail" size={36} color="#00E55A" />
+                  </View>
 
-              {/* Social Login */}
-              <Text style={styles.socialLabel}>Continue with</Text>
-              <View style={styles.socialButtonsRow}>
-                <TouchableOpacity style={[styles.socialButton, { flex: 1 }]} onPress={handleGoogleLogin}>
-                  <Image source={{ uri: 'https://www.google.com/favicon.ico' }} style={styles.socialIcon} />
-                  <Text style={styles.socialButtonText}>Google</Text>
-                </TouchableOpacity>
-              </View>
+                  <Text style={styles.sidebarGreeting}>Check your email</Text>
+                  <Text style={styles.sidebarTitle}>Verify your email</Text>
+                  
+                  <Text style={styles.otpSubtitle}>We've sent a 6-digit code to</Text>
+                  <Text style={styles.otpEmailText}>{signupEmail}</Text>
 
-              {/* Divider */}
-              <View style={styles.sidebarDivider}>
-                <View style={styles.sidebarDividerLine} />
-                <Text style={styles.sidebarDividerText}>or</Text>
-                <View style={styles.sidebarDividerLine} />
-              </View>
+                  {/* OTP Input Boxes */}
+                  <View style={styles.otpInputRow}>
+                    {otp.map((digit, index) => (
+                      <TextInput
+                        key={index}
+                        ref={(ref) => otpInputRefs.current[index] = ref}
+                        style={[styles.otpBox, digit && styles.otpBoxFilled]}
+                        value={digit}
+                        onChangeText={(value) => handleOTPChange(value, index)}
+                        onKeyPress={(e) => handleOTPKeyPress(e, index)}
+                        keyboardType="number-pad"
+                        maxLength={6}
+                        selectTextOnFocus
+                      />
+                    ))}
+                  </View>
 
-              {/* Email Input */}
-              <View style={styles.sidebarInputContainer}>
-                <TextInput
-                  style={styles.sidebarInput}
-                  placeholder="Enter your email"
-                  placeholderTextColor="#555"
-                  value={signupEmail}
-                  onChangeText={setSignupEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-              </View>
+                  {/* Verify Button */}
+                  <TouchableOpacity style={styles.sidebarActionBtn} onPress={handleVerifyOTP} disabled={verifyingOTP}>
+                    <LinearGradient colors={['#00E55A', '#00C94D']} style={styles.sidebarActionBtnGradient}>
+                      {verifyingOTP ? <ActivityIndicator color="#0D0D0D" /> : <Text style={styles.sidebarActionBtnText}>Verify email</Text>}
+                    </LinearGradient>
+                  </TouchableOpacity>
 
-              {/* Country Selector */}
-              <TouchableOpacity style={styles.sidebarInputContainer} onPress={() => setShowCountryPicker(true)}>
-                <Text style={[styles.sidebarInput, !selectedCountry && { color: '#555' }]}>
-                  {selectedCountry ? `${selectedCountry.flag} ${selectedCountry.name}` : 'Select your country'}
-                </Text>
-                <Ionicons name="chevron-down" size={20} color="#00E55A" />
-              </TouchableOpacity>
+                  {/* Resend Code */}
+                  <View style={styles.resendContainer}>
+                    <Text style={styles.resendText}>Didn't receive the code? </Text>
+                    <TouchableOpacity onPress={handleResendOTP} disabled={resendCooldown > 0 || signupLoading}>
+                      <Text style={[styles.resendLink, (resendCooldown > 0 || signupLoading) && styles.resendLinkDisabled]}>
+                        {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend code'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
 
-              {/* Password Input */}
-              <View style={styles.sidebarInputContainer}>
-                <TextInput
-                  style={styles.sidebarInput}
-                  placeholder="Create a password"
-                  placeholderTextColor="#555"
-                  value={signupPassword}
-                  onChangeText={setSignupPassword}
-                  secureTextEntry={!showSignupPassword}
-                />
-                <TouchableOpacity onPress={() => setShowSignupPassword(!showSignupPassword)}>
-                  <Ionicons name={showSignupPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#00E55A" />
-                </TouchableOpacity>
-              </View>
+                  {/* Back to Login */}
+                  <View style={styles.sidebarFooterLinksCenter}>
+                    <Text style={styles.footerText}>Already have an account?</Text>
+                    <TouchableOpacity onPress={() => { closeSidebar(); resetSignupForm(); setTimeout(() => openSidebar('login'), 300); }}>
+                      <Text style={styles.loginLinkText}>Log in</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : (
+                /* Signup Form UI */
+                <>
+                  {/* Content */}
+                  <Text style={styles.sidebarGreeting}>Get started now</Text>
+                  <Text style={styles.sidebarTitle}>Create an account</Text>
 
-              {/* Confirm Password Input */}
-              <View style={styles.sidebarInputContainer}>
-                <TextInput
-                  style={styles.sidebarInput}
-                  placeholder="Confirm your password"
-                  placeholderTextColor="#555"
-                  value={signupConfirmPassword}
-                  onChangeText={setSignupConfirmPassword}
-                  secureTextEntry={!showSignupConfirmPassword}
-                />
-                <TouchableOpacity onPress={() => setShowSignupConfirmPassword(!showSignupConfirmPassword)}>
-                  <Ionicons name={showSignupConfirmPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#00E55A" />
-                </TouchableOpacity>
-              </View>
+                  {/* Social Login */}
+                  <Text style={styles.socialLabel}>Continue with</Text>
+                  <View style={styles.socialButtonsRow}>
+                    <TouchableOpacity style={[styles.socialButton, { flex: 1 }]} onPress={handleGoogleLogin}>
+                      <Image source={{ uri: 'https://www.google.com/favicon.ico' }} style={styles.socialIcon} />
+                      <Text style={styles.socialButtonText}>Google</Text>
+                    </TouchableOpacity>
+                  </View>
 
-              {/* Password Match Indicator */}
-              {signupConfirmPassword.length > 0 && (
-                <View style={styles.matchRow}>
-                  <Ionicons 
-                    name={signupPassword === signupConfirmPassword ? "checkmark-circle" : "close-circle"} 
-                    size={14} 
-                    color={signupPassword === signupConfirmPassword ? "#00E55A" : "#FF4757"} 
-                  />
-                  <Text style={[styles.matchText, { color: signupPassword === signupConfirmPassword ? "#00E55A" : "#FF4757" }]}>
-                    {signupPassword === signupConfirmPassword ? "Passwords match" : "Passwords don't match"}
+                  {/* Divider */}
+                  <View style={styles.sidebarDivider}>
+                    <View style={styles.sidebarDividerLine} />
+                    <Text style={styles.sidebarDividerText}>or</Text>
+                    <View style={styles.sidebarDividerLine} />
+                  </View>
+
+                  {/* Email Input */}
+                  <View style={styles.sidebarInputContainer}>
+                    <TextInput
+                      style={styles.sidebarInput}
+                      placeholder="Enter your email"
+                      placeholderTextColor="#555"
+                      value={signupEmail}
+                      onChangeText={setSignupEmail}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                    />
+                  </View>
+
+                  {/* Country Selector */}
+                  <TouchableOpacity style={styles.sidebarInputContainer} onPress={() => setShowCountryPicker(true)}>
+                    <Text style={[styles.sidebarInput, !selectedCountry && { color: '#555' }]}>
+                      {selectedCountry ? `${selectedCountry.flag} ${selectedCountry.name}` : 'Select your country'}
+                    </Text>
+                    <Ionicons name="chevron-down" size={20} color="#00E55A" />
+                  </TouchableOpacity>
+
+                  {/* Password Input */}
+                  <View style={styles.sidebarInputContainer}>
+                    <TextInput
+                      style={styles.sidebarInput}
+                      placeholder="Create a password"
+                      placeholderTextColor="#555"
+                      value={signupPassword}
+                      onChangeText={setSignupPassword}
+                      secureTextEntry={!showSignupPassword}
+                    />
+                    <TouchableOpacity onPress={() => setShowSignupPassword(!showSignupPassword)}>
+                      <Ionicons name={showSignupPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#00E55A" />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Confirm Password Input */}
+                  <View style={styles.sidebarInputContainer}>
+                    <TextInput
+                      style={styles.sidebarInput}
+                      placeholder="Confirm your password"
+                      placeholderTextColor="#555"
+                      value={signupConfirmPassword}
+                      onChangeText={setSignupConfirmPassword}
+                      secureTextEntry={!showSignupConfirmPassword}
+                    />
+                    <TouchableOpacity onPress={() => setShowSignupConfirmPassword(!showSignupConfirmPassword)}>
+                      <Ionicons name={showSignupConfirmPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#00E55A" />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Password Match Indicator */}
+                  {signupConfirmPassword.length > 0 && (
+                    <View style={styles.matchRow}>
+                      <Ionicons 
+                        name={signupPassword === signupConfirmPassword ? "checkmark-circle" : "close-circle"} 
+                        size={14} 
+                        color={signupPassword === signupConfirmPassword ? "#00E55A" : "#FF4757"} 
+                      />
+                      <Text style={[styles.matchText, { color: signupPassword === signupConfirmPassword ? "#00E55A" : "#FF4757" }]}>
+                        {signupPassword === signupConfirmPassword ? "Passwords match" : "Passwords don't match"}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Create Account Button */}
+                  <TouchableOpacity style={styles.sidebarActionBtn} onPress={handleSidebarSignup} disabled={signupLoading}>
+                    <LinearGradient colors={['#00E55A', '#00C94D']} style={styles.sidebarActionBtnGradient}>
+                      {signupLoading ? <ActivityIndicator color="#0D0D0D" /> : <Text style={styles.sidebarActionBtnText}>Create account</Text>}
+                    </LinearGradient>
+                  </TouchableOpacity>
+
+                  {/* Footer Links */}
+                  <View style={styles.sidebarFooterLinksCenter}>
+                    <Text style={styles.footerText}>Already have an account?</Text>
+                    <TouchableOpacity onPress={() => { closeSidebar(); setTimeout(() => openSidebar('login'), 300); }}>
+                      <Text style={styles.loginLinkText}>Log in</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Terms */}
+                  <Text style={styles.termsText}>
+                    By creating an account, you agree to our{' '}
+                    <Text style={styles.termsLink} onPress={() => router.push('/(auth)/service-agreement')}>Terms</Text>
+                    {' '}and{' '}
+                    <Text style={styles.termsLink} onPress={() => router.push('/(auth)/privacy-policy')}>Privacy Policy</Text>
                   </Text>
-                </View>
+                </>
               )}
-
-              {/* Create Account Button */}
-              <TouchableOpacity style={styles.sidebarActionBtn} onPress={handleSidebarSignup} disabled={signupLoading}>
-                <LinearGradient colors={['#00E55A', '#00C94D']} style={styles.sidebarActionBtnGradient}>
-                  {signupLoading ? <ActivityIndicator color="#0D0D0D" /> : <Text style={styles.sidebarActionBtnText}>Create account</Text>}
-                </LinearGradient>
-              </TouchableOpacity>
-
-              {/* Footer Links */}
-              <View style={styles.sidebarFooterLinksCenter}>
-                <Text style={styles.footerText}>Already have an account?</Text>
-                <TouchableOpacity onPress={() => { closeSidebar(); setTimeout(() => openSidebar('login'), 300); }}>
-                  <Text style={styles.loginLinkText}>Log in</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Terms */}
-              <Text style={styles.termsText}>
-                By creating an account, you agree to our{' '}
-                <Text style={styles.termsLink} onPress={() => router.push('/(auth)/service-agreement')}>Terms</Text>
-                {' '}and{' '}
-                <Text style={styles.termsLink} onPress={() => router.push('/(auth)/privacy-policy')}>Privacy Policy</Text>
-              </Text>
             </ScrollView>
           </Animated.View>
         </View>
@@ -3001,6 +3166,79 @@ const styles = StyleSheet.create({
   },
   matchText: {
     fontSize: 12,
+  },
+
+  // OTP Verification Styles
+  sidebarBackBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#1A1F2E',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  otpIconContainer: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#00E55A20',
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  otpSubtitle: {
+    fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
+  },
+  otpEmailText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#00E55A',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  otpInputRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 24,
+  },
+  otpBox: {
+    width: 44,
+    height: 52,
+    borderRadius: 10,
+    backgroundColor: '#1A1F2E',
+    borderWidth: 2,
+    borderColor: '#252A3A',
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  otpBoxFilled: {
+    borderColor: '#00E55A',
+    backgroundColor: '#00E55A15',
+  },
+  resendContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 20,
+  },
+  resendText: {
+    color: '#888',
+    fontSize: 14,
+  },
+  resendLink: {
+    color: '#00E55A',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  resendLinkDisabled: {
+    color: '#555',
   },
 
   // Country Picker Modal
