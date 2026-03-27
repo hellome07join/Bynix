@@ -72,15 +72,35 @@ export default function Signup() {
   const [resendCooldown, setResendCooldown] = useState(0);
   const otpInputRefs = useRef<(TextInput | null)[]>([]);
 
-  // Load referral code
+  // Load referral code from URL or AsyncStorage
   useEffect(() => {
     const loadReferralCode = async () => {
+      // First check URL params from expo-router
       if (urlReferralCode) {
+        console.log('Referral code from URL params:', urlReferralCode);
         setReferralCode(urlReferralCode);
         return;
       }
+      
+      // For web, also check window.location for ref parameter
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const webRefCode = urlParams.get('ref');
+        if (webRefCode) {
+          console.log('Referral code from web URL:', webRefCode);
+          setReferralCode(webRefCode);
+          // Also store it for later
+          AsyncStorage.setItem('pending_referral_code', webRefCode);
+          return;
+        }
+      }
+      
+      // Fallback to AsyncStorage
       const storedCode = await AsyncStorage.getItem('pending_referral_code');
-      if (storedCode) setReferralCode(storedCode);
+      if (storedCode) {
+        console.log('Referral code from storage:', storedCode);
+        setReferralCode(storedCode);
+      }
     };
     loadReferralCode();
   }, [urlReferralCode]);
