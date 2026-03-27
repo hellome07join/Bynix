@@ -813,6 +813,8 @@ export default function AffiliateDashboard() {
       
       // Search in traders data
       const found = tradersData.find((t: any) => 
+        t.id?.toString().includes(traderSearchQuery) ||
+        t.display_id?.toString().includes(traderSearchQuery) ||
         t.user_id?.toString().includes(traderSearchQuery) ||
         t.user_id === traderSearchQuery
       );
@@ -908,8 +910,8 @@ export default function AffiliateDashboard() {
             {/* Header with User ID and Flag */}
             <View style={styles.traderDetailHeader}>
               <View style={styles.traderIdRow}>
-                <Text style={styles.traderDetailFlag}>{trader.country_flag || '🌍'}</Text>
-                <Text style={styles.traderDetailId}>ID: {trader.user_id}</Text>
+                <Text style={styles.traderDetailFlag}>{trader.flag || trader.country_flag || '🌍'}</Text>
+                <Text style={styles.traderDetailId}>ID: {trader.id || trader.display_id || trader.user_id}</Text>
               </View>
               <TouchableOpacity onPress={clearTraderSearch} style={styles.closeSearchBtn}>
                 <Ionicons name="close-circle" size={24} color={COLORS.textMuted} />
@@ -929,7 +931,7 @@ export default function AffiliateDashboard() {
               <View style={styles.traderDetailRow}>
                 <View style={styles.traderDetailItem}>
                   <Text style={styles.traderDetailLabel}>REG DATE</Text>
-                  <Text style={styles.traderDetailValue}>{trader.created_at?.slice(0, 10) || '-'}</Text>
+                  <Text style={styles.traderDetailValue}>{trader.date || trader.created_at?.slice(0, 10) || '-'}</Text>
                 </View>
                 <View style={styles.traderDetailItem}>
                   <Text style={styles.traderDetailLabel}>LINK TYPE</Text>
@@ -1122,15 +1124,15 @@ export default function AffiliateDashboard() {
                   <View key={i} style={[styles.wideTableRow, i % 2 === 0 && styles.statsTableRowAlt]}>
                     {/* User ID with Country Flag */}
                     <View style={[styles.colUserId, { flexDirection: 'row', alignItems: 'center' }]}>
-                      <Text style={styles.traderFlag}>{trader.country_flag || '🌍'}</Text>
+                      <Text style={styles.traderFlag}>{trader.flag || trader.country_flag || '🌍'}</Text>
                       <Text style={[styles.statsTableCell, { color: COLORS.primary, fontWeight: '600' }]}>
-                        {trader.user_id || `1000000${i + 1}`}
+                        {trader.id || trader.display_id || trader.user_id || `1000000${i + 1}`}
                       </Text>
                     </View>
                     
                     {/* Registration Date */}
                     <Text style={[styles.statsTableCell, styles.colDate]}>
-                      {trader.created_at?.slice(0, 10) || '-'}
+                      {trader.date || trader.created_at?.slice(0, 10) || '-'}
                     </Text>
                     
                     {/* Link Type Badge */}
@@ -1143,7 +1145,7 @@ export default function AffiliateDashboard() {
                           styles.linkTypeBadgeText,
                           { color: isRevenue ? COLORS.primary : COLORS.accent }
                         ]}>
-                          {isRevenue ? 'Revenue' : 'Turnover'}
+                          {trader.type || (isRevenue ? 'Revenue' : 'Turnover')}
                         </Text>
                       </View>
                     </View>
@@ -1155,7 +1157,7 @@ export default function AffiliateDashboard() {
                     
                     {/* Link ID */}
                     <Text style={[styles.statsTableCell, styles.colLinkId, { color: COLORS.accent }]}>
-                      #{trader.link_code || '-'}
+                      #{trader.linkId || trader.link_code || '-'}
                     </Text>
                     
                     {/* Current Balance */}
@@ -1170,7 +1172,7 @@ export default function AffiliateDashboard() {
                     
                     {/* Deposits Sum */}
                     <Text style={[styles.statsTableCell, styles.colMoney]}>
-                      ${(trader.deposits_sum || trader.deposits || 0).toFixed(2)}
+                      ${(trader.total_deposited || trader.deposits_sum || trader.deposits || 0).toFixed(2)}
                     </Text>
                     
                     {/* Bonuses */}
