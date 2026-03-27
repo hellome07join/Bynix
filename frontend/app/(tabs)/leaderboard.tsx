@@ -337,28 +337,34 @@ export default function Leaderboard() {
             colors={['#0A1A2E', '#0A1A0F']}
             style={styles.podiumGradient}
           >
-            {/* Podium Cards - 2nd, 1st, 3rd layout */}
-            <View style={styles.podiumRow}>
+            {/* Simple Flex Row for Podium */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end', paddingHorizontal: 5 }}>
               {/* 2nd Place - Left */}
-              <PodiumCard 
-                trader={second} 
-                rank={2}
-                onPress={() => second && fetchUserProfile(second.user_id)}
-              />
+              <View style={{ width: '30%', alignItems: 'center' }}>
+                <PodiumCard 
+                  trader={second} 
+                  rank={2}
+                  onPress={() => second && fetchUserProfile(second.user_id)}
+                />
+              </View>
               
               {/* 1st Place - Center (Elevated) */}
-              <PodiumCard 
-                trader={first} 
-                rank={1}
-                onPress={() => first && fetchUserProfile(first.user_id)}
-              />
+              <View style={{ width: '34%', alignItems: 'center', marginBottom: 15 }}>
+                <PodiumCard 
+                  trader={first} 
+                  rank={1}
+                  onPress={() => first && fetchUserProfile(first.user_id)}
+                />
+              </View>
               
               {/* 3rd Place - Right */}
-              <PodiumCard 
-                trader={third} 
-                rank={3}
-                onPress={() => third && fetchUserProfile(third.user_id)}
-              />
+              <View style={{ width: '30%', alignItems: 'center' }}>
+                <PodiumCard 
+                  trader={third} 
+                  rank={3}
+                  onPress={() => third && fetchUserProfile(third.user_id)}
+                />
+              </View>
             </View>
           </LinearGradient>
         </View>
@@ -658,33 +664,38 @@ const styles = StyleSheet.create({
 
   // Podium Section
   podiumSection: {
-    marginHorizontal: 16,
+    marginHorizontal: 12,
     marginTop: 16,
     borderRadius: 20,
-    overflow: 'hidden',
   },
   podiumGradient: {
-    padding: 16,
-    paddingTop: 20,
+    padding: 10,
+    paddingTop: 40,
+    paddingBottom: 16,
+    borderRadius: 20,
   },
   podiumRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'flex-end',
-    gap: 8,
   },
   podiumCard: {
-    width: (width - 80) / 3,
+    width: 100,
     backgroundColor: '#1A2A3E',
-    borderRadius: 16,
-    padding: 12,
+    borderRadius: 14,
+    padding: 8,
+    paddingTop: 16,
+    paddingBottom: 10,
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#333',
+    marginHorizontal: 4,
   },
   podiumCardFirst: {
-    transform: [{ translateY: -20 }],
-    paddingVertical: 16,
+    marginBottom: 20,
+    paddingTop: 20,
+    paddingBottom: 14,
+    width: 110,
   },
   wreathContainer: {
     alignItems: 'center',
