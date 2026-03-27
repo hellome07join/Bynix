@@ -4482,14 +4482,26 @@ export default function AdminDashboard() {
           ))}
         </ScrollView>
         
-        {/* Edit Levels Button - Next to tabs */}
-        <TouchableOpacity 
-          style={styles.editLevelsBtn}
-          onPress={() => setShowEditSettingsModal(true)}
-        >
-          <Ionicons name="settings-outline" size={18} color={COLORS.primary} />
-          <Text style={styles.editLevelsBtnText}>Edit Levels</Text>
-        </TouchableOpacity>
+        {/* Action Buttons - Right side of tabs */}
+        <View style={styles.affiliateActionBtnsRow}>
+          {/* Create New Affiliate Button */}
+          <TouchableOpacity 
+            style={styles.createAffiliateBtnSmall}
+            onPress={() => setShowCreateAffiliateModal(true)}
+          >
+            <Ionicons name="add-circle" size={18} color="#FFF" />
+            <Text style={styles.createAffiliateBtnSmallText}>New Affiliate</Text>
+          </TouchableOpacity>
+          
+          {/* Edit Levels Button */}
+          <TouchableOpacity 
+            style={styles.editLevelsBtn}
+            onPress={() => setShowEditSettingsModal(true)}
+          >
+            <Ionicons name="settings-outline" size={18} color={COLORS.primary} />
+            <Text style={styles.editLevelsBtnText}>Edit Levels</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Search Bar */}
@@ -4703,40 +4715,28 @@ export default function AdminDashboard() {
 
       {/* Support Chat Tab */}
       {affiliateSubTab === 'chat' && (
-        <View style={{ marginBottom: 20 }}>
-          {/* Create Affiliate Button */}
-          <TouchableOpacity 
-            style={styles.createAffiliateBtn}
-            onPress={() => setShowCreateAffiliateModal(true)}
-          >
-            <Ionicons name="add-circle" size={22} color="#FFF" />
-            <Text style={styles.createAffiliateBtnText}>Create New Affiliate</Text>
-          </TouchableOpacity>
-          
-          {/* Support Chats */}
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>💬 Support Chats ({supportChats.filter((c: any) => c.unread_count > 0).length} unread)</Text>
-            {supportChats.length > 0 ? (
-              supportChats.map((chat: any) => (
-                <TouchableOpacity key={chat._id} style={styles.chatItem}>
-                  <View style={styles.chatInfo}>
-                    <Text style={styles.chatName}>{chat.affiliate_name}</Text>
-                    <Text style={styles.chatLastMessage} numberOfLines={1}>{chat.last_message}</Text>
+        <View style={[styles.sectionCard, { marginBottom: 20 }]}>
+          <Text style={styles.sectionTitle}>💬 Support Chats ({supportChats.filter((c: any) => c.unread_count > 0).length} unread)</Text>
+          {supportChats.length > 0 ? (
+            supportChats.map((chat: any) => (
+              <TouchableOpacity key={chat._id} style={styles.chatItem}>
+                <View style={styles.chatInfo}>
+                  <Text style={styles.chatName}>{chat.affiliate_name}</Text>
+                  <Text style={styles.chatLastMessage} numberOfLines={1}>{chat.last_message}</Text>
+                </View>
+                {chat.unread_count > 0 && (
+                  <View style={styles.chatUnreadBadge}>
+                    <Text style={styles.chatUnreadText}>{chat.unread_count}</Text>
                   </View>
-                  {chat.unread_count > 0 && (
-                    <View style={styles.chatUnreadBadge}>
-                      <Text style={styles.chatUnreadText}>{chat.unread_count}</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              ))
-            ) : (
-              <View style={styles.emptyState}>
-                <Ionicons name="chatbubbles" size={48} color={COLORS.textMuted} />
-                <Text style={styles.emptyStateText}>No support chats</Text>
-              </View>
-            )}
-          </View>
+                )}
+              </TouchableOpacity>
+            ))
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons name="chatbubbles" size={48} color={COLORS.textMuted} />
+              <Text style={styles.emptyStateText}>No support chats</Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -7445,6 +7445,25 @@ const styles = StyleSheet.create({
   affiliateSubTabTextActive: {
     color: COLORS.primary,
     fontWeight: '600',
+  },
+  affiliateActionBtnsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  createAffiliateBtnSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: COLORS.success,
+  },
+  createAffiliateBtnSmallText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFF',
+    marginLeft: 6,
   },
   editLevelsBtn: {
     flexDirection: 'row',
