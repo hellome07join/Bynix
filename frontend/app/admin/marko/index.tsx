@@ -4515,75 +4515,6 @@ export default function AdminDashboard() {
       {/* Tab Content */}
       {affiliateSubTab === 'list' && (
         <>
-          {/* Commission Settings - Level Based */}
-          <View style={styles.sectionCard}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Affiliate Levels</Text>
-            </View>
-            
-            {/* Level-wise Commission List - Matching Affiliate Dashboard Design */}
-            <View style={styles.levelListContainer}>
-              {AFFILIATE_LEVELS.map((level, index) => {
-                const levelSettings = affiliateStats.commission_settings?.levels?.[level.id] || 
-                  editSettings.levels?.[level.id as keyof typeof editSettings.levels] || 
-                  { revenue_share: 50, turnover_commission: 2 };
-                const isFirst = index === 0;
-                
-                // Get icon based on level
-                const getIcon = () => {
-                  switch(level.icon) {
-                    case 'star-outline': return 'star-outline';
-                    case 'star': return 'star';
-                    case 'diamond': return 'diamond';
-                    case 'trophy': return 'trophy';
-                    default: return 'star';
-                  }
-                };
-                
-                return (
-                  <View 
-                    key={level.id} 
-                    style={[
-                      styles.levelListItem,
-                      isFirst && styles.levelListItemCurrent
-                    ]}
-                  >
-                    <View style={styles.levelListLeft}>
-                      <View style={[styles.levelIconCircle, { backgroundColor: level.color + '20' }]}>
-                        <Ionicons name={getIcon() as any} size={20} color={level.color} />
-                      </View>
-                      <View style={styles.levelListInfo}>
-                        <Text style={[styles.levelListName, { color: isFirst ? COLORS.success : COLORS.text }]}>
-                          {level.name}
-                        </Text>
-                        <Text style={styles.levelListFTDs}>{level.minFTDs}+ FTDs</Text>
-                      </View>
-                    </View>
-                    <View style={styles.levelListRight}>
-                      {isFirst && (
-                        <Text style={styles.levelCurrentLabel}>CURRENT</Text>
-                      )}
-                      <Text style={[styles.levelListRevShare, { color: level.color }]}>
-                        {levelSettings.revenue_share}%
-                      </Text>
-                      <Text style={styles.levelListTurnover}>
-                        {levelSettings.turnover_commission}% TO
-                      </Text>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-            
-            {/* Info Text */}
-            <View style={styles.levelInfoBox}>
-              <Ionicons name="information-circle" size={16} color={COLORS.info} />
-              <Text style={styles.levelInfoText}>
-                Affiliates automatically upgrade to higher levels based on total FTDs (First Time Deposits)
-              </Text>
-            </View>
-          </View>
-
           {/* Create Affiliate Button */}
           <TouchableOpacity 
             style={styles.createAffiliateBtn}
@@ -4942,70 +4873,133 @@ export default function AdminDashboard() {
       {/* Edit Settings Modal - Level Based */}
       <Modal visible={showEditSettingsModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxHeight: '85%' }]}>
+          <View style={[styles.modalContent, { maxHeight: '90%', width: '95%', maxWidth: 600 }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Level Commission Settings</Text>
+              <Text style={styles.modalTitle}>Affiliate Levels</Text>
               <TouchableOpacity onPress={() => setShowEditSettingsModal(false)}>
                 <Ionicons name="close" size={24} color={COLORS.text} />
               </TouchableOpacity>
             </View>
             
-            <ScrollView style={styles.modalBody}>
-              {AFFILIATE_LEVELS.map((level) => (
-                <View key={level.id} style={styles.levelEditSection}>
-                  <View style={styles.levelEditHeader}>
-                    <View style={[styles.levelBadgeLarge, { backgroundColor: level.color + '30', borderColor: level.color }]}>
-                      <Text style={[styles.levelBadgeLargeText, { color: level.color === '#E5E4E2' ? '#666' : level.color }]}>
-                        {level.name}
-                      </Text>
-                    </View>
-                    <Text style={styles.levelMinRefsText}>{level.minFTDs}+ FTDs</Text>
-                  </View>
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              {/* Level Display List - Same as main page design */}
+              <View style={styles.levelListContainer}>
+                {AFFILIATE_LEVELS.map((level, index) => {
+                  const levelSettings = editSettings.levels?.[level.id as keyof typeof editSettings.levels] || 
+                    { revenue_share: 50, turnover_commission: 2 };
+                  const isFirst = index === 0;
                   
-                  <View style={styles.levelEditInputRow}>
-                    <View style={styles.levelEditInputContainer}>
-                      <Text style={styles.levelEditInputLabel}>Revenue Share (%)</Text>
-                      <TextInput
-                        style={styles.levelEditInput}
-                        placeholder="30"
-                        placeholderTextColor={COLORS.textMuted}
-                        keyboardType="numeric"
-                        value={String(editSettings.levels?.[level.id as keyof typeof editSettings.levels]?.revenue_share || 30)}
-                        onChangeText={(text) => setEditSettings({
-                          ...editSettings,
-                          levels: {
-                            ...editSettings.levels,
-                            [level.id]: {
-                              ...editSettings.levels?.[level.id as keyof typeof editSettings.levels],
-                              revenue_share: Number(text) || 0
-                            }
-                          }
-                        })}
-                      />
+                  // Get icon based on level
+                  const getIcon = () => {
+                    switch(level.icon) {
+                      case 'star-outline': return 'star-outline';
+                      case 'star': return 'star';
+                      case 'diamond': return 'diamond';
+                      case 'trophy': return 'trophy';
+                      default: return 'star';
+                    }
+                  };
+                  
+                  return (
+                    <View key={level.id}>
+                      {/* Level Display Row */}
+                      <View 
+                        style={[
+                          styles.levelListItem,
+                          isFirst && styles.levelListItemCurrent
+                        ]}
+                      >
+                        <View style={styles.levelListLeft}>
+                          <View style={[styles.levelIconCircle, { backgroundColor: level.color + '20' }]}>
+                            <Ionicons name={getIcon() as any} size={20} color={level.color} />
+                          </View>
+                          <View style={styles.levelListInfo}>
+                            <Text style={[styles.levelListName, { color: isFirst ? COLORS.success : COLORS.text }]}>
+                              {level.name}
+                            </Text>
+                            <Text style={styles.levelListFTDs}>{level.minFTDs}+ FTDs</Text>
+                          </View>
+                        </View>
+                        <View style={styles.levelListRight}>
+                          {isFirst && (
+                            <Text style={styles.levelCurrentLabel}>CURRENT</Text>
+                          )}
+                          <Text style={[styles.levelListRevShare, { color: level.color }]}>
+                            {levelSettings.revenue_share}%
+                          </Text>
+                          <Text style={styles.levelListTurnover}>
+                            {levelSettings.turnover_commission}% TO
+                          </Text>
+                        </View>
+                      </View>
+                      
+                      {/* Editable Inputs Row - Below each level */}
+                      <View style={styles.levelEditRowCompact}>
+                        <View style={styles.levelEditInputCompact}>
+                          <Text style={styles.levelEditLabelCompact}>Rev Share</Text>
+                          <View style={styles.inputWithSuffix}>
+                            <TextInput
+                              style={styles.levelEditInputFieldCompact}
+                              placeholder="50"
+                              placeholderTextColor={COLORS.textMuted}
+                              keyboardType="numeric"
+                              value={String(levelSettings.revenue_share)}
+                              onChangeText={(text) => setEditSettings({
+                                ...editSettings,
+                                levels: {
+                                  ...editSettings.levels,
+                                  [level.id]: {
+                                    ...editSettings.levels?.[level.id as keyof typeof editSettings.levels],
+                                    revenue_share: Number(text) || 0
+                                  }
+                                }
+                              })}
+                            />
+                            <Text style={styles.inputSuffix}>%</Text>
+                          </View>
+                        </View>
+                        <View style={styles.levelEditInputCompact}>
+                          <Text style={styles.levelEditLabelCompact}>Turnover</Text>
+                          <View style={styles.inputWithSuffix}>
+                            <TextInput
+                              style={styles.levelEditInputFieldCompact}
+                              placeholder="2"
+                              placeholderTextColor={COLORS.textMuted}
+                              keyboardType="numeric"
+                              value={String(levelSettings.turnover_commission)}
+                              onChangeText={(text) => setEditSettings({
+                                ...editSettings,
+                                levels: {
+                                  ...editSettings.levels,
+                                  [level.id]: {
+                                    ...editSettings.levels?.[level.id as keyof typeof editSettings.levels],
+                                    turnover_commission: Number(text) || 0
+                                  }
+                                }
+                              })}
+                            />
+                            <Text style={styles.inputSuffix}>%</Text>
+                          </View>
+                        </View>
+                        <View style={styles.levelEditInputCompact}>
+                          <Text style={styles.levelEditLabelCompact}>Min FTDs</Text>
+                          <View style={[styles.inputWithSuffix, { backgroundColor: COLORS.bgSecondary }]}>
+                            <Text style={styles.levelMinFTDsDisplay}>{level.minFTDs}+</Text>
+                          </View>
+                        </View>
+                      </View>
                     </View>
-                    <View style={styles.levelEditInputContainer}>
-                      <Text style={styles.levelEditInputLabel}>Turnover (%)</Text>
-                      <TextInput
-                        style={styles.levelEditInput}
-                        placeholder="1"
-                        placeholderTextColor={COLORS.textMuted}
-                        keyboardType="numeric"
-                        value={String(editSettings.levels?.[level.id as keyof typeof editSettings.levels]?.turnover_commission || 1)}
-                        onChangeText={(text) => setEditSettings({
-                          ...editSettings,
-                          levels: {
-                            ...editSettings.levels,
-                            [level.id]: {
-                              ...editSettings.levels?.[level.id as keyof typeof editSettings.levels],
-                              turnover_commission: Number(text) || 0
-                            }
-                          }
-                        })}
-                      />
-                    </View>
-                  </View>
-                </View>
-              ))}
+                  );
+                })}
+              </View>
+              
+              {/* Info Text */}
+              <View style={[styles.levelInfoBox, { marginTop: 16, marginBottom: 8 }]}>
+                <Ionicons name="information-circle" size={16} color={COLORS.info} />
+                <Text style={styles.levelInfoText}>
+                  Affiliates automatically upgrade to higher levels based on total FTDs (First Time Deposits)
+                </Text>
+              </View>
             </ScrollView>
             
             <View style={styles.modalFooter}>
@@ -8554,5 +8548,54 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: COLORS.textMuted,
     marginBottom: 4,
+  },
+  
+  // Compact Level Edit Styles (Modal)
+  levelEditRowCompact: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: COLORS.bgSecondary + '50',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    gap: 12,
+  },
+  levelEditInputCompact: {
+    flex: 1,
+  },
+  levelEditLabelCompact: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: COLORS.textMuted,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  inputWithSuffix: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  levelEditInputFieldCompact: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+    padding: 0,
+  },
+  inputSuffix: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textMuted,
+    marginLeft: 4,
+  },
+  levelMinFTDsDisplay: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textMuted,
   },
 });
