@@ -10554,6 +10554,69 @@ async def get_affiliate_statistics(authorization: str = Header(None), days: int 
         deposits_result = await db.affiliate_referrals.aggregate(pipeline).to_list(1)
         total_deposits = deposits_result[0]["total"] if deposits_result else 0
         
+        # Get traders list (referred users)
+        traders = []
+        referrals_raw = await db.referrals.find({
+            "affiliate_id": affiliate_id
+        }).sort("created_at", -1).limit(100).to_list(100)
+        
+        for ref in referrals_raw:
+            # Get user details
+            user = await db.users.find_one({"user_id": ref.get("referred_user_id")})
+            user_country = user.get("country", "Unknown") if user else "Unknown"
+            user_flag = user.get("country_flag", "🌍") if user else "🌍"
+            
+            # Get the link that was used (from affiliate_links)
+            link_used = await db.affiliate_links.find_one({
+                "affiliate_id": affiliate_id,
+                "code": user.get("referred_by") if user else None
+            })
+            
+            # Calculate commission cap info for turnover model
+            affiliate = await db.affiliates.find_one({"affiliate_id": affiliate_id})
+            commission_type = affiliate.get("commission_type", "revenue_share") if affiliate else "revenue_share"
+            
+            total_deposited = ref.get("total_deposited", 0)
+            commission_earned = ref.get("commission_earned", 0)
+            
+            trader_data = {
+                "id": ref.get("referred_user_id"),
+                "user_id": ref.get("referred_user_id"),
+                "email": ref.get("user_email", "Unknown"),
+                "date": ref.get("created_at").strftime("%Y-%m-%d") if ref.get("created_at") else "",
+                "type": "Turnover" if commission_type == "turnover" else "Revenue",
+                "linkId": user.get("referred_by") if user else "",
+                "country": user_country,
+                "flag": user_flag,
+                "is_ftd": ref.get("is_ftd", False),
+                "total_deposited": total_deposited,
+                "total_traded": ref.get("total_traded", 0),
+                "commission": commission_earned,
+            }
+            
+            # Add cap info for turnover model
+            if commission_type == "turnover" and total_deposited > 0:
+                max_cap = total_deposited * 0.5
+                cap_remaining = max(0, max_cap - commission_earned)
+                cap_percentage = (commission_earned / max_cap * 100) if max_cap > 0 else 0
+                trader_data["commission_cap"] = max_cap
+                trader_data["cap_remaining"] = cap_remaining
+                trader_data["cap_percentage"] = cap_percentage
+                trader_data["cap_reached"] = commission_earned >= max_cap
+            
+            traders.append(trader_data)
+        
+        # Get countries breakdown
+        countries = {}
+        for t in traders:
+            country = t.get("country", "Unknown")
+            if country not in countries:
+                countries[country] = {"country": country, "flag": t.get("flag", "🌍"), "traders": 0, "ftds": 0, "deposits": 0}
+            countries[country]["traders"] += 1
+            if t.get("is_ftd"):
+                countries[country]["ftds"] += 1
+            countries[country]["deposits"] += t.get("total_deposited", 0)
+        
         return {
             "period": {"days": days, "start": start_date.isoformat()},
             "totals": {
@@ -10562,7 +10625,9 @@ async def get_affiliate_statistics(authorization: str = Header(None), days: int 
                 "ftds": total_ftds,
                 "deposits": total_deposits
             },
-            "daily_stats": daily_stats
+            "daily_stats": daily_stats,
+            "traders": traders,
+            "countries": list(countries.values())
         }
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")

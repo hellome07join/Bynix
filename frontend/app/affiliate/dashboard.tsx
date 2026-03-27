@@ -1095,56 +1095,15 @@ export default function AffiliateDashboard() {
                   <Text style={[styles.statsTableHeaderText, styles.colMoney]}>REV SHARE</Text>
                 </View>
             
-            {/* Table Rows - Show placeholder if no data */}
+            {/* Table Rows - Show empty state if no data */}
             {tradersData.length === 0 ? (
-              <>
-                {[
-                  { id: '10000001', date: '2026-03-20', type: 'Revenue', linkId: 'BYN001', flag: '🇧🇩' },
-                  { id: '10000002', date: '2026-03-21', type: 'Turnover', linkId: 'BYN002', flag: '🇮🇳' },
-                  { id: '10000003', date: '2026-03-22', type: 'Revenue', linkId: 'BYN001', flag: '🇵🇰' },
-                  { id: '10000004', date: '2026-03-23', type: 'Turnover', linkId: 'BYN003', flag: '🇺🇸' },
-                ].map((sample, i) => (
-                  <View key={i} style={[styles.wideTableRow, i % 2 === 0 && styles.statsTableRowAlt]}>
-                    <View style={[styles.colUserId, { flexDirection: 'row', alignItems: 'center' }]}>
-                      <Text style={styles.traderFlag}>{sample.flag}</Text>
-                      <Text style={[styles.statsTableCell, { color: COLORS.primary, fontWeight: '600' }]}>
-                        {sample.id}
-                      </Text>
-                    </View>
-                    <Text style={[styles.statsTableCell, styles.colDate]}>{sample.date}</Text>
-                    <View style={styles.colLinkType}>
-                      <View style={[
-                        styles.linkTypeBadge, 
-                        { backgroundColor: sample.type === 'Revenue' ? COLORS.primaryLight : COLORS.accentLight }
-                      ]}>
-                        <Text style={[
-                          styles.linkTypeBadgeText,
-                          { color: sample.type === 'Revenue' ? COLORS.primary : COLORS.accent }
-                        ]}>
-                          {sample.type}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text style={[styles.statsTableCell, styles.colSmallNum]}>
-                      {sample.type === 'Revenue' ? `${revenueRate}%` : `${turnoverRate}%`}
-                    </Text>
-                    <Text style={[styles.statsTableCell, styles.colLinkId, { color: COLORS.accent }]}>
-                      #{sample.linkId}
-                    </Text>
-                    <Text style={[styles.statsTableCell, styles.colMoney]}>$ 0.00</Text>
-                    <Text style={[styles.statsTableCell, styles.colSmallNum]}>0</Text>
-                    <Text style={[styles.statsTableCell, styles.colMoney]}>$ 0.00</Text>
-                    <Text style={[styles.statsTableCell, styles.colMoney]}>$ 0.00</Text>
-                    <Text style={[styles.statsTableCell, styles.colMoney]}>$ 0.00</Text>
-                    <Text style={[styles.statsTableCell, styles.colMoney]}>$ 0.00</Text>
-                    <Text style={[styles.statsTableCell, styles.colMoney, { color: COLORS.textMuted }]}>-</Text>
-                    <Text style={[styles.statsTableCell, styles.colMoney]}>$ 0.00</Text>
-                    <Text style={[styles.statsTableCell, styles.colMoney, { color: COLORS.textMuted }]}>-</Text>
-                    <Text style={[styles.statsTableCell, styles.colMoney]}>$ 0.00</Text>
-                    <Text style={[styles.statsTableCell, styles.colMoney]}>$ 0.00</Text>
-                  </View>
-                ))}
-              </>
+              <View style={{ padding: 40, alignItems: 'center' }}>
+                <Ionicons name="people-outline" size={48} color={COLORS.textMuted} />
+                <Text style={{ color: COLORS.textMuted, marginTop: 12, fontSize: 14 }}>No referred traders yet</Text>
+                <Text style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 4 }}>
+                  Share your affiliate link to start earning commissions
+                </Text>
+              </View>
             ) : (
               getPaginatedData(tradersData).map((trader: any, i: number) => {
                 const linkType = trader.link_type || 'revenue';
