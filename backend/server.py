@@ -8138,7 +8138,7 @@ async def admin_process_affiliate_payout(
         }
     )
     
-    # If approved, update affiliate balance
+    # If approved, deduct from balance (money is being sent out)
     if action == "approve":
         await db.affiliates.update_one(
             {"affiliate_id": payout.get("affiliate_id")},
@@ -8147,6 +8147,20 @@ async def admin_process_affiliate_payout(
                     "paid_earnings": payout.get("amount", 0),
                     "balance": -payout.get("amount", 0),
                     "pending_earnings": -payout.get("amount", 0)
+                }
+            }
+        )
+    
+    # If rejected, return the amount back to affiliate's available balance
+    # The amount was already deducted from balance when withdrawal was requested
+    # So we need to add it back
+    if action == "reject":
+        await db.affiliates.update_one(
+            {"affiliate_id": payout.get("affiliate_id")},
+            {
+                "$inc": {
+                    "balance": payout.get("amount", 0),  # Return amount to balance
+                    "pending_earnings": -payout.get("amount", 0)  # Remove from pending
                 }
             }
         )
