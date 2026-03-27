@@ -969,7 +969,7 @@ export default function AffiliateDashboard() {
               <View style={styles.traderDetailRow}>
                 <View style={styles.traderDetailItem}>
                   <Text style={styles.traderDetailLabel}>LINK ID</Text>
-                  <Text style={[styles.traderDetailValue, { color: COLORS.accent }]}>#{trader.link_code || '-'}</Text>
+                  <Text style={[styles.traderDetailValue, { color: COLORS.accent }]}>#{trader.linkId || trader.link_code || trader.link_id || '-'}</Text>
                 </View>
                 <View style={styles.traderDetailItem}>
                   <Text style={styles.traderDetailLabel}>BALANCE</Text>
