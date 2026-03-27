@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Header
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Header, Body
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -1151,10 +1151,10 @@ async def settle_trade(trade_id: str, settle_data: TradeSettle, authorization: O
                 )
                 
                 if commission > 0:
-                    # Credit commission to affiliate
+                    # Credit commission to affiliate's HOLD balance (released on Monday 6 AM SGT)
                     await db.affiliates.update_one(
                         {"affiliate_id": affiliate["affiliate_id"]},
-                        {"$inc": {"balance": commission, "total_earnings": commission}}
+                        {"$inc": {"hold_balance": commission, "total_earnings": commission}}
                     )
                     
                     # Update referral commission earned
@@ -10111,12 +10111,14 @@ async def affiliate_register(affiliate: AffiliateCreate):
         "ref_code": ref_code,
         "level": 1,
         "balance": 0.0,
+        "hold_balance": 0.0,  # Commission goes here first, released on Monday 6AM SGT
         "total_earnings": 0.0,
         "total_deposits": 0,
         "total_ftds": 0,
         "total_clicks": 0,
         "total_registrations": 0,
         "is_active": True,
+        "last_payout_date": None,
         "created_at": datetime.now(timezone.utc)
     }
     
@@ -11061,6 +11063,281 @@ async def update_affiliate_profile(authorization: str = Header(None), name: str 
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+# ============== HOLD BALANCE SYSTEM ==============
+
+# Get affiliate hold balance info
+@api_router.get("/affiliate/balance-info")
+async def get_affiliate_balance_info(authorization: str = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization.split(" ")[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        affiliate_id = payload.get("sub")
+        
+        affiliate = await db.affiliates.find_one({"affiliate_id": affiliate_id})
+        if not affiliate:
+            raise HTTPException(status_code=404, detail="Affiliate not found")
+        
+        # Calculate next payout date (next Monday 6 AM Singapore time)
+        import pytz
+        singapore_tz = pytz.timezone('Asia/Singapore')
+        now_sgt = datetime.now(singapore_tz)
+        
+        # Find next Monday
+        days_until_monday = (7 - now_sgt.weekday()) % 7
+        if days_until_monday == 0 and now_sgt.hour >= 6:
+            days_until_monday = 7  # If it's Monday after 6 AM, next payout is next week
+        
+        next_monday = now_sgt + timedelta(days=days_until_monday)
+        next_payout = next_monday.replace(hour=6, minute=0, second=0, microsecond=0)
+        
+        return {
+            "available_balance": affiliate.get("balance", 0),
+            "hold_balance": affiliate.get("hold_balance", 0),
+            "total_earnings": affiliate.get("total_earnings", 0),
+            "last_payout_date": affiliate.get("last_payout_date"),
+            "next_payout_date": next_payout.isoformat(),
+            "commission_rate": affiliate.get("commission_rate", 50),
+            "turnover_rate": affiliate.get("turnover_rate", 2)
+        }
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# Admin: Get all affiliates with hold balances
+@api_router.get("/admin/affiliate-hold-balances")
+async def admin_get_affiliate_hold_balances(authorization: str = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization.split(" ")[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        
+        user = await db.users.find_one({"user_id": user_id})
+        if not user or not user.get("is_admin"):
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        affiliates = await db.affiliates.find().to_list(1000)
+        
+        result = []
+        for aff in affiliates:
+            result.append({
+                "affiliate_id": aff.get("affiliate_id"),
+                "email": aff.get("email"),
+                "name": aff.get("name"),
+                "ref_code": aff.get("ref_code"),
+                "available_balance": aff.get("balance", 0),
+                "hold_balance": aff.get("hold_balance", 0),
+                "total_earnings": aff.get("total_earnings", 0),
+                "total_referrals": aff.get("total_referrals", 0),
+                "last_payout_date": aff.get("last_payout_date"),
+                "is_active": aff.get("is_active", True)
+            })
+        
+        return {"affiliates": result}
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# Admin: Adjust affiliate hold balance
+@api_router.post("/admin/affiliate-hold-balance/adjust")
+async def admin_adjust_affiliate_hold_balance(
+    affiliate_id: str = Body(...),
+    amount: float = Body(...),
+    action: str = Body(...),  # "add", "subtract", "release" (transfer to available)
+    note: str = Body(None),
+    authorization: str = Header(None)
+):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization.split(" ")[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        
+        user = await db.users.find_one({"user_id": user_id})
+        if not user or not user.get("is_admin"):
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        affiliate = await db.affiliates.find_one({"affiliate_id": affiliate_id})
+        if not affiliate:
+            raise HTTPException(status_code=404, detail="Affiliate not found")
+        
+        current_hold = affiliate.get("hold_balance", 0)
+        current_available = affiliate.get("balance", 0)
+        
+        if action == "add":
+            new_hold = current_hold + amount
+            await db.affiliates.update_one(
+                {"affiliate_id": affiliate_id},
+                {"$set": {"hold_balance": new_hold}}
+            )
+        elif action == "subtract":
+            new_hold = max(0, current_hold - amount)
+            await db.affiliates.update_one(
+                {"affiliate_id": affiliate_id},
+                {"$set": {"hold_balance": new_hold}}
+            )
+        elif action == "release":
+            # Transfer from hold to available
+            transfer_amount = min(amount, current_hold)
+            new_hold = current_hold - transfer_amount
+            new_available = current_available + transfer_amount
+            await db.affiliates.update_one(
+                {"affiliate_id": affiliate_id},
+                {"$set": {
+                    "hold_balance": new_hold,
+                    "balance": new_available,
+                    "last_payout_date": datetime.now(timezone.utc)
+                }}
+            )
+        else:
+            raise HTTPException(status_code=400, detail="Invalid action")
+        
+        # Log the adjustment
+        adjustment_log = {
+            "log_id": f"adj_{uuid.uuid4().hex[:12]}",
+            "affiliate_id": affiliate_id,
+            "action": action,
+            "amount": amount,
+            "note": note,
+            "admin_id": user_id,
+            "created_at": datetime.now(timezone.utc)
+        }
+        await db.affiliate_balance_adjustments.insert_one(adjustment_log)
+        
+        # Get updated affiliate
+        updated_aff = await db.affiliates.find_one({"affiliate_id": affiliate_id})
+        
+        return {
+            "success": True,
+            "available_balance": updated_aff.get("balance", 0),
+            "hold_balance": updated_aff.get("hold_balance", 0)
+        }
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# Admin: Release all hold balances (for manual Monday payout)
+@api_router.post("/admin/affiliate-hold-balance/release-all")
+async def admin_release_all_hold_balances(authorization: str = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization.split(" ")[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        
+        user = await db.users.find_one({"user_id": user_id})
+        if not user or not user.get("is_admin"):
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        # Get all affiliates with hold balance > 0
+        affiliates = await db.affiliates.find({"hold_balance": {"$gt": 0}}).to_list(1000)
+        
+        released_count = 0
+        total_released = 0
+        
+        for aff in affiliates:
+            hold_balance = aff.get("hold_balance", 0)
+            if hold_balance > 0:
+                new_available = aff.get("balance", 0) + hold_balance
+                await db.affiliates.update_one(
+                    {"affiliate_id": aff.get("affiliate_id")},
+                    {"$set": {
+                        "balance": new_available,
+                        "hold_balance": 0,
+                        "last_payout_date": datetime.now(timezone.utc)
+                    }}
+                )
+                released_count += 1
+                total_released += hold_balance
+        
+        return {
+            "success": True,
+            "affiliates_released": released_count,
+            "total_amount_released": total_released
+        }
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# Background task to auto-release hold balances on Monday 6 AM SGT
+async def check_monday_payout():
+    """Background task that runs every hour to check if it's Monday 6 AM SGT"""
+    import pytz
+    while True:
+        try:
+            singapore_tz = pytz.timezone('Asia/Singapore')
+            now_sgt = datetime.now(singapore_tz)
+            
+            # Check if it's Monday between 6:00 and 6:59 AM SGT
+            if now_sgt.weekday() == 0 and now_sgt.hour == 6:
+                print(f"[PAYOUT] Monday 6 AM SGT - Processing auto payout...")
+                
+                # Check if we already processed today
+                today_start = now_sgt.replace(hour=0, minute=0, second=0, microsecond=0)
+                last_auto_payout = await db.system_settings.find_one({"key": "last_auto_payout"})
+                
+                if last_auto_payout:
+                    last_payout_date = last_auto_payout.get("value")
+                    if last_payout_date and last_payout_date.date() == now_sgt.date():
+                        print("[PAYOUT] Already processed today, skipping...")
+                        await asyncio.sleep(3600)  # Wait 1 hour
+                        continue
+                
+                # Get all affiliates with hold balance > 0
+                affiliates = await db.affiliates.find({"hold_balance": {"$gt": 0}}).to_list(1000)
+                
+                released_count = 0
+                total_released = 0
+                
+                for aff in affiliates:
+                    hold_balance = aff.get("hold_balance", 0)
+                    if hold_balance > 0:
+                        new_available = aff.get("balance", 0) + hold_balance
+                        await db.affiliates.update_one(
+                            {"affiliate_id": aff.get("affiliate_id")},
+                            {"$set": {
+                                "balance": new_available,
+                                "hold_balance": 0,
+                                "last_payout_date": datetime.now(timezone.utc)
+                            }}
+                        )
+                        released_count += 1
+                        total_released += hold_balance
+                        print(f"[PAYOUT] Released ${hold_balance:.2f} to {aff.get('email')}")
+                
+                # Update last auto payout time
+                await db.system_settings.update_one(
+                    {"key": "last_auto_payout"},
+                    {"$set": {"value": datetime.now(timezone.utc)}},
+                    upsert=True
+                )
+                
+                print(f"[PAYOUT] Completed - Released ${total_released:.2f} to {released_count} affiliates")
+            
+        except Exception as e:
+            print(f"[PAYOUT] Error in auto payout check: {e}")
+        
+        await asyncio.sleep(3600)  # Check every hour
+
+# Start background task on app startup
+@app.on_event("startup")
+async def start_background_tasks():
+    asyncio.create_task(check_monday_payout())
+    print("[SYSTEM] Monday payout scheduler started")
 
 # Include router - MUST be at the end of file after ALL route definitions
 app.include_router(api_router)

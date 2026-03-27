@@ -613,31 +613,56 @@ export default function AffiliateDashboard() {
   // Dashboard Home Content
   const HomeContent = () => (
     <View style={styles.content}>
-      {/* Balance Card */}
-      <LinearGradient colors={['#1A2235', '#141B2D']} style={styles.balanceCard}>
-        <View style={styles.balanceHeader}>
-          <Text style={styles.balanceLabel}>Available Balance</Text>
-          <TouchableOpacity onPress={() => setShowWithdrawModal(true)}>
-            <View style={styles.withdrawBtn}>
-              <Ionicons name="wallet-outline" size={16} color={COLORS.primary} />
-              <Text style={styles.withdrawBtnText}>Withdraw</Text>
+      {/* Balance Cards - Available + Hold */}
+      <View style={styles.balanceCardsContainer}>
+        {/* Available Balance Card */}
+        <LinearGradient colors={['#1A2235', '#141B2D']} style={styles.balanceCard}>
+          <View style={styles.balanceHeader}>
+            <Text style={styles.balanceLabel}>Available Balance</Text>
+            <TouchableOpacity onPress={() => setShowWithdrawModal(true)}>
+              <View style={styles.withdrawBtn}>
+                <Ionicons name="wallet-outline" size={16} color={COLORS.primary} />
+                <Text style={styles.withdrawBtnText}>Withdraw</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.balanceAmount}>{formatMoney(affiliate?.balance || 0)}</Text>
+          
+          <View style={styles.balanceFooter}>
+            <View style={styles.balanceStat}>
+              <Text style={styles.balanceStatLabel}>All Time Earnings</Text>
+              <Text style={styles.balanceStatValue}>{formatMoney(affiliate?.total_earnings || 0)}</Text>
             </View>
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.balanceAmount}>{formatMoney(affiliate?.balance || 0)}</Text>
+            <View style={styles.balanceStatDivider} />
+            <View style={styles.balanceStat}>
+              <Text style={styles.balanceStatLabel}>Commission Rate</Text>
+              <Text style={[styles.balanceStatValue, { color: COLORS.primary }]}>{currentLevel.revenue}%</Text>
+            </View>
+          </View>
+        </LinearGradient>
         
-        <View style={styles.balanceFooter}>
-          <View style={styles.balanceStat}>
-            <Text style={styles.balanceStatLabel}>All Time Earnings</Text>
-            <Text style={styles.balanceStatValue}>{formatMoney(affiliate?.total_earnings || 0)}</Text>
+        {/* Hold Balance Card */}
+        <View style={styles.holdBalanceCard}>
+          <View style={styles.holdBalanceHeader}>
+            <View style={styles.holdBalanceIconContainer}>
+              <Ionicons name="time-outline" size={20} color="#FFA500" />
+            </View>
+            <View style={styles.holdBalanceInfo}>
+              <Text style={styles.holdBalanceLabel}>Hold Balance</Text>
+              <Text style={styles.holdBalanceAmount}>{formatMoney(affiliate?.hold_balance || 0)}</Text>
+            </View>
           </View>
-          <View style={styles.balanceStatDivider} />
-          <View style={styles.balanceStat}>
-            <Text style={styles.balanceStatLabel}>Commission Rate</Text>
-            <Text style={[styles.balanceStatValue, { color: COLORS.primary }]}>{currentLevel.revenue}%</Text>
+          <View style={styles.holdBalanceFooter}>
+            <Ionicons name="calendar-outline" size={14} color={COLORS.textSecondary} />
+            <Text style={styles.holdBalanceRelease}>Released every Monday 6 AM (SGT)</Text>
+          </View>
+          <View style={styles.holdBalanceNote}>
+            <Text style={styles.holdBalanceNoteText}>
+              New commissions are held until next Monday payout
+            </Text>
           </View>
         </View>
-      </LinearGradient>
+      </View>
       
       {/* Commission Structure Info */}
       <View style={styles.commissionInfoCard}>
@@ -3234,8 +3259,11 @@ const styles = StyleSheet.create({
   sectionTitle: { color: COLORS.text, fontSize: 18, fontWeight: '700', marginBottom: 16 },
   sectionSubtitle: { color: COLORS.textSecondary, fontSize: 13, marginTop: -12, marginBottom: 16 },
   
+  // Balance Cards Container
+  balanceCardsContainer: { marginBottom: 0 },
+  
   // Balance Card - Dark theme for contrast
-  balanceCard: { borderRadius: 20, padding: 24, marginBottom: 20 },
+  balanceCard: { borderRadius: 20, padding: 24, marginBottom: 12 },
   balanceHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   balanceLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 14, fontWeight: '500' },
   withdrawBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primaryLight, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 24 },
@@ -3246,6 +3274,18 @@ const styles = StyleSheet.create({
   balanceStatLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 12 },
   balanceStatValue: { color: '#FFFFFF', fontSize: 18, fontWeight: '700', marginTop: 6 },
   balanceStatDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.15)', marginHorizontal: 16 },
+  
+  // Hold Balance Card - Orange theme
+  holdBalanceCard: { backgroundColor: '#FFF8E7', borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: '#FFE4B5' },
+  holdBalanceHeader: { flexDirection: 'row', alignItems: 'center' },
+  holdBalanceIconContainer: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#FFF0D4', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  holdBalanceInfo: { flex: 1 },
+  holdBalanceLabel: { color: '#B8860B', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  holdBalanceAmount: { color: '#8B4513', fontSize: 28, fontWeight: '800', marginTop: 2 },
+  holdBalanceFooter: { flexDirection: 'row', alignItems: 'center', marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#FFE4B5' },
+  holdBalanceRelease: { color: '#B8860B', fontSize: 12, marginLeft: 6 },
+  holdBalanceNote: { backgroundColor: '#FFF0D4', borderRadius: 8, padding: 10, marginTop: 10 },
+  holdBalanceNoteText: { color: '#B8860B', fontSize: 11, textAlign: 'center', fontStyle: 'italic' },
   
   // Level Progress
   levelProgressCard: { backgroundColor: COLORS.white, borderRadius: 16, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: COLORS.border },

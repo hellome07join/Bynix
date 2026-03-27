@@ -255,7 +255,7 @@ export default function AdminDashboard() {
     }
   });
   const [affiliateLoading, setAffiliateLoading] = useState(false);
-  const [affiliateSubTab, setAffiliateSubTab] = useState('list'); // list, leaderboard, payouts, fraud, chat
+  const [affiliateSubTab, setAffiliateSubTab] = useState('list'); // list, leaderboard, payouts, fraud, chat, hold
   const [affiliateSearch, setAffiliateSearch] = useState('');
   const [topAffiliates, setTopAffiliates] = useState<any>({ top_by_earnings: [], top_by_referrals: [], top_by_ftds: [] });
   const [affiliatePayouts, setAffiliatePayouts] = useState<any[]>([]);
@@ -266,6 +266,13 @@ export default function AdminDashboard() {
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
   const [adjustmentData, setAdjustmentData] = useState({ type: 'add', amount: 0, reason: '' });
   const [payoutSettings, setPayoutSettings] = useState({ hold_period_days: 7, min_payout: 50, negative_balance_carryover: true });
+  
+  // Hold Balance States
+  const [holdBalances, setHoldBalances] = useState<any[]>([]);
+  const [holdBalanceLoading, setHoldBalanceLoading] = useState(false);
+  const [showHoldAdjustModal, setShowHoldAdjustModal] = useState(false);
+  const [selectedHoldAffiliate, setSelectedHoldAffiliate] = useState<any>(null);
+  const [holdAdjustData, setHoldAdjustData] = useState({ action: 'release', amount: 0, note: '' });
   
   // Withdrawal Detail Modal States (for Affiliate Withdrawals)
   const [showWithdrawalDetailModal, setShowWithdrawalDetailModal] = useState(false);
@@ -491,6 +498,15 @@ export default function AdminDashboard() {
       if (chatsRes.ok) {
         const chatsData = await chatsRes.json();
         setSupportChats(chatsData.chats || []);
+      }
+      
+      // Fetch hold balances
+      const holdRes = await fetch(`${API_URL}/admin/affiliate-hold-balances`, {
+        headers: { 'Authorization': `Bearer ${adminToken}` }
+      });
+      if (holdRes.ok) {
+        const holdData = await holdRes.json();
+        setHoldBalances(holdData.affiliates || []);
       }
     } catch (error) {
       console.error('Error fetching affiliate data:', error);
@@ -4587,6 +4603,7 @@ export default function AdminDashboard() {
             { id: 'list', label: 'All Affiliates', icon: 'people' },
             { id: 'leaderboard', label: 'Leaderboard', icon: 'trophy' },
             { id: 'withdrawals', label: 'Withdrawals', icon: 'wallet' },
+            { id: 'hold', label: 'Hold Balances', icon: 'time' },
             { id: 'fraud', label: 'Fraud Control', icon: 'shield-checkmark' },
             { id: 'chat', label: 'Support Chat', icon: 'chatbubbles' },
           ].map(tab => (
@@ -5152,6 +5169,218 @@ export default function AdminDashboard() {
           )}
         </View>
       )}
+
+      {/* Hold Balances Tab */}
+      {affiliateSubTab === 'hold' && (
+        <View style={[styles.sectionCard, { marginBottom: 20 }]}>
+          <View style={styles.holdBalanceHeader}>
+            <Text style={styles.sectionTitle}>⏱️ Hold Balances</Text>
+            <TouchableOpacity 
+              style={[styles.actionBtn, { backgroundColor: COLORS.primary }]}
+              onPress={async () => {
+                try {
+                  const adminToken = await AsyncStorage.getItem('token');
+                  const res = await fetch(`${API_URL}/admin/affiliate-hold-balance/release-all`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${adminToken}` }
+                  });
+                  const data = await res.json();
+                  if (data.success) {
+                    Alert.alert('Success', `Released $${data.total_amount_released?.toFixed(2)} to ${data.affiliates_released} affiliates`);
+                    fetchAffiliateData();
+                  }
+                } catch (e) {
+                  Alert.alert('Error', 'Failed to release balances');
+                }
+              }}
+            >
+              <Ionicons name="checkmark-done" size={16} color="#FFF" />
+              <Text style={styles.actionBtnText}>Release All</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <Text style={styles.holdBalanceInfo}>
+            💡 Commissions are held until Monday 6 AM (Singapore Time), then auto-released to Available Balance
+          </Text>
+          
+          {holdBalances.length > 0 ? (
+            <View style={styles.holdBalanceTable}>
+              {/* Table Header */}
+              <View style={[styles.holdBalanceRow, styles.holdBalanceRowHeader]}>
+                <Text style={[styles.holdBalanceCell, { flex: 2 }]}>Affiliate</Text>
+                <Text style={[styles.holdBalanceCell, { flex: 1 }]}>Available</Text>
+                <Text style={[styles.holdBalanceCell, { flex: 1 }]}>Hold</Text>
+                <Text style={[styles.holdBalanceCell, { flex: 1 }]}>Total</Text>
+                <Text style={[styles.holdBalanceCell, { flex: 1 }]}>Actions</Text>
+              </View>
+              
+              {holdBalances.map((aff: any) => (
+                <View key={aff.affiliate_id} style={styles.holdBalanceRow}>
+                  <View style={[styles.holdBalanceCell, { flex: 2 }]}>
+                    <Text style={styles.holdBalanceAffiliateName}>{aff.name || aff.email}</Text>
+                    <Text style={styles.holdBalanceAffiliateCode}>{aff.ref_code}</Text>
+                  </View>
+                  <Text style={[styles.holdBalanceCell, { flex: 1, color: COLORS.success }]}>
+                    ${(aff.available_balance || 0).toFixed(2)}
+                  </Text>
+                  <Text style={[styles.holdBalanceCell, { flex: 1, color: '#FFA500', fontWeight: '700' }]}>
+                    ${(aff.hold_balance || 0).toFixed(2)}
+                  </Text>
+                  <Text style={[styles.holdBalanceCell, { flex: 1, color: COLORS.text }]}>
+                    ${((aff.available_balance || 0) + (aff.hold_balance || 0)).toFixed(2)}
+                  </Text>
+                  <View style={[styles.holdBalanceCell, { flex: 1, flexDirection: 'row', gap: 8 }]}>
+                    <TouchableOpacity
+                      style={[styles.holdBalanceActionBtn, { backgroundColor: COLORS.primary + '20' }]}
+                      onPress={() => {
+                        setSelectedHoldAffiliate(aff);
+                        setHoldAdjustData({ action: 'release', amount: aff.hold_balance || 0, note: '' });
+                        setShowHoldAdjustModal(true);
+                      }}
+                    >
+                      <Ionicons name="arrow-forward" size={14} color={COLORS.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.holdBalanceActionBtn, { backgroundColor: COLORS.warning + '20' }]}
+                      onPress={() => {
+                        setSelectedHoldAffiliate(aff);
+                        setHoldAdjustData({ action: 'add', amount: 0, note: '' });
+                        setShowHoldAdjustModal(true);
+                      }}
+                    >
+                      <Ionicons name="create" size={14} color={COLORS.warning} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons name="time-outline" size={48} color={COLORS.textMuted} />
+              <Text style={styles.emptyStateText}>No affiliates with hold balances</Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Hold Balance Adjustment Modal */}
+      <Modal visible={showHoldAdjustModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxWidth: 400 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Adjust Hold Balance</Text>
+              <TouchableOpacity onPress={() => setShowHoldAdjustModal(false)}>
+                <Ionicons name="close" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+            
+            {selectedHoldAffiliate && (
+              <View style={styles.modalBody}>
+                <View style={styles.holdAdjustAffInfo}>
+                  <Text style={styles.holdAdjustAffName}>{selectedHoldAffiliate.name || selectedHoldAffiliate.email}</Text>
+                  <Text style={styles.holdAdjustAffCode}>{selectedHoldAffiliate.ref_code}</Text>
+                  <View style={styles.holdAdjustBalances}>
+                    <View style={styles.holdAdjustBalanceItem}>
+                      <Text style={styles.holdAdjustBalanceLabel}>Available</Text>
+                      <Text style={[styles.holdAdjustBalanceValue, { color: COLORS.success }]}>
+                        ${(selectedHoldAffiliate.available_balance || 0).toFixed(2)}
+                      </Text>
+                    </View>
+                    <View style={styles.holdAdjustBalanceItem}>
+                      <Text style={styles.holdAdjustBalanceLabel}>Hold</Text>
+                      <Text style={[styles.holdAdjustBalanceValue, { color: '#FFA500' }]}>
+                        ${(selectedHoldAffiliate.hold_balance || 0).toFixed(2)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                
+                <View style={styles.holdAdjustForm}>
+                  <Text style={styles.holdAdjustLabel}>Action</Text>
+                  <View style={styles.holdAdjustActions}>
+                    {[
+                      { id: 'release', label: 'Release to Available', icon: 'arrow-forward' },
+                      { id: 'add', label: 'Add to Hold', icon: 'add' },
+                      { id: 'subtract', label: 'Subtract from Hold', icon: 'remove' },
+                    ].map(action => (
+                      <TouchableOpacity
+                        key={action.id}
+                        style={[
+                          styles.holdAdjustActionOption,
+                          holdAdjustData.action === action.id && styles.holdAdjustActionOptionActive
+                        ]}
+                        onPress={() => setHoldAdjustData(prev => ({ ...prev, action: action.id }))}
+                      >
+                        <Ionicons 
+                          name={action.icon as any} 
+                          size={16} 
+                          color={holdAdjustData.action === action.id ? COLORS.primary : COLORS.textMuted} 
+                        />
+                        <Text style={[
+                          styles.holdAdjustActionOptionText,
+                          holdAdjustData.action === action.id && { color: COLORS.primary }
+                        ]}>{action.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  
+                  <Text style={styles.holdAdjustLabel}>Amount</Text>
+                  <TextInput
+                    style={styles.holdAdjustInput}
+                    value={String(holdAdjustData.amount)}
+                    onChangeText={(text) => setHoldAdjustData(prev => ({ ...prev, amount: parseFloat(text) || 0 }))}
+                    keyboardType="numeric"
+                    placeholder="0.00"
+                  />
+                  
+                  <Text style={styles.holdAdjustLabel}>Note (Optional)</Text>
+                  <TextInput
+                    style={[styles.holdAdjustInput, { height: 60 }]}
+                    value={holdAdjustData.note}
+                    onChangeText={(text) => setHoldAdjustData(prev => ({ ...prev, note: text }))}
+                    placeholder="Reason for adjustment..."
+                    multiline
+                  />
+                </View>
+                
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: COLORS.primary, width: '100%', marginTop: 16 }]}
+                  onPress={async () => {
+                    try {
+                      const adminToken = await AsyncStorage.getItem('token');
+                      const res = await fetch(`${API_URL}/admin/affiliate-hold-balance/adjust`, {
+                        method: 'POST',
+                        headers: { 
+                          'Authorization': `Bearer ${adminToken}`,
+                          'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                          affiliate_id: selectedHoldAffiliate.affiliate_id,
+                          amount: holdAdjustData.amount,
+                          action: holdAdjustData.action,
+                          note: holdAdjustData.note
+                        })
+                      });
+                      const data = await res.json();
+                      if (data.success) {
+                        Alert.alert('Success', `Hold balance adjusted. Available: $${data.available_balance?.toFixed(2)}, Hold: $${data.hold_balance?.toFixed(2)}`);
+                        setShowHoldAdjustModal(false);
+                        fetchAffiliateData();
+                      } else {
+                        Alert.alert('Error', data.detail || 'Failed to adjust balance');
+                      }
+                    } catch (e) {
+                      Alert.alert('Error', 'Failed to adjust balance');
+                    }
+                  }}
+                >
+                  <Text style={styles.actionBtnText}>Apply Adjustment</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* Support Chat Tab */}
       {affiliateSubTab === 'chat' && (
@@ -9787,5 +10016,134 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: COLORS.danger,
+  },
+  
+  // Hold Balance Styles
+  holdBalanceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  holdBalanceInfo: {
+    backgroundColor: '#FFF8E7',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    fontSize: 13,
+    color: '#B8860B',
+  },
+  holdBalanceTable: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  holdBalanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  holdBalanceRowHeader: {
+    backgroundColor: COLORS.cardLight,
+  },
+  holdBalanceCell: {
+    fontSize: 13,
+    color: COLORS.text,
+  },
+  holdBalanceAffiliateName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  holdBalanceAffiliateCode: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  holdBalanceActionBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  holdAdjustAffInfo: {
+    alignItems: 'center',
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    marginBottom: 16,
+  },
+  holdAdjustAffName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  holdAdjustAffCode: {
+    fontSize: 13,
+    color: COLORS.primary,
+    marginTop: 4,
+  },
+  holdAdjustBalances: {
+    flexDirection: 'row',
+    gap: 24,
+    marginTop: 12,
+  },
+  holdAdjustBalanceItem: {
+    alignItems: 'center',
+  },
+  holdAdjustBalanceLabel: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+  },
+  holdAdjustBalanceValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  holdAdjustForm: {},
+  holdAdjustLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  holdAdjustActions: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  holdAdjustActionOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    gap: 6,
+  },
+  holdAdjustActionOptionActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primaryLight,
+  },
+  holdAdjustActionOptionText: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+  },
+  holdAdjustInput: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: COLORS.text,
+    backgroundColor: COLORS.white,
   },
 });
