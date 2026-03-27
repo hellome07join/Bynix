@@ -3792,6 +3792,73 @@ async def check_deposit_status(
                 )
                 
                 print(f"Credited ${credit_amount} + ${bonus_amount} bonus to user {user.user_id} for payment {payment_id}")
+                
+                # ========== AFFILIATE TRACKING FOR DEPOSITS ==========
+                # Update affiliate stats when referred user makes a deposit
+                user_data = await db.users.find_one({"user_id": user.user_id})
+                if user_data and user_data.get("referred_by"):
+                    referred_by = user_data.get("referred_by")
+                    
+                    # Find affiliate by ref_code or link code
+                    affiliate = await db.affiliates.find_one({"ref_code": referred_by})
+                    if not affiliate:
+                        link = await db.affiliate_links.find_one({"code": referred_by})
+                        if link:
+                            affiliate = await db.affiliates.find_one({"affiliate_id": link.get("affiliate_id")})
+                    
+                    if affiliate:
+                        affiliate_id = affiliate.get("affiliate_id")
+                        
+                        # Check if this is user's first deposit (FTD)
+                        existing_deposits = await db.deposits.count_documents({
+                            "user_id": user.user_id,
+                            "status": "completed"
+                        })
+                        is_ftd = existing_deposits == 1  # This is first completed deposit
+                        
+                        # Update affiliate_referrals
+                        await db.affiliate_referrals.update_one(
+                            {"user_id": user.user_id, "affiliate_id": affiliate_id},
+                            {
+                                "$set": {"has_deposited": True, "status": "active"},
+                                "$inc": {"total_deposits": credit_amount, "deposits_count": 1}
+                            }
+                        )
+                        
+                        # Update referrals collection
+                        update_data = {
+                            "$set": {"is_ftd": True if is_ftd else None},
+                            "$inc": {"total_deposited": credit_amount}
+                        }
+                        await db.referrals.update_one(
+                            {"referred_user_id": user.user_id, "affiliate_id": affiliate_id},
+                            update_data
+                        )
+                        
+                        # Update user's total deposits tracking
+                        await db.users.update_one(
+                            {"user_id": user.user_id},
+                            {"$inc": {"total_deposits": credit_amount, "total_deposits_count": 1}}
+                        )
+                        
+                        # Update affiliate's FTD count if this is first deposit
+                        if is_ftd:
+                            await db.affiliates.update_one(
+                                {"affiliate_id": affiliate_id},
+                                {"$inc": {"total_ftds": 1, "total_deposits": 1}}
+                            )
+                            # Also update the link FTD count if used
+                            await db.affiliate_links.update_one(
+                                {"code": referred_by},
+                                {"$inc": {"ftds": 1}}
+                            )
+                        else:
+                            await db.affiliates.update_one(
+                                {"affiliate_id": affiliate_id},
+                                {"$inc": {"total_deposits": 1}}
+                            )
+                        
+                        print(f"[AFFILIATE] Updated affiliate {affiliate_id} - FTD: {is_ftd}, Deposit: ${credit_amount}")
         
         # Handle expired/failed payments - update local deposit status
         elif payment_status in ["expired", "failed", "refunded"]:
