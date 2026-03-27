@@ -4415,57 +4415,97 @@ export default function AdminDashboard() {
   };
 
   const handleDeleteAffiliate = async (affiliateId: string) => {
-    Alert.alert(
-      'Delete Affiliate',
-      'Are you sure you want to delete this affiliate?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const token = await AsyncStorage.getItem('token') || await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
-              const res = await fetch(`${API_URL}/admin/affiliates/${affiliateId}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-              });
-              
-              if (res.ok) {
-                Alert.alert('Success', 'Affiliate deleted');
-                fetchAffiliateData();
-              }
-            } catch (error) {
-              Alert.alert('Error', 'Failed to delete affiliate');
-            }
-          }
+    if (!affiliateId) {
+      console.log('No affiliate ID provided');
+      return;
+    }
+    
+    try {
+      const token = await AsyncStorage.getItem('token') || await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
+      const res = await fetch(`${API_URL}/admin/affiliates/${affiliateId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (res.ok) {
+        if (Platform.OS === 'web') {
+          window.alert('Affiliate deleted successfully');
+        } else {
+          Alert.alert('Success', 'Affiliate deleted');
         }
-      ]
-    );
+        fetchAffiliateData();
+      } else {
+        if (Platform.OS === 'web') {
+          window.alert('Failed to delete affiliate');
+        } else {
+          Alert.alert('Error', 'Failed to delete affiliate');
+        }
+      }
+    } catch (error) {
+      if (Platform.OS === 'web') {
+        window.alert('Failed to delete affiliate');
+      } else {
+        Alert.alert('Error', 'Failed to delete affiliate');
+      }
+    }
   };
 
   const handleUpdateAffiliate = async () => {
     if (!selectedAffiliate) return;
     
+    const affId = selectedAffiliate.affiliate_id || selectedAffiliate._id;
+    if (!affId) {
+      if (Platform.OS === 'web') {
+        window.alert('Invalid affiliate ID');
+      } else {
+        Alert.alert('Error', 'Invalid affiliate ID');
+      }
+      return;
+    }
+    
     setAffiliateLoading(true);
     try {
       const token = await AsyncStorage.getItem('token') || await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
-      const res = await fetch(`${API_URL}/admin/affiliates/${selectedAffiliate.affiliate_id}`, {
+      const res = await fetch(`${API_URL}/admin/affiliates/${affId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(selectedAffiliate)
+        body: JSON.stringify({
+          name: selectedAffiliate.name,
+          email: selectedAffiliate.email,
+          telegram: selectedAffiliate.telegram,
+          phone: selectedAffiliate.phone,
+          status: selectedAffiliate.status,
+          is_active: selectedAffiliate.is_active,
+          commission_rate: selectedAffiliate.commission_rate,
+          turnover_rate: selectedAffiliate.turnover_rate,
+        })
       });
       
       if (res.ok) {
-        Alert.alert('Success', 'Affiliate updated');
+        if (Platform.OS === 'web') {
+          window.alert('Affiliate updated successfully');
+        } else {
+          Alert.alert('Success', 'Affiliate updated');
+        }
         setShowEditAffiliateModal(false);
+        setSelectedAffiliate(null);
         fetchAffiliateData();
+      } else {
+        if (Platform.OS === 'web') {
+          window.alert('Failed to update affiliate');
+        } else {
+          Alert.alert('Error', 'Failed to update affiliate');
+        }
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to update affiliate');
+      if (Platform.OS === 'web') {
+        window.alert('Failed to update affiliate');
+      } else {
+        Alert.alert('Error', 'Failed to update affiliate');
+      }
     } finally {
       setAffiliateLoading(false);
     }
@@ -5083,7 +5123,7 @@ export default function AdminDashboard() {
       </Modal>
 
       {/* Edit Affiliate Modal - Comprehensive Profile */}
-      <Modal visible={showEditAffiliateModal} transparent animationType="fade">
+      <Modal visible={showEditAffiliateModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { maxWidth: 700, maxHeight: '95%' }]}>
             <View style={styles.modalHeader}>
@@ -5216,13 +5256,26 @@ export default function AdminDashboard() {
                     </View>
                     <TouchableOpacity 
                       style={[styles.affAdjustmentBtn, { backgroundColor: COLORS.success }]}
-                      onPress={() => {
+                      onPress={async () => {
                         const amount = parseFloat(selectedAffiliate._adjustmentAmount || '0');
                         if (amount > 0) {
-                          Alert.alert('Credit Commission', `Credit $${amount} to ${selectedAffiliate.name}?`, [
-                            { text: 'Cancel', style: 'cancel' },
-                            { text: 'Confirm', onPress: () => handleCommissionAdjustment(selectedAffiliate.affiliate_id, amount, 'credit') }
-                          ]);
+                          const affId = selectedAffiliate.affiliate_id || selectedAffiliate._id;
+                          if (Platform.OS === 'web') {
+                            if (window.confirm(`Credit $${amount} to ${selectedAffiliate.name}?`)) {
+                              await handleCommissionAdjustment(affId, amount, 'credit');
+                            }
+                          } else {
+                            Alert.alert('Credit Commission', `Credit $${amount} to ${selectedAffiliate.name}?`, [
+                              { text: 'Cancel', style: 'cancel' },
+                              { text: 'Confirm', onPress: () => handleCommissionAdjustment(affId, amount, 'credit') }
+                            ]);
+                          }
+                        } else {
+                          if (Platform.OS === 'web') {
+                            window.alert('Please enter an amount greater than 0');
+                          } else {
+                            Alert.alert('Error', 'Please enter an amount greater than 0');
+                          }
                         }
                       }}
                     >
@@ -5231,13 +5284,26 @@ export default function AdminDashboard() {
                     </TouchableOpacity>
                     <TouchableOpacity 
                       style={[styles.affAdjustmentBtn, { backgroundColor: COLORS.danger }]}
-                      onPress={() => {
+                      onPress={async () => {
                         const amount = parseFloat(selectedAffiliate._adjustmentAmount || '0');
                         if (amount > 0) {
-                          Alert.alert('Debit Commission', `Debit $${amount} from ${selectedAffiliate.name}?`, [
-                            { text: 'Cancel', style: 'cancel' },
-                            { text: 'Confirm', onPress: () => handleCommissionAdjustment(selectedAffiliate.affiliate_id, amount, 'debit') }
-                          ]);
+                          const affId = selectedAffiliate.affiliate_id || selectedAffiliate._id;
+                          if (Platform.OS === 'web') {
+                            if (window.confirm(`Debit $${amount} from ${selectedAffiliate.name}?`)) {
+                              await handleCommissionAdjustment(affId, amount, 'debit');
+                            }
+                          } else {
+                            Alert.alert('Debit Commission', `Debit $${amount} from ${selectedAffiliate.name}?`, [
+                              { text: 'Cancel', style: 'cancel' },
+                              { text: 'Confirm', onPress: () => handleCommissionAdjustment(affId, amount, 'debit') }
+                            ]);
+                          }
+                        } else {
+                          if (Platform.OS === 'web') {
+                            window.alert('Please enter an amount greater than 0');
+                          } else {
+                            Alert.alert('Error', 'Please enter an amount greater than 0');
+                          }
                         }
                       }}
                     >
@@ -5322,14 +5388,25 @@ export default function AdminDashboard() {
                   <TouchableOpacity 
                     style={[styles.affChangePasswordBtn, !selectedAffiliate._newPassword && { opacity: 0.5 }]}
                     disabled={!selectedAffiliate._newPassword}
-                    onPress={() => {
+                    onPress={async () => {
                       if (selectedAffiliate._newPassword && selectedAffiliate._newPassword.length >= 6) {
-                        Alert.alert('Change Password', 'Are you sure you want to change this affiliate\'s password?', [
-                          { text: 'Cancel', style: 'cancel' },
-                          { text: 'Confirm', onPress: () => handleAffiliatePasswordChange(selectedAffiliate.affiliate_id, selectedAffiliate._newPassword) }
-                        ]);
+                        const affId = selectedAffiliate.affiliate_id || selectedAffiliate._id;
+                        if (Platform.OS === 'web') {
+                          if (window.confirm('Are you sure you want to change this affiliate\'s password?')) {
+                            await handleAffiliatePasswordChange(affId, selectedAffiliate._newPassword);
+                          }
+                        } else {
+                          Alert.alert('Change Password', 'Are you sure you want to change this affiliate\'s password?', [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'Confirm', onPress: () => handleAffiliatePasswordChange(affId, selectedAffiliate._newPassword) }
+                          ]);
+                        }
                       } else {
-                        Alert.alert('Error', 'Password must be at least 6 characters');
+                        if (Platform.OS === 'web') {
+                          window.alert('Password must be at least 6 characters');
+                        } else {
+                          Alert.alert('Error', 'Password must be at least 6 characters');
+                        }
                       }
                     }}
                   >
@@ -5370,14 +5447,22 @@ export default function AdminDashboard() {
                   <Text style={[styles.affSectionTitle, { color: COLORS.danger }]}>⚠️ Danger Zone</Text>
                   <TouchableOpacity 
                     style={styles.affDangerBtn}
-                    onPress={() => {
-                      Alert.alert('Delete Affiliate', `Are you sure you want to permanently delete ${selectedAffiliate.name}? This cannot be undone.`, [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'Delete', style: 'destructive', onPress: () => {
-                          handleDeleteAffiliate(selectedAffiliate.affiliate_id);
+                    onPress={async () => {
+                      const affId = selectedAffiliate.affiliate_id || selectedAffiliate._id;
+                      if (Platform.OS === 'web') {
+                        if (window.confirm(`Are you sure you want to permanently delete ${selectedAffiliate.name}? This cannot be undone.`)) {
+                          await handleDeleteAffiliate(affId);
                           setShowEditAffiliateModal(false);
-                        }}
-                      ]);
+                        }
+                      } else {
+                        Alert.alert('Delete Affiliate', `Are you sure you want to permanently delete ${selectedAffiliate.name}? This cannot be undone.`, [
+                          { text: 'Cancel', style: 'cancel' },
+                          { text: 'Delete', style: 'destructive', onPress: async () => {
+                            await handleDeleteAffiliate(affId);
+                            setShowEditAffiliateModal(false);
+                          }}
+                        ]);
+                      }
                     }}
                   >
                     <Ionicons name="trash" size={18} color={COLORS.danger} />
@@ -5390,7 +5475,10 @@ export default function AdminDashboard() {
             <View style={styles.modalFooter}>
               <TouchableOpacity 
                 style={[styles.modalBtn, styles.modalBtnSecondary]}
-                onPress={() => setShowEditAffiliateModal(false)}
+                onPress={() => {
+                  setSelectedAffiliate(null);
+                  setShowEditAffiliateModal(false);
+                }}
               >
                 <Text style={styles.modalBtnSecondaryText}>Cancel</Text>
               </TouchableOpacity>
