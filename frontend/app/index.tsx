@@ -3,9 +3,25 @@ import { View, Text, StyleSheet, ActivityIndicator, Platform } from 'react-nativ
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../stores/authStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_URL } from '../utils/api';
 
 // Declare window for TypeScript
 declare const window: any;
+
+// Track affiliate link click
+const trackAffiliateClick = async (refCode: string) => {
+  try {
+    const response = await fetch(`${API_URL}/affiliates/track-click`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: refCode })
+    });
+    const data = await response.json();
+    console.log('[Index] Click tracked:', data);
+  } catch (e) {
+    console.warn('[Index] Error tracking click:', e);
+  }
+};
 
 // CRITICAL: Capture referral code BEFORE any redirect happens
 // This runs synchronously when the module loads on web
@@ -18,6 +34,8 @@ const captureReferralCodeFromURL = () => {
         console.log('[Index] Captured referral code from URL on load:', refCode);
         // Store immediately - this happens before React even mounts
         AsyncStorage.setItem('pending_referral_code', refCode);
+        // Track the click asynchronously
+        trackAffiliateClick(refCode);
         return refCode;
       }
     } catch (e) {

@@ -7214,7 +7214,16 @@ async def track_affiliate_click(request: Request):
     if not affiliate_code:
         return {"success": False}
     
-    affiliate = await db.affiliates.find_one({"affiliate_code": affiliate_code, "status": "active"})
+    # Find affiliate by ref_code or link code
+    affiliate = await db.affiliates.find_one({"ref_code": affiliate_code})
+    link = None
+    
+    if not affiliate:
+        # Try to find via affiliate_links
+        link = await db.affiliate_links.find_one({"code": affiliate_code})
+        if link:
+            affiliate = await db.affiliates.find_one({"affiliate_id": link.get("affiliate_id")})
+    
     if not affiliate:
         return {"success": False}
     
@@ -7222,16 +7231,24 @@ async def track_affiliate_click(request: Request):
     await db.affiliate_clicks.insert_one({
         "affiliate_id": affiliate["affiliate_id"],
         "affiliate_code": affiliate_code,
+        "link_id": link.get("link_id") if link else None,
         "ip": request.client.host if request.client else "unknown",
         "user_agent": request.headers.get("user-agent", ""),
         "timestamp": datetime.now(timezone.utc)
     })
     
-    # Update stats
+    # Update affiliate total_clicks
     await db.affiliates.update_one(
         {"affiliate_id": affiliate["affiliate_id"]},
-        {"$inc": {"stats.total_clicks": 1}}
+        {"$inc": {"total_clicks": 1}}
     )
+    
+    # Update link clicks if specific link was used
+    if link:
+        await db.affiliate_links.update_one(
+            {"link_id": link.get("link_id")},
+            {"$inc": {"clicks": 1}}
+        )
     
     return {"success": True, "code": affiliate_code}
 
