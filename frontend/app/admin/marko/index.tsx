@@ -6366,10 +6366,18 @@ const styles = StyleSheet.create({
   // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.85)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+  },
+  modalContent: {
+    backgroundColor: COLORS.card,
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '90%',
+    overflow: 'hidden',
   },
   userModalContent: {
     backgroundColor: COLORS.card,
