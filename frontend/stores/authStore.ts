@@ -131,7 +131,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { user } = get();
     if (user) {
       const newBonusBalance = bonusBalance !== undefined ? bonusBalance : user.bonus_balance;
-      const calculatedTotalBalance = totalBalance !== undefined ? totalBalance : (realBalance + newBonusBalance);
+      // total_balance = real_balance (real_balance already includes bonus)
+      // DO NOT add bonus_balance again - that would be double-counting!
+      const calculatedTotalBalance = totalBalance !== undefined ? totalBalance : realBalance;
       const updatedUser = { 
         ...user, 
         demo_balance: demoBalance, 

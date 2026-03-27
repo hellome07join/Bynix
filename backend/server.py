@@ -864,27 +864,44 @@ async def create_trade(trade: TradeCreate, authorization: Optional[str] = Header
         deducted_from_real = 0
         deducted_from_bonus = 0
     else:
-        # Real account - use real_balance first, then bonus_balance
-        total_available = user.real_balance + bonus_balance
+        # Real account - real_balance already contains deposit + bonus
+        # bonus_balance is just for tracking (non-withdrawable portion)
+        # DO NOT double-count by adding bonus_balance again!
+        total_available = user.real_balance
         if total_available < trade.amount:
             raise HTTPException(status_code=400, detail="Insufficient balance")
         
-        # Calculate how much to deduct from each balance
-        deducted_from_real = min(user.real_balance, trade.amount)
-        deducted_from_bonus = trade.amount - deducted_from_real
+        # Calculate deductions:
+        # - All trades deduct from real_balance
+        # - Track how much was from deposit vs bonus for commission purposes
+        deducted_from_real = trade.amount
         
-        # Update balances
-        update_fields = {}
-        if deducted_from_real > 0:
-            update_fields["real_balance"] = -deducted_from_real
+        # Calculate how much of this trade came from bonus vs actual deposits
+        # This is for affiliate commission calculation (no commission on bonus trades)
+        if bonus_balance > 0:
+            # If user has bonus, some of their balance is bonus
+            # Proportion: if real_balance is 60 (30 deposit + 30 bonus), and bonus_balance is 30
+            # Then 50% of any trade is from bonus
+            bonus_ratio = min(bonus_balance / user.real_balance, 1.0) if user.real_balance > 0 else 0
+            deducted_from_bonus = trade.amount * bonus_ratio
+            deducted_from_real_portion = trade.amount - deducted_from_bonus
+        else:
+            deducted_from_bonus = 0
+            deducted_from_real_portion = trade.amount
+        
+        # Deduct from real_balance (the actual trading balance)
+        # Also proportionally reduce bonus_balance for tracking
+        update_fields = {"real_balance": -trade.amount}
         if deducted_from_bonus > 0:
             update_fields["bonus_balance"] = -deducted_from_bonus
         
-        if update_fields:
-            await db.users.update_one(
-                {"user_id": user.user_id},
-                {"$inc": update_fields}
-            )
+        await db.users.update_one(
+            {"user_id": user.user_id},
+            {"$inc": update_fields}
+        )
+        
+        # For commission tracking, only the non-bonus portion counts
+        deducted_from_real = deducted_from_real_portion
     
     # For DEMO accounts only: Predetermine outcome based on AI win rate settings
     # For REAL accounts: Also use AI win rate if AI is enabled
@@ -5359,8 +5376,8 @@ async def get_withdrawal_user_stats(
     # Profit rate
     profit_rate = (won_trades / total_trades * 100) if total_trades > 0 else 0
     
-    # Current balance
-    total_balance = user.get("real_balance", 0) + user.get("bonus_balance", 0)
+    # Current balance (real_balance already includes bonus, don't double-count)
+    total_balance = user.get("real_balance", 0)
     
     return {
         "user_id": user_id,

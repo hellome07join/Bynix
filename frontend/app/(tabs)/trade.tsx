@@ -351,14 +351,8 @@ export default function Trade() {
           const { refreshUser } = useAuthStore.getState();
           await refreshUser();
           
-          // Also update local state
-          const meResponse = await fetch(`${API_URL}/auth/me`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-          });
-          if (meResponse.ok) {
-            const userData = await meResponse.json();
-            setRealBalance(userData.total_balance || userData.real_balance || 0);
-          }
+          // refreshUser already updates user state from server
+          console.log('[DEPOSIT] Balance refreshed via refreshUser()');
           
           // Wait a bit to show success animation, then close and redirect
           setTimeout(() => {
@@ -465,14 +459,10 @@ export default function Trade() {
         setPaymentStatus('success');
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         
-        // Refresh user balance
-        const meResponse = await fetch(`${API_URL}/auth/me`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (meResponse.ok) {
-          const userData = await meResponse.json();
-          setRealBalance(userData.real_balance || 0);
-        }
+        // Refresh user balance using authStore
+        const { refreshUser } = useAuthStore.getState();
+        await refreshUser();
+        console.log('[MANUAL VERIFY] Balance refreshed via refreshUser()');
         
         // Wait a bit to show success, then close and redirect
         setTimeout(() => {
@@ -1267,7 +1257,8 @@ export default function Trade() {
     const previousDemoBalance = user?.demo_balance || 10000;
     const previousRealBalance = user?.real_balance || 0;
     const previousBonusBalance = user?.bonus_balance || 0;
-    const previousTotalBalance = user?.total_balance || (previousRealBalance + previousBonusBalance);
+    // total_balance = real_balance (which already includes bonus)
+    const previousTotalBalance = user?.total_balance || previousRealBalance;
     
     // Deduct amount IMMEDIATELY for UI feedback
     if (user) {
@@ -1276,16 +1267,23 @@ export default function Trade() {
         updateBalance(newDemoBalance, previousRealBalance, previousBonusBalance, previousTotalBalance);
         console.log('>>> Demo balance deducted:', { newDemoBalance });
       } else {
-        // Real: Deduct from real_balance first, then bonus_balance
-        let deductFromReal = Math.min(previousRealBalance, tradeAmount);
-        let deductFromBonus = tradeAmount - deductFromReal;
+        // Real: All trades deduct from real_balance (which contains deposit + bonus)
+        // Proportionally reduce bonus_balance for tracking
+        const newRealBalance = previousRealBalance - tradeAmount;
         
-        const newRealBalance = previousRealBalance - deductFromReal;
-        const newBonusBalance = previousBonusBalance - deductFromBonus;
-        const newTotalBalance = newRealBalance + newBonusBalance;
+        // Calculate proportional bonus deduction
+        let newBonusBalance = previousBonusBalance;
+        if (previousBonusBalance > 0 && previousRealBalance > 0) {
+          const bonusRatio = Math.min(previousBonusBalance / previousRealBalance, 1.0);
+          const bonusDeduction = tradeAmount * bonusRatio;
+          newBonusBalance = Math.max(0, previousBonusBalance - bonusDeduction);
+        }
+        
+        // total_balance equals real_balance (not real + bonus!)
+        const newTotalBalance = newRealBalance;
         
         updateBalance(previousDemoBalance, newRealBalance, newBonusBalance, newTotalBalance);
-        console.log('>>> Real balance deducted:', { deductFromReal, deductFromBonus, newRealBalance, newBonusBalance });
+        console.log('>>> Real balance deducted:', { tradeAmount, newRealBalance, newBonusBalance, newTotalBalance });
       }
     }
     
@@ -2613,14 +2611,10 @@ export default function Trade() {
                             setPaymentStatus('success');
                             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                             
-                            // Refresh balance
-                            const meResponse = await fetch(`${API_URL}/auth/me`, {
-                              headers: { 'Authorization': `Bearer ${token}` }
-                            });
-                            if (meResponse.ok) {
-                              const userData = await meResponse.json();
-                              setRealBalance(userData.real_balance || 0);
-                            }
+                            // Refresh balance using authStore
+                            const { refreshUser: refreshUserEwallet } = useAuthStore.getState();
+                            await refreshUserEwallet();
+                            console.log('[EWALLET] Balance refreshed via refreshUser()');
                             
                             setTimeout(() => {
                               setShowDepositModal(false);
