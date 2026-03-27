@@ -65,190 +65,296 @@ interface UserProfile {
   max_trade_amount: number;
 }
 
-// Realistic Fire Animation Component using SVG
-const RealisticFire = ({ size = 60 }: { size?: number }) => {
-  const flame1Anim = useRef(new Animated.Value(0)).current;
-  const flame2Anim = useRef(new Animated.Value(0)).current;
-  const flame3Anim = useRef(new Animated.Value(0)).current;
+// Falling Money Animation Component
+const FallingMoney = ({ containerWidth = 120, containerHeight = 80 }: { containerWidth?: number; containerHeight?: number }) => {
+  const moneyAnims = useRef(
+    Array.from({ length: 8 }, () => ({
+      translateY: new Animated.Value(-20),
+      translateX: new Animated.Value(0),
+      rotate: new Animated.Value(0),
+      opacity: new Animated.Value(1),
+    }))
+  ).current;
   
   useEffect(() => {
-    // Center flame animation
+    moneyAnims.forEach((anim, index) => {
+      const delay = index * 150;
+      const startX = (Math.random() - 0.5) * containerWidth * 0.8;
+      
+      anim.translateX.setValue(startX);
+      
+      const animateMoney = () => {
+        anim.translateY.setValue(-20);
+        anim.rotate.setValue(0);
+        anim.opacity.setValue(1);
+        
+        Animated.parallel([
+          Animated.timing(anim.translateY, {
+            toValue: containerHeight + 20,
+            duration: 1500 + Math.random() * 500,
+            easing: Easing.linear,
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim.rotate, {
+            toValue: (Math.random() - 0.5) * 4,
+            duration: 1500,
+            easing: Easing.linear,
+            useNativeDriver: true,
+          }),
+          Animated.sequence([
+            Animated.timing(anim.opacity, {
+              toValue: 1,
+              duration: 1000,
+              useNativeDriver: true,
+            }),
+            Animated.timing(anim.opacity, {
+              toValue: 0,
+              duration: 500,
+              useNativeDriver: true,
+            }),
+          ]),
+        ]).start(() => {
+          animateMoney();
+        });
+      };
+      
+      setTimeout(animateMoney, delay);
+    });
+  }, []);
+
+  return (
+    <View style={{ 
+      position: 'absolute', 
+      width: containerWidth, 
+      height: containerHeight, 
+      overflow: 'hidden',
+      zIndex: 0,
+    }}>
+      {moneyAnims.map((anim, index) => {
+        const rotate = anim.rotate.interpolate({
+          inputRange: [-2, 2],
+          outputRange: ['-45deg', '45deg'],
+        });
+        
+        return (
+          <Animated.View
+            key={index}
+            style={{
+              position: 'absolute',
+              left: '50%',
+              transform: [
+                { translateX: anim.translateX },
+                { translateY: anim.translateY },
+                { rotate },
+              ],
+              opacity: anim.opacity,
+            }}
+          >
+            <Text style={{ fontSize: 14 }}>💵</Text>
+          </Animated.View>
+        );
+      })}
+    </View>
+  );
+};
+
+// Money Gun with Hands Component
+const MoneyGunEffect = ({ size = 60, isFirst = false }: { size?: number; isFirst?: boolean }) => {
+  const leftGunAnim = useRef(new Animated.Value(0)).current;
+  const rightGunAnim = useRef(new Animated.Value(0)).current;
+  const moneyShootAnims = useRef(
+    Array.from({ length: 6 }, () => ({
+      left: new Animated.Value(0),
+      right: new Animated.Value(0),
+      leftOpacity: new Animated.Value(0),
+      rightOpacity: new Animated.Value(0),
+    }))
+  ).current;
+  
+  useEffect(() => {
+    // Gun shake animation
     Animated.loop(
       Animated.sequence([
-        Animated.timing(flame1Anim, {
+        Animated.timing(leftGunAnim, {
           toValue: 1,
-          duration: 400,
-          easing: Easing.ease,
+          duration: 100,
           useNativeDriver: true,
         }),
-        Animated.timing(flame1Anim, {
+        Animated.timing(leftGunAnim, {
           toValue: 0,
-          duration: 400,
-          easing: Easing.ease,
+          duration: 100,
           useNativeDriver: true,
         }),
       ])
     ).start();
     
-    // Left flame animation (slightly delayed)
-    setTimeout(() => {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(flame2Anim, {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(rightGunAnim, {
+          toValue: 1,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(rightGunAnim, {
+          toValue: 0,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Money shooting animation
+    moneyShootAnims.forEach((anim, index) => {
+      const delay = index * 200;
+      
+      const shootMoney = () => {
+        // Reset
+        anim.left.setValue(0);
+        anim.right.setValue(0);
+        anim.leftOpacity.setValue(1);
+        anim.rightOpacity.setValue(1);
+        
+        Animated.parallel([
+          // Left gun shooting
+          Animated.timing(anim.left, {
             toValue: 1,
-            duration: 350,
-            easing: Easing.ease,
+            duration: 600,
+            easing: Easing.out(Easing.quad),
             useNativeDriver: true,
           }),
-          Animated.timing(flame2Anim, {
+          Animated.timing(anim.leftOpacity, {
             toValue: 0,
-            duration: 350,
-            easing: Easing.ease,
+            duration: 600,
             useNativeDriver: true,
           }),
-        ])
-      ).start();
-    }, 100);
-    
-    // Right flame animation (slightly delayed)
-    setTimeout(() => {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(flame3Anim, {
+          // Right gun shooting
+          Animated.timing(anim.right, {
             toValue: 1,
-            duration: 450,
-            easing: Easing.ease,
+            duration: 600,
+            easing: Easing.out(Easing.quad),
             useNativeDriver: true,
           }),
-          Animated.timing(flame3Anim, {
+          Animated.timing(anim.rightOpacity, {
             toValue: 0,
-            duration: 450,
-            easing: Easing.ease,
+            duration: 600,
             useNativeDriver: true,
           }),
-        ])
-      ).start();
-    }, 200);
+        ]).start(() => {
+          setTimeout(shootMoney, 100);
+        });
+      };
+      
+      setTimeout(shootMoney, delay);
+    });
   }, []);
 
-  const scale1 = flame1Anim.interpolate({
+  const leftShake = leftGunAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [1, 1.15],
+    outputRange: ['0deg', '-5deg'],
   });
   
-  const scale2 = flame2Anim.interpolate({
+  const rightShake = rightGunAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [1, 1.1],
-  });
-  
-  const scale3 = flame3Anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 1.12],
+    outputRange: ['0deg', '5deg'],
   });
 
-  const translateY1 = flame1Anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -5],
-  });
-
-  const translateY2 = flame2Anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -3],
-  });
-
-  const translateY3 = flame3Anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -3],
-  });
+  const gunSize = isFirst ? 22 : 18;
+  const handSize = isFirst ? 16 : 14;
+  const spreadDistance = isFirst ? 45 : 35;
 
   return (
     <View style={{ 
-      width: size * 1.8, 
-      height: size * 1.2, 
-      flexDirection: 'row',
-      alignItems: 'flex-end',
+      position: 'absolute',
+      width: size * 2.5,
+      height: size * 1.5,
+      alignItems: 'center',
       justifyContent: 'center',
     }}>
-      {/* Left flame */}
-      <Animated.View style={{ 
-        transform: [{ scale: scale2 }, { translateY: translateY2 }],
-        marginRight: -size * 0.15,
+      {/* Left Hand + Money Gun */}
+      <Animated.View style={{
+        position: 'absolute',
+        left: -spreadDistance,
+        top: size * 0.3,
+        transform: [{ rotate: leftShake }],
+        flexDirection: 'row',
+        alignItems: 'center',
       }}>
-        <Svg width={size * 0.5} height={size * 0.9} viewBox="0 0 50 90">
-          <Defs>
-            <RadialGradient id="flameGradL" cx="50%" cy="70%" rx="50%" ry="60%">
-              <Stop offset="0%" stopColor="#FFFF00" stopOpacity="1" />
-              <Stop offset="40%" stopColor="#FFA500" stopOpacity="0.95" />
-              <Stop offset="100%" stopColor="#FF4500" stopOpacity="0.85" />
-            </RadialGradient>
-          </Defs>
-          <Path
-            d="M25 5 Q35 30 40 55 Q45 80 25 85 Q5 80 10 55 Q15 30 25 5"
-            fill="url(#flameGradL)"
-          />
-          <Path
-            d="M25 20 Q30 40 33 60 Q36 75 25 78 Q14 75 17 60 Q20 40 25 20"
-            fill="#FFDD44"
-            opacity="0.8"
-          />
-        </Svg>
+        <Text style={{ fontSize: gunSize, transform: [{ scaleX: -1 }] }}>🔫</Text>
+        <Text style={{ fontSize: handSize, marginLeft: -8 }}>🤚</Text>
       </Animated.View>
       
-      {/* Center flame (main/largest) */}
-      <Animated.View style={{ 
-        transform: [{ scale: scale1 }, { translateY: translateY1 }],
-        zIndex: 2,
+      {/* Right Hand + Money Gun */}
+      <Animated.View style={{
+        position: 'absolute',
+        right: -spreadDistance,
+        top: size * 0.3,
+        transform: [{ rotate: rightShake }],
+        flexDirection: 'row',
+        alignItems: 'center',
       }}>
-        <Svg width={size * 0.6} height={size * 1.1} viewBox="0 0 60 110">
-          <Defs>
-            <RadialGradient id="flameGradC" cx="50%" cy="65%" rx="50%" ry="55%">
-              <Stop offset="0%" stopColor="#FFFF00" stopOpacity="1" />
-              <Stop offset="25%" stopColor="#FFD700" stopOpacity="0.98" />
-              <Stop offset="50%" stopColor="#FF8C00" stopOpacity="0.95" />
-              <Stop offset="100%" stopColor="#FF4500" stopOpacity="0.85" />
-            </RadialGradient>
-          </Defs>
-          <Path
-            d="M30 5 Q45 35 52 65 Q58 95 30 105 Q2 95 8 65 Q15 35 30 5"
-            fill="url(#flameGradC)"
-          />
-          <Path
-            d="M30 25 Q38 50 42 72 Q46 92 30 97 Q14 92 18 72 Q22 50 30 25"
-            fill="#FFDD44"
-            opacity="0.85"
-          />
-          <Path
-            d="M30 40 Q34 58 36 75 Q38 88 30 90 Q22 88 24 75 Q26 58 30 40"
-            fill="#FFFFAA"
-            opacity="0.7"
-          />
-        </Svg>
+        <Text style={{ fontSize: handSize, marginRight: -8 }}>🤚</Text>
+        <Text style={{ fontSize: gunSize }}>🔫</Text>
       </Animated.View>
       
-      {/* Right flame */}
-      <Animated.View style={{ 
-        transform: [{ scale: scale3 }, { translateY: translateY3 }],
-        marginLeft: -size * 0.15,
-      }}>
-        <Svg width={size * 0.5} height={size * 0.9} viewBox="0 0 50 90">
-          <Defs>
-            <RadialGradient id="flameGradR" cx="50%" cy="70%" rx="50%" ry="60%">
-              <Stop offset="0%" stopColor="#FFFF00" stopOpacity="1" />
-              <Stop offset="40%" stopColor="#FFA500" stopOpacity="0.95" />
-              <Stop offset="100%" stopColor="#FF4500" stopOpacity="0.85" />
-            </RadialGradient>
-          </Defs>
-          <Path
-            d="M25 5 Q35 30 40 55 Q45 80 25 85 Q5 80 10 55 Q15 30 25 5"
-            fill="url(#flameGradR)"
-          />
-          <Path
-            d="M25 20 Q30 40 33 60 Q36 75 25 78 Q14 75 17 60 Q20 40 25 20"
-            fill="#FFDD44"
-            opacity="0.8"
-          />
-        </Svg>
-      </Animated.View>
+      {/* Shooting Money from Left Gun */}
+      {moneyShootAnims.map((anim, index) => {
+        const leftTranslateX = anim.left.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, -40 - index * 5],
+        });
+        const leftTranslateY = anim.left.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, -20 + index * 8],
+        });
+        
+        return (
+          <Animated.View
+            key={`left-${index}`}
+            style={{
+              position: 'absolute',
+              left: -spreadDistance - 15,
+              top: size * 0.25,
+              transform: [
+                { translateX: leftTranslateX },
+                { translateY: leftTranslateY },
+              ],
+              opacity: anim.leftOpacity,
+            }}
+          >
+            <Text style={{ fontSize: 12 }}>💵</Text>
+          </Animated.View>
+        );
+      })}
+      
+      {/* Shooting Money from Right Gun */}
+      {moneyShootAnims.map((anim, index) => {
+        const rightTranslateX = anim.right.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, 40 + index * 5],
+        });
+        const rightTranslateY = anim.right.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, -20 + index * 8],
+        });
+        
+        return (
+          <Animated.View
+            key={`right-${index}`}
+            style={{
+              position: 'absolute',
+              right: -spreadDistance - 15,
+              top: size * 0.25,
+              transform: [
+                { translateX: rightTranslateX },
+                { translateY: rightTranslateY },
+              ],
+              opacity: anim.rightOpacity,
+            }}
+          >
+            <Text style={{ fontSize: 12 }}>💵</Text>
+          </Animated.View>
+        );
+      })}
     </View>
   );
 };
@@ -315,12 +421,13 @@ const CircularPodiumItem = ({
         </View>
       )}
 
-      {/* Circle Avatar with Fire Background */}
+      {/* Avatar with Money Gun Effect */}
       <View style={circularStyles.avatarWrapper}>
-        {/* Realistic Fire Behind Avatar */}
-        <View style={circularStyles.fireContainer}>
-          <RealisticFire size={isFirst ? 60 : 50} />
-        </View>
+        {/* Falling Money from Sky */}
+        <FallingMoney containerWidth={100} containerHeight={70} />
+        
+        {/* Money Gun Effect with Hands */}
+        <MoneyGunEffect size={circleSize} isFirst={isFirst} />
         
         {/* Circular Avatar */}
         <LinearGradient
@@ -406,12 +513,8 @@ const circularStyles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: 4,
     position: 'relative',
-    paddingBottom: 15,
-  },
-  fireContainer: {
-    position: 'absolute',
-    bottom: 0,
-    zIndex: 0,
+    paddingBottom: 8,
+    overflow: 'visible',
   },
   circleAvatar: {
     borderRadius: 100,
@@ -419,7 +522,7 @@ const circularStyles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
-    zIndex: 5,
+    zIndex: 10,
   },
   avatarInitial: {
     fontWeight: '800',
