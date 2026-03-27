@@ -5483,7 +5483,7 @@ export default function AdminDashboard() {
                 <View style={styles.affStatsRow}>
                   <View style={styles.affStatBox}>
                     <Ionicons name="people" size={20} color={COLORS.primary} />
-                    <Text style={styles.affStatValue}>{selectedAffiliate.total_signups || selectedAffiliate.total_registrations || 0}</Text>
+                    <Text style={styles.affStatValue}>{selectedAffiliate.total_referrals || selectedAffiliate.total_signups || 0}</Text>
                     <Text style={styles.affStatLabel}>Referrals</Text>
                   </View>
                   <View style={styles.affStatBox}>
