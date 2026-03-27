@@ -518,27 +518,69 @@ export default function AdminDashboard() {
   };
 
   // Handle commission adjustment
-  const handleCommissionAdjustment = async () => {
-    if (!selectedAffiliate) return;
+  const handleCommissionAdjustment = async (affiliateId?: string, amount?: number, type?: string) => {
+    const affId = affiliateId || selectedAffiliate?.affiliate_id;
+    const adjAmount = amount || adjustmentData.amount;
+    const adjType = type || adjustmentData.type;
+    
+    if (!affId) return;
     setAffiliateLoading(true);
     try {
       const adminToken = await AsyncStorage.getItem('token') || await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
-      const res = await fetch(`${API_URL}/admin/affiliates/${selectedAffiliate.affiliate_id}/commission-adjustment`, {
+      const res = await fetch(`${API_URL}/admin/affiliates/${affId}/commission-adjustment`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${adminToken}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(adjustmentData)
+        body: JSON.stringify({
+          type: adjType,
+          amount: adjAmount,
+          reason: adjustmentData.reason || `Manual ${adjType} by admin`
+        })
       });
       if (res.ok) {
-        Alert.alert('Success', 'Commission adjusted successfully');
+        Alert.alert('Success', `Commission ${adjType}ed successfully`);
         setShowAdjustmentModal(false);
         setAdjustmentData({ type: 'add', amount: 0, reason: '' });
+        if (selectedAffiliate) {
+          setSelectedAffiliate({...selectedAffiliate, _adjustmentAmount: ''});
+        }
         fetchAffiliateData();
+      } else {
+        Alert.alert('Error', 'Failed to adjust commission');
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to adjust commission');
+    } finally {
+      setAffiliateLoading(false);
+    }
+  };
+
+  // Handle affiliate password change
+  const handleAffiliatePasswordChange = async (affiliateId: string, newPassword: string) => {
+    if (!affiliateId || !newPassword) return;
+    setAffiliateLoading(true);
+    try {
+      const adminToken = await AsyncStorage.getItem('token') || await AsyncStorage.getItem('adminToken') || await AsyncStorage.getItem('userToken');
+      const res = await fetch(`${API_URL}/admin/affiliates/${affiliateId}/change-password`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${adminToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ new_password: newPassword })
+      });
+      if (res.ok) {
+        Alert.alert('Success', 'Password changed successfully');
+        if (selectedAffiliate) {
+          setSelectedAffiliate({...selectedAffiliate, _newPassword: ''});
+        }
+      } else {
+        Alert.alert('Error', 'Failed to change password');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to change password');
     } finally {
       setAffiliateLoading(false);
     }
@@ -4542,7 +4584,14 @@ export default function AdminDashboard() {
           </View>
         ) : (
           affiliates.map((aff, index) => (
-            <View key={aff.affiliate_id || index} style={styles.affiliateItem}>
+            <TouchableOpacity 
+              key={aff.affiliate_id || index} 
+              style={styles.affiliateItem}
+              onPress={() => {
+                setSelectedAffiliate(aff);
+                setShowEditAffiliateModal(true);
+              }}
+            >
               <View style={styles.affiliateItemLeft}>
                 <View style={[styles.affiliateAvatar, { backgroundColor: COLORS.primary + '20' }]}>
                   <Text style={styles.affiliateAvatarText}>{aff.name?.charAt(0) || 'A'}</Text>
@@ -4554,20 +4603,21 @@ export default function AdminDashboard() {
                 </View>
               </View>
               <View style={styles.affiliateItemRight}>
-                <View style={[styles.affiliateStatusBadge, { backgroundColor: aff.status === 'active' ? COLORS.success + '20' : COLORS.warning + '20' }]}>
-                  <Text style={[styles.affiliateStatusText, { color: aff.status === 'active' ? COLORS.success : COLORS.warning }]}>
-                    {aff.status || 'Active'}
+                <View style={[styles.affiliateStatusBadge, { backgroundColor: (aff.status === 'active' || aff.is_active) ? COLORS.success + '20' : COLORS.warning + '20' }]}>
+                  <Text style={[styles.affiliateStatusText, { color: (aff.status === 'active' || aff.is_active) ? COLORS.success : COLORS.warning }]}>
+                    {(aff.status === 'active' || aff.is_active) ? 'Active' : 'Suspended'}
                   </Text>
                 </View>
                 <View style={styles.affiliateStats}>
-                  <Text style={styles.affiliateStatSmall}>Referrals: {aff.total_referrals || 0}</Text>
+                  <Text style={styles.affiliateStatSmall}>Referrals: {aff.total_signups || aff.total_referrals || 0}</Text>
                   <Text style={styles.affiliateStatSmall}>FTDs: {aff.total_ftds || 0}</Text>
-                  <Text style={styles.affiliateStatSmall}>Earnings: ${aff.total_earnings?.toLocaleString() || 0}</Text>
+                  <Text style={styles.affiliateStatSmall}>Earnings: ${(aff.total_earnings || 0).toLocaleString()}</Text>
                 </View>
                 <View style={styles.affiliateActions}>
                   <TouchableOpacity 
                     style={styles.affiliateActionBtn}
-                    onPress={() => {
+                    onPress={(e) => {
+                      e.stopPropagation();
                       setSelectedAffiliate(aff);
                       setShowEditAffiliateModal(true);
                     }}
@@ -4576,13 +4626,16 @@ export default function AdminDashboard() {
                   </TouchableOpacity>
                   <TouchableOpacity 
                     style={[styles.affiliateActionBtn, { marginLeft: 8 }]}
-                    onPress={() => handleDeleteAffiliate(aff.affiliate_id)}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleDeleteAffiliate(aff.affiliate_id);
+                    }}
                   >
                     <Ionicons name="trash" size={16} color={COLORS.danger} />
                   </TouchableOpacity>
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
           ))
         )}
       </View>
@@ -5029,56 +5082,308 @@ export default function AdminDashboard() {
         </View>
       </Modal>
 
-      {/* Edit Affiliate Modal */}
+      {/* Edit Affiliate Modal - Comprehensive Profile */}
       <Modal visible={showEditAffiliateModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { maxWidth: 700, maxHeight: '95%' }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Affiliate</Text>
+              <Text style={styles.modalTitle}>Affiliate Profile</Text>
               <TouchableOpacity onPress={() => setShowEditAffiliateModal(false)}>
                 <Ionicons name="close" size={24} color={COLORS.text} />
               </TouchableOpacity>
             </View>
             
             {selectedAffiliate && (
-              <ScrollView style={styles.modalBody}>
-                <Text style={styles.inputLabel}>Name</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  value={selectedAffiliate.name}
-                  onChangeText={(text) => setSelectedAffiliate({...selectedAffiliate, name: text})}
-                />
-                
-                <Text style={styles.inputLabel}>Email</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  value={selectedAffiliate.email}
-                  onChangeText={(text) => setSelectedAffiliate({...selectedAffiliate, email: text})}
-                />
-                
-                <Text style={styles.inputLabel}>Status</Text>
-                <View style={styles.statusToggle}>
+              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+                {/* Affiliate ID & Basic Info Header */}
+                <View style={styles.affProfileHeader}>
+                  <View style={styles.affProfileAvatar}>
+                    <Text style={styles.affProfileAvatarText}>{selectedAffiliate.name?.charAt(0) || 'A'}</Text>
+                  </View>
+                  <View style={styles.affProfileInfo}>
+                    <Text style={styles.affProfileName}>{selectedAffiliate.name}</Text>
+                    <View style={styles.affIdBadge}>
+                      <Text style={styles.affIdText}>ID: {selectedAffiliate.ref_code || selectedAffiliate.affiliate_code || 'N/A'}</Text>
+                    </View>
+                    <Text style={styles.affProfileEmail}>{selectedAffiliate.email}</Text>
+                  </View>
+                  <View style={[styles.affStatusBadgeLarge, { backgroundColor: (selectedAffiliate.status === 'active' || selectedAffiliate.is_active) ? COLORS.successLight : COLORS.dangerLight }]}>
+                    <Text style={[styles.affStatusTextLarge, { color: (selectedAffiliate.status === 'active' || selectedAffiliate.is_active) ? COLORS.success : COLORS.danger }]}>
+                      {(selectedAffiliate.status === 'active' || selectedAffiliate.is_active) ? 'Active' : 'Suspended'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Financial Stats Cards */}
+                <View style={styles.affFinancialRow}>
+                  <View style={[styles.affFinancialCard, { borderLeftColor: COLORS.success }]}>
+                    <Text style={styles.affFinancialLabel}>Total Earnings</Text>
+                    <Text style={[styles.affFinancialValue, { color: COLORS.success }]}>${(selectedAffiliate.total_earnings || 0).toLocaleString()}</Text>
+                  </View>
+                  <View style={[styles.affFinancialCard, { borderLeftColor: COLORS.primary }]}>
+                    <Text style={styles.affFinancialLabel}>Current Balance</Text>
+                    <Text style={[styles.affFinancialValue, { color: COLORS.primary }]}>${(selectedAffiliate.balance || 0).toLocaleString()}</Text>
+                  </View>
+                  <View style={[styles.affFinancialCard, { borderLeftColor: COLORS.warning }]}>
+                    <Text style={styles.affFinancialLabel}>Total Withdrawn</Text>
+                    <Text style={[styles.affFinancialValue, { color: COLORS.warning }]}>${((selectedAffiliate.total_earnings || 0) - (selectedAffiliate.balance || 0)).toLocaleString()}</Text>
+                  </View>
+                </View>
+
+                {/* Stats Row */}
+                <View style={styles.affStatsRow}>
+                  <View style={styles.affStatBox}>
+                    <Ionicons name="people" size={20} color={COLORS.primary} />
+                    <Text style={styles.affStatValue}>{selectedAffiliate.total_signups || selectedAffiliate.total_registrations || 0}</Text>
+                    <Text style={styles.affStatLabel}>Referrals</Text>
+                  </View>
+                  <View style={styles.affStatBox}>
+                    <Ionicons name="wallet" size={20} color={COLORS.success} />
+                    <Text style={styles.affStatValue}>{selectedAffiliate.total_ftds || 0}</Text>
+                    <Text style={styles.affStatLabel}>FTDs</Text>
+                  </View>
+                  <View style={styles.affStatBox}>
+                    <Ionicons name="link" size={20} color={COLORS.info} />
+                    <Text style={styles.affStatValue}>{selectedAffiliate.total_clicks || 0}</Text>
+                    <Text style={styles.affStatLabel}>Link Clicks</Text>
+                  </View>
+                  <View style={styles.affStatBox}>
+                    <Ionicons name="shield" size={20} color={(selectedAffiliate.fraud_score || 0) > 50 ? COLORS.danger : COLORS.success} />
+                    <Text style={[styles.affStatValue, { color: (selectedAffiliate.fraud_score || 0) > 50 ? COLORS.danger : COLORS.success }]}>
+                      {selectedAffiliate.fraud_score || 0}%
+                    </Text>
+                    <Text style={styles.affStatLabel}>Fraud Score</Text>
+                  </View>
+                </View>
+
+                {/* Contact Details Section */}
+                <View style={styles.affSection}>
+                  <Text style={styles.affSectionTitle}>📞 Contact Details</Text>
+                  <View style={styles.affDetailRow}>
+                    <Text style={styles.affDetailLabel}>Telegram:</Text>
+                    <Text style={styles.affDetailValue}>{selectedAffiliate.telegram || 'Not provided'}</Text>
+                  </View>
+                  <View style={styles.affDetailRow}>
+                    <Text style={styles.affDetailLabel}>Phone:</Text>
+                    <Text style={styles.affDetailValue}>{selectedAffiliate.phone || 'Not provided'}</Text>
+                  </View>
+                  <View style={styles.affDetailRow}>
+                    <Text style={styles.affDetailLabel}>Company:</Text>
+                    <Text style={styles.affDetailValue}>{selectedAffiliate.company || 'Not provided'}</Text>
+                  </View>
+                </View>
+
+                {/* Withdrawal Wallet Details */}
+                <View style={styles.affSection}>
+                  <Text style={styles.affSectionTitle}>💳 Withdrawal Wallet</Text>
+                  <View style={styles.affDetailRow}>
+                    <Text style={styles.affDetailLabel}>USDT (TRC20):</Text>
+                    <Text style={styles.affDetailValue} numberOfLines={1}>{selectedAffiliate.usdt_trc20_address || 'Not set'}</Text>
+                  </View>
+                  <View style={styles.affDetailRow}>
+                    <Text style={styles.affDetailLabel}>BTC:</Text>
+                    <Text style={styles.affDetailValue} numberOfLines={1}>{selectedAffiliate.btc_address || 'Not set'}</Text>
+                  </View>
+                </View>
+
+                {/* Referral Link */}
+                <View style={styles.affSection}>
+                  <Text style={styles.affSectionTitle}>🔗 Referral Links</Text>
+                  <View style={styles.affLinkBox}>
+                    <Text style={styles.affLinkText} numberOfLines={1}>
+                      {`https://bynix.com/ref/${selectedAffiliate.ref_code || selectedAffiliate.affiliate_code || 'N/A'}`}
+                    </Text>
+                    <TouchableOpacity style={styles.affCopyBtn}>
+                      <Ionicons name="copy" size={16} color={COLORS.primary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Commission Credit/Debit Section */}
+                <View style={styles.affSection}>
+                  <Text style={styles.affSectionTitle}>💰 Commission Adjustment</Text>
+                  <View style={styles.affAdjustmentRow}>
+                    <View style={styles.affAdjustmentInput}>
+                      <Text style={styles.affAdjustmentLabel}>Amount ($)</Text>
+                      <TextInput
+                        style={styles.affAdjustmentField}
+                        keyboardType="numeric"
+                        placeholder="0.00"
+                        placeholderTextColor={COLORS.textMuted}
+                        value={selectedAffiliate._adjustmentAmount || ''}
+                        onChangeText={(text) => setSelectedAffiliate({...selectedAffiliate, _adjustmentAmount: text})}
+                      />
+                    </View>
+                    <TouchableOpacity 
+                      style={[styles.affAdjustmentBtn, { backgroundColor: COLORS.success }]}
+                      onPress={() => {
+                        const amount = parseFloat(selectedAffiliate._adjustmentAmount || '0');
+                        if (amount > 0) {
+                          Alert.alert('Credit Commission', `Credit $${amount} to ${selectedAffiliate.name}?`, [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'Confirm', onPress: () => handleCommissionAdjustment(selectedAffiliate.affiliate_id, amount, 'credit') }
+                          ]);
+                        }
+                      }}
+                    >
+                      <Ionicons name="add" size={18} color="#FFF" />
+                      <Text style={styles.affAdjustmentBtnText}>Credit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.affAdjustmentBtn, { backgroundColor: COLORS.danger }]}
+                      onPress={() => {
+                        const amount = parseFloat(selectedAffiliate._adjustmentAmount || '0');
+                        if (amount > 0) {
+                          Alert.alert('Debit Commission', `Debit $${amount} from ${selectedAffiliate.name}?`, [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'Confirm', onPress: () => handleCommissionAdjustment(selectedAffiliate.affiliate_id, amount, 'debit') }
+                          ]);
+                        }
+                      }}
+                    >
+                      <Ionicons name="remove" size={18} color="#FFF" />
+                      <Text style={styles.affAdjustmentBtnText}>Debit</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Edit Profile Fields */}
+                <View style={styles.affSection}>
+                  <Text style={styles.affSectionTitle}>✏️ Edit Profile</Text>
+                  
+                  <Text style={styles.inputLabel}>Name</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={selectedAffiliate.name}
+                    onChangeText={(text) => setSelectedAffiliate({...selectedAffiliate, name: text})}
+                  />
+                  
+                  <Text style={styles.inputLabel}>Email</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={selectedAffiliate.email}
+                    keyboardType="email-address"
+                    onChangeText={(text) => setSelectedAffiliate({...selectedAffiliate, email: text})}
+                  />
+                  
+                  <Text style={styles.inputLabel}>Telegram ID</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={selectedAffiliate.telegram || ''}
+                    placeholder="@username"
+                    placeholderTextColor={COLORS.textMuted}
+                    onChangeText={(text) => setSelectedAffiliate({...selectedAffiliate, telegram: text})}
+                  />
+                  
+                  <Text style={styles.inputLabel}>Status</Text>
+                  <View style={styles.statusToggle}>
+                    <TouchableOpacity 
+                      style={[styles.statusOption, (selectedAffiliate.status === 'active' || selectedAffiliate.is_active) && styles.statusOptionActive]}
+                      onPress={() => setSelectedAffiliate({...selectedAffiliate, status: 'active', is_active: true})}
+                    >
+                      <Text style={[styles.statusOptionText, (selectedAffiliate.status === 'active' || selectedAffiliate.is_active) && styles.statusOptionTextActive]}>Active</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.statusOption, (selectedAffiliate.status === 'suspended' || selectedAffiliate.is_active === false) && styles.statusOptionSuspended]}
+                      onPress={() => setSelectedAffiliate({...selectedAffiliate, status: 'suspended', is_active: false})}
+                    >
+                      <Text style={[styles.statusOptionText, (selectedAffiliate.status === 'suspended' || selectedAffiliate.is_active === false) && styles.statusOptionTextSuspended]}>Suspended</Text>
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <Text style={styles.inputLabel}>Revenue Share (%)</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    keyboardType="numeric"
+                    value={String(selectedAffiliate.commission_rate || 50)}
+                    onChangeText={(text) => setSelectedAffiliate({...selectedAffiliate, commission_rate: Number(text) || 0})}
+                  />
+                  
+                  <Text style={styles.inputLabel}>Turnover Rate (%)</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    keyboardType="numeric"
+                    value={String(selectedAffiliate.turnover_rate || 2)}
+                    onChangeText={(text) => setSelectedAffiliate({...selectedAffiliate, turnover_rate: Number(text) || 0})}
+                  />
+                </View>
+
+                {/* Password Change Section */}
+                <View style={styles.affSection}>
+                  <Text style={styles.affSectionTitle}>🔐 Change Password</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="Enter new password"
+                    placeholderTextColor={COLORS.textMuted}
+                    secureTextEntry
+                    value={selectedAffiliate._newPassword || ''}
+                    onChangeText={(text) => setSelectedAffiliate({...selectedAffiliate, _newPassword: text})}
+                  />
                   <TouchableOpacity 
-                    style={[styles.statusOption, selectedAffiliate.status === 'active' && styles.statusOptionActive]}
-                    onPress={() => setSelectedAffiliate({...selectedAffiliate, status: 'active'})}
+                    style={[styles.affChangePasswordBtn, !selectedAffiliate._newPassword && { opacity: 0.5 }]}
+                    disabled={!selectedAffiliate._newPassword}
+                    onPress={() => {
+                      if (selectedAffiliate._newPassword && selectedAffiliate._newPassword.length >= 6) {
+                        Alert.alert('Change Password', 'Are you sure you want to change this affiliate\'s password?', [
+                          { text: 'Cancel', style: 'cancel' },
+                          { text: 'Confirm', onPress: () => handleAffiliatePasswordChange(selectedAffiliate.affiliate_id, selectedAffiliate._newPassword) }
+                        ]);
+                      } else {
+                        Alert.alert('Error', 'Password must be at least 6 characters');
+                      }
+                    }}
                   >
-                    <Text style={[styles.statusOptionText, selectedAffiliate.status === 'active' && styles.statusOptionTextActive]}>Active</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.statusOption, selectedAffiliate.status === 'suspended' && styles.statusOptionSuspended]}
-                    onPress={() => setSelectedAffiliate({...selectedAffiliate, status: 'suspended'})}
-                  >
-                    <Text style={[styles.statusOptionText, selectedAffiliate.status === 'suspended' && styles.statusOptionTextSuspended]}>Suspended</Text>
+                    <Ionicons name="key" size={16} color="#FFF" />
+                    <Text style={styles.affChangePasswordBtnText}>Update Password</Text>
                   </TouchableOpacity>
                 </View>
-                
-                <Text style={styles.inputLabel}>Revenue Share (%)</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  keyboardType="numeric"
-                  value={String(selectedAffiliate.commission_rate || 50)}
-                  onChangeText={(text) => setSelectedAffiliate({...selectedAffiliate, commission_rate: Number(text) || 0})}
-                />
+
+                {/* Referral Clients List */}
+                <View style={styles.affSection}>
+                  <Text style={styles.affSectionTitle}>👥 Referred Clients ({selectedAffiliate.referred_clients?.length || 0})</Text>
+                  {selectedAffiliate.referred_clients && selectedAffiliate.referred_clients.length > 0 ? (
+                    selectedAffiliate.referred_clients.slice(0, 10).map((client: any, index: number) => (
+                      <View key={index} style={styles.affClientRow}>
+                        <View style={styles.affClientAvatar}>
+                          <Text style={styles.affClientAvatarText}>{client.name?.charAt(0) || 'U'}</Text>
+                        </View>
+                        <View style={styles.affClientInfo}>
+                          <Text style={styles.affClientName}>{client.name || client.email}</Text>
+                          <Text style={styles.affClientEmail}>{client.email}</Text>
+                        </View>
+                        <View style={styles.affClientStats}>
+                          <Text style={styles.affClientDeposit}>${client.total_deposits || 0}</Text>
+                          <Text style={styles.affClientDate}>{client.created_at ? new Date(client.created_at).toLocaleDateString() : 'N/A'}</Text>
+                        </View>
+                      </View>
+                    ))
+                  ) : (
+                    <View style={styles.affEmptyClients}>
+                      <Ionicons name="people-outline" size={32} color={COLORS.textMuted} />
+                      <Text style={styles.affEmptyClientsText}>No referred clients yet</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Danger Zone */}
+                <View style={[styles.affSection, { borderColor: COLORS.danger, backgroundColor: COLORS.dangerLight }]}>
+                  <Text style={[styles.affSectionTitle, { color: COLORS.danger }]}>⚠️ Danger Zone</Text>
+                  <TouchableOpacity 
+                    style={styles.affDangerBtn}
+                    onPress={() => {
+                      Alert.alert('Delete Affiliate', `Are you sure you want to permanently delete ${selectedAffiliate.name}? This cannot be undone.`, [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Delete', style: 'destructive', onPress: () => {
+                          handleDeleteAffiliate(selectedAffiliate.affiliate_id);
+                          setShowEditAffiliateModal(false);
+                        }}
+                      ]);
+                    }}
+                  >
+                    <Ionicons name="trash" size={18} color={COLORS.danger} />
+                    <Text style={styles.affDangerBtnText}>Delete Affiliate Account</Text>
+                  </TouchableOpacity>
+                </View>
               </ScrollView>
             )}
             
@@ -8638,5 +8943,277 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: COLORS.textMuted,
+  },
+  
+  // Comprehensive Affiliate Profile Modal Styles
+  affProfileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    marginBottom: 16,
+  },
+  affProfileAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  affProfileAvatarText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  affProfileInfo: {
+    flex: 1,
+  },
+  affProfileName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  affIdBadge: {
+    backgroundColor: COLORS.primaryLight,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+    marginBottom: 4,
+  },
+  affIdText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.primary,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  affProfileEmail: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+  },
+  affStatusBadgeLarge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  affStatusTextLarge: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  affFinancialRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  affFinancialCard: {
+    flex: 1,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 12,
+    padding: 12,
+    borderLeftWidth: 4,
+  },
+  affFinancialLabel: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginBottom: 4,
+  },
+  affFinancialValue: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  affStatsRow: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.bgSecondary,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  affStatBox: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  affStatValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginVertical: 4,
+  },
+  affStatLabel: {
+    fontSize: 10,
+    color: COLORS.textMuted,
+    textTransform: 'uppercase',
+  },
+  affSection: {
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  affSectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 12,
+  },
+  affDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  affDetailLabel: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+  },
+  affDetailValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.text,
+    maxWidth: '60%',
+  },
+  affLinkBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.bgSecondary,
+    borderRadius: 8,
+    padding: 12,
+  },
+  affLinkText: {
+    flex: 1,
+    fontSize: 12,
+    color: COLORS.primary,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  affCopyBtn: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  affAdjustmentRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 10,
+  },
+  affAdjustmentInput: {
+    flex: 1,
+  },
+  affAdjustmentLabel: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginBottom: 4,
+  },
+  affAdjustmentField: {
+    backgroundColor: COLORS.bgSecondary,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  affAdjustmentBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 4,
+  },
+  affAdjustmentBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  affChangePasswordBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.warning,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 8,
+    gap: 8,
+  },
+  affChangePasswordBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  affClientRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  affClientAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  affClientAvatarText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  affClientInfo: {
+    flex: 1,
+  },
+  affClientName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  affClientEmail: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+  },
+  affClientStats: {
+    alignItems: 'flex-end',
+  },
+  affClientDeposit: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.success,
+  },
+  affClientDate: {
+    fontSize: 10,
+    color: COLORS.textMuted,
+  },
+  affEmptyClients: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  affEmptyClientsText: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    marginTop: 8,
+  },
+  affDangerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.danger,
+    gap: 8,
+  },
+  affDangerBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.danger,
   },
 });

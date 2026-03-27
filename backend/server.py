@@ -7729,9 +7729,11 @@ async def admin_get_affiliates_list(
     result = []
     for aff in affiliates:
         aff["_id"] = str(aff["_id"])
-        # Calculate fraud score
-        fraud_score = await calculate_affiliate_fraud_score(aff.get("affiliate_id"))
-        aff["fraud_score"] = fraud_score
+        # Calculate fraud score - returns dict with {score, level, alerts}
+        fraud_data = await calculate_affiliate_fraud_score(aff.get("affiliate_id"))
+        aff["fraud_score"] = fraud_data.get("score", 0) if isinstance(fraud_data, dict) else 0
+        aff["fraud_level"] = fraud_data.get("level", "low") if isinstance(fraud_data, dict) else "low"
+        aff["fraud_alerts"] = fraud_data.get("alerts", []) if isinstance(fraud_data, dict) else []
         result.append(aff)
     
     return {
@@ -7986,28 +7988,44 @@ async def admin_adjust_affiliate_commission(
     
     affiliate = await db.affiliates.find_one({"affiliate_id": affiliate_id})
     if not affiliate:
+        # Try by ref_code
+        affiliate = await db.affiliates.find_one({"ref_code": affiliate_id})
+    if not affiliate:
         raise HTTPException(status_code=404, detail="Affiliate not found")
     
-    adjustment_type = data.get("type", "add")  # add, subtract, set
-    amount = data.get("amount", 0)
+    adjustment_type = data.get("type", "add")  # add/credit, subtract/debit, set
+    amount = float(data.get("amount", 0))
     reason = data.get("reason", "")
     client_id = data.get("client_id")  # Optional - specific client adjustment
     
-    current_pending = affiliate.get("pending_earnings", 0)
+    # Normalize type names
+    if adjustment_type in ["credit", "add"]:
+        adjustment_type = "add"
+    elif adjustment_type in ["debit", "subtract"]:
+        adjustment_type = "subtract"
+    
+    current_balance = affiliate.get("balance", affiliate.get("pending_earnings", 0))
+    current_earnings = affiliate.get("total_earnings", 0)
     
     if adjustment_type == "add":
-        new_pending = current_pending + amount
+        new_balance = current_balance + amount
+        new_earnings = current_earnings + amount
     elif adjustment_type == "subtract":
-        new_pending = current_pending - amount
+        new_balance = max(0, current_balance - amount)
+        new_earnings = current_earnings  # Don't reduce total earnings for debits
     else:  # set
-        new_pending = amount
+        new_balance = amount
+        new_earnings = current_earnings
     
     # Update affiliate
     await db.affiliates.update_one(
-        {"affiliate_id": affiliate_id},
+        {"_id": affiliate["_id"]},
         {
-            "$set": {"pending_earnings": new_pending},
-            "$inc": {"total_earnings": amount if adjustment_type == "add" else -amount if adjustment_type == "subtract" else 0}
+            "$set": {
+                "balance": new_balance,
+                "pending_earnings": new_balance,
+                "total_earnings": new_earnings
+            }
         }
     )
     
@@ -8027,9 +8045,41 @@ async def admin_adjust_affiliate_commission(
     
     return {
         "message": "Commission adjusted successfully",
-        "previous_balance": current_pending,
-        "new_balance": new_pending
+        "previous_balance": current_balance,
+        "new_balance": new_balance
     }
+
+@api_router.post("/admin/affiliates/{affiliate_id}/change-password")
+async def admin_change_affiliate_password(
+    affiliate_id: str,
+    data: dict,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Admin change affiliate password"""
+    user = await get_current_user(authorization, request)
+    
+    new_password = data.get("new_password", "")
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    
+    affiliate = await db.affiliates.find_one({"affiliate_id": affiliate_id})
+    if not affiliate:
+        affiliate = await db.affiliates.find_one({"ref_code": affiliate_id})
+    if not affiliate:
+        raise HTTPException(status_code=404, detail="Affiliate not found")
+    
+    # Hash new password
+    import hashlib
+    hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
+    
+    # Update affiliate password
+    await db.affiliates.update_one(
+        {"_id": affiliate["_id"]},
+        {"$set": {"password": hashed_password, "password_updated_at": datetime.now(timezone.utc)}}
+    )
+    
+    return {"message": "Password changed successfully"}
 
 # ============= AFFILIATE PAYOUT MANAGEMENT =============
 
