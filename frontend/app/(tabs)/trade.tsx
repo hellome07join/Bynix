@@ -181,10 +181,11 @@ export default function Trade() {
   
   // TarsPay (bKash/Nagad) State
   const [depositMethod, setDepositMethod] = useState<'crypto' | 'ewallet'>('ewallet');
-  const [selectedEwallet, setSelectedEwallet] = useState('bkash');
+  const [selectedEwallet, setSelectedEwallet] = useState<string | null>(null);
+  const [showEwalletAmountPage, setShowEwalletAmountPage] = useState(false);
   const [ewalletPayUrl, setEwalletPayUrl] = useState<string | null>(null);
   const [ewalletOrderId, setEwalletOrderId] = useState<string | null>(null);
-  const [exchangeRate, setExchangeRate] = useState(120); // USD to BDT
+  const [exchangeRate, setExchangeRate] = useState(127); // USD to BDT
   
   // Validate Promo Code - wrapped in useCallback to avoid re-render loops
   const validatePromoCode = useCallback(async (code: string, amount: string) => {
@@ -2479,57 +2480,61 @@ export default function Trade() {
 
             <ScrollView showsVerticalScrollIndicator={false}>
               {/* eWallet (bKash/Nagad) Deposit */}
-              {depositMethod === 'ewallet' && !ewalletPayUrl ? (
+              {depositMethod === 'ewallet' && !ewalletPayUrl && !showEwalletAmountPage ? (
                 <>
-                  {/* Error Message */}
-                  {depositError && (
-                    <View style={depositModalStyles.errorBox}>
-                      <Ionicons name="alert-circle" size={20} color="#FF3B3B" />
-                      <Text style={depositModalStyles.errorText}>{depositError}</Text>
-                    </View>
-                  )}
-
-                  {/* STEP 1: Select Payment Method First */}
+                  {/* PAGE 1: Select Payment Method */}
                   <Text style={depositModalStyles.label}>Select Payment Method</Text>
                   
                   {/* Bangladesh Section */}
                   <Text style={[depositModalStyles.label, { fontSize: 12, color: '#00E55A', marginTop: 8, marginBottom: 4 }]}>🇧🇩 Bangladesh (BDT) ✓</Text>
                   <View style={depositModalStyles.ewalletOptions}>
                     <TouchableOpacity 
-                      style={[depositModalStyles.ewalletOption, selectedEwallet === 'bkash' && depositModalStyles.ewalletOptionActive]}
-                      onPress={() => setSelectedEwallet('bkash')}
+                      style={depositModalStyles.ewalletOption}
+                      onPress={() => {
+                        setSelectedEwallet('bkash');
+                        setShowEwalletAmountPage(true);
+                        setDepositAmount('');
+                        setPromoCode('');
+                        setDepositError(null);
+                      }}
                     >
                       <Image 
                         source={{ uri: 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/5rfa1wl4_IMG_3475.png' }}
-                        style={{ width: 36, height: 36, borderRadius: 8, marginRight: 10 }}
+                        style={{ width: 40, height: 40, borderRadius: 8, marginRight: 12 }}
                         resizeMode="contain"
                       />
                       <View style={depositModalStyles.ewalletInfo}>
                         <Text style={depositModalStyles.ewalletName}>bKash</Text>
                         <Text style={depositModalStyles.ewalletLimit}>Min $10 (৳1,270)</Text>
                       </View>
-                      {selectedEwallet === 'bkash' && <Ionicons name="checkmark-circle" size={20} color="#00E55A" />}
+                      <Ionicons name="chevron-forward" size={20} color="#666" />
                     </TouchableOpacity>
                     
                     <TouchableOpacity 
-                      style={[depositModalStyles.ewalletOption, selectedEwallet === 'nagad' && depositModalStyles.ewalletOptionActive]}
-                      onPress={() => setSelectedEwallet('nagad')}
+                      style={depositModalStyles.ewalletOption}
+                      onPress={() => {
+                        setSelectedEwallet('nagad');
+                        setShowEwalletAmountPage(true);
+                        setDepositAmount('');
+                        setPromoCode('');
+                        setDepositError(null);
+                      }}
                     >
                       <Image 
                         source={{ uri: 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/remcqmc2_IMG_3476.png' }}
-                        style={{ width: 36, height: 36, borderRadius: 8, marginRight: 10 }}
+                        style={{ width: 40, height: 40, borderRadius: 8, marginRight: 12 }}
                         resizeMode="contain"
                       />
                       <View style={depositModalStyles.ewalletInfo}>
                         <Text style={depositModalStyles.ewalletName}>Nagad</Text>
                         <Text style={depositModalStyles.ewalletLimit}>Min $10 (৳1,270)</Text>
                       </View>
-                      {selectedEwallet === 'nagad' && <Ionicons name="checkmark-circle" size={20} color="#00E55A" />}
+                      <Ionicons name="chevron-forward" size={20} color="#666" />
                     </TouchableOpacity>
                   </View>
 
                   {/* India Section - Coming Soon */}
-                  <Text style={[depositModalStyles.label, { fontSize: 12, color: '#666', marginTop: 12, marginBottom: 4 }]}>🇮🇳 India (INR) - Coming Soon</Text>
+                  <Text style={[depositModalStyles.label, { fontSize: 12, color: '#666', marginTop: 16, marginBottom: 4 }]}>🇮🇳 India (INR) - Coming Soon</Text>
                   <View style={[depositModalStyles.ewalletOptions, { opacity: 0.5 }]}>
                     <View style={[depositModalStyles.ewalletOption, { backgroundColor: '#1a1a1a' }]}>
                       <View style={[depositModalStyles.ewalletLogo, { backgroundColor: '#5F259F' }]}>
@@ -2541,6 +2546,124 @@ export default function Trade() {
                       </View>
                     </View>
                   </View>
+
+                  {/* Pakistan Section - Coming Soon */}
+                  <Text style={[depositModalStyles.label, { fontSize: 12, color: '#666', marginTop: 16, marginBottom: 4 }]}>🇵🇰 Pakistan (PKR) - Coming Soon</Text>
+                  <View style={[depositModalStyles.ewalletOptions, { opacity: 0.5 }]}>
+                    <View style={[depositModalStyles.ewalletOption, { backgroundColor: '#1a1a1a' }]}>
+                      <View style={[depositModalStyles.ewalletLogo, { backgroundColor: '#ED1C24' }]}>
+                        <Text style={depositModalStyles.ewalletLogoText}>J</Text>
+                      </View>
+                      <View style={depositModalStyles.ewalletInfo}>
+                        <Text style={[depositModalStyles.ewalletName, { color: '#666' }]}>JazzCash</Text>
+                        <Text style={[depositModalStyles.ewalletLimit, { color: '#555' }]}>Coming Soon</Text>
+                      </View>
+                    </View>
+                    <View style={[depositModalStyles.ewalletOption, { backgroundColor: '#1a1a1a' }]}>
+                      <View style={[depositModalStyles.ewalletLogo, { backgroundColor: '#00A651' }]}>
+                        <Text style={depositModalStyles.ewalletLogoText}>E</Text>
+                      </View>
+                      <View style={depositModalStyles.ewalletInfo}>
+                        <Text style={[depositModalStyles.ewalletName, { color: '#666' }]}>EasyPaisa</Text>
+                        <Text style={[depositModalStyles.ewalletLimit, { color: '#555' }]}>Coming Soon</Text>
+                      </View>
+                    </View>
+                  </View>
+                </>
+              ) : depositMethod === 'ewallet' && !ewalletPayUrl && showEwalletAmountPage ? (
+                <>
+                  {/* PAGE 2: Amount & Promo Code */}
+                  <TouchableOpacity 
+                    style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}
+                    onPress={() => { setShowEwalletAmountPage(false); setSelectedEwallet(null); }}
+                  >
+                    <Ionicons name="arrow-back" size={20} color="#00E55A" />
+                    <Text style={{ color: '#00E55A', fontSize: 14, marginLeft: 6 }}>Back</Text>
+                  </TouchableOpacity>
+
+                  <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1a1a1a', padding: 12, borderRadius: 12, marginBottom: 16 }}>
+                    <Image 
+                      source={{ uri: selectedEwallet === 'bkash' 
+                        ? 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/5rfa1wl4_IMG_3475.png'
+                        : 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/remcqmc2_IMG_3476.png'
+                      }}
+                      style={{ width: 36, height: 36, borderRadius: 8, marginRight: 12 }}
+                      resizeMode="contain"
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>{selectedEwallet === 'bkash' ? 'bKash' : 'Nagad'}</Text>
+                      <Text style={{ color: '#888', fontSize: 12 }}>Min $10 (৳1,270)</Text>
+                    </View>
+                    <Ionicons name="checkmark-circle" size={24} color="#00E55A" />
+                  </View>
+
+                  {depositError && (
+                    <View style={depositModalStyles.errorBox}>
+                      <Ionicons name="alert-circle" size={20} color="#FF3B3B" />
+                      <Text style={depositModalStyles.errorText}>{depositError}</Text>
+                    </View>
+                  )}
+
+                  <Text style={depositModalStyles.label}>Enter Amount (USD)</Text>
+                  <View style={depositModalStyles.amountBox}>
+                    <Text style={depositModalStyles.amountPrefix}>$</Text>
+                    <TextInput style={depositModalStyles.amountInput} value={depositAmount} onChangeText={setDepositAmount} keyboardType="numeric" placeholder="0" placeholderTextColor="#444" />
+                  </View>
+                  <Text style={depositModalStyles.minimum}>≈ ৳{Math.round(parseFloat(depositAmount || '0') * exchangeRate)} BDT | Rate: $1 = ৳{exchangeRate}</Text>
+
+                  <View style={depositModalStyles.quickAmounts}>
+                    {['10', '25', '50', '100', '200'].map((amt) => (
+                      <TouchableOpacity key={amt} style={[depositModalStyles.quickBtn, depositAmount === amt && depositModalStyles.quickBtnActive]} onPress={() => setDepositAmount(amt)}>
+                        <Text style={[depositModalStyles.quickBtnText, depositAmount === amt && depositModalStyles.quickBtnTextActive]}>${amt}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={depositModalStyles.label}>Promo Code (Optional)</Text>
+                  <View style={depositModalStyles.promoRow}>
+                    <TextInput style={depositModalStyles.promoInput} placeholder="Enter code" placeholderTextColor="#444" value={promoCode} onChangeText={setPromoCode} />
+                    <TouchableOpacity style={depositModalStyles.promoQuickBtn} onPress={() => setPromoCode('BYNIX')}><Text style={depositModalStyles.promoQuickText}>BYNIX</Text></TouchableOpacity>
+                    <TouchableOpacity style={depositModalStyles.promoQuickBtn} onPress={() => setPromoCode('VIP50')}><Text style={depositModalStyles.promoQuickText}>VIP50</Text></TouchableOpacity>
+                  </View>
+
+                  {promoCode ? (
+                    <View style={[depositModalStyles.promoInfo, { backgroundColor: promoValidation?.valid ? 'rgba(0, 255, 100, 0.15)' : 'rgba(255, 215, 0, 0.1)', borderWidth: 1, borderColor: promoValidation?.valid ? '#00FF64' : '#FFD700' }]}>
+                      {isValidatingPromo ? (<><ActivityIndicator size="small" color="#FFD700" /><Text style={depositModalStyles.promoInfoText}>Validating...</Text></>) : promoValidation?.valid ? (
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}><Ionicons name="checkmark-circle" size={20} color="#00FF64" /><Text style={[depositModalStyles.promoInfoText, { color: '#00FF64', marginLeft: 6 }]}>Promo Applied!</Text></View>
+                          <View style={{ backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 8, padding: 10 }}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}><Text style={{ color: '#888', fontSize: 13 }}>Deposit:</Text><Text style={{ color: '#fff', fontSize: 13 }}>${depositAmount}</Text></View>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}><Text style={{ color: '#888', fontSize: 13 }}>Bonus:</Text><Text style={{ color: '#00FF64', fontSize: 13 }}>+${promoValidation.calculated_bonus?.toFixed(2)}</Text></View>
+                            <View style={{ height: 1, backgroundColor: '#333', marginVertical: 4 }} />
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: '#FFD700', fontSize: 14, fontWeight: '700' }}>Total:</Text><Text style={{ color: '#00FF64', fontSize: 16, fontWeight: '700' }}>${promoValidation.total_credit?.toFixed(2)}</Text></View>
+                          </View>
+                        </View>
+                      ) : (<><Ionicons name="gift" size={20} color="#FFD700" /><Text style={depositModalStyles.promoInfoText}>Enter a valid promo code</Text></>)}
+                    </View>
+                  ) : (<View style={depositModalStyles.promoInfo}><Ionicons name="gift" size={20} color="#FFD700" /><Text style={depositModalStyles.promoInfoText}>WELCOME50: 50% bonus ($100+)</Text></View>)}
+
+                  <TouchableOpacity 
+                    style={[depositModalStyles.generateBtn, { backgroundColor: selectedEwallet === 'bkash' ? '#E2136E' : '#F26522', marginTop: 16 }]}
+                    onPress={async () => {
+                      const amount = parseFloat(depositAmount);
+                      if (amount < 10) { Alert.alert('Invalid Amount', 'Minimum deposit is $10'); return; }
+                      if (!token) { Alert.alert('Login Required', 'Please login to make a deposit'); return; }
+                      setIsGeneratingAddress(true); setDepositError(null);
+                      try {
+                        const response = await fetch(`${API_URL}/tarspay/deposit/create`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ amount, channel: selectedEwallet, promo_code: promoCode || null }) });
+                        const data = await response.json();
+                        if (data.success) { setEwalletPayUrl(data.pay_url); setEwalletOrderId(data.order_id); setPayAmount(data.amount_local?.toString() || Math.round(amount * exchangeRate).toString()); setShowEwalletAmountPage(false); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); }
+                        else { setDepositError(data.error || 'Failed to create payment'); }
+                      } catch (error) { setDepositError('Network error. Please try again.'); }
+                      finally { setIsGeneratingAddress(false); }
+                    }}
+                    disabled={isGeneratingAddress}
+                  >
+                    {isGeneratingAddress ? (<ActivityIndicator size="small" color="#FFFFFF" />) : (<Text style={depositModalStyles.generateBtnText}>Pay ৳{Math.round(parseFloat(depositAmount || '0') * exchangeRate)} with {selectedEwallet === 'bkash' ? 'bKash' : 'Nagad'}</Text>)}
+                  </TouchableOpacity>
+                </>
+              ) : depositMethod === 'ewallet' && ewalletPayUrl ? (
+                <>
 
                   {/* Pakistan Section - Coming Soon */}
                   <Text style={[depositModalStyles.label, { fontSize: 12, color: '#666', marginTop: 12, marginBottom: 4 }]}>🇵🇰 Pakistan (PKR) - Coming Soon</Text>
