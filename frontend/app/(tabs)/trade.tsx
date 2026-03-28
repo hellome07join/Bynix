@@ -2612,9 +2612,10 @@ export default function Trade() {
                       style={[depositModalStyles.ewalletOption, selectedEwallet === 'bkash' && depositModalStyles.ewalletOptionActive]}
                       onPress={() => setSelectedEwallet('bkash')}
                     >
-                      <View style={[depositModalStyles.ewalletLogo, { backgroundColor: '#E2136E' }]}>
-                        <Text style={depositModalStyles.ewalletLogoText}>b</Text>
-                      </View>
+                      <Image 
+                        source={{ uri: 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/5rfa1wl4_IMG_3475.png' }}
+                        style={{ width: 36, height: 36, borderRadius: 8 }}
+                      />
                       <View style={depositModalStyles.ewalletInfo}>
                         <Text style={depositModalStyles.ewalletName}>bKash</Text>
                         <Text style={depositModalStyles.ewalletLimit}>Min $10 (৳1,270)</Text>
@@ -2626,9 +2627,10 @@ export default function Trade() {
                       style={[depositModalStyles.ewalletOption, selectedEwallet === 'nagad' && depositModalStyles.ewalletOptionActive]}
                       onPress={() => setSelectedEwallet('nagad')}
                     >
-                      <View style={[depositModalStyles.ewalletLogo, { backgroundColor: '#F26522' }]}>
-                        <Text style={depositModalStyles.ewalletLogoText}>N</Text>
-                      </View>
+                      <Image 
+                        source={{ uri: 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/remcqmc2_IMG_3476.png' }}
+                        style={{ width: 36, height: 36, borderRadius: 8 }}
+                      />
                       <View style={depositModalStyles.ewalletInfo}>
                         <Text style={depositModalStyles.ewalletName}>Nagad</Text>
                         <Text style={depositModalStyles.ewalletLimit}>Min $10 (৳1,270)</Text>
