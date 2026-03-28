@@ -4360,6 +4360,286 @@ async def tarspay_callback(request: Request):
         print(f"TarsPay Callback Error: {e}")
         return Response(content="OK", status_code=200)
 
+# ============= TarsPay E-Wallet Withdrawal (bKash, Nagad) =============
+
+class EWalletWithdrawRequest(BaseModel):
+    amount: float = Field(..., description="Amount in USD to withdraw")
+    channel: str = Field(..., description="Withdrawal channel: bkash or nagad")
+    wallet_id: str = Field(..., description="bKash/Nagad wallet number (11 digits starting with 0)")
+
+@api_router.get("/tarspay/withdrawal/channels")
+async def get_ewallet_withdrawal_channels():
+    """Get available E-Wallet withdrawal channels (bKash, Nagad)"""
+    return {
+        "success": True,
+        "channels": tarspay_service.get_withdrawal_channels(),
+        "exchange_rate": get_current_rate(),
+        "currency": "BDT"
+    }
+
+@api_router.post("/tarspay/withdrawal/create")
+async def create_ewallet_withdrawal(
+    request: EWalletWithdrawRequest,
+    authorization: Optional[str] = Header(None),
+    req: Request = None
+):
+    """Create E-Wallet withdrawal request to bKash/Nagad"""
+    try:
+        user = await get_current_user(authorization, req)
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    amount_usd = request.amount
+    channel = request.channel.lower()
+    wallet_id = request.wallet_id
+    
+    # Validate channel
+    if channel not in ["bkash", "nagad"]:
+        return {"success": False, "error": "Invalid channel. Use 'bkash' or 'nagad'"}
+    
+    way_code = "EWALLET_BKASH" if channel == "bkash" else "EWALLET_NAGAD"
+    channel_name = "bKash" if channel == "bkash" else "Nagad"
+    
+    # Get exchange rate and calculate BDT amount
+    rate = get_current_rate()
+    amount_bdt = int(amount_usd * rate)
+    
+    # Validate limits
+    if amount_bdt < 100:
+        return {"success": False, "error": f"Minimum withdrawal is ৳100 BDT (~${round(100/rate, 2)} USD)"}
+    if amount_bdt > 50000:
+        return {"success": False, "error": f"Maximum withdrawal is ৳50,000 BDT (~${round(50000/rate, 2)} USD)"}
+    
+    # Validate wallet ID
+    if not wallet_id or len(wallet_id) != 11 or not wallet_id.startswith("0"):
+        return {"success": False, "error": "Invalid wallet number. Must be 11 digits starting with 0 (e.g., 01712345678)"}
+    
+    # Check user balance (only real_balance minus bonus_balance is withdrawable)
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    real_balance = user_doc.get("real_balance", 0)
+    bonus_balance = user_doc.get("bonus_balance", 0)
+    
+    # Withdrawable = real_balance - bonus_balance (bonus cannot be withdrawn directly)
+    withdrawable = real_balance - bonus_balance
+    
+    if amount_usd > withdrawable:
+        return {
+            "success": False, 
+            "error": f"Insufficient withdrawable balance. You have ${withdrawable:.2f} available for withdrawal. (Note: Bonus balance of ${bonus_balance:.2f} cannot be withdrawn directly)"
+        }
+    
+    # Calculate fee (1.5%)
+    fee_percent = 1.5
+    fee_bdt = int(amount_bdt * fee_percent / 100)
+    net_amount_bdt = amount_bdt - fee_bdt
+    
+    # Generate unique order ID
+    order_id = f"WBYNIX{user.user_id[:6]}{int(datetime.now().timestamp())}"
+    
+    # Get notify URL
+    integration_proxy = os.environ.get("INTEGRATION_PROXY_URL", "")
+    host = req.headers.get("host", "localhost")
+    scheme = "https" if any(x in host for x in ["preview.emergentagent.com", "preview.emergentcf.cloud", "emergent.host"]) else req.url.scheme
+    base_url = f"{scheme}://{host}"
+    notify_url = f"{integration_proxy}/api/tarspay/withdrawal/callback" if integration_proxy else f"{base_url}/api/tarspay/withdrawal/callback"
+    
+    # Deduct balance immediately (will be refunded if withdrawal fails)
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$inc": {"real_balance": -amount_usd}}
+    )
+    
+    # Create withdrawal record in database
+    withdrawal_doc = {
+        "order_id": order_id,
+        "user_id": user.user_id,
+        "type": "ewallet",
+        "payment_type": "tarspay",
+        "channel": channel,
+        "channel_name": channel_name,
+        "way_code": way_code,
+        "wallet_id": wallet_id,
+        "amount_usd": amount_usd,
+        "amount_bdt": amount_bdt,
+        "fee_bdt": fee_bdt,
+        "net_amount_bdt": net_amount_bdt,
+        "exchange_rate": rate,
+        "status": "processing",
+        "created_at": datetime.now(timezone.utc)
+    }
+    await db.withdrawals.insert_one(withdrawal_doc)
+    
+    # Call TarsPay API to create withdrawal
+    result = await tarspay_service.create_withdrawal(
+        order_id=order_id,
+        amount_bdt=net_amount_bdt,  # Send net amount (after fee)
+        wallet_id=wallet_id,
+        way_code=way_code,
+        notify_url=notify_url
+    )
+    
+    if result.get("success"):
+        # Update withdrawal with payment ID
+        await db.withdrawals.update_one(
+            {"order_id": order_id},
+            {"$set": {"payment_id": result.get("payment_id"), "status": "pending"}}
+        )
+        
+        return {
+            "success": True,
+            "order_id": order_id,
+            "payment_id": result.get("payment_id"),
+            "amount_usd": amount_usd,
+            "amount_bdt": amount_bdt,
+            "fee_bdt": fee_bdt,
+            "net_amount_bdt": net_amount_bdt,
+            "wallet_id": wallet_id,
+            "channel": channel_name,
+            "message": f"Withdrawal of ৳{net_amount_bdt} to {channel_name} ({wallet_id}) is being processed"
+        }
+    else:
+        # Refund balance if TarsPay API failed
+        await db.users.update_one(
+            {"user_id": user.user_id},
+            {"$inc": {"real_balance": amount_usd}}
+        )
+        
+        # Update withdrawal status to failed
+        await db.withdrawals.update_one(
+            {"order_id": order_id},
+            {"$set": {"status": "failed", "error": result.get("error")}}
+        )
+        
+        return {
+            "success": False,
+            "error": result.get("error", "Failed to create withdrawal")
+        }
+
+@api_router.get("/tarspay/withdrawal/status/{order_id}")
+async def get_ewallet_withdrawal_status(
+    order_id: str,
+    authorization: Optional[str] = Header(None),
+    req: Request = None
+):
+    """Get E-Wallet withdrawal status"""
+    try:
+        user = await get_current_user(authorization, req)
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    # Find withdrawal in database
+    withdrawal = await db.withdrawals.find_one({
+        "order_id": order_id,
+        "user_id": user.user_id
+    })
+    
+    if not withdrawal:
+        return {"success": False, "error": "Withdrawal not found"}
+    
+    # Query TarsPay for latest status
+    if withdrawal.get("status") == "pending":
+        result = await tarspay_service.get_withdrawal_status(order_id)
+        
+        if result.get("success"):
+            new_status = withdrawal.get("status")
+            
+            if result.get("completed"):
+                new_status = "completed"
+                # Create notification
+                await create_notification(
+                    user.user_id,
+                    "Withdrawal Successful! 💸",
+                    f"৳{withdrawal.get('net_amount_bdt')} has been sent to your {withdrawal.get('channel_name')} ({withdrawal.get('wallet_id')})",
+                    "withdrawal"
+                )
+            elif result.get("failed"):
+                new_status = "failed"
+                # Refund balance
+                await db.users.update_one(
+                    {"user_id": user.user_id},
+                    {"$inc": {"real_balance": withdrawal.get("amount_usd", 0)}}
+                )
+                # Create notification
+                await create_notification(
+                    user.user_id,
+                    "Withdrawal Failed ❌",
+                    f"Your withdrawal of ৳{withdrawal.get('amount_bdt')} has failed. Balance has been refunded.",
+                    "withdrawal"
+                )
+            
+            # Update database
+            await db.withdrawals.update_one(
+                {"order_id": order_id},
+                {"$set": {"status": new_status, "tarspay_status": result}}
+            )
+            withdrawal["status"] = new_status
+    
+    return {
+        "success": True,
+        "order_id": order_id,
+        "status": withdrawal.get("status"),
+        "amount_usd": withdrawal.get("amount_usd"),
+        "amount_bdt": withdrawal.get("amount_bdt"),
+        "fee_bdt": withdrawal.get("fee_bdt"),
+        "net_amount_bdt": withdrawal.get("net_amount_bdt"),
+        "wallet_id": withdrawal.get("wallet_id"),
+        "channel": withdrawal.get("channel_name"),
+        "created_at": withdrawal.get("created_at").isoformat() if withdrawal.get("created_at") else None
+    }
+
+@api_router.post("/tarspay/withdrawal/callback")
+async def tarspay_withdrawal_callback(request: Request):
+    """Handle TarsPay withdrawal callback"""
+    try:
+        body = await request.json()
+        print(f"[TarsPay Withdrawal Callback] Received: {body}")
+        
+        order_id = body.get("mchOrderNo")
+        order_state = body.get("orderState") or body.get("state")
+        
+        if order_id and order_state:
+            withdrawal = await db.withdrawals.find_one({"order_id": order_id})
+            
+            if withdrawal and withdrawal.get("status") == "pending":
+                user_id = withdrawal.get("user_id")
+                
+                if order_state == 2:  # Success
+                    await db.withdrawals.update_one(
+                        {"order_id": order_id},
+                        {"$set": {"status": "completed", "completed_at": datetime.now(timezone.utc), "callback_data": body}}
+                    )
+                    await create_notification(
+                        user_id,
+                        "Withdrawal Successful! 💸",
+                        f"৳{withdrawal.get('net_amount_bdt')} has been sent to your {withdrawal.get('channel_name')}",
+                        "withdrawal"
+                    )
+                    print(f"[TarsPay Withdrawal Callback] Completed: {order_id}")
+                    
+                elif order_state in [3, 8]:  # Failed or Rejected
+                    # Refund balance
+                    await db.users.update_one(
+                        {"user_id": user_id},
+                        {"$inc": {"real_balance": withdrawal.get("amount_usd", 0)}}
+                    )
+                    await db.withdrawals.update_one(
+                        {"order_id": order_id},
+                        {"$set": {"status": "failed", "callback_data": body}}
+                    )
+                    await create_notification(
+                        user_id,
+                        "Withdrawal Failed ❌",
+                        f"Your withdrawal has failed. ${withdrawal.get('amount_usd'):.2f} has been refunded.",
+                        "withdrawal"
+                    )
+                    print(f"[TarsPay Withdrawal Callback] Failed: {order_id}")
+        
+        return Response(content="OK", status_code=200)
+        
+    except Exception as e:
+        print(f"[TarsPay Withdrawal Callback] Error: {e}")
+        return Response(content="OK", status_code=200)
+
 # ============= Chart Data API (Synced across all devices) =============
 
 def get_base_price(symbol: str) -> float:

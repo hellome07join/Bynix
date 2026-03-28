@@ -413,6 +413,201 @@ class TarsPayService:
             })
         return channels
 
+    def get_withdrawal_channels(self) -> list:
+        """Get available withdrawal channels for bKash/Nagad"""
+        rate = get_rate_for_currency("BDT")
+        return [
+            {
+                "id": "bkash",
+                "name": "bKash",
+                "wayCode": "EWALLET_BKASH",
+                "currency": "BDT",
+                "country": "bd",
+                "min_local": 100,  # Min 100 BDT
+                "max_local": 50000,  # Max 50,000 BDT
+                "min_usd": round(100 / rate, 2),
+                "max_usd": round(50000 / rate, 2),
+                "exchange_rate": rate,
+                "fee_percent": 1.5,  # 1.5% fee
+                "logo": "https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/7xb7yj94_IMG_3475.png"
+            },
+            {
+                "id": "nagad",
+                "name": "Nagad",
+                "wayCode": "EWALLET_NAGAD",
+                "currency": "BDT",
+                "country": "bd",
+                "min_local": 100,
+                "max_local": 50000,
+                "min_usd": round(100 / rate, 2),
+                "max_usd": round(50000 / rate, 2),
+                "exchange_rate": rate,
+                "fee_percent": 1.5,
+                "logo": "https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/remcqmc2_IMG_3476.png"
+            }
+        ]
+
+    async def create_withdrawal(
+        self,
+        order_id: str,
+        amount_bdt: int,
+        wallet_id: str,
+        way_code: str,
+        notify_url: str
+    ) -> Dict[str, Any]:
+        """
+        Create a withdrawal order to bKash/Nagad
+        
+        Args:
+            order_id: Unique merchant order ID
+            amount_bdt: Amount in BDT (integer, min 100, max 50000)
+            wallet_id: bKash/Nagad wallet number (11 digits starting with 0)
+            way_code: EWALLET_BKASH or EWALLET_NAGAD
+            notify_url: Callback URL for payment status
+        
+        Returns:
+            Result with payment order info or error
+        """
+        path = "/api/payOut/unifiedOrder"
+        timestamp = int(time.time() * 1000)
+        
+        # Validate wallet ID format
+        if not wallet_id or len(wallet_id) != 11 or not wallet_id.startswith("0"):
+            return {"success": False, "error": "Invalid wallet ID. Must be 11 digits starting with 0"}
+        
+        # Validate amount
+        if amount_bdt < 100:
+            return {"success": False, "error": "Minimum withdrawal is ৳100 BDT"}
+        if amount_bdt > 50000:
+            return {"success": False, "error": "Maximum withdrawal is ৳50,000 BDT"}
+        
+        params = {
+            "mchNo": self.mch_no,
+            "mchOrderNo": order_id,
+            "wayCode": way_code,
+            "currency": "BDT",
+            "amount": str(amount_bdt),
+            "notifyUrl": notify_url,
+            "walletId": wallet_id
+        }
+        
+        try:
+            signature = self._create_signature("POST", path, timestamp, params)
+        except Exception as e:
+            print(f"[TarsPay Withdraw] Signature error: {e}")
+            return {"success": False, "error": f"Signature error: {str(e)}"}
+        
+        headers = {
+            "Content-Type": "application/json",
+            "X-API-KEY": self.public_key_hex,
+            "X-API-NONCE": str(timestamp),
+            "X-API-SIGNATURE": signature
+        }
+        
+        try:
+            print(f"[TarsPay Withdraw] Creating withdrawal: {order_id}, Amount: ৳{amount_bdt}, Wallet: {wallet_id}, Way: {way_code}")
+            
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(
+                    f"{self.base_url}{path}",
+                    json=params,
+                    headers=headers
+                )
+                
+                print(f"[TarsPay Withdraw] Response Status: {response.status_code}")
+                data = response.json()
+                print(f"[TarsPay Withdraw] Response: {data}")
+                
+                if data.get("code") == 0:
+                    resp_data = data.get("data", {})
+                    return {
+                        "success": True,
+                        "payment_id": resp_data.get("payOrderId"),
+                        "order_id": order_id,
+                        "mch_order_no": resp_data.get("mchOrderNo"),
+                        "amount_bdt": amount_bdt,
+                        "wallet_id": wallet_id,
+                        "way_code": way_code
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "error": data.get("msg", "Unknown error"),
+                        "code": data.get("code")
+                    }
+                    
+        except Exception as e:
+            print(f"[TarsPay Withdraw] Error: {e}")
+            return {"success": False, "error": str(e)}
+
+    async def get_withdrawal_status(self, order_id: str) -> Dict[str, Any]:
+        """
+        Query withdrawal order status
+        
+        Args:
+            order_id: Merchant order ID
+        
+        Returns:
+            Withdrawal status information
+        """
+        path = "/api/payOutInfo"
+        timestamp = int(time.time() * 1000)
+        
+        params = {
+            "mchNo": self.mch_no,
+            "mchOrderNo": order_id
+        }
+        
+        try:
+            signature = self._create_signature("POST", path, timestamp, params)
+        except Exception as e:
+            return {"success": False, "error": f"Signature error: {str(e)}"}
+        
+        headers = {
+            "Content-Type": "application/json",
+            "X-API-KEY": self.public_key_hex,
+            "X-API-NONCE": str(timestamp),
+            "X-API-SIGNATURE": signature
+        }
+        
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(
+                    f"{self.base_url}{path}",
+                    json=params,
+                    headers=headers
+                )
+                
+                print(f"[TarsPay Withdraw Query] Order: {order_id}, Status: {response.status_code}")
+                data = response.json()
+                print(f"[TarsPay Withdraw Query] Response: {data}")
+                
+                if data.get("code") == 0:
+                    resp_data = data.get("data", {})
+                    # Status: 2=Success, 3=Failure, 5=Refund, 8=Rejection
+                    state = resp_data.get("state", 0)
+                    status_map = {2: "success", 3: "failed", 5: "refund", 8: "rejected"}
+                    
+                    return {
+                        "success": True,
+                        "payment_id": resp_data.get("payOrderId"),
+                        "order_id": order_id,
+                        "status": status_map.get(state, "pending"),
+                        "state": state,
+                        "order_amount": resp_data.get("orderAmount"),
+                        "pay_amount": resp_data.get("payAmount"),
+                        "currency": resp_data.get("currency"),
+                        "fee": resp_data.get("fee"),
+                        "completed": state == 2,
+                        "failed": state in [3, 8]
+                    }
+                else:
+                    return {"success": False, "error": data.get("msg", "Unknown error"), "code": data.get("code")}
+                    
+        except Exception as e:
+            print(f"[TarsPay Withdraw Query] Error: {e}")
+            return {"success": False, "error": str(e)}
+
 
 # Global instance
 tarspay_service = TarsPayService()

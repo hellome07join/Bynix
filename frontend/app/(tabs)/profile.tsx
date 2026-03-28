@@ -117,6 +117,7 @@ export default function Profile() {
   const [depositAmount, setDepositAmount] = useState('21');
   const [withdrawAmount, setWithdrawAmount] = useState('100');
   const [withdrawAddress, setWithdrawAddress] = useState('');
+  const [withdrawMethod, setWithdrawMethod] = useState<'usdt' | 'bkash' | 'nagad'>('usdt');
   const [selectedCrypto, setSelectedCrypto] = useState('USDT');
   const [selectedNetwork, setSelectedNetwork] = useState('USDT (TRC20)');
   const [showDepositModal, setShowDepositModal] = useState(false);
@@ -2673,53 +2674,123 @@ export default function Profile() {
                 </View>
               </View>
 
-              {/* Payment Method Card */}
+              {/* Payment Method Card - Multiple Options */}
               <View style={styles.withdrawFormCard}>
                 <Text style={styles.withdrawFormLabel}>Payment Method</Text>
-                <View style={styles.withdrawPaymentCard}>
+                
+                {/* USDT TRC20 Option */}
+                <TouchableOpacity 
+                  style={[styles.withdrawPaymentCard, withdrawMethod === 'usdt' && { borderColor: '#00E55A', borderWidth: 2 }]}
+                  onPress={() => setWithdrawMethod('usdt')}
+                >
                   <View style={styles.withdrawPaymentIcon}>
                     <Text style={styles.withdrawUsdtSymbol}>₮</Text>
                   </View>
                   <View style={styles.withdrawPaymentInfo}>
                     <Text style={styles.withdrawPaymentTitle}>USDT TRC20</Text>
-                    <Text style={styles.withdrawPaymentSubtitle}>Tether on TRON Network</Text>
+                    <Text style={styles.withdrawPaymentSubtitle}>Min $10 • Fee: $1</Text>
                   </View>
-                  <View style={styles.withdrawPaymentCheck}>
-                    <Ionicons name="checkmark-circle" size={24} color="#00E55A" />
+                  {withdrawMethod === 'usdt' && (
+                    <View style={styles.withdrawPaymentCheck}>
+                      <Ionicons name="checkmark-circle" size={24} color="#00E55A" />
+                    </View>
+                  )}
+                </TouchableOpacity>
+                
+                {/* bKash Option */}
+                <TouchableOpacity 
+                  style={[styles.withdrawPaymentCard, { marginTop: 10 }, withdrawMethod === 'bkash' && { borderColor: '#E2136E', borderWidth: 2 }]}
+                  onPress={() => setWithdrawMethod('bkash')}
+                >
+                  <Image 
+                    source={{ uri: 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/7xb7yj94_IMG_3475.png' }}
+                    style={{ width: 40, height: 40, borderRadius: 8 }}
+                    resizeMode="contain"
+                  />
+                  <View style={[styles.withdrawPaymentInfo, { marginLeft: 12 }]}>
+                    <Text style={styles.withdrawPaymentTitle}>bKash</Text>
+                    <Text style={styles.withdrawPaymentSubtitle}>Min ৳100 • Fee: 1.5%</Text>
                   </View>
-                </View>
+                  {withdrawMethod === 'bkash' && (
+                    <View style={styles.withdrawPaymentCheck}>
+                      <Ionicons name="checkmark-circle" size={24} color="#E2136E" />
+                    </View>
+                  )}
+                </TouchableOpacity>
+                
+                {/* Nagad Option */}
+                <TouchableOpacity 
+                  style={[styles.withdrawPaymentCard, { marginTop: 10 }, withdrawMethod === 'nagad' && { borderColor: '#F26522', borderWidth: 2 }]}
+                  onPress={() => setWithdrawMethod('nagad')}
+                >
+                  <Image 
+                    source={{ uri: 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/remcqmc2_IMG_3476.png' }}
+                    style={{ width: 40, height: 40, borderRadius: 8 }}
+                    resizeMode="contain"
+                  />
+                  <View style={[styles.withdrawPaymentInfo, { marginLeft: 12 }]}>
+                    <Text style={styles.withdrawPaymentTitle}>Nagad</Text>
+                    <Text style={styles.withdrawPaymentSubtitle}>Min ৳100 • Fee: 1.5%</Text>
+                  </View>
+                  {withdrawMethod === 'nagad' && (
+                    <View style={styles.withdrawPaymentCheck}>
+                      <Ionicons name="checkmark-circle" size={24} color="#F26522" />
+                    </View>
+                  )}
+                </TouchableOpacity>
               </View>
 
-              {/* Wallet Address Card */}
+              {/* Wallet/Phone Number Input - Conditional based on method */}
               <View style={styles.withdrawFormCard}>
-                <Text style={styles.withdrawFormLabel}>USDT TRC20 Wallet Address</Text>
+                <Text style={styles.withdrawFormLabel}>
+                  {withdrawMethod === 'usdt' ? 'USDT TRC20 Wallet Address' : `${withdrawMethod === 'bkash' ? 'bKash' : 'Nagad'} Number`}
+                </Text>
                 <View style={styles.withdrawAddressInputWrap}>
-                  <Ionicons name="wallet-outline" size={20} color="#888" style={{ marginRight: 12 }} />
+                  <Ionicons name={withdrawMethod === 'usdt' ? "wallet-outline" : "call-outline"} size={20} color="#888" style={{ marginRight: 12 }} />
                   <TextInput
                     style={styles.withdrawAddressInputField}
-                    placeholder="Enter your TRC20 address (starts with T)"
+                    placeholder={withdrawMethod === 'usdt' ? "Enter your TRC20 address (starts with T)" : "Enter 11-digit number (e.g., 01712345678)"}
                     placeholderTextColor="#555"
                     value={withdrawAddress}
                     onChangeText={setWithdrawAddress}
                     autoCapitalize="none"
+                    keyboardType={withdrawMethod === 'usdt' ? 'default' : 'phone-pad'}
+                    maxLength={withdrawMethod === 'usdt' ? 100 : 11}
                   />
                 </View>
                 <Text style={styles.withdrawAddressNote}>
-                  <Ionicons name="information-circle-outline" size={14} color="#888" /> Double-check your address. Wrong address = lost funds.
+                  <Ionicons name="information-circle-outline" size={14} color="#888" /> 
+                  {withdrawMethod === 'usdt' 
+                    ? ' Double-check your address. Wrong address = lost funds.'
+                    : ' Enter your personal bKash/Nagad number. Money will be sent directly.'}
                 </Text>
               </View>
 
-              {/* Fee Summary */}
+              {/* Fee Summary - Dynamic based on method */}
               <View style={styles.withdrawSummaryCard}>
                 <View style={styles.withdrawSummaryRow}>
-                  <Text style={styles.withdrawSummaryLabel}>Network Fee</Text>
-                  <Text style={styles.withdrawSummaryValue}>$1.00</Text>
+                  <Text style={styles.withdrawSummaryLabel}>
+                    {withdrawMethod === 'usdt' ? 'Network Fee' : 'Service Fee (1.5%)'}
+                  </Text>
+                  <Text style={styles.withdrawSummaryValue}>
+                    {withdrawMethod === 'usdt' 
+                      ? '$1.00' 
+                      : `৳${Math.round((parseFloat(withdrawAmount) || 0) * 127 * 0.015)}`}
+                  </Text>
                 </View>
+                {withdrawMethod !== 'usdt' && (
+                  <View style={styles.withdrawSummaryRow}>
+                    <Text style={styles.withdrawSummaryLabel}>Exchange Rate</Text>
+                    <Text style={styles.withdrawSummaryValue}>$1 = ৳127</Text>
+                  </View>
+                )}
                 <View style={styles.withdrawSummaryDivider} />
                 <View style={styles.withdrawSummaryRow}>
                   <Text style={styles.withdrawSummaryLabel}>You'll Receive</Text>
                   <Text style={styles.withdrawSummaryValueBig}>
-                    ${Math.max(0, (parseFloat(withdrawAmount) || 0) - 1).toFixed(2)} USDT
+                    {withdrawMethod === 'usdt' 
+                      ? `$${Math.max(0, (parseFloat(withdrawAmount) || 0) - 1).toFixed(2)} USDT`
+                      : `৳${Math.round((parseFloat(withdrawAmount) || 0) * 127 * 0.985)}`}
                   </Text>
                 </View>
               </View>
@@ -2728,7 +2799,9 @@ export default function Profile() {
               <View style={styles.withdrawWarningBox}>
                 <Ionicons name="time-outline" size={18} color="#FFB800" />
                 <Text style={styles.withdrawWarningText}>
-                  Processing time: 1-24 hours. Large withdrawals may require additional verification.
+                  {withdrawMethod === 'usdt' 
+                    ? 'Processing time: 1-24 hours. Large withdrawals may require additional verification.'
+                    : 'Processing time: Usually instant to 30 minutes. Sent directly to your mobile wallet.'}
                 </Text>
               </View>
 
@@ -2736,20 +2809,41 @@ export default function Profile() {
               <TouchableOpacity
                 style={[
                   styles.withdrawSubmitBtnNew,
-                  (!withdrawAmount || !withdrawAddress || parseFloat(withdrawAmount) < 10 || isProcessingWithdraw) && styles.withdrawSubmitBtnDisabled
+                  withdrawMethod === 'bkash' && { backgroundColor: '#E2136E' },
+                  withdrawMethod === 'nagad' && { backgroundColor: '#F26522' },
+                  (!withdrawAmount || !withdrawAddress || parseFloat(withdrawAmount) < (withdrawMethod === 'usdt' ? 10 : 0.79) || isProcessingWithdraw) && styles.withdrawSubmitBtnDisabled
                 ]}
                 onPress={() => {
                   const amount = parseFloat(withdrawAmount);
-                  const withdrawable = user?.withdrawable_balance || user?.real_balance || 0;
+                  const withdrawable = user?.withdrawable_balance || (user?.real_balance || 0) - (user?.bonus_balance || 0);
                   
-                  if (amount < 10) {
-                    Alert.alert('Invalid Amount', 'Minimum withdrawal is $10');
-                    return;
+                  // Validation based on method
+                  if (withdrawMethod === 'usdt') {
+                    if (amount < 10) {
+                      Alert.alert('Invalid Amount', 'Minimum withdrawal is $10');
+                      return;
+                    }
+                    if (!withdrawAddress || withdrawAddress.length < 20 || !withdrawAddress.startsWith('T')) {
+                      Alert.alert('Invalid Address', 'Please enter a valid TRC20 wallet address (starts with T)');
+                      return;
+                    }
+                  } else {
+                    // bKash/Nagad validation
+                    const amountBdt = Math.round(amount * 127);
+                    if (amountBdt < 100) {
+                      Alert.alert('Invalid Amount', 'Minimum withdrawal is ৳100 BDT (~$0.79)');
+                      return;
+                    }
+                    if (amountBdt > 50000) {
+                      Alert.alert('Invalid Amount', 'Maximum withdrawal is ৳50,000 BDT (~$394)');
+                      return;
+                    }
+                    if (!withdrawAddress || withdrawAddress.length !== 11 || !withdrawAddress.startsWith('0')) {
+                      Alert.alert('Invalid Number', 'Please enter a valid 11-digit mobile number starting with 0 (e.g., 01712345678)');
+                      return;
+                    }
                   }
-                  if (!withdrawAddress || withdrawAddress.length < 20 || !withdrawAddress.startsWith('T')) {
-                    Alert.alert('Invalid Address', 'Please enter a valid TRC20 wallet address (starts with T)');
-                    return;
-                  }
+                  
                   if (amount > withdrawable) {
                     Alert.alert('Insufficient Balance', `You can only withdraw up to $${withdrawable.toFixed(2)}`);
                     return;
@@ -2759,21 +2853,40 @@ export default function Profile() {
                   
                   (async () => {
                     try {
-                      const response = await fetch(`${API_URL}/wallet/withdraw`, {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          'Authorization': `Bearer ${token}`
-                        },
-                        body: JSON.stringify({
-                          amount: amount,
-                          crypto_address: withdrawAddress
-                        })
-                      });
+                      let response;
+                      
+                      if (withdrawMethod === 'usdt') {
+                        // USDT withdrawal (existing flow)
+                        response = await fetch(`${API_URL}/wallet/withdraw`, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                          },
+                          body: JSON.stringify({
+                            amount: amount,
+                            crypto_address: withdrawAddress
+                          })
+                        });
+                      } else {
+                        // E-Wallet withdrawal (bKash/Nagad)
+                        response = await fetch(`${API_URL}/tarspay/withdrawal/create`, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                          },
+                          body: JSON.stringify({
+                            amount: amount,
+                            channel: withdrawMethod,
+                            wallet_id: withdrawAddress
+                          })
+                        });
+                      }
                       
                       const data = await response.json();
                       
-                      if (response.ok) {
+                      if (data.success || response.ok) {
                         setShowWithdrawModal(false);
                         setWithdrawAmount('');
                         setWithdrawAddress('');
@@ -2782,13 +2895,21 @@ export default function Profile() {
                         if (refreshUser) refreshUser();
                         fetchTransactions();
                         
-                        Alert.alert(
-                          'Withdrawal Submitted!',
-                          `Amount: $${amount.toFixed(2)}\nYou'll receive: $${(amount - 1).toFixed(2)} USDT\n\nTransaction ID: ${data.transaction_id}\n\nCheck your transaction history for status updates.`,
-                          [{ text: 'OK' }]
-                        );
+                        if (withdrawMethod === 'usdt') {
+                          Alert.alert(
+                            'Withdrawal Submitted!',
+                            `Amount: $${amount.toFixed(2)}\nYou'll receive: $${(amount - 1).toFixed(2)} USDT\n\nTransaction ID: ${data.transaction_id}\n\nCheck your transaction history for status updates.`,
+                            [{ text: 'OK' }]
+                          );
+                        } else {
+                          Alert.alert(
+                            '✅ Withdrawal Processing!',
+                            `Amount: $${amount.toFixed(2)}\nYou'll receive: ৳${data.net_amount_bdt || Math.round(amount * 127 * 0.985)}\n\nSending to: ${withdrawMethod === 'bkash' ? 'bKash' : 'Nagad'} ${withdrawAddress}\n\nUsually completes within 30 minutes.`,
+                            [{ text: 'OK' }]
+                          );
+                        }
                       } else {
-                        Alert.alert('Withdrawal Failed', data.detail || 'Unable to process withdrawal');
+                        Alert.alert('Withdrawal Failed', data.error || data.detail || 'Unable to process withdrawal');
                       }
                     } catch (error) {
                       console.error('Withdrawal error:', error);
@@ -2798,14 +2919,16 @@ export default function Profile() {
                     }
                   })();
                 }}
-                disabled={!withdrawAmount || !withdrawAddress || parseFloat(withdrawAmount) < 10 || isProcessingWithdraw || hasLockedWithdrawal}
+                disabled={!withdrawAmount || !withdrawAddress || isProcessingWithdraw || hasLockedWithdrawal}
               >
                 {isProcessingWithdraw ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <>
                     <Ionicons name="arrow-up-circle" size={22} color="#FFFFFF" />
-                    <Text style={styles.withdrawSubmitBtnText}>Withdraw Now</Text>
+                    <Text style={styles.withdrawSubmitBtnText}>
+                      {withdrawMethod === 'usdt' ? 'Withdraw USDT' : `Withdraw to ${withdrawMethod === 'bkash' ? 'bKash' : 'Nagad'}`}
+                    </Text>
                   </>
                 )}
               </TouchableOpacity>
