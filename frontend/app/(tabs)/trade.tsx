@@ -279,8 +279,9 @@ export default function Trade() {
           setPaymentStatus('success');
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           
-          // Refresh user balance
-          await refreshUser();
+          // Refresh user balance using authStore
+          const { refreshUser: refreshUserBalance } = useAuthStore.getState();
+          await refreshUserBalance();
           console.log('[EWALLET AUTO-POLL] Payment confirmed! Balance refreshed.');
           
           setTimeout(() => {
@@ -306,7 +307,7 @@ export default function Trade() {
     return () => {
       clearInterval(pollInterval);
     };
-  }, [ewalletOrderId, ewalletPayUrl, paymentStatus, token, refreshUser]);
+  }, [ewalletOrderId, ewalletPayUrl, paymentStatus, token]);
 
   // UTC Time and Candle Countdown
   const [utcTime, setUtcTime] = useState('');
