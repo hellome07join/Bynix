@@ -2906,21 +2906,40 @@ export default function Profile() {
                         if (withdrawMethod === 'usdt') {
                           // NOWPayments USDT TRC20 withdrawal
                           const netAmount = data.net_amount || (amount - 1);
-                          const statusMsg = data.status === 'processing' 
-                            ? 'Your withdrawal is being processed via NOWPayments.'
-                            : 'Your withdrawal request has been submitted.';
                           
-                          Alert.alert(
-                            '💰 Withdrawal Processing!',
-                            `Amount: $${amount.toFixed(2)}\nNetwork Fee: $1.00\nYou'll receive: $${netAmount.toFixed(2)} USDT TRC20\n\nTransaction ID: ${data.transaction_id}\n${data.payout_id ? `NOWPayments ID: ${data.payout_id}\n` : ''}\n${statusMsg}`,
-                            [{ text: 'OK' }]
-                          );
+                          // Check if requires admin approval
+                          if (data.requires_admin_approval) {
+                            Alert.alert(
+                              '⏳ Pending Admin Approval',
+                              `Amount: $${amount.toFixed(2)}\nYou'll receive: $${netAmount.toFixed(2)} USDT TRC20\n\nWithdrawals over $100 require admin approval.\n\nYou will be notified once your withdrawal is approved.`,
+                              [{ text: 'OK' }]
+                            );
+                          } else {
+                            const statusMsg = data.status === 'processing' 
+                              ? 'Your withdrawal is being processed via NOWPayments.'
+                              : 'Your withdrawal request has been submitted.';
+                            
+                            Alert.alert(
+                              '💰 Withdrawal Processing!',
+                              `Amount: $${amount.toFixed(2)}\nNetwork Fee: $1.00\nYou'll receive: $${netAmount.toFixed(2)} USDT TRC20\n\nTransaction ID: ${data.transaction_id}\n${data.payout_id ? `NOWPayments ID: ${data.payout_id}\n` : ''}\n${statusMsg}`,
+                              [{ text: 'OK' }]
+                            );
+                          }
                         } else {
-                          Alert.alert(
-                            '✅ Withdrawal Processing!',
-                            `Amount: $${amount.toFixed(2)}\nYou'll receive: ৳${data.net_amount_bdt || Math.round(amount * 127 * 0.985)}\n\nSending to: ${withdrawMethod === 'bkash' ? 'bKash' : 'Nagad'} ${withdrawAddress}\n\nUsually completes within 30 minutes.`,
-                            [{ text: 'OK' }]
-                          );
+                          // bKash/Nagad withdrawal
+                          if (data.requires_admin_approval) {
+                            Alert.alert(
+                              '⏳ Pending Admin Approval',
+                              `Amount: $${amount.toFixed(2)}\nYou'll receive: ৳${data.net_amount_bdt || Math.round(amount * 127 * 0.985)}\n\nWithdrawals over $100 require admin approval.\n\nYou will be notified once approved.`,
+                              [{ text: 'OK' }]
+                            );
+                          } else {
+                            Alert.alert(
+                              '✅ Withdrawal Processing!',
+                              `Amount: $${amount.toFixed(2)}\nYou'll receive: ৳${data.net_amount_bdt || Math.round(amount * 127 * 0.985)}\n\nSending to: ${withdrawMethod === 'bkash' ? 'bKash' : 'Nagad'} ${withdrawAddress}\n\nUsually completes within 30 minutes.`,
+                              [{ text: 'OK' }]
+                            );
+                          }
                         }
                       } else {
                         Alert.alert('Withdrawal Failed', data.error || data.detail || 'Unable to process withdrawal');

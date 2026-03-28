@@ -1301,6 +1301,9 @@ async def request_withdrawal(withdrawal: WithdrawalRequest, authorization: Optio
     min_withdrawal = 10.0
     network_fee = 1.0
     
+    # AUTO-APPROVAL THRESHOLD: $100 or less = auto-approved, more than $100 = admin approval required
+    AUTO_APPROVAL_LIMIT = 100.0
+    
     if withdrawal.amount < min_withdrawal:
         raise HTTPException(
             status_code=400,
@@ -1318,47 +1321,56 @@ async def request_withdrawal(withdrawal: WithdrawalRequest, authorization: Optio
     
     transaction_id = f"txn_{uuid.uuid4().hex[:12]}"
     
-    # Get IPN callback URL
-    integration_proxy = os.environ.get("INTEGRATION_PROXY_URL", "")
-    host = request.headers.get("host", "localhost")
-    scheme = "https" if any(x in host for x in ["preview.emergentagent.com", "preview.emergentcf.cloud", "emergent.host"]) else request.url.scheme
-    base_url = f"{scheme}://{host}"
-    callback_url = f"{integration_proxy}/api/nowpayments/withdrawal/callback" if integration_proxy else f"{base_url}/api/nowpayments/withdrawal/callback"
+    # Determine if auto-approval or admin approval required
+    requires_admin_approval = withdrawal.amount > AUTO_APPROVAL_LIMIT
     
-    # Create payout via NOWPayments API
-    print(f"[NOWPayments] Creating payout: amount={net_amount}, address={crypto_address}")
-    payout_result = await create_usdt_payout(
-        address=crypto_address,
-        amount=net_amount,
-        external_id=transaction_id,
-        callback_url=callback_url
-    )
-    
-    print(f"[NOWPayments] Payout result: {payout_result}")
-    
-    # Determine status based on NOWPayments response
+    # Initialize payout variables
     payout_id = None
-    payout_status = "pending"
+    payout_status = "pending_approval" if requires_admin_approval else "pending"
     payout_error = None
     
-    if payout_result.get("success"):
-        payout_data = payout_result.get("data", {})
-        payout_id = payout_data.get("id") or payout_data.get("payout_id")
-        # NOWPayments statuses: waiting, confirming, sending, finished, failed, refunded
-        np_status = payout_data.get("status", "waiting")
-        if np_status in ["waiting", "confirming", "sending"]:
-            payout_status = "processing"
-        elif np_status == "finished":
-            payout_status = "completed"
-        elif np_status == "failed":
-            payout_status = "failed"
-            payout_error = payout_data.get("error") or "Payout failed"
+    if not requires_admin_approval:
+        # AUTO-APPROVED: Process via NOWPayments immediately
+        # Get IPN callback URL
+        integration_proxy = os.environ.get("INTEGRATION_PROXY_URL", "")
+        host = request.headers.get("host", "localhost")
+        scheme = "https" if any(x in host for x in ["preview.emergentagent.com", "preview.emergentcf.cloud", "emergent.host"]) else request.url.scheme
+        base_url = f"{scheme}://{host}"
+        callback_url = f"{integration_proxy}/api/nowpayments/withdrawal/callback" if integration_proxy else f"{base_url}/api/nowpayments/withdrawal/callback"
+        
+        # Create payout via NOWPayments API
+        print(f"[NOWPayments] Auto-approved withdrawal (${withdrawal.amount} <= ${AUTO_APPROVAL_LIMIT}): amount={net_amount}, address={crypto_address}")
+        payout_result = await create_usdt_payout(
+            address=crypto_address,
+            amount=net_amount,
+            external_id=transaction_id,
+            callback_url=callback_url
+        )
+        
+        print(f"[NOWPayments] Payout result: {payout_result}")
+        
+        # Determine status based on NOWPayments response
+        if payout_result.get("success"):
+            payout_data = payout_result.get("data", {})
+            payout_id = payout_data.get("id") or payout_data.get("payout_id")
+            # NOWPayments statuses: waiting, confirming, sending, finished, failed, refunded
+            np_status = payout_data.get("status", "waiting")
+            if np_status in ["waiting", "confirming", "sending"]:
+                payout_status = "processing"
+            elif np_status == "finished":
+                payout_status = "completed"
+            elif np_status == "failed":
+                payout_status = "failed"
+                payout_error = payout_data.get("error") or "Payout failed"
+        else:
+            # If NOWPayments API failed, still create record but mark as pending for manual review
+            payout_error = payout_result.get("error") or payout_result.get("data", {}).get("message") or "NOWPayments API error"
+            print(f"[NOWPayments] API Error: {payout_error}")
+            # Keep as pending for admin to manually process
+            payout_status = "pending"
     else:
-        # If NOWPayments API failed, still create record but mark as pending for manual review
-        payout_error = payout_result.get("error") or payout_result.get("data", {}).get("message") or "NOWPayments API error"
-        print(f"[NOWPayments] API Error: {payout_error}")
-        # Keep as pending for admin to manually process
-        payout_status = "pending"
+        # ADMIN APPROVAL REQUIRED: Don't call NOWPayments yet
+        print(f"[NOWPayments] Withdrawal requires admin approval (${withdrawal.amount} > ${AUTO_APPROVAL_LIMIT})")
     
     new_transaction = {
         "transaction_id": transaction_id,
@@ -1371,6 +1383,8 @@ async def request_withdrawal(withdrawal: WithdrawalRequest, authorization: Optio
         "net_amount": net_amount,
         "network_fee": network_fee,
         "status": payout_status,
+        "requires_admin_approval": requires_admin_approval,
+        "auto_approval_limit": AUTO_APPROVAL_LIMIT,
         "crypto_address": crypto_address,
         "nowpayments_payout_id": payout_id,
         "nowpayments_error": payout_error,
@@ -1413,13 +1427,21 @@ async def request_withdrawal(withdrawal: WithdrawalRequest, authorization: Optio
             {"$inc": {"real_balance": -withdrawal.amount}}
         )
     
-    # Create success notification
-    await create_notification(
-        user.user_id,
-        "💰 Withdrawal Processing",
-        f"Your withdrawal of ${net_amount:.2f} USDT TRC20 to {crypto_address[:8]}...{crypto_address[-6:]} is being processed.",
-        "success"
-    )
+    # Create appropriate notification
+    if requires_admin_approval:
+        await create_notification(
+            user.user_id,
+            "⏳ Withdrawal Pending Approval",
+            f"Your withdrawal of ${net_amount:.2f} USDT TRC20 requires admin approval (amount > ${AUTO_APPROVAL_LIMIT}). You'll be notified once approved.",
+            "info"
+        )
+    else:
+        await create_notification(
+            user.user_id,
+            "💰 Withdrawal Processing",
+            f"Your withdrawal of ${net_amount:.2f} USDT TRC20 to {crypto_address[:8]}...{crypto_address[-6:]} is being processed.",
+            "success"
+        )
     
     return {
         "success": True,
@@ -1429,7 +1451,8 @@ async def request_withdrawal(withdrawal: WithdrawalRequest, authorization: Optio
         "net_amount": net_amount,
         "fee": network_fee,
         "status": payout_status,
-        "message": "Withdrawal request submitted" if payout_status == "pending" else "Withdrawal is being processed via NOWPayments"
+        "requires_admin_approval": requires_admin_approval,
+        "message": f"Withdrawal requires admin approval (amount > ${AUTO_APPROVAL_LIMIT})" if requires_admin_approval else ("Withdrawal request submitted" if payout_status == "pending" else "Withdrawal is being processed via NOWPayments")
     }
 
 @api_router.get("/wallet/transactions")
@@ -4592,6 +4615,10 @@ async def create_ewallet_withdrawal(
     # Generate unique order ID
     order_id = f"WBYNIX{user.user_id[:6]}{int(datetime.now().timestamp())}"
     
+    # AUTO-APPROVAL THRESHOLD: $100 or less = auto-approved, more than $100 = admin approval required
+    AUTO_APPROVAL_LIMIT = 100.0
+    requires_admin_approval = amount_usd > AUTO_APPROVAL_LIMIT
+    
     # Get notify URL
     integration_proxy = os.environ.get("INTEGRATION_PROXY_URL", "")
     host = req.headers.get("host", "localhost")
@@ -4641,12 +4668,39 @@ async def create_ewallet_withdrawal(
         "fee_bdt": fee_bdt,
         "net_amount_bdt": net_amount_bdt,
         "exchange_rate": rate,
-        "status": "processing",
+        "status": "pending_approval" if requires_admin_approval else "processing",
+        "requires_admin_approval": requires_admin_approval,
+        "auto_approval_limit": AUTO_APPROVAL_LIMIT,
+        "bonus_forfeited": bonus_forfeited,
         "created_at": datetime.now(timezone.utc)
     }
     await db.withdrawals.insert_one(withdrawal_doc)
     
-    # Call TarsPay API to create withdrawal
+    # If requires admin approval, don't call TarsPay API yet
+    if requires_admin_approval:
+        print(f"[TarsPay] Withdrawal requires admin approval (${amount_usd} > ${AUTO_APPROVAL_LIMIT})")
+        await create_notification(
+            user.user_id,
+            "⏳ Withdrawal Pending Approval",
+            f"Your withdrawal of ৳{net_amount_bdt} to {channel_name} ({wallet_id}) requires admin approval (amount > ${AUTO_APPROVAL_LIMIT}). You'll be notified once approved.",
+            "info"
+        )
+        return {
+            "success": True,
+            "order_id": order_id,
+            "amount_usd": amount_usd,
+            "amount_bdt": amount_bdt,
+            "fee_bdt": fee_bdt,
+            "net_amount_bdt": net_amount_bdt,
+            "wallet_id": wallet_id,
+            "channel": channel_name,
+            "status": "pending_approval",
+            "requires_admin_approval": True,
+            "message": f"Withdrawal of ৳{net_amount_bdt} to {channel_name} requires admin approval (amount > ${AUTO_APPROVAL_LIMIT})"
+        }
+    
+    # AUTO-APPROVED: Call TarsPay API to create withdrawal
+    print(f"[TarsPay] Auto-approved withdrawal (${amount_usd} <= ${AUTO_APPROVAL_LIMIT})")
     result = await tarspay_service.create_withdrawal(
         order_id=order_id,
         amount_bdt=net_amount_bdt,  # Send net amount (after fee)
@@ -4672,6 +4726,7 @@ async def create_ewallet_withdrawal(
             "net_amount_bdt": net_amount_bdt,
             "wallet_id": wallet_id,
             "channel": channel_name,
+            "requires_admin_approval": False,
             "message": f"Withdrawal of ৳{net_amount_bdt} to {channel_name} ({wallet_id}) is being processed"
         }
     else:
@@ -6023,13 +6078,15 @@ async def approve_withdrawal(
     authorization: Optional[str] = Header(None),
     request: Request = None
 ):
-    """Approve a withdrawal request"""
+    """Approve a withdrawal request and process via NOWPayments/TarsPay"""
     admin = await get_current_user(authorization, request)
     
     # Check both withdrawals and transactions collections
     withdrawal = await db.withdrawals.find_one({
         "$or": [
             {"withdrawal_id": withdrawal_id},
+            {"order_id": withdrawal_id},
+            {"transaction_id": withdrawal_id},
             {"_id": withdrawal_id}
         ]
     })
@@ -6043,41 +6100,147 @@ async def approve_withdrawal(
                 {"_id": withdrawal_id}
             ]
         })
-        if withdrawal:
-            # Update in transactions collection
-            if withdrawal.get("status") != "pending":
-                raise HTTPException(status_code=400, detail="Withdrawal is not pending")
+    
+    if not withdrawal:
+        raise HTTPException(status_code=404, detail="Withdrawal not found")
+    
+    current_status = withdrawal.get("status")
+    if current_status not in ["pending", "pending_approval"]:
+        raise HTTPException(status_code=400, detail=f"Withdrawal is not pending (current status: {current_status})")
+    
+    user_id = withdrawal.get("user_id")
+    payment_type = withdrawal.get("payment_type", "")
+    
+    # Get callback URLs
+    integration_proxy = os.environ.get("INTEGRATION_PROXY_URL", "")
+    host = request.headers.get("host", "localhost")
+    scheme = "https" if any(x in host for x in ["preview.emergentagent.com", "preview.emergentcf.cloud", "emergent.host"]) else request.url.scheme
+    base_url = f"{scheme}://{host}"
+    
+    # Handle based on payment type
+    if payment_type == "nowpayments":
+        # Process USDT TRC20 withdrawal via NOWPayments
+        crypto_address = withdrawal.get("crypto_address")
+        net_amount = withdrawal.get("net_amount", 0)
+        transaction_id = withdrawal.get("transaction_id") or withdrawal.get("order_id")
+        
+        callback_url = f"{integration_proxy}/api/nowpayments/withdrawal/callback" if integration_proxy else f"{base_url}/api/nowpayments/withdrawal/callback"
+        
+        print(f"[Admin] Approving NOWPayments withdrawal: {transaction_id}, amount={net_amount}")
+        payout_result = await create_usdt_payout(
+            address=crypto_address,
+            amount=net_amount,
+            external_id=transaction_id,
+            callback_url=callback_url
+        )
+        
+        if payout_result.get("success"):
+            payout_data = payout_result.get("data", {})
+            payout_id = payout_data.get("id") or payout_data.get("payout_id")
+            np_status = payout_data.get("status", "waiting")
+            new_status = "processing" if np_status in ["waiting", "confirming", "sending"] else ("completed" if np_status == "finished" else "pending")
             
+            # Update in both collections
+            update_data = {
+                "status": new_status,
+                "nowpayments_payout_id": payout_id,
+                "approved_by": admin.user_id,
+                "approved_at": datetime.now(timezone.utc)
+            }
+            await db.withdrawals.update_one(
+                {"$or": [{"order_id": transaction_id}, {"transaction_id": transaction_id}]},
+                {"$set": update_data}
+            )
             await db.transactions.update_one(
-                {"_id": withdrawal["_id"]},
+                {"transaction_id": transaction_id},
+                {"$set": update_data}
+            )
+            
+            # Notify user
+            await create_notification(
+                user_id,
+                "✅ Withdrawal Approved",
+                f"Your USDT TRC20 withdrawal has been approved and is being processed.",
+                "success"
+            )
+            
+            return {"success": True, "message": "Withdrawal approved and sent to NOWPayments", "payout_id": payout_id}
+        else:
+            error = payout_result.get("error", "NOWPayments API error")
+            print(f"[Admin] NOWPayments error: {error}")
+            return {"success": False, "error": error}
+    
+    elif payment_type == "tarspay":
+        # Process E-Wallet withdrawal via TarsPay
+        order_id = withdrawal.get("order_id")
+        net_amount_bdt = withdrawal.get("net_amount_bdt", 0)
+        wallet_id = withdrawal.get("wallet_id")
+        way_code = withdrawal.get("way_code")
+        channel_name = withdrawal.get("channel_name")
+        
+        notify_url = f"{integration_proxy}/api/tarspay/withdrawal/callback" if integration_proxy else f"{base_url}/api/tarspay/withdrawal/callback"
+        
+        print(f"[Admin] Approving TarsPay withdrawal: {order_id}, amount={net_amount_bdt} BDT")
+        result = await tarspay_service.create_withdrawal(
+            order_id=order_id,
+            amount_bdt=net_amount_bdt,
+            wallet_id=wallet_id,
+            way_code=way_code,
+            notify_url=notify_url
+        )
+        
+        if result.get("success"):
+            await db.withdrawals.update_one(
+                {"order_id": order_id},
                 {
                     "$set": {
-                        "status": "completed",
+                        "status": "pending",
+                        "payment_id": result.get("payment_id"),
                         "approved_by": admin.user_id,
                         "approved_at": datetime.now(timezone.utc)
                     }
                 }
             )
-            return {"success": True, "message": "Withdrawal approved"}
+            
+            # Notify user
+            await create_notification(
+                user_id,
+                "✅ Withdrawal Approved",
+                f"Your withdrawal of ৳{net_amount_bdt} to {channel_name} has been approved and is being processed.",
+                "success"
+            )
+            
+            return {"success": True, "message": f"Withdrawal approved and sent to {channel_name}"}
+        else:
+            error = result.get("error", "TarsPay API error")
+            print(f"[Admin] TarsPay error: {error}")
+            return {"success": False, "error": error}
     
-    if not withdrawal:
-        raise HTTPException(status_code=404, detail="Withdrawal not found")
-    
-    if withdrawal.get("status") != "pending":
-        raise HTTPException(status_code=400, detail="Withdrawal is not pending")
-    
-    await db.withdrawals.update_one(
-        {"_id": withdrawal["_id"]},
-        {
-            "$set": {
-                "status": "completed",
-                "approved_by": admin.user_id,
-                "approved_at": datetime.now(timezone.utc)
+    else:
+        # Legacy withdrawal - just mark as completed
+        collection = db.withdrawals if withdrawal.get("order_id") else db.transactions
+        id_field = "order_id" if withdrawal.get("order_id") else "transaction_id"
+        id_value = withdrawal.get("order_id") or withdrawal.get("transaction_id")
+        
+        await collection.update_one(
+            {id_field: id_value},
+            {
+                "$set": {
+                    "status": "completed",
+                    "approved_by": admin.user_id,
+                    "approved_at": datetime.now(timezone.utc)
+                }
             }
-        }
-    )
-    
-    return {"success": True, "message": "Withdrawal approved"}
+        )
+        
+        await create_notification(
+            user_id,
+            "✅ Withdrawal Approved",
+            f"Your withdrawal has been approved.",
+            "success"
+        )
+        
+        return {"success": True, "message": "Withdrawal approved"}
 
 @api_router.post("/admin/withdrawals/{withdrawal_id}/reject")
 async def reject_withdrawal(
