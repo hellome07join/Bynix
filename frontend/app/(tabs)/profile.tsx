@@ -1624,7 +1624,7 @@ export default function Profile() {
                       {tx.type === 'deposit' ? '+' : '-'}${tx.amount?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
                     </Text>
                     <Text style={styles.txMethod}>
-                      {tx.currency || 'USDT'} {tx.network ? `(${tx.network})` : '(TRC20)'}
+                      {tx.payment_type === 'tarspay' ? (tx.channel_name || tx.channel || 'E-Wallet') : (tx.currency || 'USDT')} {tx.payment_type === 'tarspay' ? '' : (tx.network ? `(${tx.network})` : '(TRC20)')}
                     </Text>
                     <Text style={[
                       styles.txType,

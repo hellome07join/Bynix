@@ -4015,7 +4015,7 @@ async def create_tarspay_deposit(
     
     # Use integration proxy for webhook callbacks, regular URL for user redirects
     notify_url = f"{integration_proxy}/api/tarspay/callback" if integration_proxy else f"{base_url}/api/tarspay/callback"
-    return_url = f"{base_url}/trade"
+    return_url = base_url  # Root URL redirects to trade page
     
     print(f"[TarsPay] Creating order - notifyUrl: {notify_url}, returnUrl: {return_url}")
     
@@ -4062,6 +4062,105 @@ async def create_tarspay_deposit(
             "success": False,
             "error": result.get("error", "Failed to create payment")
         }
+
+@api_router.get("/tarspay/check-pending")
+async def check_pending_tarspay_deposits(
+    authorization: Optional[str] = Header(None),
+    req: Request = None
+):
+    """Check all pending TarsPay deposits for current user and auto-credit completed ones"""
+    try:
+        user = await get_current_user(authorization, req)
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    # Find all pending TarsPay deposits
+    pending_deposits = await db.deposits.find({
+        "user_id": user.user_id,
+        "status": "pending",
+        "payment_type": "tarspay"
+    }).to_list(20)
+    
+    credited = []
+    
+    for deposit in pending_deposits:
+        order_id = deposit.get("order_id")
+        if not order_id or not order_id.startswith("BYNIX"):
+            continue
+            
+        # Query TarsPay for status
+        result = await tarspay_service.get_order_status(order_id)
+        
+        if result.get("success") and result.get("paid"):
+            amount_usd = deposit.get("amount_usd", 0)
+            promo_code = deposit.get("promo_code", "")
+            
+            # Calculate bonus
+            bonus_amount = 0
+            if promo_code:
+                promo = await db.promo_codes.find_one({"code": promo_code.upper(), "is_active": True})
+                if promo:
+                    min_deposit = promo.get("min_deposit", 0)
+                    if amount_usd >= min_deposit:
+                        if promo.get("bonus_type") == "percentage":
+                            bonus_amount = amount_usd * (promo.get("bonus_value", 0) / 100)
+                        else:
+                            bonus_amount = promo.get("bonus_value", 0)
+                        max_bonus = promo.get("max_bonus")
+                        if max_bonus and bonus_amount > max_bonus:
+                            bonus_amount = max_bonus
+            
+            total_credit = amount_usd + bonus_amount
+            
+            # Update deposit status
+            await db.deposits.update_one(
+                {"order_id": order_id},
+                {
+                    "$set": {
+                        "status": "completed",
+                        "completed_at": datetime.now(timezone.utc),
+                        "bonus_amount": bonus_amount,
+                        "total_credited": total_credit
+                    }
+                }
+            )
+            
+            # Credit user's balance
+            update_fields = {"real_balance": total_credit}
+            if bonus_amount > 0:
+                update_fields["bonus_balance"] = bonus_amount
+            
+            await db.users.update_one(
+                {"user_id": user.user_id},
+                {"$inc": update_fields}
+            )
+            
+            # Create notification
+            await create_notification(
+                user.user_id,
+                "Deposit Successful! 💰",
+                f"${amount_usd:.2f}" + (f" + ${bonus_amount:.2f} bonus" if bonus_amount > 0 else "") + " has been credited!",
+                "deposit"
+            )
+            
+            credited.append({
+                "order_id": order_id,
+                "amount": amount_usd,
+                "bonus": bonus_amount,
+                "total": total_credit
+            })
+            
+            print(f"[AUTO-CREDIT] Credited ${total_credit} to user {user.user_id} from order {order_id}")
+    
+    # Get updated balance
+    updated_user = await db.users.find_one({"user_id": user.user_id})
+    
+    return {
+        "success": True,
+        "credited_count": len(credited),
+        "credited": credited,
+        "new_balance": updated_user.get("real_balance", 0) if updated_user else 0
+    }
 
 @api_router.get("/tarspay/deposit/status/{order_id}")
 async def get_tarspay_deposit_status(

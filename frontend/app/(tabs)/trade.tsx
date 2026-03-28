@@ -236,6 +236,43 @@ export default function Trade() {
   }, [token]);
 
   // Auto-validate promo when code or amount changes
+  // Auto-check pending TarsPay deposits when app loads/becomes active
+  useEffect(() => {
+    const checkPendingDeposits = async () => {
+      if (!token) return;
+      try {
+        const response = await fetch(`${API_URL}/tarspay/check-pending`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (data.success && data.credited_count > 0) {
+          // Refresh user balance
+          const { refreshUser } = useAuthStore.getState();
+          await refreshUser();
+          
+          // Show success notification
+          const total = data.credited.reduce((sum: number, c: any) => sum + c.total, 0);
+          Alert.alert(
+            '💰 Payment Credited!',
+            `$${total.toFixed(2)} has been added to your account!`,
+            [{ text: 'Start Trading', style: 'default' }]
+          );
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      } catch (err) {
+        console.log('[Auto-check pending] Error:', err);
+      }
+    };
+    
+    // Check on mount
+    checkPendingDeposits();
+    
+    // Check every 30 seconds when app is active
+    const interval = setInterval(checkPendingDeposits, 30000);
+    return () => clearInterval(interval);
+  }, [token]);
+
+  // Debounced promo code validation
   useEffect(() => {
     const timer = setTimeout(() => {
       if (promoCode && showDepositModal) {
