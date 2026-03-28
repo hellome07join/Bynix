@@ -2904,9 +2904,15 @@ export default function Profile() {
                         fetchTransactions();
                         
                         if (withdrawMethod === 'usdt') {
+                          // NOWPayments USDT TRC20 withdrawal
+                          const netAmount = data.net_amount || (amount - 1);
+                          const statusMsg = data.status === 'processing' 
+                            ? 'Your withdrawal is being processed via NOWPayments.'
+                            : 'Your withdrawal request has been submitted.';
+                          
                           Alert.alert(
-                            'Withdrawal Submitted!',
-                            `Amount: $${amount.toFixed(2)}\nYou'll receive: $${(amount - 1).toFixed(2)} USDT\n\nTransaction ID: ${data.transaction_id}\n\nCheck your transaction history for status updates.`,
+                            '💰 Withdrawal Processing!',
+                            `Amount: $${amount.toFixed(2)}\nNetwork Fee: $1.00\nYou'll receive: $${netAmount.toFixed(2)} USDT TRC20\n\nTransaction ID: ${data.transaction_id}\n${data.payout_id ? `NOWPayments ID: ${data.payout_id}\n` : ''}\n${statusMsg}`,
                             [{ text: 'OK' }]
                           );
                         } else {

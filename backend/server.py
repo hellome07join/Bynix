@@ -21,6 +21,7 @@ import base64
 from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContent
 from tarspay_service import tarspay_service, fetch_live_exchange_rate, get_current_rate, get_rate_for_currency, TARSPAY_CHANNELS, ALL_CHANNELS
 from email_service import send_verification_otp, verify_otp as verify_email_otp, resend_otp
+from nowpayments_service import nowpayments_service, create_usdt_payout, check_payout_status, validate_trc20_address
 
 # Demo-only assets - These 6 Forex assets are ONLY available for Demo trading
 # Real balance can trade all OTHER assets (including USD/CHF)
@@ -1264,7 +1265,7 @@ async def request_deposit(deposit: DepositRequest, authorization: Optional[str] 
 
 @api_router.post("/wallet/withdraw")
 async def request_withdrawal(withdrawal: WithdrawalRequest, authorization: Optional[str] = Header(None), request: Request = None):
-    """Request withdrawal"""
+    """Request USDT TRC20 withdrawal via NOWPayments"""
     user = await get_current_user(authorization, request)
     
     # Check if user has any locked withdrawal
@@ -1280,6 +1281,14 @@ async def request_withdrawal(withdrawal: WithdrawalRequest, authorization: Optio
             detail=f"You have a locked withdrawal pending KYC verification. Please submit the required document ({locked_withdrawal.get('kyc_requirement', 'Bank Statement')}) before creating new withdrawal requests."
         )
     
+    # Validate TRC20 address format
+    crypto_address = withdrawal.crypto_address.strip()
+    if not crypto_address or len(crypto_address) != 34 or not crypto_address.startswith('T'):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid TRC20 address. Address must be 34 characters and start with 'T'"
+        )
+    
     # Get current balance and bonus
     user_doc = await db.users.find_one({"user_id": user.user_id})
     real_balance = user_doc.get("real_balance", 0)
@@ -1288,21 +1297,83 @@ async def request_withdrawal(withdrawal: WithdrawalRequest, authorization: Optio
     # Withdrawable = real_balance - bonus_balance
     withdrawable = real_balance - bonus_balance
     
+    # Minimum withdrawal $10, Network fee $1
+    min_withdrawal = 10.0
+    network_fee = 1.0
+    
+    if withdrawal.amount < min_withdrawal:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Minimum withdrawal is ${min_withdrawal}"
+        )
+    
     if withdrawal.amount > withdrawable:
         raise HTTPException(
             status_code=400, 
             detail=f"Insufficient withdrawable balance. You have ${withdrawable:.2f} available. (Bonus of ${bonus_balance:.2f} cannot be withdrawn)"
         )
     
+    # Calculate net amount after fee
+    net_amount = withdrawal.amount - network_fee
+    
     transaction_id = f"txn_{uuid.uuid4().hex[:12]}"
+    
+    # Get IPN callback URL
+    integration_proxy = os.environ.get("INTEGRATION_PROXY_URL", "")
+    host = request.headers.get("host", "localhost")
+    scheme = "https" if any(x in host for x in ["preview.emergentagent.com", "preview.emergentcf.cloud", "emergent.host"]) else request.url.scheme
+    base_url = f"{scheme}://{host}"
+    callback_url = f"{integration_proxy}/api/nowpayments/withdrawal/callback" if integration_proxy else f"{base_url}/api/nowpayments/withdrawal/callback"
+    
+    # Create payout via NOWPayments API
+    print(f"[NOWPayments] Creating payout: amount={net_amount}, address={crypto_address}")
+    payout_result = await create_usdt_payout(
+        address=crypto_address,
+        amount=net_amount,
+        external_id=transaction_id,
+        callback_url=callback_url
+    )
+    
+    print(f"[NOWPayments] Payout result: {payout_result}")
+    
+    # Determine status based on NOWPayments response
+    payout_id = None
+    payout_status = "pending"
+    payout_error = None
+    
+    if payout_result.get("success"):
+        payout_data = payout_result.get("data", {})
+        payout_id = payout_data.get("id") or payout_data.get("payout_id")
+        # NOWPayments statuses: waiting, confirming, sending, finished, failed, refunded
+        np_status = payout_data.get("status", "waiting")
+        if np_status in ["waiting", "confirming", "sending"]:
+            payout_status = "processing"
+        elif np_status == "finished":
+            payout_status = "completed"
+        elif np_status == "failed":
+            payout_status = "failed"
+            payout_error = payout_data.get("error") or "Payout failed"
+    else:
+        # If NOWPayments API failed, still create record but mark as pending for manual review
+        payout_error = payout_result.get("error") or payout_result.get("data", {}).get("message") or "NOWPayments API error"
+        print(f"[NOWPayments] API Error: {payout_error}")
+        # Keep as pending for admin to manually process
+        payout_status = "pending"
     
     new_transaction = {
         "transaction_id": transaction_id,
         "user_id": user.user_id,
         "type": "withdrawal",
+        "payment_type": "nowpayments",
+        "currency": "USDT",
+        "network": "TRC20",
         "amount": withdrawal.amount,
-        "status": "pending",
-        "crypto_address": withdrawal.crypto_address,
+        "net_amount": net_amount,
+        "network_fee": network_fee,
+        "status": payout_status,
+        "crypto_address": crypto_address,
+        "nowpayments_payout_id": payout_id,
+        "nowpayments_error": payout_error,
         "txn_hash": None,
         "account_type": "real",
         "created_at": datetime.now(timezone.utc),
@@ -1312,7 +1383,13 @@ async def request_withdrawal(withdrawal: WithdrawalRequest, authorization: Optio
     
     await db.transactions.insert_one(new_transaction)
     
-    # Deduct from balance (pending approval)
+    # Also store in withdrawals collection for consistency
+    await db.withdrawals.insert_one({
+        **new_transaction,
+        "order_id": transaction_id
+    })
+    
+    # Deduct from balance immediately
     # IMPORTANT: If user has bonus, forfeit the bonus on any withdrawal
     if bonus_balance > 0:
         # Deduct withdrawal amount + forfeit entire bonus
@@ -1336,7 +1413,24 @@ async def request_withdrawal(withdrawal: WithdrawalRequest, authorization: Optio
             {"$inc": {"real_balance": -withdrawal.amount}}
         )
     
-    return {"transaction_id": transaction_id, "message": "Withdrawal request submitted"}
+    # Create success notification
+    await create_notification(
+        user.user_id,
+        "💰 Withdrawal Processing",
+        f"Your withdrawal of ${net_amount:.2f} USDT TRC20 to {crypto_address[:8]}...{crypto_address[-6:]} is being processed.",
+        "success"
+    )
+    
+    return {
+        "success": True,
+        "transaction_id": transaction_id,
+        "payout_id": payout_id,
+        "amount": withdrawal.amount,
+        "net_amount": net_amount,
+        "fee": network_fee,
+        "status": payout_status,
+        "message": "Withdrawal request submitted" if payout_status == "pending" else "Withdrawal is being processed via NOWPayments"
+    }
 
 @api_router.get("/wallet/transactions")
 async def get_transactions(authorization: Optional[str] = Header(None), request: Request = None):
@@ -4722,6 +4816,195 @@ async def tarspay_withdrawal_callback(request: Request):
     except Exception as e:
         print(f"[TarsPay Withdrawal Callback] Error: {e}")
         return Response(content="OK", status_code=200)
+
+# ============= NOWPayments Withdrawal Callback =============
+
+@api_router.post("/nowpayments/withdrawal/callback")
+async def nowpayments_withdrawal_callback(request: Request):
+    """Handle NOWPayments payout IPN callback"""
+    try:
+        body = await request.json()
+        print(f"[NOWPayments Callback] Received: {body}")
+        
+        # NOWPayments IPN fields
+        payout_id = body.get("id") or body.get("payout_id")
+        status = body.get("status")  # waiting, confirming, sending, finished, failed, refunded
+        external_id = body.get("unique_external_id")  # Our transaction_id
+        batch_withdrawal_id = body.get("batch_withdrawal_id")
+        hash_value = body.get("hash")  # Transaction hash when finished
+        
+        if not payout_id and not external_id:
+            print("[NOWPayments Callback] Missing payout_id and external_id")
+            return Response(content="OK", status_code=200)
+        
+        # Find withdrawal by NOWPayments payout_id or our transaction_id
+        query = {}
+        if payout_id:
+            query["nowpayments_payout_id"] = str(payout_id)
+        elif external_id:
+            query["transaction_id"] = external_id
+            
+        withdrawal = await db.transactions.find_one(query)
+        
+        if not withdrawal:
+            # Try withdrawals collection
+            withdrawal = await db.withdrawals.find_one(query)
+        
+        if not withdrawal:
+            print(f"[NOWPayments Callback] Withdrawal not found: payout_id={payout_id}, external_id={external_id}")
+            return Response(content="OK", status_code=200)
+        
+        transaction_id = withdrawal.get("transaction_id") or withdrawal.get("order_id")
+        user_id = withdrawal.get("user_id")
+        current_status = withdrawal.get("status")
+        
+        # Map NOWPayments status to our status
+        new_status = current_status
+        if status == "finished":
+            new_status = "completed"
+        elif status == "failed":
+            new_status = "failed"
+        elif status == "refunded":
+            new_status = "refunded"
+        elif status in ["waiting", "confirming", "sending"]:
+            new_status = "processing"
+        
+        # Only update if status changed
+        if new_status != current_status:
+            update_data = {
+                "status": new_status,
+                "nowpayments_callback_data": body
+            }
+            
+            if hash_value:
+                update_data["txn_hash"] = hash_value
+            
+            if new_status == "completed":
+                update_data["completed_at"] = datetime.now(timezone.utc)
+            
+            # Update both collections
+            await db.transactions.update_one(
+                {"transaction_id": transaction_id},
+                {"$set": update_data}
+            )
+            await db.withdrawals.update_one(
+                {"$or": [{"transaction_id": transaction_id}, {"order_id": transaction_id}]},
+                {"$set": update_data}
+            )
+            
+            # Create notification based on status
+            if new_status == "completed":
+                await create_notification(
+                    user_id,
+                    "✅ Withdrawal Successful!",
+                    f"Your USDT TRC20 withdrawal has been completed. TxHash: {hash_value[:12]}..." if hash_value else "Your withdrawal has been sent.",
+                    "withdrawal"
+                )
+                print(f"[NOWPayments Callback] Completed: {transaction_id}")
+                
+            elif new_status == "failed" or new_status == "refunded":
+                # Refund user's balance
+                amount = withdrawal.get("amount", 0)
+                await db.users.update_one(
+                    {"user_id": user_id},
+                    {"$inc": {"real_balance": amount}}
+                )
+                await create_notification(
+                    user_id,
+                    "❌ Withdrawal Failed",
+                    f"Your withdrawal of ${amount:.2f} has failed. The amount has been refunded to your balance.",
+                    "withdrawal"
+                )
+                print(f"[NOWPayments Callback] Failed/Refunded: {transaction_id}, refunded ${amount}")
+        
+        return Response(content="OK", status_code=200)
+        
+    except Exception as e:
+        print(f"[NOWPayments Callback] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return Response(content="OK", status_code=200)
+
+@api_router.get("/nowpayments/withdrawal/status/{transaction_id}")
+async def get_nowpayments_withdrawal_status(
+    transaction_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get NOWPayments withdrawal status and sync with API"""
+    try:
+        user = await get_current_user(authorization, request)
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    # Find withdrawal in transactions collection
+    withdrawal = await db.transactions.find_one({
+        "transaction_id": transaction_id,
+        "user_id": user.user_id,
+        "type": "withdrawal"
+    })
+    
+    if not withdrawal:
+        # Try withdrawals collection
+        withdrawal = await db.withdrawals.find_one({
+            "$or": [{"transaction_id": transaction_id}, {"order_id": transaction_id}],
+            "user_id": user.user_id
+        })
+    
+    if not withdrawal:
+        return {"success": False, "error": "Withdrawal not found"}
+    
+    # If has NOWPayments payout_id and not completed, check live status
+    payout_id = withdrawal.get("nowpayments_payout_id")
+    if payout_id and withdrawal.get("status") not in ["completed", "failed", "refunded"]:
+        live_status = await check_payout_status(payout_id)
+        
+        if live_status and not live_status.get("error"):
+            np_status = live_status.get("status")
+            hash_value = live_status.get("hash")
+            
+            # Update if status changed
+            new_status = withdrawal.get("status")
+            if np_status == "finished":
+                new_status = "completed"
+            elif np_status == "failed":
+                new_status = "failed"
+            elif np_status in ["waiting", "confirming", "sending"]:
+                new_status = "processing"
+            
+            if new_status != withdrawal.get("status"):
+                update_data = {"status": new_status}
+                if hash_value:
+                    update_data["txn_hash"] = hash_value
+                if new_status == "completed":
+                    update_data["completed_at"] = datetime.now(timezone.utc)
+                
+                await db.transactions.update_one(
+                    {"transaction_id": transaction_id},
+                    {"$set": update_data}
+                )
+                await db.withdrawals.update_one(
+                    {"$or": [{"transaction_id": transaction_id}, {"order_id": transaction_id}]},
+                    {"$set": update_data}
+                )
+                
+                withdrawal["status"] = new_status
+                if hash_value:
+                    withdrawal["txn_hash"] = hash_value
+    
+    return {
+        "success": True,
+        "transaction_id": transaction_id,
+        "payout_id": payout_id,
+        "status": withdrawal.get("status"),
+        "amount": withdrawal.get("amount"),
+        "net_amount": withdrawal.get("net_amount"),
+        "fee": withdrawal.get("network_fee"),
+        "crypto_address": withdrawal.get("crypto_address"),
+        "txn_hash": withdrawal.get("txn_hash"),
+        "created_at": withdrawal.get("created_at").isoformat() if withdrawal.get("created_at") else None,
+        "completed_at": withdrawal.get("completed_at").isoformat() if withdrawal.get("completed_at") else None
+    }
 
 # ============= Chart Data API (Synced across all devices) =============
 
