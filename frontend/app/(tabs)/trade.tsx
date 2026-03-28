@@ -2606,7 +2606,7 @@ export default function Trade() {
                   <Text style={depositModalStyles.label}>Select Payment Method</Text>
                   
                   {/* Bangladesh Section */}
-                  <Text style={[depositModalStyles.label, { fontSize: 12, color: '#888', marginTop: 8, marginBottom: 4 }]}>🇧🇩 Bangladesh (BDT)</Text>
+                  <Text style={[depositModalStyles.label, { fontSize: 12, color: '#00E55A', marginTop: 8, marginBottom: 4 }]}>🇧🇩 Bangladesh (BDT) ✓</Text>
                   <View style={depositModalStyles.ewalletOptions}>
                     <TouchableOpacity 
                       style={[depositModalStyles.ewalletOption, selectedEwallet === 'bkash' && depositModalStyles.ewalletOptionActive]}
@@ -2637,54 +2637,45 @@ export default function Trade() {
                     </TouchableOpacity>
                   </View>
 
-                  {/* India Section */}
-                  <Text style={[depositModalStyles.label, { fontSize: 12, color: '#888', marginTop: 12, marginBottom: 4 }]}>🇮🇳 India (INR)</Text>
-                  <View style={depositModalStyles.ewalletOptions}>
-                    <TouchableOpacity 
-                      style={[depositModalStyles.ewalletOption, selectedEwallet === 'upi' && depositModalStyles.ewalletOptionActive]}
-                      onPress={() => setSelectedEwallet('upi')}
-                    >
+                  {/* India Section - Coming Soon */}
+                  <Text style={[depositModalStyles.label, { fontSize: 12, color: '#666', marginTop: 12, marginBottom: 4 }]}>🇮🇳 India (INR) - Coming Soon</Text>
+                  <View style={[depositModalStyles.ewalletOptions, { opacity: 0.5 }]}>
+                    <View style={[depositModalStyles.ewalletOption, { backgroundColor: '#1a1a1a' }]}>
                       <View style={[depositModalStyles.ewalletLogo, { backgroundColor: '#5F259F' }]}>
                         <Text style={depositModalStyles.ewalletLogoText}>U</Text>
                       </View>
                       <View style={depositModalStyles.ewalletInfo}>
-                        <Text style={depositModalStyles.ewalletName}>UPI</Text>
-                        <Text style={depositModalStyles.ewalletLimit}>Min $10 (₹840)</Text>
+                        <Text style={[depositModalStyles.ewalletName, { color: '#666' }]}>UPI</Text>
+                        <Text style={[depositModalStyles.ewalletLimit, { color: '#555' }]}>Coming Soon</Text>
                       </View>
-                      {selectedEwallet === 'upi' && <Ionicons name="checkmark-circle" size={20} color="#00E55A" />}
-                    </TouchableOpacity>
+                      <Ionicons name="time-outline" size={20} color="#666" />
+                    </View>
                   </View>
 
-                  {/* Pakistan Section */}
-                  <Text style={[depositModalStyles.label, { fontSize: 12, color: '#888', marginTop: 12, marginBottom: 4 }]}>🇵🇰 Pakistan (PKR)</Text>
-                  <View style={depositModalStyles.ewalletOptions}>
-                    <TouchableOpacity 
-                      style={[depositModalStyles.ewalletOption, selectedEwallet === 'jazzcash' && depositModalStyles.ewalletOptionActive]}
-                      onPress={() => setSelectedEwallet('jazzcash')}
-                    >
+                  {/* Pakistan Section - Coming Soon */}
+                  <Text style={[depositModalStyles.label, { fontSize: 12, color: '#666', marginTop: 12, marginBottom: 4 }]}>🇵🇰 Pakistan (PKR) - Coming Soon</Text>
+                  <View style={[depositModalStyles.ewalletOptions, { opacity: 0.5 }]}>
+                    <View style={[depositModalStyles.ewalletOption, { backgroundColor: '#1a1a1a' }]}>
                       <View style={[depositModalStyles.ewalletLogo, { backgroundColor: '#ED1C24' }]}>
                         <Text style={depositModalStyles.ewalletLogoText}>J</Text>
                       </View>
                       <View style={depositModalStyles.ewalletInfo}>
-                        <Text style={depositModalStyles.ewalletName}>JazzCash</Text>
-                        <Text style={depositModalStyles.ewalletLimit}>Min $10 (Rs 2,780)</Text>
+                        <Text style={[depositModalStyles.ewalletName, { color: '#666' }]}>JazzCash</Text>
+                        <Text style={[depositModalStyles.ewalletLimit, { color: '#555' }]}>Coming Soon</Text>
                       </View>
-                      {selectedEwallet === 'jazzcash' && <Ionicons name="checkmark-circle" size={20} color="#00E55A" />}
-                    </TouchableOpacity>
+                      <Ionicons name="time-outline" size={20} color="#666" />
+                    </View>
                     
-                    <TouchableOpacity 
-                      style={[depositModalStyles.ewalletOption, selectedEwallet === 'easypaisa' && depositModalStyles.ewalletOptionActive]}
-                      onPress={() => setSelectedEwallet('easypaisa')}
-                    >
+                    <View style={[depositModalStyles.ewalletOption, { backgroundColor: '#1a1a1a' }]}>
                       <View style={[depositModalStyles.ewalletLogo, { backgroundColor: '#00A651' }]}>
                         <Text style={depositModalStyles.ewalletLogoText}>E</Text>
                       </View>
                       <View style={depositModalStyles.ewalletInfo}>
-                        <Text style={depositModalStyles.ewalletName}>EasyPaisa</Text>
-                        <Text style={depositModalStyles.ewalletLimit}>Min $10 (Rs 2,780)</Text>
+                        <Text style={[depositModalStyles.ewalletName, { color: '#666' }]}>EasyPaisa</Text>
+                        <Text style={[depositModalStyles.ewalletLimit, { color: '#555' }]}>Coming Soon</Text>
                       </View>
-                      {selectedEwallet === 'easypaisa' && <Ionicons name="checkmark-circle" size={20} color="#00E55A" />}
-                    </TouchableOpacity>
+                      <Ionicons name="time-outline" size={20} color="#666" />
+                    </View>
                   </View>
 
                   {/* Generate Button */}
