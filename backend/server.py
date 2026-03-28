@@ -4012,7 +4012,7 @@ async def create_tarspay_deposit(
     base_url = f"{scheme}://{host}"
     
     notify_url = f"{base_url}/api/tarspay/callback"
-    return_url = f"{base_url}/(tabs)/trade"
+    return_url = f"{base_url}/trade"
     
     # Create TarsPay order
     result = await tarspay_service.create_deposit_order(
