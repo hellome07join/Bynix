@@ -2614,7 +2614,8 @@ export default function Trade() {
                     >
                       <Image 
                         source={{ uri: 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/5rfa1wl4_IMG_3475.png' }}
-                        style={{ width: 36, height: 36, borderRadius: 8 }}
+                        style={{ width: 36, height: 36, borderRadius: 8, marginRight: 10 }}
+                        resizeMode="contain"
                       />
                       <View style={depositModalStyles.ewalletInfo}>
                         <Text style={depositModalStyles.ewalletName}>bKash</Text>
@@ -2629,7 +2630,8 @@ export default function Trade() {
                     >
                       <Image 
                         source={{ uri: 'https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/remcqmc2_IMG_3476.png' }}
-                        style={{ width: 36, height: 36, borderRadius: 8 }}
+                        style={{ width: 36, height: 36, borderRadius: 8, marginRight: 10 }}
+                        resizeMode="contain"
                       />
                       <View style={depositModalStyles.ewalletInfo}>
                         <Text style={depositModalStyles.ewalletName}>Nagad</Text>
