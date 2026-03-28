@@ -8,24 +8,81 @@ import httpx
 from typing import Optional, Dict, Any
 from dotenv import load_dotenv
 from pathlib import Path
+from datetime import datetime, timedelta
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 NOWPAYMENTS_API_KEY = os.environ.get("NOWPAYMENTS_API_KEY", "")
+NOWPAYMENTS_EMAIL = os.environ.get("NOWPAYMENTS_EMAIL", "")
+NOWPAYMENTS_PASSWORD = os.environ.get("NOWPAYMENTS_PASSWORD", "")
 NOWPAYMENTS_IPN_SECRET = os.environ.get("NOWPAYMENTS_IPN_SECRET", "")
 NOWPAYMENTS_BASE_URL = "https://api.nowpayments.io/v1"
 
 class NOWPaymentsService:
-    """Service class for NOWPayments Payout API"""
+    """Service class for NOWPayments Payout API with JWT Authentication"""
     
     def __init__(self):
         self.api_key = NOWPAYMENTS_API_KEY
+        self.email = NOWPAYMENTS_EMAIL
+        self.password = NOWPAYMENTS_PASSWORD
         self.base_url = NOWPAYMENTS_BASE_URL
-        self.headers = {
+        self.jwt_token = None
+        self.jwt_expires_at = None
+    
+    def _get_base_headers(self) -> Dict[str, str]:
+        """Get base headers with API key"""
+        return {
             "x-api-key": self.api_key,
             "Content-Type": "application/json"
         }
+    
+    def _get_auth_headers(self) -> Dict[str, str]:
+        """Get headers with both API key and JWT token"""
+        headers = self._get_base_headers()
+        if self.jwt_token:
+            headers["Authorization"] = f"Bearer {self.jwt_token}"
+        return headers
+    
+    async def authenticate(self) -> bool:
+        """
+        Authenticate with NOWPayments to get JWT token
+        Required for payout operations
+        """
+        try:
+            # Check if we have a valid token
+            if self.jwt_token and self.jwt_expires_at:
+                if datetime.now() < self.jwt_expires_at:
+                    return True
+            
+            print(f"[NOWPayments] Authenticating with email: {self.email}")
+            
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(
+                    f"{self.base_url}/auth",
+                    headers={"Content-Type": "application/json"},
+                    json={
+                        "email": self.email,
+                        "password": self.password
+                    }
+                )
+                
+                data = response.json()
+                print(f"[NOWPayments] Auth response: {response.status_code}")
+                
+                if response.status_code == 200 and data.get("token"):
+                    self.jwt_token = data["token"]
+                    # Token typically valid for 24 hours, refresh after 23 hours
+                    self.jwt_expires_at = datetime.now() + timedelta(hours=23)
+                    print("[NOWPayments] Authentication successful")
+                    return True
+                else:
+                    print(f"[NOWPayments] Auth failed: {data}")
+                    return False
+                    
+        except Exception as e:
+            print(f"[NOWPayments] Auth error: {e}")
+            return False
     
     async def get_status(self) -> Dict[str, Any]:
         """Check NOWPayments API status"""
@@ -33,31 +90,21 @@ class NOWPaymentsService:
             async with httpx.AsyncClient(timeout=30) as client:
                 response = await client.get(
                     f"{self.base_url}/status",
-                    headers=self.headers
+                    headers=self._get_base_headers()
                 )
                 return response.json()
         except Exception as e:
             return {"error": str(e)}
     
-    async def get_available_currencies(self) -> Dict[str, Any]:
-        """Get list of available currencies for payout"""
+    async def get_balance(self) -> Dict[str, Any]:
+        """Get NOWPayments account balance (requires JWT)"""
         try:
+            await self.authenticate()
+            
             async with httpx.AsyncClient(timeout=30) as client:
                 response = await client.get(
-                    f"{self.base_url}/payout/currencies",
-                    headers=self.headers
-                )
-                return response.json()
-        except Exception as e:
-            return {"error": str(e)}
-    
-    async def get_minimum_payout(self, currency: str = "usdttrc20") -> Dict[str, Any]:
-        """Get minimum payout amount for a currency"""
-        try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                response = await client.get(
-                    f"{self.base_url}/payout/min-amount?currency={currency}",
-                    headers=self.headers
+                    f"{self.base_url}/balance",
+                    headers=self._get_auth_headers()
                 )
                 return response.json()
         except Exception as e:
@@ -69,29 +116,15 @@ class NOWPaymentsService:
             async with httpx.AsyncClient(timeout=30) as client:
                 response = await client.post(
                     f"{self.base_url}/payout/validate-address",
-                    headers=self.headers,
+                    headers=self._get_base_headers(),
                     json={
                         "address": address,
                         "currency": currency
                     }
                 )
-                data = response.json()
-                # If response contains result: true, address is valid
-                return data
-        except Exception as e:
-            return {"error": str(e), "result": False}
-    
-    async def get_balance(self) -> Dict[str, Any]:
-        """Get NOWPayments account balance"""
-        try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                response = await client.get(
-                    f"{self.base_url}/balance",
-                    headers=self.headers
-                )
                 return response.json()
         except Exception as e:
-            return {"error": str(e)}
+            return {"error": str(e), "result": False}
     
     async def create_payout(
         self,
@@ -103,6 +136,7 @@ class NOWPaymentsService:
     ) -> Dict[str, Any]:
         """
         Create a payout request to send USDT TRC20
+        Requires JWT authentication
         
         Args:
             address: Recipient's TRC20 wallet address (starts with T)
@@ -115,38 +149,82 @@ class NOWPaymentsService:
             Payout response with id, status, etc.
         """
         try:
+            # First authenticate to get JWT token
+            auth_success = await self.authenticate()
+            if not auth_success:
+                return {
+                    "success": False,
+                    "error": "Failed to authenticate with NOWPayments"
+                }
+            
+            # Build payout payload
+            # NOWPayments uses "withdrawals" array for batch payouts
             payload = {
-                "address": address,
-                "amount": amount,
-                "currency": currency,
-                "ipn_callback_url": ipn_callback_url
+                "ipn_callback_url": ipn_callback_url,
+                "withdrawals": [
+                    {
+                        "address": address,
+                        "currency": currency,
+                        "amount": amount,
+                        "unique_external_id": unique_external_id
+                    }
+                ]
             }
             
-            if unique_external_id:
-                payload["unique_external_id"] = unique_external_id
-            
-            # Remove None values
-            payload = {k: v for k, v in payload.items() if v is not None}
+            # Remove None values from withdrawal
+            payload["withdrawals"][0] = {k: v for k, v in payload["withdrawals"][0].items() if v is not None}
+            if not ipn_callback_url:
+                del payload["ipn_callback_url"]
             
             print(f"[NOWPayments] Creating payout: {payload}")
             
             async with httpx.AsyncClient(timeout=60) as client:
                 response = await client.post(
                     f"{self.base_url}/payout",
-                    headers=self.headers,
+                    headers=self._get_auth_headers(),
                     json=payload
                 )
                 
                 data = response.json()
-                print(f"[NOWPayments] Payout response: {data}")
+                print(f"[NOWPayments] Payout response ({response.status_code}): {data}")
                 
-                return {
-                    "success": response.status_code in [200, 201],
-                    "status_code": response.status_code,
-                    "data": data
-                }
+                # Handle successful response
+                if response.status_code in [200, 201]:
+                    # Response contains "withdrawals" array
+                    withdrawals = data.get("withdrawals", [])
+                    if withdrawals:
+                        withdrawal = withdrawals[0]
+                        return {
+                            "success": True,
+                            "status_code": response.status_code,
+                            "data": {
+                                "id": withdrawal.get("id"),
+                                "batch_withdrawal_id": withdrawal.get("batch_withdrawal_id"),
+                                "status": withdrawal.get("status"),
+                                "amount": withdrawal.get("amount"),
+                                "currency": withdrawal.get("currency"),
+                                "address": withdrawal.get("address"),
+                                "hash": withdrawal.get("hash"),
+                                "unique_external_id": withdrawal.get("unique_external_id")
+                            }
+                        }
+                    return {
+                        "success": True,
+                        "status_code": response.status_code,
+                        "data": data
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "status_code": response.status_code,
+                        "data": data,
+                        "error": data.get("message") or data.get("error") or "Payout creation failed"
+                    }
+                    
         except Exception as e:
             print(f"[NOWPayments] Payout error: {e}")
+            import traceback
+            traceback.print_exc()
             return {
                 "success": False,
                 "error": str(e)
@@ -154,7 +232,7 @@ class NOWPaymentsService:
     
     async def get_payout_status(self, payout_id: str) -> Dict[str, Any]:
         """
-        Get the status of a payout
+        Get the status of a payout (requires JWT)
         
         Args:
             payout_id: The NOWPayments payout ID
@@ -163,10 +241,12 @@ class NOWPaymentsService:
             Payout details including status
         """
         try:
+            await self.authenticate()
+            
             async with httpx.AsyncClient(timeout=30) as client:
                 response = await client.get(
                     f"{self.base_url}/payout/{payout_id}",
-                    headers=self.headers
+                    headers=self._get_auth_headers()
                 )
                 return response.json()
         except Exception as e:
@@ -179,7 +259,7 @@ class NOWPaymentsService:
         status: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Get list of payouts
+        Get list of payouts (requires JWT)
         
         Args:
             limit: Number of results per page
@@ -187,6 +267,8 @@ class NOWPaymentsService:
             status: Filter by status (waiting, confirming, sending, finished, failed)
         """
         try:
+            await self.authenticate()
+            
             params = {
                 "limit": limit,
                 "page": page
@@ -197,7 +279,7 @@ class NOWPaymentsService:
             async with httpx.AsyncClient(timeout=30) as client:
                 response = await client.get(
                     f"{self.base_url}/payout",
-                    headers=self.headers,
+                    headers=self._get_auth_headers(),
                     params=params
                 )
                 return response.json()
@@ -244,10 +326,7 @@ async def validate_trc20_address(address: str) -> bool:
     # Basic TRC20 address validation
     if not address or len(address) != 34 or not address.startswith('T'):
         return False
-    
-    # Also validate via NOWPayments API
-    result = await nowpayments_service.validate_address(address, "usdttrc20")
-    return result.get("result", False) or result.get("isValid", False)
+    return True
 
 
 async def get_nowpayments_balance() -> Dict[str, Any]:
