@@ -2602,9 +2602,12 @@ export default function Trade() {
                     </View>
                   )}
 
-                  {/* eWallet Selection */}
-                  <Text style={depositModalStyles.label}>Select Wallet</Text>
-                  <View style={depositModalStyles.ewalletOptions}>>
+                  {/* eWallet Selection - Multiple Countries */}
+                  <Text style={depositModalStyles.label}>Select Payment Method</Text>
+                  
+                  {/* Bangladesh Section */}
+                  <Text style={[depositModalStyles.label, { fontSize: 12, color: '#888', marginTop: 8, marginBottom: 4 }]}>🇧🇩 Bangladesh (BDT)</Text>
+                  <View style={depositModalStyles.ewalletOptions}>
                     <TouchableOpacity 
                       style={[depositModalStyles.ewalletOption, selectedEwallet === 'bkash' && depositModalStyles.ewalletOptionActive]}
                       onPress={() => setSelectedEwallet('bkash')}
@@ -2631,6 +2634,56 @@ export default function Trade() {
                         <Text style={depositModalStyles.ewalletLimit}>Min $10 (৳1,270)</Text>
                       </View>
                       {selectedEwallet === 'nagad' && <Ionicons name="checkmark-circle" size={20} color="#00E55A" />}
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* India Section */}
+                  <Text style={[depositModalStyles.label, { fontSize: 12, color: '#888', marginTop: 12, marginBottom: 4 }]}>🇮🇳 India (INR)</Text>
+                  <View style={depositModalStyles.ewalletOptions}>
+                    <TouchableOpacity 
+                      style={[depositModalStyles.ewalletOption, selectedEwallet === 'upi' && depositModalStyles.ewalletOptionActive]}
+                      onPress={() => setSelectedEwallet('upi')}
+                    >
+                      <View style={[depositModalStyles.ewalletLogo, { backgroundColor: '#5F259F' }]}>
+                        <Text style={depositModalStyles.ewalletLogoText}>U</Text>
+                      </View>
+                      <View style={depositModalStyles.ewalletInfo}>
+                        <Text style={depositModalStyles.ewalletName}>UPI</Text>
+                        <Text style={depositModalStyles.ewalletLimit}>Min $10 (₹840)</Text>
+                      </View>
+                      {selectedEwallet === 'upi' && <Ionicons name="checkmark-circle" size={20} color="#00E55A" />}
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Pakistan Section */}
+                  <Text style={[depositModalStyles.label, { fontSize: 12, color: '#888', marginTop: 12, marginBottom: 4 }]}>🇵🇰 Pakistan (PKR)</Text>
+                  <View style={depositModalStyles.ewalletOptions}>
+                    <TouchableOpacity 
+                      style={[depositModalStyles.ewalletOption, selectedEwallet === 'jazzcash' && depositModalStyles.ewalletOptionActive]}
+                      onPress={() => setSelectedEwallet('jazzcash')}
+                    >
+                      <View style={[depositModalStyles.ewalletLogo, { backgroundColor: '#ED1C24' }]}>
+                        <Text style={depositModalStyles.ewalletLogoText}>J</Text>
+                      </View>
+                      <View style={depositModalStyles.ewalletInfo}>
+                        <Text style={depositModalStyles.ewalletName}>JazzCash</Text>
+                        <Text style={depositModalStyles.ewalletLimit}>Min $10 (Rs 2,780)</Text>
+                      </View>
+                      {selectedEwallet === 'jazzcash' && <Ionicons name="checkmark-circle" size={20} color="#00E55A" />}
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={[depositModalStyles.ewalletOption, selectedEwallet === 'easypaisa' && depositModalStyles.ewalletOptionActive]}
+                      onPress={() => setSelectedEwallet('easypaisa')}
+                    >
+                      <View style={[depositModalStyles.ewalletLogo, { backgroundColor: '#00A651' }]}>
+                        <Text style={depositModalStyles.ewalletLogoText}>E</Text>
+                      </View>
+                      <View style={depositModalStyles.ewalletInfo}>
+                        <Text style={depositModalStyles.ewalletName}>EasyPaisa</Text>
+                        <Text style={depositModalStyles.ewalletLimit}>Min $10 (Rs 2,780)</Text>
+                      </View>
+                      {selectedEwallet === 'easypaisa' && <Ionicons name="checkmark-circle" size={20} color="#00E55A" />}
                     </TouchableOpacity>
                   </View>
 

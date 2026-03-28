@@ -19,7 +19,7 @@ import socketio
 import asyncio
 import base64
 from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContent
-from tarspay_service import tarspay_service, fetch_live_exchange_rate, get_current_rate
+from tarspay_service import tarspay_service, fetch_live_exchange_rate, get_current_rate, get_rate_for_currency, TARSPAY_CHANNELS, ALL_CHANNELS
 from email_service import send_verification_otp, verify_otp as verify_email_otp, resend_otp
 
 # Demo-only assets - These 6 Forex assets are ONLY available for Demo trading
@@ -3974,16 +3974,20 @@ class TarsPayDepositRequest(BaseModel):
 
 @api_router.get("/tarspay/channels")
 async def get_tarspay_channels():
-    """Get available TarsPay payment channels (bKash, Nagad)"""
-    # Fetch live exchange rate
-    exchange_rate = await fetch_live_exchange_rate()
+    """Get available TarsPay payment channels for all countries"""
     channels = tarspay_service.get_channels()
     return {
         "success": True,
         "channels": channels,
-        "exchange_rate": {
-            "usd_to_bdt": exchange_rate,
-            "currency": "BDT"
+        "exchange_rates": {
+            "BDT": get_rate_for_currency("BDT"),
+            "INR": get_rate_for_currency("INR"),
+            "PKR": get_rate_for_currency("PKR")
+        },
+        "countries": {
+            "bd": {"name": "Bangladesh", "currency": "BDT", "flag": "🇧🇩"},
+            "in": {"name": "India", "currency": "INR", "flag": "🇮🇳"},
+            "pk": {"name": "Pakistan", "currency": "PKR", "flag": "🇵🇰"}
         }
     }
 

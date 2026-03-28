@@ -23,9 +23,10 @@ TARSPAY_PRIVATE_KEY = os.getenv("TARSPAY_PRIVATE_KEY", "")
 TARSPAY_PUBLIC_KEY = os.getenv("TARSPAY_PUBLIC_KEY", "")
 TARSPAY_SYSTEM_PUBLIC_KEY = os.getenv("TARSPAY_SYSTEM_PUBLIC_KEY", "03029c655932f22aee81034d109795fbd7e23ca173ca27e195091d434e593a2e0f")
 
-# Default exchange rate (fixed at 120 BDT per USD as per user request)
-USD_TO_BDT = int(os.getenv("BDT_TO_USD_RATE", "120"))
-_cached_rate = {"rate": USD_TO_BDT, "last_updated": 0}
+# Exchange rates (fixed rates as per user request)
+USD_TO_BDT = int(os.getenv("BDT_TO_USD_RATE", "127"))
+USD_TO_INR = int(os.getenv("INR_TO_USD_RATE", "84"))  # 1 USD = 84 INR
+USD_TO_PKR = int(os.getenv("PKR_TO_USD_RATE", "278"))  # 1 USD = 278 PKR
 
 async def fetch_live_exchange_rate() -> float:
     """Return fixed exchange rate (127 BDT per USD as configured)"""
@@ -35,22 +36,86 @@ def get_current_rate() -> float:
     """Get current fixed exchange rate"""
     return float(USD_TO_BDT)
 
-# Payment channels - Min $10 USD = 1200 BDT at 120 BDT/USD rate
-TARSPAY_CHANNELS = {
+def get_rate_for_currency(currency: str) -> float:
+    """Get exchange rate for specific currency"""
+    rates = {
+        "BDT": float(USD_TO_BDT),
+        "INR": float(USD_TO_INR),
+        "PKR": float(USD_TO_PKR)
+    }
+    return rates.get(currency, 127.0)
+
+# Payment channels configuration
+# Bangladesh (BDT) - Min $10 USD
+TARSPAY_CHANNELS_BD = {
     "bkash": {
         "wayCode": "EWALLET_BKASH",
         "name": "bKash",
-        "min_bdt": 1200,  # $10 minimum
-        "max_bdt": 30000,
+        "currency": "BDT",
+        "country": "bd",
+        "min_local": 1270,  # $10 * 127
+        "max_local": 30000,
+        "min_usd": 10,
         "logo": "https://defipay.oss-ap-southeast-1.aliyuncs.com/bKash.png"
     },
     "nagad": {
         "wayCode": "EWALLET_NAGAD",
         "name": "Nagad",
-        "min_bdt": 1200,  # $10 minimum
-        "max_bdt": 30000,
+        "currency": "BDT",
+        "country": "bd",
+        "min_local": 1270,
+        "max_local": 30000,
+        "min_usd": 10,
         "logo": "https://defipay.oss-ap-southeast-1.aliyuncs.com/nagad.png"
     }
+}
+
+# India (INR) - Min $10 USD
+TARSPAY_CHANNELS_IN = {
+    "upi": {
+        "wayCode": "UPI",
+        "name": "UPI",
+        "currency": "INR",
+        "country": "in",
+        "min_local": 840,  # $10 * 84
+        "max_local": 50000,
+        "min_usd": 10,
+        "logo": "https://tarspay.oss-ap-southeast-1.aliyuncs.com/tarspay_v_1.0/upi.svg"
+    }
+}
+
+# Pakistan (PKR) - Min $10 USD
+TARSPAY_CHANNELS_PK = {
+    "jazzcash": {
+        "wayCode": "jazzcash",
+        "name": "JazzCash",
+        "currency": "PKR",
+        "country": "pk",
+        "min_local": 2780,  # $10 * 278
+        "max_local": 50000,
+        "min_usd": 10,
+        "logo": "https://upload.wikimedia.org/wikipedia/en/thumb/a/a6/JazzCash_logo.png/220px-JazzCash_logo.png"
+    },
+    "easypaisa": {
+        "wayCode": "easypaisa",
+        "name": "EasyPaisa",
+        "currency": "PKR",
+        "country": "pk",
+        "min_local": 2780,
+        "max_local": 50000,
+        "min_usd": 10,
+        "logo": "https://defipay.oss-ap-southeast-1.aliyuncs.com/easypaisa.png"
+    }
+}
+
+# Combined channels for backward compatibility
+TARSPAY_CHANNELS = {**TARSPAY_CHANNELS_BD, **TARSPAY_CHANNELS_IN, **TARSPAY_CHANNELS_PK}
+
+# All channels by country
+ALL_CHANNELS = {
+    "bd": TARSPAY_CHANNELS_BD,
+    "in": TARSPAY_CHANNELS_IN,
+    "pk": TARSPAY_CHANNELS_PK
 }
 
 
@@ -144,7 +209,7 @@ class TarsPayService:
         Args:
             order_id: Unique merchant order ID
             amount_usd: Amount in USD
-            channel: Payment channel (bkash, nagad, bkash_official)
+            channel: Payment channel (bkash, nagad, upi, jazzcash, easypaisa)
             customer_phone: Customer's phone/wallet number
             notify_url: Callback URL for payment notification
             return_url: URL to redirect after payment
@@ -153,25 +218,34 @@ class TarsPayService:
             API response with payment URL and order details
         """
         # Get channel config
-        channel_config = TARSPAY_CHANNELS.get(channel, TARSPAY_CHANNELS["bkash"])
+        channel_config = TARSPAY_CHANNELS.get(channel)
+        if not channel_config:
+            return {"success": False, "error": f"Invalid channel: {channel}"}
+        
         way_code = channel_config["wayCode"]
+        currency = channel_config.get("currency", "BDT")
+        country = channel_config.get("country", "bd")
         
-        # Fetch live exchange rate
-        exchange_rate = await fetch_live_exchange_rate()
+        # Get exchange rate for this currency
+        exchange_rate = get_rate_for_currency(currency)
         
-        # Convert USD to BDT
-        amount_bdt = int(amount_usd * exchange_rate)
+        # Convert USD to local currency
+        amount_local = int(amount_usd * exchange_rate)
         
         # Validate amount limits
-        if amount_bdt < channel_config["min_bdt"]:
+        min_local = channel_config.get("min_local", 1000)
+        max_local = channel_config.get("max_local", 50000)
+        min_usd = channel_config.get("min_usd", 10)
+        
+        if amount_usd < min_usd:
             return {
                 "success": False,
-                "error": f"Minimum amount is {channel_config['min_bdt']} BDT (${channel_config['min_bdt'] / USD_TO_BDT:.2f} USD)"
+                "error": f"Minimum amount is ${min_usd} USD"
             }
-        if amount_bdt > channel_config["max_bdt"]:
+        if amount_local > max_local:
             return {
                 "success": False,
-                "error": f"Maximum amount is {channel_config['max_bdt']} BDT (${channel_config['max_bdt'] / USD_TO_BDT:.2f} USD)"
+                "error": f"Maximum amount is {max_local} {currency}"
             }
         
         # Prepare request
@@ -179,13 +253,17 @@ class TarsPayService:
         timestamp = int(time.time() * 1000)
         
         params = {
-            "amount": str(amount_bdt),
-            "currency": "BDT",
+            "amount": str(amount_local),
+            "currency": currency,
             "mchNo": self.mch_no,
             "mchOrderNo": order_id,
             "notifyUrl": notify_url,
             "wayCode": way_code
         }
+        
+        # Add step parameter for Pakistan channels
+        if country == "pk":
+            params["step"] = 0  # Use TarsPay cashier
         
         if customer_phone:
             params["customerContact"] = customer_phone
@@ -224,8 +302,10 @@ class TarsPayService:
                         "success": True,
                         "payment_id": resp_data.get("payOrderId"),
                         "order_id": order_id,
-                        "amount_bdt": amount_bdt,
+                        "amount_local": amount_local,
                         "amount_usd": amount_usd,
+                        "currency": currency,
+                        "country": country,
                         "pay_url": resp_data.get("payUrl"),
                         "pay_data": resp_data.get("payData"),
                         "pay_data_type": resp_data.get("payDataType"),
@@ -237,9 +317,9 @@ class TarsPayService:
                 else:
                     return {
                         "success": False,
-                        "error": data.get("msg", "Unknown error")
+                        "error": data.get("msg", "Unknown error"),
+                        "code": data.get("code")
                     }
-                    
         except Exception as e:
             print(f"TarsPay: API request error: {e}")
             return {"success": False, "error": str(e)}
@@ -305,18 +385,23 @@ class TarsPayService:
             return {"success": False, "error": str(e)}
     
     def get_channels(self) -> list:
-        """Get available payment channels with limits"""
+        """Get available payment channels with limits for all countries"""
         channels = []
         for key, config in TARSPAY_CHANNELS.items():
+            currency = config.get("currency", "BDT")
+            rate = get_rate_for_currency(currency)
             channels.append({
                 "id": key,
                 "name": config["name"],
                 "wayCode": config["wayCode"],
-                "min_usd": round(config["min_bdt"] / USD_TO_BDT, 2),
-                "max_usd": round(config["max_bdt"] / USD_TO_BDT, 2),
-                "min_bdt": config["min_bdt"],
-                "max_bdt": config["max_bdt"],
-                "logo": config["logo"]
+                "currency": currency,
+                "country": config.get("country", "bd"),
+                "min_usd": config.get("min_usd", 10),
+                "max_usd": round(config.get("max_local", 50000) / rate, 2),
+                "min_local": config.get("min_local", 1000),
+                "max_local": config.get("max_local", 50000),
+                "exchange_rate": rate,
+                "logo": config.get("logo", "")
             })
         return channels
 
