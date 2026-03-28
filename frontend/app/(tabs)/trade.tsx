@@ -2461,9 +2461,9 @@ export default function Trade() {
                 style={[depositModalStyles.methodTab, depositMethod === 'ewallet' && depositModalStyles.methodTabActive]}
                 onPress={() => setDepositMethod('ewallet')}
               >
-                <Text style={depositModalStyles.methodTabIcon}>🇧🇩</Text>
+                <Ionicons name="wallet-outline" size={16} color={depositMethod === 'ewallet' ? '#00E55A' : '#888'} />
                 <Text style={[depositModalStyles.methodTabText, depositMethod === 'ewallet' && depositModalStyles.methodTabTextActive]}>
-                  bKash / Nagad
+                  E-Wallet
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity 
