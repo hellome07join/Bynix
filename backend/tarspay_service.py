@@ -11,17 +11,21 @@ import asyncio
 from typing import Optional, Dict, Any
 from ecdsa import SigningKey, VerifyingKey, SECP256k1, BadSignatureError
 from ecdsa.util import sigencode_der, sigdecode_der
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # TarsPay Configuration
-TARSPAY_BASE_URL = "https://payment.tarspay.com"
-TARSPAY_MCH_NO = os.getenv("TARSPAY_MCH_NO", "01614709038")
-TARSPAY_PRIVATE_KEY = os.getenv("TARSPAY_PRIVATE_KEY", "3194f63d9c3776c27e5b0ad2caf9b54a5036873b6e659a9f12192f5fc7640fb0")
-TARSPAY_PUBLIC_KEY = os.getenv("TARSPAY_PUBLIC_KEY", "02864db35a35a8d4c7b5c026a6b573c0877476af4cdd1f0a0a412b77534d639922")
-TARSPAY_SYSTEM_PUBLIC_KEY = "03029c655932f22aee81034d109795fbd7e23ca173ca27e195091d434e593a2e0f"
+TARSPAY_BASE_URL = os.getenv("TARSPAY_API_URL", "https://payment.tarspay.com")
+TARSPAY_MCH_NO = os.getenv("TARSPAY_MERCHANT_ID", "M1023")
+TARSPAY_PRIVATE_KEY = os.getenv("TARSPAY_PRIVATE_KEY", "")
+TARSPAY_PUBLIC_KEY = os.getenv("TARSPAY_PUBLIC_KEY", "")
+TARSPAY_SYSTEM_PUBLIC_KEY = os.getenv("TARSPAY_SYSTEM_PUBLIC_KEY", "03029c655932f22aee81034d109795fbd7e23ca173ca27e195091d434e593a2e0f")
 
-# Default exchange rate (will be updated by auto-fetch)
-USD_TO_BDT = 120
-_cached_rate = {"rate": 120, "last_updated": 0}
+# Default exchange rate (fixed at 120 BDT per USD as per user request)
+USD_TO_BDT = int(os.getenv("BDT_TO_USD_RATE", "120"))
+_cached_rate = {"rate": USD_TO_BDT, "last_updated": 0}
 
 async def fetch_live_exchange_rate() -> float:
     """Fetch live USD to BDT exchange rate from multiple sources"""
@@ -68,28 +72,21 @@ def get_current_rate() -> float:
     """Get current cached exchange rate"""
     return _cached_rate["rate"]
 
-# Payment channels
+# Payment channels - Min $10 USD = 1200 BDT at 120 BDT/USD rate
 TARSPAY_CHANNELS = {
     "bkash": {
         "wayCode": "EWALLET_BKASH",
         "name": "bKash",
-        "min_bdt": 100,
+        "min_bdt": 1200,  # $10 minimum
         "max_bdt": 30000,
         "logo": "https://defipay.oss-ap-southeast-1.aliyuncs.com/bKash.png"
     },
     "nagad": {
         "wayCode": "EWALLET_NAGAD",
         "name": "Nagad",
-        "min_bdt": 100,
+        "min_bdt": 1200,  # $10 minimum
         "max_bdt": 30000,
         "logo": "https://defipay.oss-ap-southeast-1.aliyuncs.com/nagad.png"
-    },
-    "bkash_official": {
-        "wayCode": "EWALLET_BKASH_OFFICIAL",
-        "name": "bKash Official (0% Fee)",
-        "min_bdt": 50,
-        "max_bdt": 75000,
-        "logo": "https://defipay.oss-ap-southeast-1.aliyuncs.com/bKash.png"
     }
 }
 

@@ -2485,7 +2485,7 @@ export default function Trade() {
                       </View>
                       <View style={depositModalStyles.ewalletInfo}>
                         <Text style={depositModalStyles.ewalletName}>bKash</Text>
-                        <Text style={depositModalStyles.ewalletLimit}>৳100 - ৳30,000</Text>
+                        <Text style={depositModalStyles.ewalletLimit}>Min $10 (৳1,200)</Text>
                       </View>
                       {selectedEwallet === 'bkash' && <Ionicons name="checkmark-circle" size={20} color="#00E55A" />}
                     </TouchableOpacity>
@@ -2499,7 +2499,7 @@ export default function Trade() {
                       </View>
                       <View style={depositModalStyles.ewalletInfo}>
                         <Text style={depositModalStyles.ewalletName}>Nagad</Text>
-                        <Text style={depositModalStyles.ewalletLimit}>৳100 - ৳30,000</Text>
+                        <Text style={depositModalStyles.ewalletLimit}>Min $10 (৳1,200)</Text>
                       </View>
                       {selectedEwallet === 'nagad' && <Ionicons name="checkmark-circle" size={20} color="#00E55A" />}
                     </TouchableOpacity>
