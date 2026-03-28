@@ -2,8 +2,23 @@ import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { View, StyleSheet, Text, Platform, ActivityIndicator } from 'react-native';
 import Constants from 'expo-constants';
 
-// Constants for chart interactions
-const SCROLL_SENSITIVITY = 0.5;
+// ============= SMOOTH CHART PHYSICS CONSTANTS =============
+// Fine-tuned for Binolla-like smoothness
+
+// Scroll Physics
+const SCROLL_SENSITIVITY = 0.8;
+const MOMENTUM_FRICTION = 0.97; // Higher = longer momentum (0.92 was too abrupt)
+const MOMENTUM_MIN_VELOCITY = 0.1; // Lower threshold for smoother stop
+const VELOCITY_MULTIPLIER = 20; // Better velocity tracking
+const MAX_VELOCITY = 50; // Cap velocity for controlled feel
+
+// Zoom Physics  
+const ZOOM_EASING = 0.12; // Smooth zoom interpolation
+const ZOOM_MIN = 0.25;
+const ZOOM_MAX = 5;
+
+// Animation timing
+const ANIMATION_LERP = 0.15; // Linear interpolation factor for smooth transitions
 
 interface TradeMarker {
   id: string;
@@ -213,15 +228,16 @@ export default function TradingViewChart({
   const mouseDownPosRef = useRef({ x: 0, y: 0 });
   const actuallyDraggedRef = useRef(false);
   
-  // Zoom constraints
-  const MIN_SCALE = 0.3;
-  const MAX_SCALE = 4;
+  // Zoom constraints - use physics constants
+  const MIN_SCALE = ZOOM_MIN;
+  const MAX_SCALE = ZOOM_MAX;
   
   // Smooth animation for scale transitions with better easing
   useEffect(() => {
     let animFrame: number;
     let isAnimating = true;
     
+    // Cubic ease-out for natural deceleration feel
     const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
     
     const animate = () => {
@@ -230,9 +246,9 @@ export default function TradingViewChart({
       // Smooth scale transition with cubic easing
       setScale(prev => {
         const diff = targetScale - prev;
-        if (Math.abs(diff) < 0.001) return targetScale;
-        // Smoother easing factor for zoom
-        const easedDiff = diff * 0.15;
+        if (Math.abs(diff) < 0.0005) return targetScale;
+        // Use physics constant for consistent feel
+        const easedDiff = diff * ZOOM_EASING;
         return prev + easedDiff;
       });
       
@@ -247,7 +263,7 @@ export default function TradingViewChart({
     };
   }, [targetScale]);
   
-  // Smooth scroll animation
+  // Smooth scroll animation with improved interpolation
   useEffect(() => {
     let animFrame: number;
     let isAnimating = true;
@@ -257,9 +273,9 @@ export default function TradingViewChart({
       
       setScrollOffset(prev => {
         const diff = targetScrollRef.current - prev;
-        if (Math.abs(diff) < 0.5) return targetScrollRef.current;
-        // Smooth easing for scroll
-        return prev + diff * 0.12;
+        if (Math.abs(diff) < 0.3) return targetScrollRef.current;
+        // Smoother interpolation factor
+        return prev + diff * ANIMATION_LERP;
       });
       
       animFrame = requestAnimationFrame(animate);
@@ -1651,12 +1667,15 @@ export default function TradingViewChart({
               const timeDiff = currentTime - lastTime;
               
               if (timeDiff > 0) {
-                scrollVelocityRef.current = (currentX - lastX) / timeDiff * 16;
+                // Better velocity calculation with smoother tracking
+                const rawVelocity = (currentX - lastX) / timeDiff * VELOCITY_MULTIPLIER;
+                // Clamp velocity for controlled feel
+                scrollVelocityRef.current = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, rawVelocity));
               }
               
               lastX = currentX;
               lastTime = currentTime;
-              setScrollOffset(startOffset + diff);
+              setScrollOffset(startOffset + diff * SCROLL_SENSITIVITY);
             };
             
             const onMouseUp = () => {
@@ -1664,25 +1683,28 @@ export default function TradingViewChart({
               document.removeEventListener('mousemove', onMouseMove);
               document.removeEventListener('mouseup', onMouseUp);
               
-              // Smooth momentum scrolling with deceleration
-              const friction = 0.92; // Smoother friction
-              const minVelocity = 0.3;
-              
+              // Physics-based momentum scrolling with natural deceleration
               const applyMomentum = () => {
-                if (Math.abs(scrollVelocityRef.current) > minVelocity) {
+                if (Math.abs(scrollVelocityRef.current) > MOMENTUM_MIN_VELOCITY) {
                   setScrollOffset(prev => {
                     const newOffset = prev + scrollVelocityRef.current;
-                    // Smooth boundary handling
-                    return Math.max(0, newOffset);
+                    // Smooth boundary with elastic feel
+                    if (newOffset < 0) {
+                      scrollVelocityRef.current *= 0.5; // Dampen at boundary
+                      return 0;
+                    }
+                    return newOffset;
                   });
-                  scrollVelocityRef.current *= friction;
+                  // Apply friction with slight easing curve
+                  scrollVelocityRef.current *= MOMENTUM_FRICTION;
                   animationFrameRef.current = requestAnimationFrame(applyMomentum);
                 } else {
                   scrollVelocityRef.current = 0;
                 }
               };
               
-              if (Math.abs(scrollVelocityRef.current) > 0.5) {
+              // Start momentum if velocity is significant
+              if (Math.abs(scrollVelocityRef.current) > 0.3) {
                 animationFrameRef.current = requestAnimationFrame(applyMomentum);
               }
             };
@@ -1761,12 +1783,15 @@ export default function TradingViewChart({
                   const timeDiff = currentTime - lastTime;
                   
                   if (timeDiff > 0) {
-                    scrollVelocityRef.current = (currentX - lastX) / timeDiff * 16;
+                    // Better velocity calculation with smoother tracking
+                    const rawVelocity = (currentX - lastX) / timeDiff * VELOCITY_MULTIPLIER;
+                    // Clamp velocity for controlled feel
+                    scrollVelocityRef.current = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, rawVelocity));
                   }
                   
                   lastX = currentX;
                   lastTime = currentTime;
-                  setScrollOffset(startOffset + diff);
+                  setScrollOffset(startOffset + diff * SCROLL_SENSITIVITY);
                 }
               };
               
@@ -1776,24 +1801,28 @@ export default function TradingViewChart({
                 document.removeEventListener('touchmove', onTouchMove);
                 document.removeEventListener('touchend', onTouchEnd);
                 
-                // Smooth momentum scrolling for touch
-                const friction = 0.92;
-                const minVelocity = 0.3;
-                
+                // Physics-based momentum scrolling for touch with natural deceleration
                 const applyMomentum = () => {
-                  if (Math.abs(scrollVelocityRef.current) > minVelocity) {
+                  if (Math.abs(scrollVelocityRef.current) > MOMENTUM_MIN_VELOCITY) {
                     setScrollOffset(prev => {
                       const newOffset = prev + scrollVelocityRef.current;
-                      return Math.max(0, newOffset);
+                      // Smooth boundary with elastic feel
+                      if (newOffset < 0) {
+                        scrollVelocityRef.current *= 0.5; // Dampen at boundary
+                        return 0;
+                      }
+                      return newOffset;
                     });
-                    scrollVelocityRef.current *= friction;
+                    // Apply friction with slight easing curve
+                    scrollVelocityRef.current *= MOMENTUM_FRICTION;
                     animationFrameRef.current = requestAnimationFrame(applyMomentum);
                   } else {
                     scrollVelocityRef.current = 0;
                   }
                 };
                 
-                if (Math.abs(scrollVelocityRef.current) > 0.5) {
+                // Start momentum if velocity is significant
+                if (Math.abs(scrollVelocityRef.current) > 0.3) {
                   animationFrameRef.current = requestAnimationFrame(applyMomentum);
                 }
               };
