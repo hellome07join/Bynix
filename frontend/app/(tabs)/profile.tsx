@@ -1482,6 +1482,46 @@ export default function Profile() {
 
         {/* Overview Section - Shows Summary and All Transactions */}
         <View style={styles.financeSection}>
+          {/* Refresh Pending Payments Button */}
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#1E3A5F',
+              padding: 12,
+              borderRadius: 8,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: '#00E55A'
+            }}
+            onPress={async () => {
+              if (!token) return;
+              try {
+                const response = await fetch(`${API_URL}/tarspay/check-pending`, {
+                  headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.success && data.credited_count > 0) {
+                  const total = data.credited.reduce((sum: number, c: any) => sum + c.total, 0);
+                  Alert.alert('💰 Payment Credited!', `$${total.toFixed(2)} has been added to your account!`);
+                  // Refresh user data
+                  const { refreshUser } = useAuthStore.getState();
+                  await refreshUser();
+                  // Refresh transactions
+                  fetchTransactions();
+                } else {
+                  Alert.alert('No Pending Payments', 'All your payments have been processed.');
+                }
+              } catch (err) {
+                Alert.alert('Error', 'Could not check payment status. Please try again.');
+              }
+            }}
+          >
+            <Ionicons name="refresh" size={20} color="#00E55A" />
+            <Text style={{ color: '#00E55A', marginLeft: 8, fontWeight: '600' }}>Check Pending Payments</Text>
+          </TouchableOpacity>
+
           {/* Summary Stats Cards */}
           <View style={styles.financeSummaryRow}>
             {/* Total Deposits Card */}
