@@ -4007,12 +4007,17 @@ async def create_tarspay_deposit(
     order_id = f"BYNIX{user.user_id[:8]}{int(datetime.now().timestamp())}"
     
     # Get base URL for callbacks
+    # Use INTEGRATION_PROXY_URL for webhook callbacks (bypasses Kubernetes ingress auth)
+    integration_proxy = os.environ.get("INTEGRATION_PROXY_URL", "")
     host = req.headers.get("host", "localhost")
-    scheme = "https" if "preview.emergentagent.com" in host else req.url.scheme
+    scheme = "https" if any(x in host for x in ["preview.emergentagent.com", "preview.emergentcf.cloud", "emergent.host"]) else req.url.scheme
     base_url = f"{scheme}://{host}"
     
-    notify_url = f"{base_url}/api/tarspay/callback"
+    # Use integration proxy for webhook callbacks, regular URL for user redirects
+    notify_url = f"{integration_proxy}/api/tarspay/callback" if integration_proxy else f"{base_url}/api/tarspay/callback"
     return_url = f"{base_url}/trade"
+    
+    print(f"[TarsPay] Creating order - notifyUrl: {notify_url}, returnUrl: {return_url}")
     
     # Create TarsPay order
     result = await tarspay_service.create_deposit_order(
@@ -4183,6 +4188,16 @@ async def tarspay_callback(request: Request):
             if deposit and deposit.get("status") != "completed":
                 user_id = deposit.get("user_id")
                 amount_usd = deposit.get("amount_usd", 0)
+                promo_code = deposit.get("promo_code", "")
+                
+                # Calculate promo bonus
+                bonus = 0
+                if promo_code == "BYNIX":
+                    bonus = amount_usd * 1.0  # 100% bonus
+                elif promo_code == "VIP50" or promo_code == "WELCOME50":
+                    bonus = amount_usd * 0.5  # 50% bonus
+                
+                total_credit = amount_usd + bonus
                 
                 # Update deposit status
                 await db.deposits.update_one(
@@ -4191,26 +4206,32 @@ async def tarspay_callback(request: Request):
                         "$set": {
                             "status": "completed",
                             "completed_at": datetime.now(timezone.utc),
-                            "callback_data": body
+                            "callback_data": body,
+                            "bonus_amount": bonus,
+                            "total_credited": total_credit
                         }
                     }
                 )
                 
-                # Credit user's balance
+                # Credit user's balance (real_balance includes bonus, bonus_balance tracks bonus separately)
                 await db.users.update_one(
                     {"user_id": user_id},
-                    {"$inc": {"real_balance": amount_usd}}
+                    {"$inc": {"real_balance": total_credit, "bonus_balance": bonus}}
                 )
                 
                 # Create notification
+                notification_msg = f"${amount_usd:.2f} has been credited to your account"
+                if bonus > 0:
+                    notification_msg = f"${amount_usd:.2f} + ${bonus:.2f} bonus = ${total_credit:.2f} credited!"
+                
                 await create_notification(
                     user_id,
                     "Deposit Successful! 💰",
-                    f"${amount_usd:.2f} has been credited to your account",
+                    notification_msg,
                     "deposit"
                 )
                 
-                print(f"TarsPay Callback: Credited ${amount_usd} to user {user_id}")
+                print(f"[TarsPay Callback] Credited ${total_credit} (${amount_usd} + ${bonus} bonus) to user {user_id}")
         
         # Return OK to acknowledge receipt
         return Response(content="OK", status_code=200)
