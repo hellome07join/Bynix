@@ -1663,19 +1663,21 @@ export default function TradingViewChart({
             const onMouseMove = (moveE: any) => {
               const currentX = moveE.clientX;
               const currentTime = Date.now();
-              const diff = currentX - startX;
+              // INVERT direction: drag left = positive offset = see older data
+              const diff = startX - currentX;
               const timeDiff = currentTime - lastTime;
               
               if (timeDiff > 0) {
                 // Better velocity calculation with smoother tracking
-                const rawVelocity = (currentX - lastX) / timeDiff * VELOCITY_MULTIPLIER;
+                // INVERT velocity direction as well
+                const rawVelocity = (lastX - currentX) / timeDiff * VELOCITY_MULTIPLIER;
                 // Clamp velocity for controlled feel
                 scrollVelocityRef.current = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, rawVelocity));
               }
               
               lastX = currentX;
               lastTime = currentTime;
-              setScrollOffset(startOffset + diff * SCROLL_SENSITIVITY);
+              setScrollOffset(prev => Math.max(0, startOffset + diff * SCROLL_SENSITIVITY));
             };
             
             const onMouseUp = () => {
@@ -1688,9 +1690,10 @@ export default function TradingViewChart({
                 if (Math.abs(scrollVelocityRef.current) > MOMENTUM_MIN_VELOCITY) {
                   setScrollOffset(prev => {
                     const newOffset = prev + scrollVelocityRef.current;
-                    // Smooth boundary with elastic feel
+                    // Boundary: can't go negative (current data edge)
+                    // Allow positive values to see historical data
                     if (newOffset < 0) {
-                      scrollVelocityRef.current *= 0.5; // Dampen at boundary
+                      scrollVelocityRef.current *= 0.3; // Strong dampen at right edge
                       return 0;
                     }
                     return newOffset;
@@ -1779,19 +1782,21 @@ export default function TradingViewChart({
                 if (moveE.touches.length === 1 && isDraggingRef.current) {
                   const currentX = moveE.touches[0].clientX;
                   const currentTime = Date.now();
-                  const diff = currentX - startX;
+                  // INVERT direction: drag left = positive offset = see older data
+                  const diff = startX - currentX;
                   const timeDiff = currentTime - lastTime;
                   
                   if (timeDiff > 0) {
                     // Better velocity calculation with smoother tracking
-                    const rawVelocity = (currentX - lastX) / timeDiff * VELOCITY_MULTIPLIER;
+                    // INVERT velocity direction as well
+                    const rawVelocity = (lastX - currentX) / timeDiff * VELOCITY_MULTIPLIER;
                     // Clamp velocity for controlled feel
                     scrollVelocityRef.current = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, rawVelocity));
                   }
                   
                   lastX = currentX;
                   lastTime = currentTime;
-                  setScrollOffset(startOffset + diff * SCROLL_SENSITIVITY);
+                  setScrollOffset(prev => Math.max(0, startOffset + diff * SCROLL_SENSITIVITY));
                 }
               };
               
@@ -1806,9 +1811,9 @@ export default function TradingViewChart({
                   if (Math.abs(scrollVelocityRef.current) > MOMENTUM_MIN_VELOCITY) {
                     setScrollOffset(prev => {
                       const newOffset = prev + scrollVelocityRef.current;
-                      // Smooth boundary with elastic feel
+                      // Boundary: can't go negative (current data edge)
                       if (newOffset < 0) {
-                        scrollVelocityRef.current *= 0.5; // Dampen at boundary
+                        scrollVelocityRef.current *= 0.3; // Strong dampen at right edge
                         return 0;
                       }
                       return newOffset;
