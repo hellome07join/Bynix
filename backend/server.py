@@ -1327,18 +1327,24 @@ async def get_transactions(authorization: Optional[str] = Header(None), request:
     
     # Merge deposits into transactions format
     for dep in deposits:
+        # Handle both crypto (NOWPayments) and fiat (TarsPay) deposits
+        is_tarspay = dep.get("payment_type") == "tarspay"
+        
         tx = {
-            "transaction_id": dep.get("payment_id") or dep.get("transaction_id"),
+            "transaction_id": dep.get("payment_id") or dep.get("order_id") or dep.get("transaction_id"),
             "user_id": dep.get("user_id"),
             "type": "deposit",
-            "amount": dep.get("amount", 0),
+            "amount": dep.get("amount_usd") or dep.get("amount", 0),
             "status": dep.get("status", "pending"),
-            "currency": dep.get("pay_currency", "USDT"),
-            "network": dep.get("network", "TRC20"),
+            "payment_type": dep.get("payment_type", "crypto"),
+            "channel": dep.get("channel"),
+            "channel_name": dep.get("channel_name"),
+            "currency": dep.get("channel_name") or dep.get("pay_currency", "USDT") if is_tarspay else dep.get("pay_currency", "USDT"),
+            "network": "" if is_tarspay else dep.get("network", "TRC20"),
             "crypto_address": dep.get("pay_address"),
             "created_at": dep.get("created_at"),
             "bonus_amount": dep.get("bonus_amount", 0),
-            "total_credit": dep.get("total_credit", dep.get("amount", 0))
+            "total_credit": dep.get("total_credited") or dep.get("total_credit") or dep.get("amount_usd") or dep.get("amount", 0)
         }
         # Only add if not already in transactions
         if not any(t.get("transaction_id") == tx["transaction_id"] for t in transactions):
@@ -1357,11 +1363,11 @@ async def get_transactions(authorization: Optional[str] = Header(None), request:
         if tx.get("type") == "deposit":
             total_deposits += 1
             if tx.get("status") in ["completed", "confirmed", "finished"]:
-                total_deposit_amount += tx.get("amount", 0)
+                total_deposit_amount += tx.get("amount") or 0
         elif tx.get("type") == "withdrawal":
             total_withdrawals += 1
             if tx.get("status") == "completed":
-                total_withdrawal_amount += tx.get("amount", 0)
+                total_withdrawal_amount += tx.get("amount") or 0
     
     return {
         "transactions": transactions,
