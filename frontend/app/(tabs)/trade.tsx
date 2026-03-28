@@ -2505,7 +2505,7 @@ export default function Trade() {
                       />
                       <View style={depositModalStyles.ewalletInfo}>
                         <Text style={depositModalStyles.ewalletName}>bKash</Text>
-                        <Text style={depositModalStyles.ewalletLimit}>Min $10 (৳1,270)</Text>
+                        <Text style={depositModalStyles.ewalletLimit}>$10 - $196 (৳1,270 - ৳25,000)</Text>
                       </View>
                       <Ionicons name="chevron-forward" size={20} color="#666" />
                     </TouchableOpacity>
@@ -2527,7 +2527,7 @@ export default function Trade() {
                       />
                       <View style={depositModalStyles.ewalletInfo}>
                         <Text style={depositModalStyles.ewalletName}>Nagad</Text>
-                        <Text style={depositModalStyles.ewalletLimit}>Min $10 (৳1,270)</Text>
+                        <Text style={depositModalStyles.ewalletLimit}>$10 - $196 (৳1,270 - ৳25,000)</Text>
                       </View>
                       <Ionicons name="chevron-forward" size={20} color="#666" />
                     </TouchableOpacity>
@@ -2592,7 +2592,7 @@ export default function Trade() {
                     />
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>{selectedEwallet === 'bkash' ? 'bKash' : 'Nagad'}</Text>
-                      <Text style={{ color: '#888', fontSize: 12 }}>Min $10 (৳1,270)</Text>
+                      <Text style={{ color: '#888', fontSize: 12 }}>$10 - $196 (৳1,270 - ৳25,000)</Text>
                     </View>
                     <Ionicons name="checkmark-circle" size={24} color="#00E55A" />
                   </View>
@@ -2612,7 +2612,7 @@ export default function Trade() {
                   <Text style={depositModalStyles.minimum}>≈ ৳{Math.round(parseFloat(depositAmount || '0') * exchangeRate)} BDT | Rate: $1 = ৳{exchangeRate}</Text>
 
                   <View style={depositModalStyles.quickAmounts}>
-                    {['10', '25', '50', '100', '200'].map((amt) => (
+                    {['10', '25', '50', '100', '196'].map((amt) => (
                       <TouchableOpacity key={amt} style={[depositModalStyles.quickBtn, depositAmount === amt && depositModalStyles.quickBtnActive]} onPress={() => setDepositAmount(amt)}>
                         <Text style={[depositModalStyles.quickBtnText, depositAmount === amt && depositModalStyles.quickBtnTextActive]}>${amt}</Text>
                       </TouchableOpacity>
@@ -2646,13 +2646,70 @@ export default function Trade() {
                     style={[depositModalStyles.generateBtn, { backgroundColor: selectedEwallet === 'bkash' ? '#E2136E' : '#F26522', marginTop: 16 }]}
                     onPress={async () => {
                       const amount = parseFloat(depositAmount);
-                      if (amount < 10) { Alert.alert('Invalid Amount', 'Minimum deposit is $10'); return; }
+                      if (amount < 10) { Alert.alert('Invalid Amount', 'Minimum deposit is $10 (৳1,270)'); return; }
+                      if (amount > 196) { Alert.alert('Invalid Amount', 'Maximum deposit is $196 (৳25,000)'); return; }
                       if (!token) { Alert.alert('Login Required', 'Please login to make a deposit'); return; }
                       setIsGeneratingAddress(true); setDepositError(null);
                       try {
                         const response = await fetch(`${API_URL}/tarspay/deposit/create`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ amount, channel: selectedEwallet, promo_code: promoCode || null }) });
                         const data = await response.json();
-                        if (data.success) { setEwalletPayUrl(data.pay_url); setEwalletOrderId(data.order_id); setPayAmount(data.amount_local?.toString() || Math.round(amount * exchangeRate).toString()); setShowEwalletAmountPage(false); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); }
+                        if (data.success) {
+                          // Store order details
+                          setEwalletOrderId(data.order_id);
+                          setPayAmount(data.amount_local?.toString() || Math.round(amount * exchangeRate).toString());
+                          
+                          // Immediately open payment URL in browser
+                          if (data.pay_url) {
+                            import('expo-linking').then(Linking => {
+                              Linking.openURL(data.pay_url);
+                            });
+                          }
+                          
+                          // Close modal and show processing indicator
+                          setShowDepositModal(false);
+                          setShowEwalletAmountPage(false);
+                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                          
+                          // Start background polling for payment status
+                          const orderId = data.order_id;
+                          let pollCount = 0;
+                          const maxPolls = 60; // Poll for 5 minutes (5 sec intervals)
+                          
+                          const pollInterval = setInterval(async () => {
+                            pollCount++;
+                            try {
+                              const statusRes = await fetch(`${API_URL}/tarspay/deposit/status/${orderId}`, {
+                                headers: { 'Authorization': `Bearer ${token}` }
+                              });
+                              const statusData = await statusRes.json();
+                              
+                              if (statusData.paid) {
+                                clearInterval(pollInterval);
+                                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                                
+                                // Refresh balance
+                                const { refreshUser: refreshUserPoll } = useAuthStore.getState();
+                                await refreshUserPoll();
+                                
+                                // Show success alert and stay on trade page
+                                Alert.alert(
+                                  '✅ Payment Successful!',
+                                  `৳${data.amount_local || Math.round(amount * exchangeRate)} BDT has been credited to your account.`,
+                                  [{ text: 'Start Trading', onPress: () => setAccountType('real') }]
+                                );
+                              } else if (pollCount >= maxPolls) {
+                                clearInterval(pollInterval);
+                                Alert.alert(
+                                  '⏰ Payment Timeout',
+                                  'Payment not confirmed within 5 minutes. If you completed the payment, please contact support.',
+                                  [{ text: 'OK' }]
+                                );
+                              }
+                            } catch (pollErr) {
+                              console.log('[POLLING] Error:', pollErr);
+                            }
+                          }, 5000);
+                        }
                         else { setDepositError(data.error || 'Failed to create payment'); }
                       } catch (error) { setDepositError('Network error. Please try again.'); }
                       finally { setIsGeneratingAddress(false); }
