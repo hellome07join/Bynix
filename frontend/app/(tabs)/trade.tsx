@@ -261,6 +261,53 @@ export default function Trade() {
     }
   }, [showDepositModal, depositMethod]);
   
+  // Auto-poll eWallet payment status (similar to crypto)
+  useEffect(() => {
+    // Only poll when we have an active ewallet order that's not yet paid
+    if (!ewalletOrderId || !ewalletPayUrl || paymentStatus === 'success') return;
+    
+    const pollEwalletPaymentStatus = async () => {
+      try {
+        const response = await fetch(`${API_URL}/tarspay/deposit/status/${ewalletOrderId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await response.json();
+        
+        if (data.paid) {
+          // Payment successful - stop polling and update
+          setPaymentStatus('success');
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          
+          // Refresh user balance
+          await refreshUser();
+          console.log('[EWALLET AUTO-POLL] Payment confirmed! Balance refreshed.');
+          
+          setTimeout(() => {
+            setShowDepositModal(false);
+            setEwalletPayUrl(null);
+            setEwalletOrderId(null);
+            setPaymentStatus(null);
+            setAccountType('real');
+            Alert.alert('✅ Deposit Successful!', 'Your deposit has been credited automatically.');
+          }, 2000);
+        }
+      } catch (error) {
+        console.log('eWallet auto-poll error (will retry):', error);
+      }
+    };
+    
+    // Start polling every 5 seconds
+    const pollInterval = setInterval(pollEwalletPaymentStatus, 5000);
+    
+    // Also check immediately
+    pollEwalletPaymentStatus();
+    
+    return () => {
+      clearInterval(pollInterval);
+    };
+  }, [ewalletOrderId, ewalletPayUrl, paymentStatus, token, refreshUser]);
+
   // UTC Time and Candle Countdown
   const [utcTime, setUtcTime] = useState('');
   const [candleCountdown, setCandleCountdown] = useState(0);
@@ -2458,9 +2505,9 @@ export default function Trade() {
                     ≈ ৳{Math.round(parseFloat(depositAmount || '0') * exchangeRate)} BDT | Rate: $1 = ৳{exchangeRate.toFixed(2)}
                   </Text>
 
-                  {/* Quick Amounts */}
+                  {/* Quick Amounts - Starting from $10 */}
                   <View style={depositModalStyles.quickAmounts}>
-                    {['5', '10', '25', '50', '100'].map((amt) => (
+                    {['10', '25', '50', '100', '200'].map((amt) => (
                       <TouchableOpacity
                         key={amt}
                         style={[depositModalStyles.quickBtn, depositAmount === amt && depositModalStyles.quickBtnActive]}
@@ -2473,9 +2520,90 @@ export default function Trade() {
                     ))}
                   </View>
 
+                  {/* Promo Code Input for eWallet */}
+                  <Text style={depositModalStyles.label}>Promo Code (Optional)</Text>
+                  <View style={depositModalStyles.promoRow}>
+                    <TextInput
+                      style={depositModalStyles.promoInput}
+                      placeholder="Enter code"
+                      placeholderTextColor="#444"
+                      value={promoCode}
+                      onChangeText={setPromoCode}
+                    />
+                    <TouchableOpacity 
+                      style={depositModalStyles.promoQuickBtn}
+                      onPress={() => setPromoCode('BYNIX')}
+                    >
+                      <Text style={depositModalStyles.promoQuickText}>BYNIX</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={depositModalStyles.promoQuickBtn}
+                      onPress={() => setPromoCode('VIP50')}
+                    >
+                      <Text style={depositModalStyles.promoQuickText}>VIP50</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Promo Validation Result */}
+                  {promoCode && (
+                    <View style={[depositModalStyles.promoInfo, { 
+                      backgroundColor: promoValidation?.valid ? 'rgba(0, 255, 100, 0.15)' : 'rgba(255, 215, 0, 0.1)',
+                      borderWidth: 1,
+                      borderColor: promoValidation?.valid ? '#00FF64' : '#FFD700'
+                    }]}>
+                      {isValidatingPromo ? (
+                        <>
+                          <ActivityIndicator size="small" color="#FFD700" />
+                          <Text style={depositModalStyles.promoInfoText}>Validating promo code...</Text>
+                        </>
+                      ) : promoValidation?.valid ? (
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                            <Ionicons name="checkmark-circle" size={20} color="#00FF64" />
+                            <Text style={[depositModalStyles.promoInfoText, { color: '#00FF64', marginLeft: 6 }]}>
+                              Promo Code Applied!
+                            </Text>
+                          </View>
+                          <View style={{ backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 8, padding: 12 }}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                              <Text style={{ color: '#888', fontSize: 13 }}>Deposit Amount:</Text>
+                              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>${depositAmount}</Text>
+                            </View>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                              <Text style={{ color: '#888', fontSize: 13 }}>Bonus ({promoValidation.bonus_type === 'percentage' ? `${promoValidation.bonus_value}%` : 'Fixed'}):</Text>
+                              <Text style={{ color: '#00FF64', fontSize: 13, fontWeight: '600' }}>+${promoValidation.calculated_bonus.toFixed(2)}</Text>
+                            </View>
+                            <View style={{ height: 1, backgroundColor: '#333', marginVertical: 6 }} />
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                              <Text style={{ color: '#FFD700', fontSize: 15, fontWeight: '700' }}>Total Credit:</Text>
+                              <Text style={{ color: '#00FF64', fontSize: 17, fontWeight: '700' }}>${promoValidation.total_credit.toFixed(2)}</Text>
+                            </View>
+                          </View>
+                        </View>
+                      ) : (
+                        <>
+                          <Ionicons name="gift" size={20} color="#FFD700" />
+                          <Text style={depositModalStyles.promoInfoText}>
+                            Enter a valid promo code to get bonus!
+                          </Text>
+                        </>
+                      )}
+                    </View>
+                  )}
+
+                  {/* Default Promo Info (when no code entered) */}
+                  {!promoCode && (
+                    <View style={depositModalStyles.promoInfo}>
+                      <Ionicons name="gift" size={20} color="#FFD700" />
+                      <Text style={depositModalStyles.promoInfoText}>
+                        WELCOME50: 50% bonus ($100+) - Use promo codes for extra rewards!
+                      </Text>
+                    </View>
+                  )}
+
                   {/* eWallet Selection */}
                   <Text style={depositModalStyles.label}>Select Wallet</Text>
-                  <View style={depositModalStyles.ewalletOptions}>
+                  <View style={depositModalStyles.ewalletOptions}>>
                     <TouchableOpacity 
                       style={[depositModalStyles.ewalletOption, selectedEwallet === 'bkash' && depositModalStyles.ewalletOptionActive]}
                       onPress={() => setSelectedEwallet('bkash')}
@@ -2532,7 +2660,8 @@ export default function Trade() {
                           },
                           body: JSON.stringify({
                             amount: amount,
-                            channel: selectedEwallet
+                            channel: selectedEwallet,
+                            promo_code: promoCode || null
                           })
                         });
                         
@@ -2566,93 +2695,109 @@ export default function Trade() {
                 </>
               ) : depositMethod === 'ewallet' && ewalletPayUrl ? (
                 <>
-                  {/* eWallet Payment URL Generated */}
+                  {/* eWallet Payment URL Generated - with Auto Polling */}
                   <View style={depositModalStyles.addressSection}>
                     <View style={depositModalStyles.ewalletSuccessBox}>
-                      <Ionicons name="checkmark-circle" size={40} color="#00E55A" />
-                      <Text style={depositModalStyles.ewalletSuccessTitle}>Payment Link Ready!</Text>
-                      <Text style={depositModalStyles.ewalletSuccessAmount}>৳{payAmount} BDT</Text>
-                      <Text style={depositModalStyles.ewalletSuccessNote}>
-                        Click the button below to complete payment via {selectedEwallet === 'bkash' ? 'bKash' : 'Nagad'}
-                      </Text>
-                    </View>
-
-                    <TouchableOpacity 
-                      style={[depositModalStyles.generateBtn, { backgroundColor: selectedEwallet === 'bkash' ? '#E2136E' : '#F26522' }]}
-                      onPress={() => {
-                        // Open payment URL in browser
-                        if (ewalletPayUrl) {
-                          import('expo-linking').then(Linking => {
-                            Linking.openURL(ewalletPayUrl);
-                          });
-                        }
-                      }}
-                    >
-                      <Text style={depositModalStyles.generateBtnText}>
-                        Open {selectedEwallet === 'bkash' ? 'bKash' : 'Nagad'} Payment
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity 
-                      style={depositModalStyles.confirmPaymentBtn}
-                      onPress={async () => {
-                        if (!ewalletOrderId) return;
-                        
-                        setIsVerifyingPayment(true);
-                        
-                        try {
-                          const response = await fetch(`${API_URL}/tarspay/deposit/status/${ewalletOrderId}`, {
-                            headers: { 'Authorization': `Bearer ${token}` }
-                          });
-                          
-                          const data = await response.json();
-                          
-                          if (data.paid) {
-                            setPaymentStatus('success');
-                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                            
-                            // Refresh balance using authStore
-                            const { refreshUser: refreshUserEwallet } = useAuthStore.getState();
-                            await refreshUserEwallet();
-                            console.log('[EWALLET] Balance refreshed via refreshUser()');
-                            
-                            setTimeout(() => {
-                              setShowDepositModal(false);
-                              setEwalletPayUrl(null);
-                              setEwalletOrderId(null);
-                              setPaymentStatus(null);
-                              setAccountType('real');
-                              Alert.alert('✅ Deposit Successful!', `Your deposit has been credited.`);
-                            }, 2000);
-                          } else {
-                            setPaymentStatus('failed');
-                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-                          }
-                        } catch (error) {
-                          setPaymentStatus('failed');
-                        } finally {
-                          setIsVerifyingPayment(false);
-                        }
-                      }}
-                      disabled={isVerifyingPayment || paymentStatus === 'success'}
-                    >
-                      {isVerifyingPayment ? (
+                      {paymentStatus === 'success' ? (
                         <>
-                          <ActivityIndicator size="small" color="#0A0A0A" />
-                          <Text style={depositModalStyles.confirmPaymentBtnText}>Checking...</Text>
-                        </>
-                      ) : paymentStatus === 'success' ? (
-                        <>
-                          <Ionicons name="checkmark-circle" size={18} color="#0A0A0A" />
-                          <Text style={depositModalStyles.confirmPaymentBtnText}>Payment Confirmed!</Text>
+                          <Ionicons name="checkmark-circle" size={50} color="#00E55A" />
+                          <Text style={[depositModalStyles.ewalletSuccessTitle, { color: '#00E55A' }]}>Payment Confirmed!</Text>
+                          <Text style={depositModalStyles.ewalletSuccessAmount}>৳{payAmount} BDT</Text>
+                          <Text style={depositModalStyles.ewalletSuccessNote}>
+                            Your deposit has been credited to your account.
+                          </Text>
                         </>
                       ) : (
                         <>
-                          <Ionicons name="refresh" size={18} color="#0A0A0A" />
-                          <Text style={depositModalStyles.confirmPaymentBtnText}>I've Made Payment</Text>
+                          <Ionicons name="time-outline" size={40} color="#FFD700" />
+                          <Text style={depositModalStyles.ewalletSuccessTitle}>Awaiting Payment</Text>
+                          <Text style={depositModalStyles.ewalletSuccessAmount}>৳{payAmount} BDT</Text>
+                          <Text style={depositModalStyles.ewalletSuccessNote}>
+                            Complete payment via {selectedEwallet === 'bkash' ? 'bKash' : 'Nagad'} and we'll confirm automatically
+                          </Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                            <ActivityIndicator size="small" color="#00E55A" />
+                            <Text style={{ color: '#888', fontSize: 12, marginLeft: 8 }}>Auto-checking payment status...</Text>
+                          </View>
                         </>
                       )}
-                    </TouchableOpacity>
+                    </View>
+
+                    {paymentStatus !== 'success' && (
+                      <TouchableOpacity 
+                        style={[depositModalStyles.generateBtn, { backgroundColor: selectedEwallet === 'bkash' ? '#E2136E' : '#F26522' }]}
+                        onPress={() => {
+                          // Open payment URL in browser
+                          if (ewalletPayUrl) {
+                            import('expo-linking').then(Linking => {
+                              Linking.openURL(ewalletPayUrl);
+                            });
+                          }
+                        }}
+                      >
+                        <Text style={depositModalStyles.generateBtnText}>
+                          Open {selectedEwallet === 'bkash' ? 'bKash' : 'Nagad'} Payment
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {paymentStatus !== 'success' && (
+                      <TouchableOpacity 
+                        style={depositModalStyles.confirmPaymentBtn}
+                        onPress={async () => {
+                          if (!ewalletOrderId) return;
+                          
+                          setIsVerifyingPayment(true);
+                          
+                          try {
+                            const response = await fetch(`${API_URL}/tarspay/deposit/status/${ewalletOrderId}`, {
+                              headers: { 'Authorization': `Bearer ${token}` }
+                            });
+                            
+                            const data = await response.json();
+                            
+                            if (data.paid) {
+                              setPaymentStatus('success');
+                              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                              
+                              // Refresh balance using authStore
+                              const { refreshUser: refreshUserEwallet } = useAuthStore.getState();
+                              await refreshUserEwallet();
+                              console.log('[EWALLET] Balance refreshed via refreshUser()');
+                              
+                              setTimeout(() => {
+                                setShowDepositModal(false);
+                                setEwalletPayUrl(null);
+                                setEwalletOrderId(null);
+                                setPaymentStatus(null);
+                                setAccountType('real');
+                                Alert.alert('✅ Deposit Successful!', `Your deposit has been credited.`);
+                              }, 2000);
+                            } else {
+                              setPaymentStatus('failed');
+                              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                            }
+                          } catch (error) {
+                            setPaymentStatus('failed');
+                          } finally {
+                            setIsVerifyingPayment(false);
+                          }
+                        }}
+                        disabled={isVerifyingPayment}
+                      >
+                        {isVerifyingPayment ? (
+                          <>
+                            <ActivityIndicator size="small" color="#0A0A0A" />
+                            <Text style={depositModalStyles.confirmPaymentBtnText}>Checking...</Text>
+                          </>
+                        ) : (
+                          <>
+                            <Ionicons name="refresh" size={18} color="#0A0A0A" />
+                            <Text style={depositModalStyles.confirmPaymentBtnText}>Check Payment Status</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    )}
 
                     {paymentStatus === 'failed' && (
                       <View style={depositModalStyles.failedBox}>

@@ -3968,8 +3968,9 @@ async def get_deposit_history(
 
 class TarsPayDepositRequest(BaseModel):
     amount: float = Field(..., description="Amount in USD")
-    channel: str = Field(default="bkash", description="Payment channel: bkash, nagad, bkash_official")
+    channel: str = Field(default="bkash", description="Payment channel: bkash, nagad")
     phone: Optional[str] = Field(None, description="Customer phone/wallet number")
+    promo_code: Optional[str] = Field(None, description="Promo code for bonus")
 
 @api_router.get("/tarspay/channels")
 async def get_tarspay_channels():
@@ -4020,7 +4021,7 @@ async def create_tarspay_deposit(
     )
     
     if result.get("success"):
-        # Save deposit record
+        # Save deposit record with promo code
         deposit_record = {
             "user_id": user.user_id,
             "order_id": order_id,
@@ -4030,6 +4031,7 @@ async def create_tarspay_deposit(
             "channel": request.channel,
             "channel_name": result.get("channel_name"),
             "pay_url": result.get("pay_url"),
+            "promo_code": request.promo_code,
             "status": "pending",
             "payment_type": "tarspay",
             "created_at": datetime.now(timezone.utc),
@@ -4077,6 +4079,29 @@ async def get_tarspay_deposit_status(
             
             if deposit and deposit.get("status") != "completed":
                 amount_usd = deposit.get("amount_usd", 0)
+                promo_code = deposit.get("promo_code")
+                bonus_amount = 0
+                
+                # Check promo code and calculate bonus
+                if promo_code:
+                    promo = await db.promo_codes.find_one({
+                        "code": promo_code.upper(),
+                        "active": True
+                    })
+                    if promo:
+                        min_deposit = promo.get("min_deposit", 0)
+                        if amount_usd >= min_deposit:
+                            if promo.get("bonus_type") == "percentage":
+                                bonus_amount = amount_usd * (promo.get("bonus_value", 0) / 100)
+                            else:
+                                bonus_amount = promo.get("bonus_value", 0)
+                            
+                            # Cap bonus if max_bonus is set
+                            max_bonus = promo.get("max_bonus")
+                            if max_bonus and bonus_amount > max_bonus:
+                                bonus_amount = max_bonus
+                
+                total_credit = amount_usd + bonus_amount
                 
                 # Update deposit status
                 await db.deposits.update_one(
@@ -4084,26 +4109,39 @@ async def get_tarspay_deposit_status(
                     {
                         "$set": {
                             "status": "completed",
-                            "completed_at": datetime.now(timezone.utc)
+                            "completed_at": datetime.now(timezone.utc),
+                            "bonus_amount": bonus_amount
                         }
                     }
                 )
                 
-                # Credit user's balance
+                # Credit user's balance (deposit + bonus to real_balance, bonus tracked in bonus_balance)
+                update_fields = {"real_balance": total_credit}
+                if bonus_amount > 0:
+                    update_fields["bonus_balance"] = bonus_amount
+                
                 await db.users.update_one(
                     {"user_id": user.user_id},
-                    {"$inc": {"real_balance": amount_usd}}
+                    {"$inc": update_fields}
                 )
                 
                 # Create notification
-                await create_notification(
-                    user.user_id,
-                    "Deposit Successful! 💰",
-                    f"${amount_usd:.2f} has been credited to your account via {deposit.get('channel_name', 'bKash/Nagad')}",
-                    "deposit"
-                )
+                if bonus_amount > 0:
+                    await create_notification(
+                        user.user_id,
+                        "Deposit Successful! 💰🎉",
+                        f"${amount_usd:.2f} + ${bonus_amount:.2f} bonus (Total: ${total_credit:.2f}) credited via {deposit.get('channel_name', 'bKash/Nagad')}",
+                        "deposit"
+                    )
+                else:
+                    await create_notification(
+                        user.user_id,
+                        "Deposit Successful! 💰",
+                        f"${amount_usd:.2f} has been credited to your account via {deposit.get('channel_name', 'bKash/Nagad')}",
+                        "deposit"
+                    )
                 
-                print(f"TarsPay: Credited ${amount_usd} to user {user.user_id}")
+                print(f"TarsPay: Credited ${total_credit} (deposit: ${amount_usd}, bonus: ${bonus_amount}) to user {user.user_id}")
         
         return {
             "success": True,
