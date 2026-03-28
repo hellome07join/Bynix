@@ -2489,120 +2489,7 @@ export default function Trade() {
                     </View>
                   )}
 
-                  {/* Amount Input */}
-                  <Text style={depositModalStyles.label}>Enter Amount (USD)</Text>
-                  <View style={depositModalStyles.amountBox}>
-                    <Text style={depositModalStyles.amountPrefix}>$</Text>
-                    <TextInput
-                      style={depositModalStyles.amountInput}
-                      value={depositAmount}
-                      onChangeText={setDepositAmount}
-                      keyboardType="numeric"
-                      placeholder="0"
-                      placeholderTextColor="#444"
-                    />
-                  </View>
-                  <Text style={depositModalStyles.minimum}>
-                    ≈ ৳{Math.round(parseFloat(depositAmount || '0') * exchangeRate)} BDT | Rate: $1 = ৳{exchangeRate.toFixed(2)}
-                  </Text>
-
-                  {/* Quick Amounts - Starting from $10 */}
-                  <View style={depositModalStyles.quickAmounts}>
-                    {['10', '25', '50', '100', '200'].map((amt) => (
-                      <TouchableOpacity
-                        key={amt}
-                        style={[depositModalStyles.quickBtn, depositAmount === amt && depositModalStyles.quickBtnActive]}
-                        onPress={() => setDepositAmount(amt)}
-                      >
-                        <Text style={[depositModalStyles.quickBtnText, depositAmount === amt && depositModalStyles.quickBtnTextActive]}>
-                          ${amt}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-
-                  {/* Promo Code Input for eWallet */}
-                  <Text style={depositModalStyles.label}>Promo Code (Optional)</Text>
-                  <View style={depositModalStyles.promoRow}>
-                    <TextInput
-                      style={depositModalStyles.promoInput}
-                      placeholder="Enter code"
-                      placeholderTextColor="#444"
-                      value={promoCode}
-                      onChangeText={setPromoCode}
-                    />
-                    <TouchableOpacity 
-                      style={depositModalStyles.promoQuickBtn}
-                      onPress={() => setPromoCode('BYNIX')}
-                    >
-                      <Text style={depositModalStyles.promoQuickText}>BYNIX</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={depositModalStyles.promoQuickBtn}
-                      onPress={() => setPromoCode('VIP50')}
-                    >
-                      <Text style={depositModalStyles.promoQuickText}>VIP50</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Promo Validation Result */}
-                  {promoCode && (
-                    <View style={[depositModalStyles.promoInfo, { 
-                      backgroundColor: promoValidation?.valid ? 'rgba(0, 255, 100, 0.15)' : 'rgba(255, 215, 0, 0.1)',
-                      borderWidth: 1,
-                      borderColor: promoValidation?.valid ? '#00FF64' : '#FFD700'
-                    }]}>
-                      {isValidatingPromo ? (
-                        <>
-                          <ActivityIndicator size="small" color="#FFD700" />
-                          <Text style={depositModalStyles.promoInfoText}>Validating promo code...</Text>
-                        </>
-                      ) : promoValidation?.valid ? (
-                        <View style={{ flex: 1 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                            <Ionicons name="checkmark-circle" size={20} color="#00FF64" />
-                            <Text style={[depositModalStyles.promoInfoText, { color: '#00FF64', marginLeft: 6 }]}>
-                              Promo Code Applied!
-                            </Text>
-                          </View>
-                          <View style={{ backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 8, padding: 12 }}>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                              <Text style={{ color: '#888', fontSize: 13 }}>Deposit Amount:</Text>
-                              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>${depositAmount}</Text>
-                            </View>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                              <Text style={{ color: '#888', fontSize: 13 }}>Bonus ({promoValidation.bonus_type === 'percentage' ? `${promoValidation.bonus_value}%` : 'Fixed'}):</Text>
-                              <Text style={{ color: '#00FF64', fontSize: 13, fontWeight: '600' }}>+${promoValidation.calculated_bonus.toFixed(2)}</Text>
-                            </View>
-                            <View style={{ height: 1, backgroundColor: '#333', marginVertical: 6 }} />
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                              <Text style={{ color: '#FFD700', fontSize: 15, fontWeight: '700' }}>Total Credit:</Text>
-                              <Text style={{ color: '#00FF64', fontSize: 17, fontWeight: '700' }}>${promoValidation.total_credit.toFixed(2)}</Text>
-                            </View>
-                          </View>
-                        </View>
-                      ) : (
-                        <>
-                          <Ionicons name="gift" size={20} color="#FFD700" />
-                          <Text style={depositModalStyles.promoInfoText}>
-                            Enter a valid promo code to get bonus!
-                          </Text>
-                        </>
-                      )}
-                    </View>
-                  )}
-
-                  {/* Default Promo Info (when no code entered) */}
-                  {!promoCode && (
-                    <View style={depositModalStyles.promoInfo}>
-                      <Ionicons name="gift" size={20} color="#FFD700" />
-                      <Text style={depositModalStyles.promoInfoText}>
-                        WELCOME50: 50% bonus ($100+) - Use promo codes for extra rewards!
-                      </Text>
-                    </View>
-                  )}
-
-                  {/* eWallet Selection - Multiple Countries */}
+                  {/* STEP 1: Select Payment Method First */}
                   <Text style={depositModalStyles.label}>Select Payment Method</Text>
                   
                   {/* Bangladesh Section */}
@@ -2652,7 +2539,6 @@ export default function Trade() {
                         <Text style={[depositModalStyles.ewalletName, { color: '#666' }]}>UPI</Text>
                         <Text style={[depositModalStyles.ewalletLimit, { color: '#555' }]}>Coming Soon</Text>
                       </View>
-                      <Ionicons name="time-outline" size={20} color="#666" />
                     </View>
                   </View>
 
@@ -2667,9 +2553,7 @@ export default function Trade() {
                         <Text style={[depositModalStyles.ewalletName, { color: '#666' }]}>JazzCash</Text>
                         <Text style={[depositModalStyles.ewalletLimit, { color: '#555' }]}>Coming Soon</Text>
                       </View>
-                      <Ionicons name="time-outline" size={20} color="#666" />
                     </View>
-                    
                     <View style={[depositModalStyles.ewalletOption, { backgroundColor: '#1a1a1a' }]}>
                       <View style={[depositModalStyles.ewalletLogo, { backgroundColor: '#00A651' }]}>
                         <Text style={depositModalStyles.ewalletLogoText}>E</Text>
@@ -2678,69 +2562,167 @@ export default function Trade() {
                         <Text style={[depositModalStyles.ewalletName, { color: '#666' }]}>EasyPaisa</Text>
                         <Text style={[depositModalStyles.ewalletLimit, { color: '#555' }]}>Coming Soon</Text>
                       </View>
-                      <Ionicons name="time-outline" size={20} color="#666" />
                     </View>
                   </View>
 
-                  {/* Generate Button */}
-                  <TouchableOpacity 
-                    style={depositModalStyles.generateBtn}
-                    onPress={async () => {
-                      const amount = parseFloat(depositAmount);
-                      if (amount < 1) {
-                        Alert.alert('Invalid Amount', 'Minimum deposit is $1');
-                        return;
-                      }
+                  {/* STEP 2: Amount & Promo - Only shown after payment method selected */}
+                  {selectedEwallet ? (
+                    <>
+                      <View style={{ height: 1, backgroundColor: '#333', marginVertical: 16 }} />
                       
-                      if (!token) {
-                        Alert.alert('Login Required', 'Please login to make a deposit');
-                        return;
-                      }
-                      
-                      setIsGeneratingAddress(true);
-                      setDepositError(null);
-                      
-                      try {
-                        const response = await fetch(`${API_URL}/tarspay/deposit/create`, {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                          },
-                          body: JSON.stringify({
-                            amount: amount,
-                            channel: selectedEwallet,
-                            promo_code: promoCode || null
-                          })
-                        });
-                        
-                        const data = await response.json();
-                        
-                        if (data.success) {
-                          setEwalletPayUrl(data.pay_url);
-                          setEwalletOrderId(data.order_id);
-                          setPayAmount(data.amount_bdt?.toString());
-                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                        } else {
-                          setDepositError(data.error || 'Failed to create payment');
-                        }
-                      } catch (error) {
-                        console.error('TarsPay error:', error);
-                        setDepositError('Network error. Please try again.');
-                      } finally {
-                        setIsGeneratingAddress(false);
-                      }
-                    }}
-                    disabled={isGeneratingAddress}
-                  >
-                    {isGeneratingAddress ? (
-                      <ActivityIndicator color="#0A0A0A" />
-                    ) : (
-                      <Text style={depositModalStyles.generateBtnText}>
-                        Pay with {selectedEwallet === 'bkash' ? 'bKash' : 'Nagad'}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                        <Ionicons name="checkmark-circle" size={16} color="#00E55A" />
+                        <Text style={{ color: '#00E55A', fontSize: 13, marginLeft: 6, fontWeight: '600' }}>
+                          {selectedEwallet === 'bkash' ? 'bKash' : 'Nagad'} Selected
+                        </Text>
+                      </View>
+
+                      <Text style={depositModalStyles.label}>Enter Amount (USD)</Text>
+                      <View style={depositModalStyles.amountBox}>
+                        <Text style={depositModalStyles.amountPrefix}>$</Text>
+                        <TextInput
+                          style={depositModalStyles.amountInput}
+                          value={depositAmount}
+                          onChangeText={setDepositAmount}
+                          keyboardType="numeric"
+                          placeholder="0"
+                          placeholderTextColor="#444"
+                        />
+                      </View>
+                      <Text style={depositModalStyles.minimum}>
+                        ≈ ৳{Math.round(parseFloat(depositAmount || '0') * exchangeRate)} BDT | Rate: $1 = ৳{exchangeRate.toFixed(2)}
                       </Text>
-                    )}
-                  </TouchableOpacity>
+
+                      <View style={depositModalStyles.quickAmounts}>
+                        {['10', '25', '50', '100', '200'].map((amt) => (
+                          <TouchableOpacity
+                            key={amt}
+                            style={[depositModalStyles.quickBtn, depositAmount === amt && depositModalStyles.quickBtnActive]}
+                            onPress={() => setDepositAmount(amt)}
+                          >
+                            <Text style={[depositModalStyles.quickBtnText, depositAmount === amt && depositModalStyles.quickBtnTextActive]}>
+                              ${amt}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+
+                      <Text style={depositModalStyles.label}>Promo Code (Optional)</Text>
+                      <View style={depositModalStyles.promoRow}>
+                        <TextInput
+                          style={depositModalStyles.promoInput}
+                          placeholder="Enter code"
+                          placeholderTextColor="#444"
+                          value={promoCode}
+                          onChangeText={setPromoCode}
+                        />
+                        <TouchableOpacity style={depositModalStyles.promoQuickBtn} onPress={() => setPromoCode('BYNIX')}>
+                          <Text style={depositModalStyles.promoQuickText}>BYNIX</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={depositModalStyles.promoQuickBtn} onPress={() => setPromoCode('VIP50')}>
+                          <Text style={depositModalStyles.promoQuickText}>VIP50</Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {promoCode ? (
+                        <View style={[depositModalStyles.promoInfo, { 
+                          backgroundColor: promoValidation?.valid ? 'rgba(0, 255, 100, 0.15)' : 'rgba(255, 215, 0, 0.1)',
+                          borderWidth: 1,
+                          borderColor: promoValidation?.valid ? '#00FF64' : '#FFD700'
+                        }]}>
+                          {isValidatingPromo ? (
+                            <>
+                              <ActivityIndicator size="small" color="#FFD700" />
+                              <Text style={depositModalStyles.promoInfoText}>Validating...</Text>
+                            </>
+                          ) : promoValidation?.valid ? (
+                            <View style={{ flex: 1 }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                                <Ionicons name="checkmark-circle" size={20} color="#00FF64" />
+                                <Text style={[depositModalStyles.promoInfoText, { color: '#00FF64', marginLeft: 6 }]}>Promo Applied!</Text>
+                              </View>
+                              <View style={{ backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 8, padding: 12 }}>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                                  <Text style={{ color: '#888', fontSize: 13 }}>Deposit:</Text>
+                                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>${depositAmount}</Text>
+                                </View>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                                  <Text style={{ color: '#888', fontSize: 13 }}>Bonus:</Text>
+                                  <Text style={{ color: '#00FF64', fontSize: 13, fontWeight: '600' }}>+${promoValidation.calculated_bonus.toFixed(2)}</Text>
+                                </View>
+                                <View style={{ height: 1, backgroundColor: '#333', marginVertical: 6 }} />
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                                  <Text style={{ color: '#FFD700', fontSize: 15, fontWeight: '700' }}>Total:</Text>
+                                  <Text style={{ color: '#00FF64', fontSize: 17, fontWeight: '700' }}>${promoValidation.total_credit.toFixed(2)}</Text>
+                                </View>
+                              </View>
+                            </View>
+                          ) : (
+                            <>
+                              <Ionicons name="gift" size={20} color="#FFD700" />
+                              <Text style={depositModalStyles.promoInfoText}>Enter a valid promo code</Text>
+                            </>
+                          )}
+                        </View>
+                      ) : (
+                        <View style={depositModalStyles.promoInfo}>
+                          <Ionicons name="gift" size={20} color="#FFD700" />
+                          <Text style={depositModalStyles.promoInfoText}>WELCOME50: 50% bonus ($100+)</Text>
+                        </View>
+                      )}
+
+                      <TouchableOpacity 
+                        style={[depositModalStyles.generateBtn, { backgroundColor: selectedEwallet === 'bkash' ? '#E2136E' : '#F26522' }]}
+                        onPress={async () => {
+                          const amount = parseFloat(depositAmount);
+                          if (amount < 10) {
+                            Alert.alert('Invalid Amount', 'Minimum deposit is $10');
+                            return;
+                          }
+                          if (!token) {
+                            Alert.alert('Login Required', 'Please login to make a deposit');
+                            return;
+                          }
+                          setIsGeneratingAddress(true);
+                          setDepositError(null);
+                          try {
+                            const response = await fetch(`${API_URL}/tarspay/deposit/create`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                              body: JSON.stringify({ amount, channel: selectedEwallet, promo_code: promoCode || null })
+                            });
+                            const data = await response.json();
+                            if (data.success) {
+                              setEwalletPayUrl(data.pay_url);
+                              setEwalletOrderId(data.order_id);
+                              setPayAmount(data.amount_local?.toString() || Math.round(amount * exchangeRate).toString());
+                              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            } else {
+                              setDepositError(data.error || 'Failed to create payment');
+                            }
+                          } catch (error) {
+                            setDepositError('Network error. Please try again.');
+                          } finally {
+                            setIsGeneratingAddress(false);
+                          }
+                        }}
+                        disabled={isGeneratingAddress}
+                      >
+                        {isGeneratingAddress ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <Text style={depositModalStyles.generateBtnText}>Pay with {selectedEwallet === 'bkash' ? 'bKash' : 'Nagad'}</Text>
+                        )}
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                      <Ionicons name="hand-left-outline" size={24} color="#666" />
+                      <Text style={{ color: '#666', fontSize: 13, marginTop: 8, textAlign: 'center' }}>
+                        Select a payment method above to continue
+                      </Text>
+                    </View>
+                  )}
                 </>
               ) : depositMethod === 'ewallet' && ewalletPayUrl ? (
                 <>
