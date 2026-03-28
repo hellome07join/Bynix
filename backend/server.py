@@ -1280,8 +1280,19 @@ async def request_withdrawal(withdrawal: WithdrawalRequest, authorization: Optio
             detail=f"You have a locked withdrawal pending KYC verification. Please submit the required document ({locked_withdrawal.get('kyc_requirement', 'Bank Statement')}) before creating new withdrawal requests."
         )
     
-    if user.real_balance < withdrawal.amount:
-        raise HTTPException(status_code=400, detail="Insufficient balance")
+    # Get current balance and bonus
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    real_balance = user_doc.get("real_balance", 0)
+    bonus_balance = user_doc.get("bonus_balance", 0)
+    
+    # Withdrawable = real_balance - bonus_balance
+    withdrawable = real_balance - bonus_balance
+    
+    if withdrawal.amount > withdrawable:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Insufficient withdrawable balance. You have ${withdrawable:.2f} available. (Bonus of ${bonus_balance:.2f} cannot be withdrawn)"
+        )
     
     transaction_id = f"txn_{uuid.uuid4().hex[:12]}"
     
@@ -1295,16 +1306,35 @@ async def request_withdrawal(withdrawal: WithdrawalRequest, authorization: Optio
         "txn_hash": None,
         "account_type": "real",
         "created_at": datetime.now(timezone.utc),
-        "completed_at": None
+        "completed_at": None,
+        "bonus_forfeited": bonus_balance if bonus_balance > 0 else 0
     }
     
     await db.transactions.insert_one(new_transaction)
     
     # Deduct from balance (pending approval)
-    await db.users.update_one(
-        {"user_id": user.user_id},
-        {"$inc": {"real_balance": -withdrawal.amount}}
-    )
+    # IMPORTANT: If user has bonus, forfeit the bonus on any withdrawal
+    if bonus_balance > 0:
+        # Deduct withdrawal amount + forfeit entire bonus
+        await db.users.update_one(
+            {"user_id": user.user_id},
+            {
+                "$inc": {"real_balance": -(withdrawal.amount + bonus_balance)},
+                "$set": {"bonus_balance": 0}
+            }
+        )
+        # Create notification about bonus forfeit
+        await create_notification(
+            user.user_id,
+            "⚠️ Bonus Forfeited",
+            f"Your bonus of ${bonus_balance:.2f} has been forfeited due to withdrawal. Bonuses can only be used for trading.",
+            "warning"
+        )
+    else:
+        await db.users.update_one(
+            {"user_id": user.user_id},
+            {"$inc": {"real_balance": -withdrawal.amount}}
+        )
     
     return {"transaction_id": transaction_id, "message": "Withdrawal request submitted"}
 
@@ -4476,10 +4506,31 @@ async def create_ewallet_withdrawal(
     notify_url = f"{integration_proxy}/api/tarspay/withdrawal/callback" if integration_proxy else f"{base_url}/api/tarspay/withdrawal/callback"
     
     # Deduct balance immediately (will be refunded if withdrawal fails)
-    await db.users.update_one(
-        {"user_id": user.user_id},
-        {"$inc": {"real_balance": -amount_usd}}
-    )
+    # IMPORTANT: If user has bonus, forfeit the bonus on any withdrawal
+    bonus_forfeited = 0
+    if bonus_balance > 0:
+        bonus_forfeited = bonus_balance
+        # Deduct withdrawal amount + forfeit entire bonus
+        await db.users.update_one(
+            {"user_id": user.user_id},
+            {
+                "$inc": {"real_balance": -(amount_usd + bonus_balance)},
+                "$set": {"bonus_balance": 0}
+            }
+        )
+        # Create notification about bonus forfeit
+        await create_notification(
+            user.user_id,
+            "⚠️ Bonus Forfeited",
+            f"Your bonus of ${bonus_balance:.2f} has been forfeited due to withdrawal. Bonuses can only be used for trading.",
+            "warning"
+        )
+    else:
+        # No bonus, just deduct withdrawal amount
+        await db.users.update_one(
+            {"user_id": user.user_id},
+            {"$inc": {"real_balance": -amount_usd}}
+        )
     
     # Create withdrawal record in database
     withdrawal_doc = {

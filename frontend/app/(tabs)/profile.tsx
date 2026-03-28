@@ -2623,11 +2623,19 @@ export default function Profile() {
 
               {/* Bonus Warning */}
               {(user?.bonus_balance || 0) > 0 && (
-                <View style={styles.withdrawBonusCard}>
-                  <Ionicons name="alert-circle" size={20} color="#FFB800" />
-                  <Text style={styles.withdrawBonusText}>
-                    Bonus (${user?.bonus_balance?.toFixed(2)}) cannot be withdrawn
-                  </Text>
+                <View style={[styles.withdrawBonusCard, { backgroundColor: 'rgba(255, 59, 48, 0.15)', borderColor: '#FF3B30', borderWidth: 1 }]}>
+                  <Ionicons name="warning" size={22} color="#FF3B30" />
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={[styles.withdrawBonusText, { color: '#FF3B30', fontWeight: '700', fontSize: 14 }]}>
+                      ⚠️ BONUS FORFEIT WARNING
+                    </Text>
+                    <Text style={{ color: '#FF9500', fontSize: 12, marginTop: 4 }}>
+                      You have ${user?.bonus_balance?.toFixed(2)} bonus. If you withdraw ANY amount, your entire bonus will be FORFEITED.
+                    </Text>
+                    <Text style={{ color: '#888', fontSize: 11, marginTop: 4, fontStyle: 'italic' }}>
+                      Bonus can only be used for trading. Profits from trading become withdrawable.
+                    </Text>
+                  </View>
                 </View>
               )}
 
