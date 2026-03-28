@@ -28,49 +28,12 @@ USD_TO_BDT = int(os.getenv("BDT_TO_USD_RATE", "120"))
 _cached_rate = {"rate": USD_TO_BDT, "last_updated": 0}
 
 async def fetch_live_exchange_rate() -> float:
-    """Fetch live USD to BDT exchange rate from multiple sources"""
-    global _cached_rate
-    
-    # Cache for 30 minutes
-    current_time = time.time()
-    if current_time - _cached_rate["last_updated"] < 1800:
-        return _cached_rate["rate"]
-    
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            # Try ExchangeRate-API (free tier)
-            try:
-                response = await client.get("https://api.exchangerate-api.com/v4/latest/USD")
-                if response.status_code == 200:
-                    data = response.json()
-                    rate = data.get("rates", {}).get("BDT", 120)
-                    _cached_rate = {"rate": rate, "last_updated": current_time}
-                    print(f"TarsPay: Live exchange rate fetched: 1 USD = {rate} BDT")
-                    return rate
-            except Exception as e:
-                print(f"TarsPay: ExchangeRate-API error: {e}")
-            
-            # Fallback: Try Open Exchange Rates
-            try:
-                response = await client.get("https://open.er-api.com/v6/latest/USD")
-                if response.status_code == 200:
-                    data = response.json()
-                    rate = data.get("rates", {}).get("BDT", 120)
-                    _cached_rate = {"rate": rate, "last_updated": current_time}
-                    print(f"TarsPay: Fallback rate fetched: 1 USD = {rate} BDT")
-                    return rate
-            except Exception as e:
-                print(f"TarsPay: Fallback API error: {e}")
-                
-    except Exception as e:
-        print(f"TarsPay: Exchange rate fetch failed: {e}")
-    
-    # Return cached or default rate
-    return _cached_rate["rate"]
+    """Return fixed exchange rate (127 BDT per USD as configured)"""
+    return float(USD_TO_BDT)
 
 def get_current_rate() -> float:
-    """Get current cached exchange rate"""
-    return _cached_rate["rate"]
+    """Get current fixed exchange rate"""
+    return float(USD_TO_BDT)
 
 # Payment channels - Min $10 USD = 1200 BDT at 120 BDT/USD rate
 TARSPAY_CHANNELS = {
