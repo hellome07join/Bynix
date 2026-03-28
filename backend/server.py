@@ -1350,6 +1350,38 @@ async def get_transactions(authorization: Optional[str] = Header(None), request:
         if not any(t.get("transaction_id") == tx["transaction_id"] for t in transactions):
             transactions.append(tx)
     
+    # Also fetch from withdrawals collection (E-Wallet withdrawals)
+    withdrawals = await db.withdrawals.find(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    
+    # Merge withdrawals into transactions format
+    for wd in withdrawals:
+        is_ewallet = wd.get("payment_type") == "tarspay" or wd.get("type") == "ewallet"
+        
+        tx = {
+            "transaction_id": wd.get("payment_id") or wd.get("order_id") or wd.get("transaction_id"),
+            "user_id": wd.get("user_id"),
+            "type": "withdrawal",
+            "amount": wd.get("amount_usd") or wd.get("amount", 0),
+            "status": wd.get("status", "pending"),
+            "payment_type": wd.get("payment_type", "crypto"),
+            "channel": wd.get("channel"),
+            "channel_name": wd.get("channel_name"),
+            "wallet_id": wd.get("wallet_id"),
+            "currency": wd.get("channel_name") if is_ewallet else "USDT",
+            "network": "" if is_ewallet else wd.get("network", "TRC20"),
+            "crypto_address": wd.get("crypto_address") or wd.get("wallet_id"),
+            "created_at": wd.get("created_at"),
+            "fee_usd": wd.get("fee_usd", 0),
+            "fee_bdt": wd.get("fee_bdt", 0),
+            "net_amount_bdt": wd.get("net_amount_bdt", 0)
+        }
+        # Only add if not already in transactions
+        if not any(t.get("transaction_id") == tx["transaction_id"] for t in transactions):
+            transactions.append(tx)
+    
     # Sort all by created_at descending
     transactions.sort(key=lambda x: x.get("created_at") or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
     
@@ -1366,7 +1398,7 @@ async def get_transactions(authorization: Optional[str] = Header(None), request:
                 total_deposit_amount += tx.get("amount") or 0
         elif tx.get("type") == "withdrawal":
             total_withdrawals += 1
-            if tx.get("status") == "completed":
+            if tx.get("status") in ["completed", "success", "paid"]:
                 total_withdrawal_amount += tx.get("amount") or 0
     
     return {
