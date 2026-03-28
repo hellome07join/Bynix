@@ -71,10 +71,9 @@ class TarsPayService:
             print(f"TarsPay: Error initializing signing key: {e}")
             self.signing_key = None
     
-    def _sha256_double(self, data: bytes) -> bytes:
-        """Double SHA256 hash as required by TarsPay"""
-        first_hash = hashlib.sha256(data).digest()
-        return hashlib.sha256(first_hash).digest()
+    def _sha256(self, data: bytes) -> bytes:
+        """Single SHA256 hash as required by TarsPay"""
+        return hashlib.sha256(data).digest()
     
     def _sort_params(self, params: Dict[str, Any]) -> str:
         """Sort parameters alphabetically and create query string"""
@@ -89,6 +88,11 @@ class TarsPayService:
         """
         Create ECDSA signature for TarsPay API
         Format: METHOD|PATH|TIMESTAMP|PARAMS
+        
+        TarsPay Java code does:
+        1. SHA256 the data first (Utils.sha256(message))
+        2. Then sign with SHA256withECDSA (which does another SHA256)
+        So effectively it's double SHA256
         """
         if not self.signing_key:
             raise Exception("Signing key not initialized")
@@ -98,11 +102,12 @@ class TarsPayService:
         sign_data = f"{method}|{path}|{timestamp}|{params_str}"
         print(f"TarsPay Sign Data: {sign_data}")
         
-        # Double SHA256 then sign
-        data_hash = self._sha256_double(sign_data.encode('utf-8'))
+        # Double SHA256 as per Java implementation
+        first_hash = hashlib.sha256(sign_data.encode('utf-8')).digest()
+        double_hash = hashlib.sha256(first_hash).digest()
         
-        # Sign with ECDSA
-        signature = self.signing_key.sign(data_hash, sigencode=sigencode_der)
+        # Sign the double hash with ECDSA
+        signature = self.signing_key.sign_digest(double_hash, sigencode=sigencode_der)
         
         return signature.hex()
     
@@ -113,8 +118,8 @@ class TarsPayService:
             pub_key_bytes = bytes.fromhex(self.system_public_key_hex)
             verifying_key = VerifyingKey.from_string(pub_key_bytes, curve=SECP256k1)
             
-            # Double SHA256
-            data_hash = self._sha256_double(content.encode('utf-8'))
+            # Single SHA256
+            data_hash = self._sha256(content.encode('utf-8'))
             signature = bytes.fromhex(signature_hex)
             
             return verifying_key.verify(signature, data_hash, sigdecode=sigdecode_der)
