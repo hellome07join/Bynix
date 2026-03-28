@@ -326,15 +326,16 @@ class TarsPayService:
     
     async def get_order_status(self, order_id: str) -> Dict[str, Any]:
         """
-        Get deposit order status
+        Get deposit order status using TarsPay API
         
         Args:
-            order_id: Merchant order ID
+            order_id: Merchant order ID (mchOrderNo)
         
         Returns:
             Order status information
         """
-        path = "/api/pay/query"
+        # CORRECT ENDPOINT: /api/payInInfo (NOT /api/pay/query)
+        path = "/api/payInInfo"
         timestamp = int(time.time() * 1000)
         
         params = {
@@ -362,26 +363,33 @@ class TarsPayService:
                     headers=headers
                 )
                 
+                print(f"[TarsPay Query] Order: {order_id}, Status: {response.status_code}")
                 data = response.json()
+                print(f"[TarsPay Query] Response: {data}")
                 
                 if data.get("code") == 0:
                     resp_data = data.get("data", {})
-                    # Order states: 1=pending, 2=success, 3=failed, 4=expired
-                    order_state = resp_data.get("orderState", 0)
-                    status_map = {1: "pending", 2: "success", 3: "failed", 4: "expired"}
+                    # Order states: 2=Success, 3=Failure, 5=Refund, 6=Timeout, 9=Partial
+                    order_state = resp_data.get("state", 0)
+                    status_map = {2: "success", 3: "failed", 5: "refund", 6: "timeout", 9: "partial"}
                     
                     return {
                         "success": True,
                         "payment_id": resp_data.get("payOrderId"),
                         "order_id": order_id,
-                        "status": status_map.get(order_state, "unknown"),
-                        "amount_bdt": resp_data.get("amount"),
+                        "status": status_map.get(order_state, "pending"),
+                        "order_amount": resp_data.get("orderAmount"),
+                        "pay_amount": resp_data.get("payAmount"),
+                        "currency": resp_data.get("currency"),
+                        "fee": resp_data.get("fee"),
+                        "state": order_state,
                         "paid": order_state == 2
                     }
                 else:
-                    return {"success": False, "error": data.get("msg", "Unknown error")}
+                    return {"success": False, "error": data.get("msg", "Unknown error"), "code": data.get("code")}
                     
         except Exception as e:
+            print(f"[TarsPay Query] Error: {e}")
             return {"success": False, "error": str(e)}
     
     def get_channels(self) -> list:

@@ -1504,14 +1504,24 @@ export default function Profile() {
                 const data = await response.json();
                 if (data.success && data.credited_count > 0) {
                   const total = data.credited.reduce((sum: number, c: any) => sum + c.total, 0);
-                  Alert.alert('💰 Payment Credited!', `$${total.toFixed(2)} has been added to your account!`);
+                  Alert.alert(
+                    '💰 Payment Credited!', 
+                    `$${total.toFixed(2)} has been added to your account!\n\nNew Balance: $${data.new_balance.toFixed(2)}`,
+                    [{ text: 'Awesome!', style: 'default' }]
+                  );
                   // Refresh user data
                   const { refreshUser } = useAuthStore.getState();
                   await refreshUser();
                   // Refresh transactions
                   fetchTransactions();
+                } else if (data.pending_count > 0) {
+                  Alert.alert(
+                    '⏳ Payments Processing', 
+                    `You have ${data.pending_count} pending payment(s). They will be credited once confirmed by the payment provider.`,
+                    [{ text: 'OK' }]
+                  );
                 } else {
-                  Alert.alert('No Pending Payments', 'All your payments have been processed.');
+                  Alert.alert('✅ All Clear', 'No pending payments found. Your balance is up to date.');
                 }
               } catch (err) {
                 Alert.alert('Error', 'Could not check payment status. Please try again.');
