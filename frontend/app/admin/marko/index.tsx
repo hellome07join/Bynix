@@ -1422,7 +1422,7 @@ export default function AdminDashboard() {
               <Ionicons name="time" size={20} color={COLORS.warning} />
             </View>
             <View style={styles.pendingInfo}>
-              <Text style={styles.pendingValue}>{withdrawals.filter(w => w.status === 'pending').length}</Text>
+              <Text style={styles.pendingValue}>{withdrawals.filter(w => w.status === 'pending' || w.status === 'pending_approval').length}</Text>
               <Text style={styles.pendingLabel}>Pending Withdrawals</Text>
             </View>
           </View>
