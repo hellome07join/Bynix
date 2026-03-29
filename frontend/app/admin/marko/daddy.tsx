@@ -146,7 +146,7 @@ export default function AdminLogin() {
               <Ionicons name="mail-outline" size={20} color={COLORS.textSecondary} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="admin@bynix.com"
+                placeholder="admin@bynix.io"
                 placeholderTextColor={COLORS.textSecondary}
                 value={email}
                 onChangeText={setEmail}

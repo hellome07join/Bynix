@@ -138,7 +138,7 @@ export default function AMLKYCPolicy() {
           <Text style={styles.paragraph}>
             Our dedicated compliance team oversees AML/KYC procedures. For questions or concerns, contact:
           </Text>
-          <Text style={styles.contactInfo}>Email: compliance@bynix.com</Text>
+          <Text style={styles.contactInfo}>Email: compliance@bynix.io</Text>
         </View>
 
         <View style={styles.bottomSpacing} />

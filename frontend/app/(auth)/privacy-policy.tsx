@@ -104,7 +104,7 @@ export default function PrivacyPolicy() {
           <Text style={styles.paragraph}>
             If you have any questions about this Privacy Policy, please contact us at:
           </Text>
-          <Text style={styles.contactInfo}>Email: privacy@bynix.com</Text>
+          <Text style={styles.contactInfo}>Email: privacy@bynix.io</Text>
           <Text style={styles.contactInfo}>Address: 71-75 Shelton Street, Covent Garden, London, WC2H 9JQ, United Kingdom</Text>
         </View>
 

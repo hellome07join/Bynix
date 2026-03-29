@@ -752,7 +752,7 @@ export default function Welcome() {
     setIsLoading(true);
     try {
       const timestamp = Date.now();
-      const demoEmail = `demo_${timestamp}@bynix.com`;
+      const demoEmail = `demo_${timestamp}@demo.bynix.io`;
       const demoPassword = `demo_${timestamp}`;
       
       console.log('[Welcome] Demo signup with referral code:', referralCode);

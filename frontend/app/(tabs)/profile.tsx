@@ -63,7 +63,7 @@ const COUNTRIES_WITH_FLAGS = [
 // Mock user data
 const MOCK_USER_DATA = {
   fullName: 'Demo User',
-  email: 'demo@bynix.com',
+  email: 'demo@demo.bynix.io',
   phone: '-',
   country: 'United States',
   countryFlag: '🇺🇸',

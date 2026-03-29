@@ -2498,7 +2498,7 @@ export default function AffiliateDashboard() {
           <Text style={styles.telegramBtnText}>Contact via Telegram</Text>
         </TouchableOpacity>
         
-        <Text style={styles.supportEmail}>affiliate@bynix.com</Text>
+        <Text style={styles.supportEmail}>affiliate@bynix.io</Text>
       </View>
     </View>
   );

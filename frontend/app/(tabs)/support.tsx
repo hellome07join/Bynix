@@ -46,7 +46,7 @@ const FAQ_DATA = [
 ];
 
 const SUPPORT_OPTIONS = [
-  { id: 1, icon: 'mail', title: 'Email Support', subtitle: 'support@bynix.com', action: 'email' },
+  { id: 1, icon: 'mail', title: 'Email Support', subtitle: 'support@bynix.io', action: 'email' },
 ];
 
 export default function Support() {
@@ -56,7 +56,7 @@ export default function Support() {
   const handleSupportAction = (action: string) => {
     switch (action) {
       case 'email':
-        Linking.openURL('mailto:support@bynix.com');
+        Linking.openURL('mailto:support@bynix.io');
         break;
       case 'whatsapp':
         Linking.openURL('https://wa.me/12345678900');
