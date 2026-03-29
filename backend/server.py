@@ -5532,21 +5532,33 @@ async def admin_get_stats(
         deposits_filter.update(date_filter)
     deposits_pipeline = [
         {"$match": deposits_filter},
-        {"$group": {"_id": None, "total": {"$sum": "$amount_usd"}}}
+        {"$group": {"_id": None, "total": {"$sum": {"$ifNull": ["$amount_usd", {"$ifNull": ["$amount", 0]}]}}}}
     ]
     deposits_result = await db.deposits.aggregate(deposits_pipeline).to_list(1)
     total_deposits = deposits_result[0]["total"] if deposits_result else 0
     
-    # Get total withdrawals in period
-    withdrawals_filter = {"status": "completed"}
+    # Get total withdrawals in period - BOTH collections
+    withdrawals_filter_base = {"status": "completed"}
     if date_filter:
-        withdrawals_filter.update(date_filter)
-    withdrawals_pipeline = [
-        {"$match": withdrawals_filter},
+        withdrawals_filter_base.update(date_filter)
+    
+    # From transactions collection (USDT/NOWPayments)
+    tx_withdrawals_pipeline = [
+        {"$match": {**withdrawals_filter_base, "type": "withdrawal"}},
         {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
     ]
-    withdrawals_result = await db.transactions.aggregate(withdrawals_pipeline).to_list(1)
-    total_withdrawals = withdrawals_result[0]["total"] if withdrawals_result else 0
+    tx_withdrawals_result = await db.transactions.aggregate(tx_withdrawals_pipeline).to_list(1)
+    tx_total = tx_withdrawals_result[0]["total"] if tx_withdrawals_result else 0
+    
+    # From withdrawals collection (TarsPay/E-Wallet)
+    wd_withdrawals_pipeline = [
+        {"$match": withdrawals_filter_base},
+        {"$group": {"_id": None, "total": {"$sum": {"$ifNull": ["$amount_usd", "$amount"]}}}}
+    ]
+    wd_withdrawals_result = await db.withdrawals.aggregate(wd_withdrawals_pipeline).to_list(1)
+    wd_total = wd_withdrawals_result[0]["total"] if wd_withdrawals_result else 0
+    
+    total_withdrawals = tx_total + wd_total
     
     # Get pending counts (always current)
     pending_withdrawals = await db.transactions.count_documents({"type": "withdrawal", "status": "pending"})
