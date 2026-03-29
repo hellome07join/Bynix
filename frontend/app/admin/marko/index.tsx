@@ -1354,7 +1354,6 @@ export default function AdminDashboard() {
             value={formatNumber(stats.totalUsers)}
             subtitle={`${stats.activeUsers} active now`}
             gradient={COLORS.gradient1}
-            trend={12}
           />
           <StatCard
             icon="wallet"
@@ -1362,7 +1361,6 @@ export default function AdminDashboard() {
             value={formatCurrency(stats.totalDeposits)}
             subtitle="Lifetime"
             gradient={COLORS.gradient2}
-            trend={8}
           />
         </View>
         <View style={styles.statsRow}>
@@ -1372,7 +1370,6 @@ export default function AdminDashboard() {
             value={formatCurrency(stats.totalWithdrawals)}
             subtitle="Lifetime"
             gradient={['#FF6B6B', '#EE5A5A']}
-            trend={-5}
           />
           <StatCard
             icon="trending-up"
@@ -1380,7 +1377,6 @@ export default function AdminDashboard() {
             value={formatCurrency(stats.platformProfit)}
             subtitle="Net earnings"
             gradient={COLORS.gradient5}
-            trend={23}
           />
         </View>
         <View style={styles.statsRow}>
@@ -1444,7 +1440,7 @@ export default function AdminDashboard() {
               <Ionicons name="card" size={20} color={COLORS.success} />
             </View>
             <View style={styles.pendingInfo}>
-              <Text style={styles.pendingValue}>0</Text>
+              <Text style={styles.pendingValue}>{deposits.filter(d => d.status === 'pending').length}</Text>
               <Text style={styles.pendingLabel}>Pending Deposits</Text>
             </View>
           </View>
