@@ -752,23 +752,48 @@ export default function Trade() {
   }, [showTradeHistory]);
 
   // Reset selected asset when account type changes to ensure it's valid for the new account
-  // NOTE: Using a ref to track previous accountType to prevent infinite loops
+  // COMBINED: Merging all asset validation logic into ONE useEffect to prevent re-render loops
   const prevAccountTypeRef = useRef(accountType);
+  const isAssetSwitchingRef = useRef(false); // Prevent cascading updates
+  
   useEffect(() => {
+    // Skip if we're already in the middle of switching assets
+    if (isAssetSwitchingRef.current) return;
+    
     // Only run when accountType actually changes
     if (prevAccountTypeRef.current !== accountType) {
       prevAccountTypeRef.current = accountType;
-      const validAssets = getAssetsForAccount(accountType);
-      const isCurrentAssetValid = validAssets.some(a => a.value === selectedAsset);
-      console.log(`Account type changed to: ${accountType}, current asset: ${selectedAsset}, valid: ${isCurrentAssetValid}`);
-      if (!isCurrentAssetValid) {
-        const newAsset = getDefaultAssetForAccount(accountType);
-        console.log(`Resetting asset to: ${newAsset}`);
-        setSelectedAsset(newAsset);
-        setSelectedCategory('forex'); // Reset to default category
+      isAssetSwitchingRef.current = true;
+      
+      // Determine correct asset for new account type
+      const isDemoOnlyAsset = DEMO_ONLY_SYMBOLS.some(symbol => {
+        const cleanAsset = selectedAsset.toUpperCase().replace(/[\/\s]/g, '').replace('OTC', '');
+        return cleanAsset.includes(symbol) || symbol.includes(cleanAsset);
+      });
+      
+      let newAsset = selectedAsset;
+      
+      if (accountType === 'real' && isDemoOnlyAsset) {
+        // Real account but demo-only asset selected - switch to EUR/JPY
+        newAsset = 'EUR/JPY OTC';
+        console.log('[ACCOUNT SWITCH] Real mode - switching to EUR/JPY OTC');
+      } else if (accountType === 'demo' && !isDemoOnlyAsset) {
+        // Demo account but real-only asset selected - switch to EUR/USD
+        newAsset = 'EUR/USD OTC';
+        console.log('[ACCOUNT SWITCH] Demo mode - switching to EUR/USD OTC');
       }
+      
+      if (newAsset !== selectedAsset) {
+        setSelectedAsset(newAsset);
+        setSelectedCategory('forex');
+      }
+      
+      // Allow next update after a tick
+      setTimeout(() => {
+        isAssetSwitchingRef.current = false;
+      }, 0);
     }
-  }, [accountType, selectedAsset]);
+  }, [accountType]); // ONLY watch accountType, not selectedAsset
 
   // Check if user needs to see tutorial (new users)
   useEffect(() => {
@@ -1031,22 +1056,8 @@ export default function Trade() {
     return DEMO_ONLY_SYMBOLS.some(symbol => cleanAsset.includes(symbol) || symbol.includes(cleanAsset));
   };
   
-  // Auto-select valid asset when account type changes
-  useEffect(() => {
-    const isDemoOnlyAsset = checkIsDemoOnly(selectedAsset);
-    
-    console.log(`[ACCOUNT CHECK] accountType=${accountType}, selectedAsset=${selectedAsset}, isDemoOnly=${isDemoOnlyAsset}`);
-    
-    if (accountType === 'real' && isDemoOnlyAsset) {
-      // Real account but demo-only asset selected - switch to EUR/JPY
-      console.log('[ACCOUNT SWITCH] Real mode - switching to EUR/JPY OTC');
-      setSelectedAsset('EUR/JPY OTC');
-    } else if (accountType === 'demo' && !isDemoOnlyAsset) {
-      // Demo account but real-only asset selected - switch to EUR/USD
-      console.log('[ACCOUNT SWITCH] Demo mode - switching to EUR/USD OTC');
-      setSelectedAsset('EUR/USD OTC');
-    }
-  }, [accountType, selectedAsset]);
+  // NOTE: Auto-select valid asset logic has been merged into the useEffect above (prevAccountTypeRef)
+  // to prevent "Maximum update depth exceeded" errors from multiple useEffects watching same deps
   
   // Get current asset data
   const currentAsset = currentAssets.find(a => a.value === selectedAsset) || currentAssets[0];
