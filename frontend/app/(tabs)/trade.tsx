@@ -1745,6 +1745,7 @@ export default function Trade() {
             theme="dark"
             currentPrice={currentPrice}
             chartType={chartType}
+            tradeDuration={duration}
             tradeMarkers={activeTrades.map(trade => ({
               id: trade.id,
               entryPrice: trade.entry_price,
