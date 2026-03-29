@@ -2887,6 +2887,262 @@ async def didit_webhook(request: Request):
         return {"success": False, "error": str(e)}
 
 
+# ============= DIDIT KYC ADMIN ENDPOINTS =============
+
+@api_router.get("/admin/kyc/didit/review-sessions")
+async def get_didit_review_sessions(
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """
+    Fetch KYC sessions that are "In Review" from Didit API.
+    These are sessions where duplicate documents were detected.
+    """
+    try:
+        user = await get_current_user(authorization, request)
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Admin authentication required")
+    
+    if not DIDIT_API_KEY:
+        return {"success": False, "error": "Didit API key not configured", "sessions": []}
+    
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            # Fetch "In Review" sessions from Didit
+            response = await client.get(
+                "https://verification.didit.me/v3/sessions",
+                params={
+                    "status": "In Review",
+                    "limit": 50
+                },
+                headers={
+                    "x-api-key": DIDIT_API_KEY
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                results = data.get("results", [])
+                
+                # Enrich with our database info
+                enriched_sessions = []
+                for session in results:
+                    vendor_data = session.get("vendor_data", "")
+                    
+                    # Get user info from our database
+                    user_info = await db.users.find_one({"user_id": vendor_data})
+                    kyc_record = await db.kyc_submissions.find_one({
+                        "didit_session_id": session.get("session_id")
+                    })
+                    
+                    enriched_sessions.append({
+                        "session_id": session.get("session_id"),
+                        "session_number": session.get("session_number"),
+                        "session_url": session.get("session_url"),
+                        "status": session.get("status"),
+                        "full_name": session.get("full_name"),
+                        "document_type": session.get("document_type"),
+                        "country": session.get("country"),
+                        "portrait_image": session.get("portrait_image"),
+                        "created_at": session.get("created_at"),
+                        "features": session.get("features", []),
+                        "vendor_data": vendor_data,
+                        "user_email": user_info.get("email") if user_info else None,
+                        "user_name": user_info.get("name") or user_info.get("full_name") if user_info else None,
+                        "our_status": kyc_record.get("status") if kyc_record else "unknown"
+                    })
+                
+                return {
+                    "success": True,
+                    "count": len(enriched_sessions),
+                    "sessions": enriched_sessions
+                }
+            else:
+                print(f"[DIDIT Admin] API error: {response.status_code} - {response.text}")
+                return {
+                    "success": False,
+                    "error": f"Didit API error: {response.status_code}",
+                    "sessions": []
+                }
+                
+    except Exception as e:
+        print(f"[DIDIT Admin] Error fetching review sessions: {e}")
+        return {"success": False, "error": str(e), "sessions": []}
+
+
+@api_router.get("/admin/kyc/didit/session/{session_id}")
+async def get_didit_session_details(
+    session_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get full details of a Didit KYC session"""
+    try:
+        user = await get_current_user(authorization, request)
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Admin authentication required")
+    
+    if not DIDIT_API_KEY:
+        return {"success": False, "error": "Didit API key not configured"}
+    
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.get(
+                f"https://verification.didit.me/v3/session/{session_id}/decision/",
+                headers={
+                    "x-api-key": DIDIT_API_KEY
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                return {"success": True, "session": data}
+            else:
+                return {"success": False, "error": f"Didit API error: {response.status_code}"}
+                
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@api_router.post("/admin/kyc/didit/approve/{session_id}")
+async def approve_didit_kyc_session(
+    session_id: str,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """
+    Approve a KYC session from admin dashboard.
+    This updates our database and notifies the user.
+    Note: Didit console approval is separate - this is for our internal records.
+    """
+    try:
+        admin = await get_current_user(authorization, request)
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Admin authentication required")
+    
+    # Find the KYC record by session_id
+    kyc_record = await db.kyc_submissions.find_one({
+        "didit_session_id": session_id
+    })
+    
+    if not kyc_record:
+        # Try to find by partial match
+        kyc_record = await db.kyc_submissions.find_one({
+            "didit_session_id": {"$regex": session_id[:16]}
+        })
+    
+    if not kyc_record:
+        raise HTTPException(status_code=404, detail="KYC session not found in our database")
+    
+    user_id = kyc_record.get("user_id")
+    
+    # Update KYC submission to verified
+    await db.kyc_submissions.update_one(
+        {"_id": kyc_record["_id"]},
+        {
+            "$set": {
+                "status": "verified",
+                "verified_at": datetime.now(timezone.utc),
+                "admin_approved_by": admin.user_id,
+                "admin_approved_at": datetime.now(timezone.utc),
+                "admin_approval_note": "Manually approved by admin after review"
+            }
+        }
+    )
+    
+    # Update user KYC status
+    await db.users.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {
+                "kyc_status": "verified",
+                "kyc_verified_at": datetime.now(timezone.utc)
+            }
+        }
+    )
+    
+    # Notify user
+    await create_notification(
+        user_id,
+        "KYC Verified! ✅",
+        "Your identity has been verified by our team. You now have full access to all features.",
+        "kyc"
+    )
+    
+    return {
+        "success": True,
+        "message": "KYC approved successfully",
+        "user_id": user_id
+    }
+
+
+@api_router.post("/admin/kyc/didit/reject/{session_id}")
+async def reject_didit_kyc_session(
+    session_id: str,
+    reason: str = "Duplicate account detected",
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Reject a KYC session from admin dashboard"""
+    try:
+        admin = await get_current_user(authorization, request)
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Admin authentication required")
+    
+    # Find the KYC record
+    kyc_record = await db.kyc_submissions.find_one({
+        "didit_session_id": session_id
+    })
+    
+    if not kyc_record:
+        kyc_record = await db.kyc_submissions.find_one({
+            "didit_session_id": {"$regex": session_id[:16]}
+        })
+    
+    if not kyc_record:
+        raise HTTPException(status_code=404, detail="KYC session not found")
+    
+    user_id = kyc_record.get("user_id")
+    
+    # Update KYC submission to rejected
+    await db.kyc_submissions.update_one(
+        {"_id": kyc_record["_id"]},
+        {
+            "$set": {
+                "status": "rejected",
+                "rejected_at": datetime.now(timezone.utc),
+                "admin_rejected_by": admin.user_id,
+                "rejection_reason": reason
+            }
+        }
+    )
+    
+    # Update user KYC status
+    await db.users.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {
+                "kyc_status": "rejected",
+                "kyc_rejection_reason": reason
+            }
+        }
+    )
+    
+    # Notify user
+    await create_notification(
+        user_id,
+        "KYC Rejected ❌",
+        f"Your identity verification was rejected. Reason: {reason}",
+        "kyc"
+    )
+    
+    return {
+        "success": True,
+        "message": "KYC rejected",
+        "user_id": user_id
+    }
+
+
 @api_router.get("/kyc/didit/status")
 async def get_didit_kyc_status(authorization: Optional[str] = Header(None), request: Request = None):
     """Check user's Didit KYC verification status - also checks Didit API for updates"""

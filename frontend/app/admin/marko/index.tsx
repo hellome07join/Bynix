@@ -3960,6 +3960,79 @@ export default function AdminDashboard() {
     const [localKycData, setLocalKycData] = useState(kycSubmissions);
     const [selectedKyc, setSelectedKyc] = useState<any>(null);
     const [showKycModal, setShowKycModal] = useState(false);
+    
+    // Didit Review Sessions State
+    const [diditReviewSessions, setDiditReviewSessions] = useState<any[]>([]);
+    const [loadingDiditSessions, setLoadingDiditSessions] = useState(false);
+    const [selectedDiditSession, setSelectedDiditSession] = useState<any>(null);
+    const [showDiditModal, setShowDiditModal] = useState(false);
+    
+    // Fetch Didit Review Sessions
+    const fetchDiditReviewSessions = async () => {
+      setLoadingDiditSessions(true);
+      try {
+        const response = await fetch(`${API_URL}/admin/kyc/didit/review-sessions`, {
+          headers: headers
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setDiditReviewSessions(data.sessions || []);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch Didit review sessions:', error);
+      } finally {
+        setLoadingDiditSessions(false);
+      }
+    };
+    
+    // Approve Didit KYC
+    const handleApproveDiditKyc = async (sessionId: string) => {
+      try {
+        const response = await fetch(`${API_URL}/admin/kyc/didit/approve/${sessionId}`, {
+          method: 'POST',
+          headers: headers,
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+          Alert.alert('Success', 'KYC approved successfully');
+          setShowDiditModal(false);
+          fetchDiditReviewSessions();
+        } else {
+          Alert.alert('Error', data.error || 'Failed to approve KYC');
+        }
+      } catch (error) {
+        Alert.alert('Error', 'Failed to approve KYC');
+      }
+    };
+    
+    // Reject Didit KYC
+    const handleRejectDiditKyc = async (sessionId: string) => {
+      try {
+        const response = await fetch(`${API_URL}/admin/kyc/didit/reject/${sessionId}`, {
+          method: 'POST',
+          headers: headers,
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+          Alert.alert('Success', 'KYC rejected');
+          setShowDiditModal(false);
+          fetchDiditReviewSessions();
+        } else {
+          Alert.alert('Error', data.error || 'Failed to reject KYC');
+        }
+      } catch (error) {
+        Alert.alert('Error', 'Failed to reject KYC');
+      }
+    };
+    
+    // Fetch on mount
+    React.useEffect(() => {
+      fetchDiditReviewSessions();
+    }, []);
 
     const handleApproveKyc = async (transactionId: string) => {
       try {
@@ -4030,6 +4103,185 @@ export default function AdminDashboard() {
           <Text style={styles.pageTitle}>KYC Requests</Text>
           <Text style={styles.pageSubtitle}>Manage user identity verification submissions</Text>
         </View>
+
+        {/* Didit Review Sessions - Primary KYC Section */}
+        <View style={[styles.sectionCard, { borderWidth: 2, borderColor: COLORS.warning, marginBottom: 16 }]}>
+          <View style={styles.sectionHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="shield-checkmark" size={24} color={COLORS.warning} />
+              <Text style={[styles.sectionTitle, { marginLeft: 8, color: COLORS.warning }]}>
+                Didit KYC Review
+              </Text>
+            </View>
+            <TouchableOpacity 
+              onPress={fetchDiditReviewSessions}
+              style={{ padding: 8 }}
+            >
+              {loadingDiditSessions ? (
+                <ActivityIndicator size="small" color={COLORS.warning} />
+              ) : (
+                <Ionicons name="refresh" size={20} color={COLORS.warning} />
+              )}
+            </TouchableOpacity>
+          </View>
+          
+          <Text style={{ color: '#888', fontSize: 12, marginBottom: 16 }}>
+            Sessions with duplicate documents detected by Didit - requires manual review
+          </Text>
+          
+          {diditReviewSessions.length === 0 ? (
+            <View style={{ padding: 30, alignItems: 'center' }}>
+              <Ionicons name="checkmark-done-circle" size={48} color={COLORS.success} />
+              <Text style={{ color: COLORS.success, marginTop: 12, fontSize: 16, fontWeight: '600' }}>All Clear!</Text>
+              <Text style={{ color: '#888', marginTop: 4, fontSize: 12 }}>No pending review sessions from Didit</Text>
+            </View>
+          ) : (
+            diditReviewSessions.map((session, index) => (
+              <TouchableOpacity 
+                key={session.session_id || index}
+                style={[styles.kycRow, { backgroundColor: '#FFF8E1', borderWidth: 1, borderColor: '#FFE082', marginBottom: 8 }]}
+                onPress={() => {
+                  setSelectedDiditSession(session);
+                  setShowDiditModal(true);
+                }}
+              >
+                <View style={styles.kycUserInfo}>
+                  {session.portrait_image ? (
+                    <Image 
+                      source={{ uri: session.portrait_image }}
+                      style={{ width: 50, height: 50, borderRadius: 25 }}
+                    />
+                  ) : (
+                    <View style={[styles.userAvatar, { width: 50, height: 50, borderRadius: 25, backgroundColor: COLORS.warningLight }]}>
+                      <Ionicons name="person" size={24} color={COLORS.warning} />
+                    </View>
+                  )}
+                  <View style={{ marginLeft: 12, flex: 1 }}>
+                    <Text style={[styles.kycUserName, { color: '#333' }]}>{session.full_name || 'Unknown'}</Text>
+                    <Text style={styles.kycUserEmail}>{session.user_email || session.vendor_data}</Text>
+                    <View style={{ flexDirection: 'row', marginTop: 4 }}>
+                      <View style={{ backgroundColor: COLORS.warningLight, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        <Text style={{ color: COLORS.warning, fontSize: 10, fontWeight: '600' }}>IN REVIEW</Text>
+                      </View>
+                      <Text style={{ color: '#888', fontSize: 10, marginLeft: 8 }}>{session.country || 'N/A'}</Text>
+                    </View>
+                  </View>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={{ color: '#888', fontSize: 11 }}>#{session.session_number}</Text>
+                  <Ionicons name="chevron-forward" size={20} color="#666" />
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
+
+        {/* Didit Session Detail Modal */}
+        <Modal
+          visible={showDiditModal}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowDiditModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { maxHeight: '90%' }]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Review KYC Session</Text>
+                <TouchableOpacity onPress={() => setShowDiditModal(false)}>
+                  <Ionicons name="close-circle" size={28} color={COLORS.danger} />
+                </TouchableOpacity>
+              </View>
+              
+              {selectedDiditSession && (
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  {/* Portrait */}
+                  {selectedDiditSession.portrait_image && (
+                    <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                      <Image 
+                        source={{ uri: selectedDiditSession.portrait_image }}
+                        style={{ width: 120, height: 120, borderRadius: 60, borderWidth: 3, borderColor: COLORS.warning }}
+                      />
+                    </View>
+                  )}
+                  
+                  {/* User Info */}
+                  <View style={{ backgroundColor: '#F5F5F5', padding: 16, borderRadius: 12, marginBottom: 16 }}>
+                    <Text style={{ fontSize: 18, fontWeight: '700', color: '#333', marginBottom: 8 }}>
+                      {selectedDiditSession.full_name || 'Unknown Name'}
+                    </Text>
+                    <Text style={{ color: '#666', marginBottom: 4 }}>Email: {selectedDiditSession.user_email || 'N/A'}</Text>
+                    <Text style={{ color: '#666', marginBottom: 4 }}>User ID: {selectedDiditSession.vendor_data || 'N/A'}</Text>
+                    <Text style={{ color: '#666', marginBottom: 4 }}>Country: {selectedDiditSession.country || 'N/A'}</Text>
+                    <Text style={{ color: '#666', marginBottom: 4 }}>Document: {selectedDiditSession.document_type || 'N/A'}</Text>
+                    <Text style={{ color: '#666' }}>Session: #{selectedDiditSession.session_number}</Text>
+                  </View>
+                  
+                  {/* Features Status */}
+                  {selectedDiditSession.features && selectedDiditSession.features.length > 0 && (
+                    <View style={{ marginBottom: 16 }}>
+                      <Text style={{ fontWeight: '600', marginBottom: 8, color: '#333' }}>Verification Features:</Text>
+                      {selectedDiditSession.features.map((feature: any, idx: number) => (
+                        <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                          <Ionicons 
+                            name={feature.status === 'Approved' ? 'checkmark-circle' : feature.status === 'In Review' ? 'time' : 'close-circle'} 
+                            size={16} 
+                            color={feature.status === 'Approved' ? COLORS.success : feature.status === 'In Review' ? COLORS.warning : COLORS.danger} 
+                          />
+                          <Text style={{ marginLeft: 8, color: '#666' }}>{feature.feature}: {feature.status}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                  
+                  {/* Warning Notice */}
+                  <View style={{ backgroundColor: '#FFF3E0', padding: 12, borderRadius: 8, marginBottom: 20, borderWidth: 1, borderColor: '#FFB74D' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Ionicons name="warning" size={20} color="#F57C00" />
+                      <Text style={{ color: '#F57C00', fontWeight: '600', marginLeft: 8 }}>Duplicate Document Detected</Text>
+                    </View>
+                    <Text style={{ color: '#666', marginTop: 8, fontSize: 12 }}>
+                      This user may have used the same documents to create another account. Please verify carefully before approving.
+                    </Text>
+                  </View>
+                  
+                  {/* Action Buttons */}
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <TouchableOpacity
+                      style={{ flex: 1, backgroundColor: COLORS.danger, padding: 14, borderRadius: 8, alignItems: 'center' }}
+                      onPress={() => handleRejectDiditKyc(selectedDiditSession.session_id)}
+                    >
+                      <Ionicons name="close" size={20} color="#FFF" />
+                      <Text style={{ color: '#FFF', fontWeight: '600', marginTop: 4 }}>Reject</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={{ flex: 1, backgroundColor: COLORS.success, padding: 14, borderRadius: 8, alignItems: 'center' }}
+                      onPress={() => handleApproveDiditKyc(selectedDiditSession.session_id)}
+                    >
+                      <Ionicons name="checkmark" size={20} color="#FFF" />
+                      <Text style={{ color: '#FFF', fontWeight: '600', marginTop: 4 }}>Approve</Text>
+                    </TouchableOpacity>
+                  </View>
+                  
+                  {/* View in Didit Console Link */}
+                  {selectedDiditSession.session_url && (
+                    <TouchableOpacity
+                      style={{ marginTop: 16, padding: 12, borderWidth: 1, borderColor: COLORS.primary, borderRadius: 8, alignItems: 'center' }}
+                      onPress={() => {
+                        if (Platform.OS === 'web') {
+                          window.open(selectedDiditSession.session_url, '_blank');
+                        } else {
+                          Linking.openURL(selectedDiditSession.session_url);
+                        }
+                      }}
+                    >
+                      <Text style={{ color: COLORS.primary, fontWeight: '600' }}>View Full Details in Didit Console</Text>
+                    </TouchableOpacity>
+                  )}
+                </ScrollView>
+              )}
+            </View>
+          </View>
+        </Modal>
 
         {/* Stats Cards - Using depositStatsRow style for consistent layout */}
         <View style={styles.kycStatsRow}>
