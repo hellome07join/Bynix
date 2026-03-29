@@ -798,11 +798,6 @@ export default function TradingViewChart({
     const candlesAhead = Math.ceil(durationMs / intervalMs);
     const endX = runningCandleX + (candlesAhead * totalCandleWidth);
     
-    // Calculate countdown - based on trade duration
-    const countdownSecs = tradeDuration;
-    const mins = Math.floor(countdownSecs / 60).toString().padStart(2, '0');
-    const secs = (countdownSecs % 60).toString().padStart(2, '0');
-    
     // Draw preview lines only if no active trades
     if (tradeMarkers.length === 0) {
       const previewLineColor = 'rgba(0, 229, 90, 0.5)'; // Green color like Binolla
@@ -841,21 +836,6 @@ export default function TradingViewChart({
       ctx.font = '11px Arial';
       ctx.textAlign = 'right';
       ctx.fillText('Beginning of trade', beginningX - 8, horizontalY + 4);
-      
-      // ===== TIMER in middle =====
-      const timerX = (beginningX + visibleEndX) / 2;
-      
-      // Timer background
-      ctx.fillStyle = 'rgba(60, 65, 80, 0.95)';
-      ctx.beginPath();
-      ctx.roundRect(timerX - 25, horizontalY - 10, 50, 20, 6);
-      ctx.fill();
-      
-      // Timer text
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 12px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText(`${mins}:${secs}`, timerX, horizontalY + 5);
       
       // ===== "End of trade" LABEL - right of end line =====
       ctx.fillStyle = '#AAAAAA';
@@ -938,25 +918,6 @@ export default function TradingViewChart({
         ctx.font = '11px Arial';
         ctx.textAlign = 'right';
         ctx.fillText('Beginning of trade', entryX - 8, horizontalY + 4);
-      }
-      
-      // ===== TIMER in middle =====
-      if (marker.remainingTime && marker.remainingTime > 0) {
-        const timerX = (Math.max(entryX, padding.left + 100) + visibleExitX) / 2;
-        const mins = Math.floor(marker.remainingTime / 60).toString().padStart(2, '0');
-        const secs = (marker.remainingTime % 60).toString().padStart(2, '0');
-        
-        // Timer background
-        ctx.fillStyle = 'rgba(60, 65, 80, 0.95)';
-        ctx.beginPath();
-        ctx.roundRect(timerX - 25, horizontalY - 10, 50, 20, 6);
-        ctx.fill();
-        
-        // Timer text
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 12px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText(`${mins}:${secs}`, timerX, horizontalY + 5);
       }
       
       // ===== "End of trade" LABEL - right of exit line =====
