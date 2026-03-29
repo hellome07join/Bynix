@@ -3681,9 +3681,19 @@ export default function AdminDashboard() {
 
   // Analytics Dashboard Content
   const AnalyticsContent = () => {
-    const [selectedPeriod, setSelectedPeriod] = useState('7D');
-    const [analyticsStats, setAnalyticsStats] = useState(stats);
-    const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+    const [selectedPeriod, setSelectedPeriod] = useState('24H');
+    const [analyticsStats, setAnalyticsStats] = useState({
+      totalDeposits: 0,
+      totalWithdrawals: 0,
+      platformProfit: 0,
+      totalUsers: 0,
+      totalTrades: 0,
+      totalVolume: 0,
+      activeTrades: 0,
+      activeUsers: 0,
+      pendingKYC: 0,
+    });
+    const [loadingAnalytics, setLoadingAnalytics] = useState(true);
     const [topTraders, setTopTraders] = useState<any[]>([]);
 
     const fetchAnalyticsData = async (period: string) => {
@@ -3698,21 +3708,30 @@ export default function AdminDashboard() {
         };
         
         // Fetch stats
-        const response = await fetch(`${API_URL}/admin/stats?period=${periodMap[period]}`, {
+        const apiUrl = `${API_URL}/admin/stats?period=${periodMap[period]}`;
+        console.log('[Analytics] Fetching:', apiUrl);
+        
+        const response = await fetch(apiUrl, {
           headers: headers
         });
         
         if (response.ok) {
           const data = await response.json();
+          console.log('[Analytics] Response data:', data);
+          
           setAnalyticsStats({
-            ...stats,
             totalDeposits: data.total_deposits || 0,
             totalWithdrawals: data.total_withdrawals || 0,
             platformProfit: data.platform_profit || 0,
             totalUsers: data.total_users || 0,
             totalTrades: data.total_trades || 0,
             totalVolume: data.total_volume || 0,
+            activeTrades: data.active_trades || 0,
+            activeUsers: data.active_users_today || 0,
+            pendingKYC: data.pending_kyc || 0,
           });
+        } else {
+          console.log('[Analytics] API Error:', response.status);
         }
 
         // Fetch top traders
@@ -3824,7 +3843,7 @@ export default function AdminDashboard() {
             </View>
           </View>
           <Text style={[styles.analyticsValue, { color: COLORS.purple }]}>
-            {stats.totalUsers}
+            {analyticsStats.totalUsers}
           </Text>
           <Text style={styles.analyticsLabel}>Total Users</Text>
         </View>
