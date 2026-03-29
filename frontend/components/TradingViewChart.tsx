@@ -268,32 +268,9 @@ export default function TradingViewChart({
     };
   }, [targetScale]);
   
-  // Smooth scroll animation with improved interpolation
-  useEffect(() => {
-    let animFrame: number;
-    let isAnimating = true;
-    
-    const animate = () => {
-      if (!isAnimating) return;
-      
-      setScrollOffset(prev => {
-        const diff = targetScrollRef.current - prev;
-        if (Math.abs(diff) < 0.3) return targetScrollRef.current;
-        // Smoother interpolation factor
-        return prev + diff * ANIMATION_LERP;
-      });
-      
-      animFrame = requestAnimationFrame(animate);
-    };
-    
-    animFrame = requestAnimationFrame(animate);
-    
-    return () => {
-      isAnimating = false;
-      cancelAnimationFrame(animFrame);
-    };
-  }, []);
-
+  // Note: Removed smooth scroll animation that was resetting to center
+  // User scroll position is now respected without auto-centering
+  
   // Smooth price animation - interpolate to target price
   useEffect(() => {
     targetPriceRef.current = internalPrice;
