@@ -185,6 +185,9 @@ export default function AdminDashboard() {
   const [kycSubmissionsCount, setKycSubmissionsCount] = useState(0);
   const [loadingKycSubmissions, setLoadingKycSubmissions] = useState(false);
   const [selectedKycDocument, setSelectedKycDocument] = useState<any>(null);
+  
+  // Successful Withdrawals Modal
+  const [showSuccessfulWithdrawalsModal, setShowSuccessfulWithdrawalsModal] = useState(false);
 
   // Promo Codes States
   const [promoCodes, setPromoCodes] = useState<any[]>([]);
@@ -2144,6 +2147,28 @@ export default function AdminDashboard() {
         </View>
       </TouchableOpacity>
 
+      {/* Successful Withdrawals Button */}
+      <TouchableOpacity 
+        style={[styles.kycSubmittedBtn, { borderColor: COLORS.success, marginTop: 12 }]}
+        onPress={() => setShowSuccessfulWithdrawalsModal(true)}
+      >
+        <View style={styles.kycSubmittedBtnLeft}>
+          <View style={[styles.kycSubmittedIcon, { backgroundColor: 'rgba(0, 229, 90, 0.15)' }]}>
+            <Ionicons name="checkmark-done-circle" size={22} color={COLORS.success} />
+          </View>
+          <View>
+            <Text style={styles.kycSubmittedBtnTitle}>Successful Withdrawals</Text>
+            <Text style={styles.kycSubmittedBtnSubtitle}>View completed withdrawal history</Text>
+          </View>
+        </View>
+        <View style={styles.kycSubmittedBtnRight}>
+          <Text style={[styles.kycSubmittedCount, { color: COLORS.success }]}>
+            {withdrawals.filter(w => w.status === 'completed').length}
+          </Text>
+          <Ionicons name="chevron-forward" size={20} color={COLORS.textMuted} />
+        </View>
+      </TouchableOpacity>
+
       {/* Pending Withdrawals List */}
       <View style={styles.sectionCard}>
         <Text style={styles.sectionTitle}>Pending Requests</Text>
@@ -2244,69 +2269,88 @@ export default function AdminDashboard() {
         </View>
       )}
 
-      {/* Successful Withdrawals List */}
-      <View style={styles.sectionCard}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <Text style={styles.sectionTitle}>✅ Successful Withdrawals</Text>
-          <View style={{ backgroundColor: COLORS.successLight, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 }}>
-            <Text style={{ color: COLORS.success, fontWeight: '600' }}>
-              {withdrawals.filter(w => w.status === 'completed').length} Completed
-            </Text>
+      {/* Successful Withdrawals Modal */}
+      <Modal
+        visible={showSuccessfulWithdrawalsModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowSuccessfulWithdrawalsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '85%' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>✅ Successful Withdrawals</Text>
+              <TouchableOpacity 
+                onPress={() => setShowSuccessfulWithdrawalsModal(false)}
+                style={{ padding: 8, marginRight: -8 }}
+              >
+                <Ionicons name="close-circle" size={28} color={COLORS.danger} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={{ backgroundColor: COLORS.successLight, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, marginBottom: 16, alignSelf: 'flex-start' }}>
+              <Text style={{ color: COLORS.success, fontWeight: '600', fontSize: 14 }}>
+                {withdrawals.filter(w => w.status === 'completed').length} Total Completed
+              </Text>
+            </View>
+            
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {withdrawals.filter(w => w.status === 'completed').length > 0 ? (
+                withdrawals.filter(w => w.status === 'completed').slice(0, 100).map((wd, index) => (
+                  <View key={wd.withdrawal_id || wd.order_id || wd.transaction_id || index} style={[styles.withdrawalCard, { backgroundColor: '#E8F5E9', borderLeftWidth: 3, borderLeftColor: COLORS.success, marginBottom: 10 }]}>
+                    <TouchableOpacity 
+                      style={styles.withdrawalLeft}
+                      onPress={() => {
+                        setShowSuccessfulWithdrawalsModal(false);
+                        fetchWithdrawalUserStats(wd.user_id, wd);
+                      }}
+                    >
+                      <View style={[styles.withdrawalIcon, { backgroundColor: COLORS.successLight }]}>
+                        <Ionicons name="checkmark-done-circle" size={20} color={COLORS.success} />
+                      </View>
+                      <View style={styles.withdrawalInfo}>
+                        <Text style={[styles.withdrawalEmail, { color: COLORS.success }]}>{wd.user_email || 'User'}</Text>
+                        <Text style={styles.withdrawalAddress} numberOfLines={1}>
+                          {wd.payment_type === 'tarspay' 
+                            ? `${wd.channel_name || 'E-Wallet'}: ${wd.wallet_id || 'N/A'}`
+                            : wd.payment_type === 'nowpayments'
+                              ? `USDT TRC20: ${wd.crypto_address ? wd.crypto_address.substring(0, 10) + '...' : 'N/A'}`
+                              : wd.crypto_address || wd.wallet_address || 'N/A'
+                          }
+                        </Text>
+                        <Text style={styles.withdrawalDate}>
+                          {wd.completed_at 
+                            ? new Date(wd.completed_at).toLocaleDateString() + ' ' + new Date(wd.completed_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                            : wd.created_at?.split(' ')[0] || 'N/A'
+                          }
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                    <View style={styles.withdrawalRight}>
+                      <Text style={[styles.withdrawalAmount, { color: COLORS.success }]}>
+                        ${(wd.amount || wd.amount_usd || 0).toFixed(2)}
+                      </Text>
+                      {wd.payment_type === 'tarspay' && wd.net_amount_bdt && (
+                        <Text style={{ fontSize: 11, color: '#666', marginTop: 2 }}>
+                          ৳{wd.net_amount_bdt}
+                        </Text>
+                      )}
+                      <View style={[styles.statusBadge, { backgroundColor: COLORS.successLight, marginTop: 4 }]}>
+                        <Text style={[styles.statusBadgeText, { color: COLORS.success, fontSize: 10 }]}>COMPLETED</Text>
+                      </View>
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <View style={styles.emptyState}>
+                  <Ionicons name="wallet-outline" size={48} color={COLORS.border} />
+                  <Text style={styles.emptyStateText}>No completed withdrawals yet</Text>
+                </View>
+              )}
+            </ScrollView>
           </View>
         </View>
-        
-        {withdrawals.filter(w => w.status === 'completed').length > 0 ? (
-          <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
-            {withdrawals.filter(w => w.status === 'completed').slice(0, 50).map((wd, index) => (
-              <View key={wd.withdrawal_id || wd.order_id || wd.transaction_id || index} style={[styles.withdrawalCard, { backgroundColor: '#E8F5E9', borderLeftWidth: 3, borderLeftColor: COLORS.success }]}>
-                <TouchableOpacity 
-                  style={styles.withdrawalLeft}
-                  onPress={() => fetchWithdrawalUserStats(wd.user_id, wd)}
-                >
-                  <View style={[styles.withdrawalIcon, { backgroundColor: COLORS.successLight }]}>
-                    <Ionicons name="checkmark-done-circle" size={20} color={COLORS.success} />
-                  </View>
-                  <View style={styles.withdrawalInfo}>
-                    <Text style={[styles.withdrawalEmail, { color: COLORS.success }]}>{wd.user_email || 'User'}</Text>
-                    <Text style={styles.withdrawalAddress} numberOfLines={1}>
-                      {wd.payment_type === 'tarspay' 
-                        ? `${wd.channel_name || 'E-Wallet'}: ${wd.wallet_id || 'N/A'}`
-                        : wd.payment_type === 'nowpayments'
-                          ? `USDT TRC20: ${wd.crypto_address ? wd.crypto_address.substring(0, 10) + '...' : 'N/A'}`
-                          : wd.crypto_address || wd.wallet_address || 'N/A'
-                      }
-                    </Text>
-                    <Text style={styles.withdrawalDate}>
-                      {wd.completed_at 
-                        ? new Date(wd.completed_at).toLocaleDateString() + ' ' + new Date(wd.completed_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-                        : wd.created_at?.split(' ')[0] || 'N/A'
-                      }
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-                <View style={styles.withdrawalRight}>
-                  <Text style={[styles.withdrawalAmount, { color: COLORS.success }]}>
-                    ${(wd.amount || wd.amount_usd || 0).toFixed(2)}
-                  </Text>
-                  {wd.payment_type === 'tarspay' && wd.net_amount_bdt && (
-                    <Text style={{ fontSize: 11, color: '#666', marginTop: 2 }}>
-                      ৳{wd.net_amount_bdt}
-                    </Text>
-                  )}
-                  <View style={[styles.statusBadge, { backgroundColor: COLORS.successLight, marginTop: 4 }]}>
-                    <Text style={[styles.statusBadgeText, { color: COLORS.success, fontSize: 10 }]}>COMPLETED</Text>
-                  </View>
-                </View>
-              </View>
-            ))}
-          </ScrollView>
-        ) : (
-          <View style={styles.emptyState}>
-            <Ionicons name="wallet-outline" size={48} color={COLORS.border} />
-            <Text style={styles.emptyStateText}>No completed withdrawals yet</Text>
-          </View>
-        )}
-      </View>
+      </Modal>
 
       {/* Withdrawal User Stats Modal */}
       <Modal
