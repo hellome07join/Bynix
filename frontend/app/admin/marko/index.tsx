@@ -4185,13 +4185,91 @@ export default function AdminDashboard() {
                 
                 <Text style={styles.inputLabel}>Email Body (HTML) *</Text>
                 <TextInput
-                  style={[styles.textInput, { height: 150, textAlignVertical: 'top' }]}
+                  style={[styles.textInput, { height: 120, textAlignVertical: 'top' }]}
                   value={htmlBody}
                   onChangeText={setHtmlBody}
                   placeholder="<h2>Your content here</h2><p>Email body...</p>"
                   placeholderTextColor="#999"
                   multiline
                 />
+                
+                {/* Email Preview Toggle - Moved here for easy access */}
+                <TouchableOpacity
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: showPreview ? COLORS.primary : '#2A2A4A',
+                    padding: 12,
+                    borderRadius: 8,
+                    marginBottom: 12,
+                    borderWidth: 1,
+                    borderColor: COLORS.primary
+                  }}
+                  onPress={() => setShowPreview(!showPreview)}
+                >
+                  <Ionicons name={showPreview ? 'eye-off' : 'eye'} size={18} color={showPreview ? '#FFF' : COLORS.primary} />
+                  <Text style={{ color: showPreview ? '#FFF' : COLORS.primary, fontWeight: '600', marginLeft: 8 }}>
+                    {showPreview ? 'Hide Preview' : '👁️ Preview Email'}
+                  </Text>
+                </TouchableOpacity>
+                
+                {showPreview && (
+                  <View style={{ marginBottom: 16, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#333' }}>
+                    <View style={{ 
+                      backgroundColor: '#1A1A2E', 
+                      padding: 8, 
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6
+                    }}>
+                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#FF5F56' }} />
+                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#FFBD2E' }} />
+                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#27C93F' }} />
+                      <Text style={{ marginLeft: 8, color: '#888', fontSize: 11 }}>📧 {template === 'promotional' ? 'Promotional' : 'Notification'} Template</Text>
+                    </View>
+                    <View style={{ 
+                      backgroundColor: '#E8E8E8',
+                      padding: 12,
+                      maxHeight: 300,
+                    }}>
+                      {Platform.OS === 'web' ? (
+                        <div 
+                          style={{ 
+                            width: '100%',
+                            maxWidth: 500,
+                            margin: '0 auto',
+                            backgroundColor: '#fff',
+                            borderRadius: 8,
+                            overflow: 'hidden',
+                            fontSize: '14px'
+                          }}
+                          dangerouslySetInnerHTML={{ __html: generatePreviewHtml() }}
+                        />
+                      ) : (
+                        <ScrollView style={{ maxHeight: 280 }}>
+                          <View style={{ backgroundColor: '#1a1a2e', padding: 16, alignItems: 'center' }}>
+                            <Text style={{ color: '#00E55A', fontSize: 16, fontWeight: '700' }}>Bynix Trading</Text>
+                          </View>
+                          <View style={{ backgroundColor: '#fff', padding: 16 }}>
+                            {imageUrl ? (
+                              <Image source={{ uri: imageUrl }} style={{ width: '100%', height: 100, borderRadius: 6, marginBottom: 12 }} resizeMode="cover" />
+                            ) : null}
+                            <Text style={{ fontSize: 16, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 }}>{subject || 'Email Subject'}</Text>
+                            <Text style={{ color: '#333', lineHeight: 20 }}>{htmlBody?.replace(/<[^>]*>/g, '') || 'Email content here...'}</Text>
+                            {ctaText && (
+                              <View style={{ marginTop: 16, alignItems: 'center' }}>
+                                <View style={{ backgroundColor: '#00E55A', paddingVertical: 10, paddingHorizontal: 24, borderRadius: 6 }}>
+                                  <Text style={{ color: '#000', fontWeight: '600' }}>{ctaText}</Text>
+                                </View>
+                              </View>
+                            )}
+                          </View>
+                        </ScrollView>
+                      )}
+                    </View>
+                  </View>
+                )}
                 
                 <Text style={styles.inputLabel}>Banner Image URL (Optional)</Text>
                 <TextInput
@@ -4259,94 +4337,6 @@ export default function AdminDashboard() {
                     </TouchableOpacity>
                   ))}
                 </View>
-                
-                {/* Email Preview Section */}
-                <TouchableOpacity
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    backgroundColor: '#F0F4FF',
-                    padding: 14,
-                    borderRadius: 10,
-                    marginBottom: 12,
-                    borderWidth: 1,
-                    borderColor: COLORS.primary
-                  }}
-                  onPress={() => setShowPreview(!showPreview)}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Ionicons name="eye" size={20} color={COLORS.primary} />
-                    <Text style={{ color: COLORS.primary, fontWeight: '600', marginLeft: 8 }}>
-                      {showPreview ? 'Hide Preview' : 'Show Email Preview'}
-                    </Text>
-                  </View>
-                  <Ionicons name={showPreview ? 'chevron-up' : 'chevron-down'} size={20} color={COLORS.primary} />
-                </TouchableOpacity>
-                
-                {showPreview && (
-                  <View style={{ marginBottom: 20 }}>
-                    <View style={{ 
-                      backgroundColor: '#F5F5F5', 
-                      padding: 8, 
-                      borderTopLeftRadius: 10, 
-                      borderTopRightRadius: 10,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 6
-                    }}>
-                      <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#FF5F56' }} />
-                      <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#FFBD2E' }} />
-                      <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#27C93F' }} />
-                      <Text style={{ marginLeft: 8, color: '#666', fontSize: 12 }}>Email Preview - {template}</Text>
-                    </View>
-                    <View style={{ 
-                      backgroundColor: '#E8E8E8',
-                      padding: 16,
-                      borderBottomLeftRadius: 10,
-                      borderBottomRightRadius: 10,
-                      maxHeight: 400,
-                      overflow: 'hidden'
-                    }}>
-                      {Platform.OS === 'web' ? (
-                        <div 
-                          style={{ 
-                            width: '100%',
-                            maxWidth: 600,
-                            margin: '0 auto',
-                            backgroundColor: '#fff',
-                            borderRadius: 8,
-                            overflow: 'hidden'
-                          }}
-                          dangerouslySetInnerHTML={{ __html: generatePreviewHtml() }}
-                        />
-                      ) : (
-                        <ScrollView style={{ maxHeight: 350 }}>
-                          <View style={{ backgroundColor: '#1a1a2e', padding: 20, alignItems: 'center' }}>
-                            <Text style={{ color: '#00E55A', fontSize: 18, fontWeight: '700' }}>Bynix Trading</Text>
-                          </View>
-                          <View style={{ backgroundColor: '#fff', padding: 20 }}>
-                            {imageUrl ? (
-                              <Image source={{ uri: imageUrl }} style={{ width: '100%', height: 150, borderRadius: 8, marginBottom: 16 }} resizeMode="cover" />
-                            ) : null}
-                            <Text style={{ fontSize: 18, fontWeight: '700', color: '#333', marginBottom: 12 }}>{subject || 'Email Subject'}</Text>
-                            <Text style={{ color: '#666', lineHeight: 22 }}>{htmlBody?.replace(/<[^>]*>/g, '') || 'Email content will appear here...'}</Text>
-                            {ctaText && (
-                              <View style={{ marginTop: 20, alignItems: 'center' }}>
-                                <View style={{ backgroundColor: '#00E55A', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 }}>
-                                  <Text style={{ color: '#000', fontWeight: '700' }}>{ctaText}</Text>
-                                </View>
-                              </View>
-                            )}
-                          </View>
-                          <View style={{ backgroundColor: '#1a1a2e', padding: 16, alignItems: 'center' }}>
-                            <Text style={{ color: '#888', fontSize: 11 }}>© 2025 Bynix Trading. All rights reserved.</Text>
-                          </View>
-                        </ScrollView>
-                      )}
-                    </View>
-                  </View>
-                )}
                 
                 <TouchableOpacity
                   style={{ backgroundColor: COLORS.success, padding: 16, borderRadius: 10, alignItems: 'center' }}
