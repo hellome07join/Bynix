@@ -1360,12 +1360,20 @@ export default function AdminDashboard() {
             icon="wallet"
             title="Total Deposits"
             value={formatCurrency(stats.totalDeposits)}
-            subtitle="This month"
+            subtitle="Lifetime"
             gradient={COLORS.gradient2}
             trend={8}
           />
         </View>
         <View style={styles.statsRow}>
+          <StatCard
+            icon="arrow-up-circle"
+            title="Total Withdrawals"
+            value={formatCurrency(stats.totalWithdrawals)}
+            subtitle="Lifetime"
+            gradient={['#FF6B6B', '#EE5A5A']}
+            trend={-5}
+          />
           <StatCard
             icon="trending-up"
             title="Platform Profit"
@@ -1374,12 +1382,21 @@ export default function AdminDashboard() {
             gradient={COLORS.gradient5}
             trend={23}
           />
+        </View>
+        <View style={styles.statsRow}>
           <StatCard
             icon="flash"
             title="Active Trades"
             value={formatNumber(stats.activeTrades)}
             subtitle="Real-time"
             gradient={COLORS.gradient3}
+          />
+          <StatCard
+            icon="time"
+            title="Pending Withdrawals"
+            value={formatNumber(withdrawals.filter(w => w.status === 'pending' || w.status === 'pending_approval').length)}
+            subtitle="Requires action"
+            gradient={COLORS.gradient4}
           />
         </View>
       </View>
