@@ -1847,12 +1847,7 @@ export default function TradingViewChart({
             
             // Get mouse position relative to chart
             const rect = e.currentTarget.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const chartWidth = rect.width;
-            
-            // Calculate the zoom center point (where mouse is)
-            // This is the ratio from left edge (0) to right edge (1)
-            const zoomCenterRatio = mouseX / chartWidth;
+            const zoomPointX = e.clientX - rect.left;
             
             const oldScale = scale;
             const newScaleValue = Math.max(MIN_SCALE, Math.min(MAX_SCALE, oldScale * delta));
@@ -1860,39 +1855,14 @@ export default function TradingViewChart({
             // Skip if scale didn't change
             if (newScaleValue === oldScale) return;
             
-            // Calculate bar widths
-            const oldBarWidth = (10 * oldScale) + (2 * oldScale); // baseBarWidth + barSpacing
-            const newBarWidth = (10 * newScaleValue) + (2 * newScaleValue);
-            
-            // The key insight: we want the data point under the mouse to stay under the mouse
-            // Before zoom: mouseX = dataPosition * oldBarWidth + scrollOffset + padding
-            // After zoom: mouseX = dataPosition * newBarWidth + newScrollOffset + padding
-            // Solving for newScrollOffset to keep dataPosition under mouseX:
-            // newScrollOffset = scrollOffset * (newBarWidth / oldBarWidth)
-            // But this moves everything - we want to zoom centered on mouseX
-            
-            // Better approach: calculate offset adjustment based on zoom center
             const scaleRatio = newScaleValue / oldScale;
             
-            // How much the visible area expands/contracts from the center
-            // If zooming in (scaleRatio > 1), chart expands, so scroll needs to adjust
-            // If zooming out (scaleRatio < 1), chart contracts
-            
-            // The offset adjustment should be proportional to how far we are from center
-            // At left edge (zoomCenterRatio=0), we want minimal adjustment
-            // At right edge (zoomCenterRatio=1), we want maximum adjustment
-            // At center (zoomCenterRatio=0.5), we want medium adjustment
-            
+            // CORRECT ZOOM-TO-POINT FORMULA:
+            // To keep the point under the mouse stationary after zoom:
+            // newScrollOffset = zoomPointX * (1 - scaleRatio) + oldScrollOffset * scaleRatio
+            // This ensures the data point at zoomPointX stays at zoomPointX after zoom
             setScrollOffset(prev => {
-              // Calculate how much the chart "moves" due to scaling
-              // This keeps the zoom centered on where the mouse is
-              const chartCenterX = chartWidth / 2;
-              const offsetFromCenter = mouseX - chartCenterX;
-              
-              // The adjustment needed to keep the point under mouse stationary
-              const adjustment = offsetFromCenter * (1 - scaleRatio);
-              
-              return prev + adjustment;
+              return zoomPointX * (1 - scaleRatio) + prev * scaleRatio;
             });
             
             setTargetScale(newScaleValue);
@@ -2117,26 +2087,23 @@ export default function TradingViewChart({
               const dy = touch2.clientY - touch1.clientY;
               const currentDistance = Math.sqrt(dx * dx + dy * dy);
               
-              // Calculate pinch center point
+              // Calculate pinch center point (zoom point)
               const rect = e.currentTarget.getBoundingClientRect();
-              const pinchCenterX = ((touch1.clientX + touch2.clientX) / 2) - rect.left;
-              const chartWidth = rect.width;
-              const chartCenterX = chartWidth / 2;
+              const zoomPointX = ((touch1.clientX + touch2.clientX) / 2) - rect.left;
               
               // Calculate scale factor
               if (initialPinchDistanceRef.current > 0) {
                 const scaleFactor = currentDistance / initialPinchDistanceRef.current;
                 const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, initialScaleRef.current * scaleFactor));
                 
-                // Zoom to pinch center point - same logic as mouse wheel
                 const oldScale = scale;
                 const scaleRatio = newScale / oldScale;
                 
-                // The offset adjustment should keep pinch center stationary
-                const offsetFromCenter = pinchCenterX - chartCenterX;
-                const adjustment = offsetFromCenter * (1 - scaleRatio);
-                
-                setScrollOffset(prev => prev + adjustment);
+                // CORRECT ZOOM-TO-POINT FORMULA (same as mouse wheel):
+                // newScrollOffset = zoomPointX * (1 - scaleRatio) + oldScrollOffset * scaleRatio
+                setScrollOffset(prev => {
+                  return zoomPointX * (1 - scaleRatio) + prev * scaleRatio;
+                });
                 
                 // Apply with constraints
                 setTargetScale(newScale);
