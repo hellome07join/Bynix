@@ -1492,7 +1492,7 @@ export default function Profile() {
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
-              marginBottom: 16,
+              marginBottom: 8,
               borderWidth: 1,
               borderColor: '#00E55A'
             }}
@@ -1530,7 +1530,49 @@ export default function Profile() {
             }}
           >
             <Ionicons name="refresh" size={20} color="#00E55A" />
-            <Text style={{ color: '#00E55A', marginLeft: 8, fontWeight: '600' }}>Check Pending Payments</Text>
+            <Text style={{ color: '#00E55A', marginLeft: 8, fontWeight: '600' }}>Check Pending Deposits</Text>
+          </TouchableOpacity>
+
+          {/* Check Pending Withdrawals Button */}
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#2A1A3F',
+              padding: 12,
+              borderRadius: 8,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: '#FF9500'
+            }}
+            onPress={async () => {
+              if (!token) return;
+              try {
+                const response = await fetch(`${API_URL}/tarspay/check-pending-withdrawals`, {
+                  headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.success && data.updated > 0) {
+                  Alert.alert(
+                    '✅ Withdrawal Updated!', 
+                    `${data.updated} withdrawal(s) have been updated.\n\n${data.message}`,
+                    [{ text: 'OK' }]
+                  );
+                  // Refresh user data and transactions
+                  const { refreshUser } = useAuthStore.getState();
+                  await refreshUser();
+                  fetchTransactions();
+                } else {
+                  Alert.alert('ℹ️ No Updates', data.message || 'No pending withdrawals need updating.');
+                }
+              } catch (err) {
+                Alert.alert('Error', 'Could not check withdrawal status. Please try again.');
+              }
+            }}
+          >
+            <Ionicons name="arrow-up-circle" size={20} color="#FF9500" />
+            <Text style={{ color: '#FF9500', marginLeft: 8, fontWeight: '600' }}>Check Pending Withdrawals</Text>
           </TouchableOpacity>
 
           {/* Summary Stats Cards */}

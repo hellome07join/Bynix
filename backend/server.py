@@ -4872,6 +4872,99 @@ async def tarspay_withdrawal_callback(request: Request):
         print(f"[TarsPay Withdrawal Callback] Error: {e}")
         return Response(content="OK", status_code=200)
 
+@api_router.get("/tarspay/check-pending-withdrawals")
+async def check_pending_withdrawals(
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """
+    Check and update status of all pending TarsPay withdrawals for the user.
+    This is a fallback for when webhooks don't reach us.
+    """
+    try:
+        user = await get_current_user(authorization, request)
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    # Find all pending/processing TarsPay withdrawals for this user
+    pending_withdrawals = await db.withdrawals.find({
+        "user_id": user.user_id,
+        "payment_type": "tarspay",
+        "status": {"$in": ["pending", "processing"]}
+    }).to_list(50)
+    
+    if not pending_withdrawals:
+        return {"success": True, "message": "No pending withdrawals", "updated": 0}
+    
+    updated_count = 0
+    results = []
+    
+    for withdrawal in pending_withdrawals:
+        order_id = withdrawal.get("order_id")
+        if not order_id:
+            continue
+        
+        # Query TarsPay for current status
+        status_result = await tarspay_service.get_withdrawal_status(order_id)
+        
+        if status_result.get("success"):
+            tarspay_status = status_result.get("status")
+            tarspay_state = status_result.get("state")
+            
+            # Update if status changed
+            if tarspay_status == "success" and withdrawal.get("status") != "completed":
+                await db.withdrawals.update_one(
+                    {"order_id": order_id},
+                    {
+                        "$set": {
+                            "status": "completed",
+                            "completed_at": datetime.now(timezone.utc),
+                            "tarspay_query_data": status_result
+                        }
+                    }
+                )
+                await create_notification(
+                    user.user_id,
+                    "Withdrawal Successful! 💸",
+                    f"৳{withdrawal.get('net_amount_bdt')} has been sent to your {withdrawal.get('channel_name')}",
+                    "withdrawal"
+                )
+                updated_count += 1
+                results.append({"order_id": order_id, "old_status": withdrawal.get("status"), "new_status": "completed"})
+                
+            elif tarspay_status in ["failed", "rejected", "refund"]:
+                # Refund balance
+                await db.users.update_one(
+                    {"user_id": user.user_id},
+                    {"$inc": {"real_balance": withdrawal.get("amount_usd", 0)}}
+                )
+                await db.withdrawals.update_one(
+                    {"order_id": order_id},
+                    {
+                        "$set": {
+                            "status": "failed",
+                            "tarspay_query_data": status_result
+                        }
+                    }
+                )
+                await create_notification(
+                    user.user_id,
+                    "Withdrawal Failed ❌",
+                    f"Your withdrawal has failed. ${withdrawal.get('amount_usd'):.2f} has been refunded.",
+                    "withdrawal"
+                )
+                updated_count += 1
+                results.append({"order_id": order_id, "old_status": withdrawal.get("status"), "new_status": "failed"})
+        else:
+            results.append({"order_id": order_id, "error": status_result.get("error", "Query failed")})
+    
+    return {
+        "success": True,
+        "message": f"Checked {len(pending_withdrawals)} pending withdrawals, updated {updated_count}",
+        "updated": updated_count,
+        "results": results
+    }
+
 # ============= NOWPayments Withdrawal Callback =============
 
 @api_router.post("/nowpayments/withdrawal/callback")
