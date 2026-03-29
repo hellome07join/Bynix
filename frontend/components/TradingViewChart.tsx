@@ -1845,6 +1845,14 @@ export default function TradingViewChart({
             const zoomIntensity = 0.08;
             const delta = e.deltaY > 0 ? (1 - zoomIntensity) : (1 + zoomIntensity);
             
+            // Adjust scrollOffset proportionally when zooming to maintain position
+            const oldScale = scale;
+            const newScaleValue = Math.max(MIN_SCALE, Math.min(MAX_SCALE, oldScale * delta));
+            const scaleRatio = newScaleValue / oldScale;
+            
+            // Adjust scroll offset to maintain the same visual position
+            setScrollOffset(prev => prev * scaleRatio);
+            
             setTargetScale(prev => {
               const newScale = prev * delta;
               return Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
@@ -1883,7 +1891,8 @@ export default function TradingViewChart({
               lastTime = currentTime;
               // FIXED: Drag RIGHT = positive offset = see history
               // Drag LEFT = negative offset = running candle goes right
-              setScrollOffset(startOffset + diff * SCROLL_SENSITIVITY);
+              // Adjust scroll sensitivity based on scale - more zoom = less scroll needed
+              setScrollOffset(startOffset + diff * SCROLL_SENSITIVITY * scale);
             };
             
             const onMouseUp = () => {
@@ -1896,11 +1905,11 @@ export default function TradingViewChart({
                 if (Math.abs(scrollVelocityRef.current) > MOMENTUM_MIN_VELOCITY) {
                   setScrollOffset(prev => {
                     // FIXED: momentum follows drag direction
-                    const newOffset = prev + scrollVelocityRef.current;
-                    // Allow generous negative offset for scrolling back to running candle
+                    const newOffset = prev + scrollVelocityRef.current * scale;
+                    // Scale-aware limits - zoom in = smaller scroll range needed
                     // Negative = towards running candle, Positive = towards history
-                    const maxNegativeOffset = -1000; // Allow scrolling back to running candle
-                    const maxPositiveOffset = 10000; // Allow deep history scrolling
+                    const maxNegativeOffset = -2000 * scale; // Allow scrolling back to running candle
+                    const maxPositiveOffset = 20000 * scale; // Allow deep history scrolling
                     if (newOffset < maxNegativeOffset) {
                       scrollVelocityRef.current *= 0.3;
                       return maxNegativeOffset;
@@ -2007,7 +2016,8 @@ export default function TradingViewChart({
                   
                   lastX = currentX;
                   lastTime = currentTime;
-                  setScrollOffset(startOffset + diff * SCROLL_SENSITIVITY);
+                  // Scale-aware scroll sensitivity
+                  setScrollOffset(startOffset + diff * SCROLL_SENSITIVITY * scale);
                 }
               };
               
@@ -2021,12 +2031,12 @@ export default function TradingViewChart({
                 const applyMomentum = () => {
                   if (Math.abs(scrollVelocityRef.current) > MOMENTUM_MIN_VELOCITY) {
                     setScrollOffset(prev => {
-                      // FIXED: momentum follows drag direction
-                      const newOffset = prev + scrollVelocityRef.current;
-                      // Allow generous negative offset for scrolling back to running candle
+                      // FIXED: momentum follows drag direction with scale-awareness
+                      const newOffset = prev + scrollVelocityRef.current * scale;
+                      // Scale-aware limits - zoom in = smaller scroll range needed
                       // Negative = towards running candle, Positive = towards history
-                      const maxNegativeOffset = -1000; // Allow scrolling back to running candle
-                      const maxPositiveOffset = 10000; // Allow deep history scrolling
+                      const maxNegativeOffset = -2000 * scale; // Allow scrolling back to running candle
+                      const maxPositiveOffset = 20000 * scale; // Allow deep history scrolling
                       if (newOffset < maxNegativeOffset) {
                         scrollVelocityRef.current *= 0.3;
                         return maxNegativeOffset;
@@ -2071,10 +2081,15 @@ export default function TradingViewChart({
               // Calculate scale factor
               if (initialPinchDistanceRef.current > 0) {
                 const scaleFactor = currentDistance / initialPinchDistanceRef.current;
-                const newScale = initialScaleRef.current * scaleFactor;
+                const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, initialScaleRef.current * scaleFactor));
+                
+                // Adjust scrollOffset proportionally when pinch zooming to maintain position
+                const oldScale = scale;
+                const scaleRatio = newScale / oldScale;
+                setScrollOffset(prev => prev * scaleRatio);
                 
                 // Apply with constraints
-                setTargetScale(Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale)));
+                setTargetScale(newScale);
               }
             }
           }}
