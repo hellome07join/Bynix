@@ -195,6 +195,10 @@ export default function AdminDashboard() {
   // Promo Codes States
   const [promoCodes, setPromoCodes] = useState<any[]>([]);
   const [showPromoModal, setShowPromoModal] = useState(false);
+  
+  // Email Campaign Modal State (Parent level to prevent re-render resets)
+  const [showEmailCampaignModal, setShowEmailCampaignModal] = useState(false);
+  const [showPushNotificationModal, setShowPushNotificationModal] = useState(false);
   const [newPromoCode, setNewPromoCode] = useState({
     code: '',
     bonus_type: 'percentage',
@@ -3691,7 +3695,6 @@ export default function AdminDashboard() {
   const PushNotificationsContent = () => {
     const [notifications, setNotifications] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [showCreateModal, setShowCreateModal] = useState(false);
     const [audienceStats, setAudienceStats] = useState<any>({});
     
     // Form state
@@ -3759,7 +3762,7 @@ export default function AdminDashboard() {
         const data = await response.json();
         if (data.success) {
           Alert.alert('Success', `Notification sent to ${data.target_count} users!`);
-          setShowCreateModal(false);
+          setShowPushNotificationModal(false);
           setTitle('');
           setBody('');
           setImageUrl('');
@@ -3810,7 +3813,7 @@ export default function AdminDashboard() {
         {/* Create Button */}
         <TouchableOpacity
           style={{ backgroundColor: COLORS.primary, padding: 16, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}
-          onPress={() => setShowCreateModal(true)}
+          onPress={() => setShowPushNotificationModal(true)}
         >
           <Ionicons name="add-circle" size={24} color="#FFF" />
           <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 16, marginLeft: 8 }}>Create Notification</Text>
@@ -3847,12 +3850,12 @@ export default function AdminDashboard() {
         </View>
         
         {/* Create Modal */}
-        <Modal visible={showCreateModal} transparent animationType="slide">
+        <Modal visible={showPushNotificationModal} transparent animationType="slide">
           <View style={styles.modalOverlay}>
             <View style={[styles.modalContent, { maxHeight: '90%' }]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Create Push Notification</Text>
-                <TouchableOpacity onPress={() => setShowCreateModal(false)}>
+                <TouchableOpacity onPress={() => setShowPushNotificationModal(false)}>
                   <Ionicons name="close-circle" size={28} color={COLORS.danger} />
                 </TouchableOpacity>
               </View>
@@ -3949,7 +3952,6 @@ export default function AdminDashboard() {
   const EmailCampaignsContent = () => {
     const [campaigns, setCampaigns] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [showCreateModal, setShowCreateModal] = useState(false);
     const [audienceStats, setAudienceStats] = useState<any>({});
     const [showPreview, setShowPreview] = useState(false);
     
@@ -4059,7 +4061,7 @@ export default function AdminDashboard() {
         const data = await response.json();
         if (data.success) {
           Alert.alert('Success', `Campaign sent to ${data.target_count} recipients!`);
-          setShowCreateModal(false);
+          setShowEmailCampaignModal(false);
           setSubject('');
           setHtmlBody('');
           setImageUrl('');
@@ -4114,7 +4116,7 @@ export default function AdminDashboard() {
         {/* Create Button */}
         <TouchableOpacity
           style={{ backgroundColor: COLORS.primary, padding: 16, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}
-          onPress={() => setShowCreateModal(true)}
+          onPress={() => setShowEmailCampaignModal(true)}
         >
           <Ionicons name="create" size={24} color="#FFF" />
           <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 16, marginLeft: 8 }}>Create Campaign</Text>
@@ -4163,12 +4165,12 @@ export default function AdminDashboard() {
         </View>
         
         {/* Create Modal */}
-        <Modal visible={showCreateModal} transparent animationType="slide">
+        <Modal visible={showEmailCampaignModal} transparent animationType="slide">
           <View style={styles.modalOverlay}>
             <View style={[styles.modalContent, { maxHeight: '90%' }]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Create Email Campaign</Text>
-                <TouchableOpacity onPress={() => setShowCreateModal(false)}>
+                <TouchableOpacity onPress={() => setShowEmailCampaignModal(false)}>
                   <Ionicons name="close-circle" size={28} color={COLORS.danger} />
                 </TouchableOpacity>
               </View>
