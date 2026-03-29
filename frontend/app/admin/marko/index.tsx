@@ -3695,8 +3695,16 @@ export default function AdminDashboard() {
     });
     const [loadingAnalytics, setLoadingAnalytics] = useState(true);
     const [topTraders, setTopTraders] = useState<any[]>([]);
+    
+    // Create headers inside the component using token from parent scope
+    const authHeaders = { 'Authorization': `Bearer ${token}` };
 
     const fetchAnalyticsData = async (period: string) => {
+      if (!token) {
+        console.log('[Analytics] No token available');
+        return;
+      }
+      
       try {
         setLoadingAnalytics(true);
         const periodMap: {[key: string]: string} = {
@@ -3712,7 +3720,7 @@ export default function AdminDashboard() {
         console.log('[Analytics] Fetching:', apiUrl);
         
         const response = await fetch(apiUrl, {
-          headers: headers
+          headers: authHeaders
         });
         
         if (response.ok) {
@@ -3736,7 +3744,7 @@ export default function AdminDashboard() {
 
         // Fetch top traders
         const tradersResponse = await fetch(`${API_URL}/admin/top-traders?period=${periodMap[period]}&limit=5`, {
-          headers: headers
+          headers: authHeaders
         });
         
         if (tradersResponse.ok) {
