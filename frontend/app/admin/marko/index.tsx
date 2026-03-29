@@ -92,6 +92,8 @@ const MENU_ITEMS = [
   { id: 'live-trades', label: 'Live Trades', icon: 'pulse-outline', section: 'trading', live: true },
   { id: 'deposits', label: 'Deposits', icon: 'arrow-down-circle-outline', section: 'finance' },
   { id: 'withdrawals', label: 'Withdrawals', icon: 'arrow-up-circle-outline', section: 'finance', badgeKey: 'pendingWithdrawals' },
+  { id: 'push-notifications', label: 'Push Notifications', icon: 'notifications-outline', section: 'marketing' },
+  { id: 'email-campaigns', label: 'Email Campaigns', icon: 'mail-outline', section: 'marketing' },
   { id: 'affiliates', label: 'Affiliates', icon: 'git-network-outline', section: 'partners' },
   { id: 'staff', label: 'Staff Management', icon: 'briefcase-outline', section: 'admin' },
   { id: 'settings', label: 'Settings', icon: 'settings-outline', section: 'admin' },
@@ -102,6 +104,7 @@ const MENU_SECTIONS = {
   management: 'Management',
   trading: 'Trading',
   finance: 'Finance',
+  marketing: 'Marketing',
   partners: 'Partners',
   admin: 'Administration',
 };
@@ -3669,6 +3672,10 @@ export default function AdminDashboard() {
         return <AnalyticsContent />;
       case 'deposits':
         return <DepositsContent />;
+      case 'push-notifications':
+        return <PushNotificationsContent />;
+      case 'email-campaigns':
+        return <EmailCampaignsContent />;
       case 'affiliates':
         return <AffiliatesContent />;
       case 'staff':
@@ -3678,6 +3685,558 @@ export default function AdminDashboard() {
       default:
         return <PlaceholderContent title={MENU_ITEMS.find(m => m.id === activeMenu)?.label || 'Section'} />;
     }
+  };
+
+  // ============= PUSH NOTIFICATIONS CONTENT =============
+  const PushNotificationsContent = () => {
+    const [notifications, setNotifications] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [audienceStats, setAudienceStats] = useState<any>({});
+    
+    // Form state
+    const [title, setTitle] = useState('');
+    const [body, setBody] = useState('');
+    const [imageUrl, setImageUrl] = useState('');
+    const [ctaText, setCtaText] = useState('');
+    const [ctaUrl, setCtaUrl] = useState('');
+    const [targetAudience, setTargetAudience] = useState('all_users');
+    const [sending, setSending] = useState(false);
+    
+    const authHeaders = { 'Authorization': `Bearer ${token}` };
+    
+    const fetchNotifications = async () => {
+      try {
+        const response = await fetch(`${API_URL}/admin/marketing/push-notifications`, {
+          headers: authHeaders
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setNotifications(data.notifications || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch notifications:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    const fetchAudienceStats = async () => {
+      try {
+        const response = await fetch(`${API_URL}/admin/marketing/audience-stats`, {
+          headers: authHeaders
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setAudienceStats(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch audience stats:', error);
+      }
+    };
+    
+    const handleSendNotification = async () => {
+      if (!title || !body) {
+        Alert.alert('Error', 'Title and Body are required');
+        return;
+      }
+      
+      setSending(true);
+      try {
+        const response = await fetch(`${API_URL}/admin/marketing/push-notifications`, {
+          method: 'POST',
+          headers: { ...authHeaders, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            body,
+            image_url: imageUrl || null,
+            cta_text: ctaText || null,
+            cta_url: ctaUrl || null,
+            target_audience: targetAudience
+          })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+          Alert.alert('Success', `Notification sent to ${data.target_count} users!`);
+          setShowCreateModal(false);
+          setTitle('');
+          setBody('');
+          setImageUrl('');
+          setCtaText('');
+          setCtaUrl('');
+          fetchNotifications();
+        } else {
+          Alert.alert('Error', data.error || 'Failed to send notification');
+        }
+      } catch (error) {
+        Alert.alert('Error', 'Failed to send notification');
+      } finally {
+        setSending(false);
+      }
+    };
+    
+    React.useEffect(() => {
+      fetchNotifications();
+      fetchAudienceStats();
+    }, []);
+    
+    return (
+      <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.pageHeader}>
+          <Text style={styles.pageTitle}>Push Notifications</Text>
+          <Text style={styles.pageSubtitle}>Send notifications to users and affiliates</Text>
+        </View>
+        
+        {/* Stats Cards */}
+        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+          <View style={[styles.statCard, { flex: 1, backgroundColor: '#E3F2FD' }]}>
+            <Ionicons name="people" size={24} color="#1976D2" />
+            <Text style={{ fontSize: 20, fontWeight: '700', color: '#1976D2', marginTop: 8 }}>{audienceStats.all_users || 0}</Text>
+            <Text style={{ color: '#666', fontSize: 12 }}>Total Users</Text>
+          </View>
+          <View style={[styles.statCard, { flex: 1, backgroundColor: '#E8F5E9' }]}>
+            <Ionicons name="git-network" size={24} color="#388E3C" />
+            <Text style={{ fontSize: 20, fontWeight: '700', color: '#388E3C', marginTop: 8 }}>{audienceStats.affiliates || 0}</Text>
+            <Text style={{ color: '#666', fontSize: 12 }}>Affiliates</Text>
+          </View>
+          <View style={[styles.statCard, { flex: 1, backgroundColor: '#FFF3E0' }]}>
+            <Ionicons name="notifications" size={24} color="#F57C00" />
+            <Text style={{ fontSize: 20, fontWeight: '700', color: '#F57C00', marginTop: 8 }}>{notifications.length}</Text>
+            <Text style={{ color: '#666', fontSize: 12 }}>Sent</Text>
+          </View>
+        </View>
+        
+        {/* Create Button */}
+        <TouchableOpacity
+          style={{ backgroundColor: COLORS.primary, padding: 16, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}
+          onPress={() => setShowCreateModal(true)}
+        >
+          <Ionicons name="add-circle" size={24} color="#FFF" />
+          <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 16, marginLeft: 8 }}>Create Notification</Text>
+        </TouchableOpacity>
+        
+        {/* Notification History */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Notification History</Text>
+          
+          {loading ? (
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          ) : notifications.length === 0 ? (
+            <View style={{ padding: 30, alignItems: 'center' }}>
+              <Ionicons name="notifications-off" size={48} color="#DDD" />
+              <Text style={{ color: '#888', marginTop: 12 }}>No notifications sent yet</Text>
+            </View>
+          ) : (
+            notifications.map((notif, index) => (
+              <View key={notif.notification_id || index} style={{ backgroundColor: '#F5F5F5', padding: 16, borderRadius: 10, marginBottom: 10 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Text style={{ fontWeight: '700', color: '#333', flex: 1 }}>{notif.title}</Text>
+                  <View style={{ backgroundColor: notif.status === 'sent' ? COLORS.successLight : COLORS.warningLight, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 }}>
+                    <Text style={{ fontSize: 10, fontWeight: '600', color: notif.status === 'sent' ? COLORS.success : COLORS.warning }}>{notif.status?.toUpperCase()}</Text>
+                  </View>
+                </View>
+                <Text style={{ color: '#666', fontSize: 13, marginBottom: 8 }}>{notif.body}</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ color: '#888', fontSize: 11 }}>Target: {notif.target_audience} ({notif.target_count})</Text>
+                  <Text style={{ color: '#888', fontSize: 11 }}>Sent: {notif.sent_count}</Text>
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+        
+        {/* Create Modal */}
+        <Modal visible={showCreateModal} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { maxHeight: '90%' }]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Create Push Notification</Text>
+                <TouchableOpacity onPress={() => setShowCreateModal(false)}>
+                  <Ionicons name="close-circle" size={28} color={COLORS.danger} />
+                </TouchableOpacity>
+              </View>
+              
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <Text style={styles.inputLabel}>Title *</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={title}
+                  onChangeText={setTitle}
+                  placeholder="Notification title"
+                  placeholderTextColor="#999"
+                />
+                
+                <Text style={styles.inputLabel}>Message Body *</Text>
+                <TextInput
+                  style={[styles.textInput, { height: 100, textAlignVertical: 'top' }]}
+                  value={body}
+                  onChangeText={setBody}
+                  placeholder="Notification message"
+                  placeholderTextColor="#999"
+                  multiline
+                />
+                
+                <Text style={styles.inputLabel}>Image URL (Optional)</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={imageUrl}
+                  onChangeText={setImageUrl}
+                  placeholder="https://..."
+                  placeholderTextColor="#999"
+                />
+                
+                <Text style={styles.inputLabel}>CTA Button Text (Optional)</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={ctaText}
+                  onChangeText={setCtaText}
+                  placeholder="e.g., Trade Now"
+                  placeholderTextColor="#999"
+                />
+                
+                <Text style={styles.inputLabel}>CTA Button URL (Optional)</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={ctaUrl}
+                  onChangeText={setCtaUrl}
+                  placeholder="https://..."
+                  placeholderTextColor="#999"
+                />
+                
+                <Text style={styles.inputLabel}>Target Audience</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+                  {[
+                    { value: 'all_users', label: `All Users (${audienceStats.all_users || 0})` },
+                    { value: 'all_affiliates', label: `Affiliates (${audienceStats.affiliates || 0})` },
+                    { value: 'verified', label: `Verified (${audienceStats.verified_users || 0})` }
+                  ].map((option) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={{
+                        paddingHorizontal: 16,
+                        paddingVertical: 10,
+                        borderRadius: 20,
+                        backgroundColor: targetAudience === option.value ? COLORS.primary : '#E0E0E0'
+                      }}
+                      onPress={() => setTargetAudience(option.value)}
+                    >
+                      <Text style={{ color: targetAudience === option.value ? '#FFF' : '#333', fontWeight: '600' }}>{option.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                
+                <TouchableOpacity
+                  style={{ backgroundColor: COLORS.success, padding: 16, borderRadius: 10, alignItems: 'center' }}
+                  onPress={handleSendNotification}
+                  disabled={sending}
+                >
+                  {sending ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 16 }}>Send Notification</Text>
+                  )}
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      </ScrollView>
+    );
+  };
+
+  // ============= EMAIL CAMPAIGNS CONTENT =============
+  const EmailCampaignsContent = () => {
+    const [campaigns, setCampaigns] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [audienceStats, setAudienceStats] = useState<any>({});
+    
+    // Form state
+    const [subject, setSubject] = useState('');
+    const [htmlBody, setHtmlBody] = useState('');
+    const [imageUrl, setImageUrl] = useState('');
+    const [ctaText, setCtaText] = useState('');
+    const [ctaUrl, setCtaUrl] = useState('');
+    const [targetAudience, setTargetAudience] = useState('all_users');
+    const [template, setTemplate] = useState('promotional');
+    const [sending, setSending] = useState(false);
+    
+    const authHeaders = { 'Authorization': `Bearer ${token}` };
+    
+    const fetchCampaigns = async () => {
+      try {
+        const response = await fetch(`${API_URL}/admin/marketing/email-campaigns`, {
+          headers: authHeaders
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setCampaigns(data.campaigns || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch campaigns:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    const fetchAudienceStats = async () => {
+      try {
+        const response = await fetch(`${API_URL}/admin/marketing/audience-stats`, {
+          headers: authHeaders
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setAudienceStats(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch audience stats:', error);
+      }
+    };
+    
+    const handleSendCampaign = async () => {
+      if (!subject || !htmlBody) {
+        Alert.alert('Error', 'Subject and Body are required');
+        return;
+      }
+      
+      setSending(true);
+      try {
+        const response = await fetch(`${API_URL}/admin/marketing/email-campaigns`, {
+          method: 'POST',
+          headers: { ...authHeaders, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subject,
+            html_body: htmlBody,
+            image_url: imageUrl || null,
+            cta_text: ctaText || null,
+            cta_url: ctaUrl || null,
+            target_audience: targetAudience,
+            template
+          })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+          Alert.alert('Success', `Campaign sent to ${data.target_count} recipients!`);
+          setShowCreateModal(false);
+          setSubject('');
+          setHtmlBody('');
+          setImageUrl('');
+          setCtaText('');
+          setCtaUrl('');
+          fetchCampaigns();
+        } else {
+          Alert.alert('Error', data.error || 'Failed to send campaign');
+        }
+      } catch (error) {
+        Alert.alert('Error', 'Failed to send campaign');
+      } finally {
+        setSending(false);
+      }
+    };
+    
+    React.useEffect(() => {
+      fetchCampaigns();
+      fetchAudienceStats();
+    }, []);
+    
+    return (
+      <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.pageHeader}>
+          <Text style={styles.pageTitle}>Email Campaigns</Text>
+          <Text style={styles.pageSubtitle}>Create and manage promotional email campaigns</Text>
+        </View>
+        
+        {/* Stats Cards */}
+        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+          <View style={[styles.statCard, { flex: 1, backgroundColor: '#E3F2FD' }]}>
+            <Ionicons name="mail" size={24} color="#1976D2" />
+            <Text style={{ fontSize: 20, fontWeight: '700', color: '#1976D2', marginTop: 8 }}>{campaigns.length}</Text>
+            <Text style={{ color: '#666', fontSize: 12 }}>Campaigns</Text>
+          </View>
+          <View style={[styles.statCard, { flex: 1, backgroundColor: '#E8F5E9' }]}>
+            <Ionicons name="send" size={24} color="#388E3C" />
+            <Text style={{ fontSize: 20, fontWeight: '700', color: '#388E3C', marginTop: 8 }}>
+              {campaigns.reduce((sum, c) => sum + (c.sent_count || 0), 0)}
+            </Text>
+            <Text style={{ color: '#666', fontSize: 12 }}>Emails Sent</Text>
+          </View>
+          <View style={[styles.statCard, { flex: 1, backgroundColor: '#FFF3E0' }]}>
+            <Ionicons name="eye" size={24} color="#F57C00" />
+            <Text style={{ fontSize: 20, fontWeight: '700', color: '#F57C00', marginTop: 8 }}>
+              {campaigns.reduce((sum, c) => sum + (c.open_count || 0), 0)}
+            </Text>
+            <Text style={{ color: '#666', fontSize: 12 }}>Opens</Text>
+          </View>
+        </View>
+        
+        {/* Create Button */}
+        <TouchableOpacity
+          style={{ backgroundColor: COLORS.primary, padding: 16, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}
+          onPress={() => setShowCreateModal(true)}
+        >
+          <Ionicons name="create" size={24} color="#FFF" />
+          <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 16, marginLeft: 8 }}>Create Campaign</Text>
+        </TouchableOpacity>
+        
+        {/* Campaign History */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Campaign History</Text>
+          
+          {loading ? (
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          ) : campaigns.length === 0 ? (
+            <View style={{ padding: 30, alignItems: 'center' }}>
+              <Ionicons name="mail-unread" size={48} color="#DDD" />
+              <Text style={{ color: '#888', marginTop: 12 }}>No campaigns created yet</Text>
+            </View>
+          ) : (
+            campaigns.map((campaign, index) => (
+              <View key={campaign.campaign_id || index} style={{ backgroundColor: '#F5F5F5', padding: 16, borderRadius: 10, marginBottom: 10 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Text style={{ fontWeight: '700', color: '#333', flex: 1 }}>{campaign.subject}</Text>
+                  <View style={{ backgroundColor: campaign.status === 'sent' ? COLORS.successLight : COLORS.warningLight, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 }}>
+                    <Text style={{ fontSize: 10, fontWeight: '600', color: campaign.status === 'sent' ? COLORS.success : COLORS.warning }}>{campaign.status?.toUpperCase()}</Text>
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 16, marginTop: 8 }}>
+                  <View style={{ alignItems: 'center' }}>
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: COLORS.primary }}>{campaign.sent_count || 0}</Text>
+                    <Text style={{ fontSize: 10, color: '#888' }}>Sent</Text>
+                  </View>
+                  <View style={{ alignItems: 'center' }}>
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: COLORS.success }}>{campaign.open_count || 0}</Text>
+                    <Text style={{ fontSize: 10, color: '#888' }}>Opens</Text>
+                  </View>
+                  <View style={{ alignItems: 'center' }}>
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: COLORS.warning }}>{campaign.click_count || 0}</Text>
+                    <Text style={{ fontSize: 10, color: '#888' }}>Clicks</Text>
+                  </View>
+                  <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                    <Text style={{ fontSize: 10, color: '#888' }}>Target: {campaign.target_audience}</Text>
+                  </View>
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+        
+        {/* Create Modal */}
+        <Modal visible={showCreateModal} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { maxHeight: '90%' }]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Create Email Campaign</Text>
+                <TouchableOpacity onPress={() => setShowCreateModal(false)}>
+                  <Ionicons name="close-circle" size={28} color={COLORS.danger} />
+                </TouchableOpacity>
+              </View>
+              
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <Text style={styles.inputLabel}>Subject Line *</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={subject}
+                  onChangeText={setSubject}
+                  placeholder="Email subject"
+                  placeholderTextColor="#999"
+                />
+                
+                <Text style={styles.inputLabel}>Email Body (HTML) *</Text>
+                <TextInput
+                  style={[styles.textInput, { height: 150, textAlignVertical: 'top' }]}
+                  value={htmlBody}
+                  onChangeText={setHtmlBody}
+                  placeholder="<h2>Your content here</h2><p>Email body...</p>"
+                  placeholderTextColor="#999"
+                  multiline
+                />
+                
+                <Text style={styles.inputLabel}>Banner Image URL (Optional)</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={imageUrl}
+                  onChangeText={setImageUrl}
+                  placeholder="https://..."
+                  placeholderTextColor="#999"
+                />
+                
+                <Text style={styles.inputLabel}>CTA Button Text</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={ctaText}
+                  onChangeText={setCtaText}
+                  placeholder="e.g., Start Trading"
+                  placeholderTextColor="#999"
+                />
+                
+                <Text style={styles.inputLabel}>CTA Button URL</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={ctaUrl}
+                  onChangeText={setCtaUrl}
+                  placeholder="https://..."
+                  placeholderTextColor="#999"
+                />
+                
+                <Text style={styles.inputLabel}>Email Template</Text>
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+                  {['promotional', 'notification'].map((t) => (
+                    <TouchableOpacity
+                      key={t}
+                      style={{
+                        paddingHorizontal: 20,
+                        paddingVertical: 10,
+                        borderRadius: 8,
+                        backgroundColor: template === t ? COLORS.primary : '#E0E0E0'
+                      }}
+                      onPress={() => setTemplate(t)}
+                    >
+                      <Text style={{ color: template === t ? '#FFF' : '#333', fontWeight: '600', textTransform: 'capitalize' }}>{t}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                
+                <Text style={styles.inputLabel}>Target Audience</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+                  {[
+                    { value: 'all_users', label: `All Users (${audienceStats.all_users || 0})` },
+                    { value: 'all_affiliates', label: `Affiliates (${audienceStats.affiliates || 0})` },
+                    { value: 'verified', label: `Verified (${audienceStats.verified_users || 0})` }
+                  ].map((option) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={{
+                        paddingHorizontal: 16,
+                        paddingVertical: 10,
+                        borderRadius: 20,
+                        backgroundColor: targetAudience === option.value ? COLORS.primary : '#E0E0E0'
+                      }}
+                      onPress={() => setTargetAudience(option.value)}
+                    >
+                      <Text style={{ color: targetAudience === option.value ? '#FFF' : '#333', fontWeight: '600' }}>{option.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                
+                <TouchableOpacity
+                  style={{ backgroundColor: COLORS.success, padding: 16, borderRadius: 10, alignItems: 'center' }}
+                  onPress={handleSendCampaign}
+                  disabled={sending}
+                >
+                  {sending ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 16 }}>Send Campaign</Text>
+                  )}
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      </ScrollView>
+    );
   };
 
   // Analytics Dashboard Content

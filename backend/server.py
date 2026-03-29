@@ -8,7 +8,7 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext
@@ -22,6 +22,7 @@ from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContent
 from tarspay_service import tarspay_service, fetch_live_exchange_rate, get_current_rate, get_rate_for_currency, TARSPAY_CHANNELS, ALL_CHANNELS
 from email_service import send_verification_otp, verify_otp as verify_email_otp, resend_otp
 from nowpayments_service import nowpayments_service, create_usdt_payout, check_payout_status, validate_trc20_address
+from marketing_service import marketing_service, EMAIL_TEMPLATES
 
 # Demo-only assets - These 6 Forex assets are ONLY available for Demo trading
 # Real balance can trade all OTHER assets (including USD/CHF)
@@ -12907,6 +12908,386 @@ async def check_monday_payout():
             print(f"[PAYOUT] Error in auto payout check: {e}")
         
         await asyncio.sleep(3600)  # Check every hour
+
+
+# ============= MARKETING API ENDPOINTS =============
+
+class PushNotificationCreate(BaseModel):
+    title: str
+    body: str
+    image_url: Optional[str] = None
+    cta_text: Optional[str] = None
+    cta_url: Optional[str] = None
+    target_audience: str = "all_users"  # all_users, all_affiliates, custom
+    target_ids: Optional[List[str]] = None
+    target_filter: Optional[Dict] = None  # {"country": "BD", "is_active": True, etc}
+    schedule_at: Optional[str] = None  # ISO datetime string for scheduling
+
+class EmailCampaignCreate(BaseModel):
+    subject: str
+    html_body: str
+    plain_body: Optional[str] = None
+    template: Optional[str] = "promotional"
+    image_url: Optional[str] = None
+    cta_text: Optional[str] = None
+    cta_url: Optional[str] = None
+    target_audience: str = "all_users"
+    target_ids: Optional[List[str]] = None
+    target_filter: Optional[Dict] = None
+    schedule_at: Optional[str] = None
+
+
+@api_router.post("/admin/marketing/push-notifications")
+async def create_push_notification(
+    notification: PushNotificationCreate,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Create and send push notification"""
+    try:
+        admin = await get_current_user(authorization, request)
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Admin authentication required")
+    
+    notification_id = f"notif_{uuid.uuid4().hex[:12]}"
+    
+    # Get target user IDs based on audience
+    target_user_ids = []
+    
+    if notification.target_audience == "all_users":
+        users = await db.users.find({}, {"user_id": 1}).to_list(10000)
+        target_user_ids = [u["user_id"] for u in users]
+    elif notification.target_audience == "all_affiliates":
+        affiliates = await db.affiliates.find({}, {"user_id": 1}).to_list(10000)
+        target_user_ids = [a["user_id"] for a in affiliates]
+    elif notification.target_audience == "custom" and notification.target_ids:
+        target_user_ids = notification.target_ids
+    elif notification.target_filter:
+        # Apply filter to users
+        query = {}
+        if notification.target_filter.get("country"):
+            query["country"] = notification.target_filter["country"]
+        if notification.target_filter.get("is_verified"):
+            query["kyc_status"] = "verified"
+        if notification.target_filter.get("has_balance"):
+            query["real_balance"] = {"$gt": 0}
+        users = await db.users.find(query, {"user_id": 1}).to_list(10000)
+        target_user_ids = [u["user_id"] for u in users]
+    
+    # Store notification record
+    notification_record = {
+        "notification_id": notification_id,
+        "type": "push",
+        "title": notification.title,
+        "body": notification.body,
+        "image_url": notification.image_url,
+        "cta_text": notification.cta_text,
+        "cta_url": notification.cta_url,
+        "target_audience": notification.target_audience,
+        "target_count": len(target_user_ids),
+        "sent_count": 0,
+        "delivered_count": 0,
+        "click_count": 0,
+        "status": "scheduled" if notification.schedule_at else "sending",
+        "schedule_at": notification.schedule_at,
+        "created_by": admin.user_id,
+        "created_at": datetime.now(timezone.utc)
+    }
+    await db.marketing_notifications.insert_one(notification_record)
+    
+    # Send if not scheduled
+    if not notification.schedule_at:
+        result = await marketing_service.send_bulk_in_app_notifications(
+            db=db,
+            user_ids=target_user_ids,
+            title=notification.title,
+            message=notification.body,
+            notification_type="marketing"
+        )
+        
+        # Update record
+        await db.marketing_notifications.update_one(
+            {"notification_id": notification_id},
+            {
+                "$set": {
+                    "status": "sent",
+                    "sent_count": result["sent"],
+                    "sent_at": datetime.now(timezone.utc)
+                }
+            }
+        )
+    
+    return {
+        "success": True,
+        "notification_id": notification_id,
+        "target_count": len(target_user_ids),
+        "status": "scheduled" if notification.schedule_at else "sent"
+    }
+
+
+@api_router.get("/admin/marketing/push-notifications")
+async def get_push_notifications(
+    limit: int = 50,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get list of push notifications"""
+    try:
+        admin = await get_current_user(authorization, request)
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Admin authentication required")
+    
+    notifications = await db.marketing_notifications.find(
+        {"type": "push"}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    result = []
+    for n in notifications:
+        result.append({
+            "notification_id": n.get("notification_id"),
+            "title": n.get("title"),
+            "body": n.get("body"),
+            "image_url": n.get("image_url"),
+            "target_audience": n.get("target_audience"),
+            "target_count": n.get("target_count", 0),
+            "sent_count": n.get("sent_count", 0),
+            "delivered_count": n.get("delivered_count", 0),
+            "click_count": n.get("click_count", 0),
+            "status": n.get("status"),
+            "schedule_at": n.get("schedule_at"),
+            "created_at": str(n.get("created_at", ""))
+        })
+    
+    return {"success": True, "notifications": result}
+
+
+@api_router.post("/admin/marketing/email-campaigns")
+async def create_email_campaign(
+    campaign: EmailCampaignCreate,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Create and send email campaign"""
+    try:
+        admin = await get_current_user(authorization, request)
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Admin authentication required")
+    
+    campaign_id = f"camp_{uuid.uuid4().hex[:12]}"
+    
+    # Get target emails based on audience
+    target_emails = []
+    target_user_ids = []
+    
+    if campaign.target_audience == "all_users":
+        users = await db.users.find({}, {"user_id": 1, "email": 1}).to_list(10000)
+        target_emails = [u["email"] for u in users if u.get("email")]
+        target_user_ids = [u["user_id"] for u in users]
+    elif campaign.target_audience == "all_affiliates":
+        affiliates = await db.affiliates.find({}, {"user_id": 1}).to_list(10000)
+        aff_user_ids = [a["user_id"] for a in affiliates]
+        users = await db.users.find({"user_id": {"$in": aff_user_ids}}, {"user_id": 1, "email": 1}).to_list(10000)
+        target_emails = [u["email"] for u in users if u.get("email")]
+        target_user_ids = [u["user_id"] for u in users]
+    elif campaign.target_audience == "custom" and campaign.target_ids:
+        users = await db.users.find({"user_id": {"$in": campaign.target_ids}}, {"user_id": 1, "email": 1}).to_list(10000)
+        target_emails = [u["email"] for u in users if u.get("email")]
+        target_user_ids = campaign.target_ids
+    elif campaign.target_filter:
+        query = {}
+        if campaign.target_filter.get("verified_only"):
+            query["kyc_status"] = "verified"
+        if campaign.target_filter.get("has_deposits"):
+            # Users who have deposited
+            depositors = await db.deposits.distinct("user_id", {"status": "completed"})
+            query["user_id"] = {"$in": depositors}
+        users = await db.users.find(query, {"user_id": 1, "email": 1}).to_list(10000)
+        target_emails = [u["email"] for u in users if u.get("email")]
+        target_user_ids = [u["user_id"] for u in users]
+    
+    # Build email body with template
+    html_body = campaign.html_body
+    if campaign.template and campaign.template in EMAIL_TEMPLATES:
+        content = f"<h2>{campaign.subject}</h2>{campaign.html_body}"
+        if campaign.cta_text and campaign.cta_url:
+            content += f'<p style="text-align:center;"><a href="{campaign.cta_url}" class="cta-btn">{campaign.cta_text}</a></p>'
+        if campaign.image_url:
+            content = f'<div class="image-container"><img src="{campaign.image_url}" alt=""/></div>' + content
+        html_body = EMAIL_TEMPLATES[campaign.template].replace("{{CONTENT}}", content)
+        html_body = html_body.replace("{{UNSUBSCRIBE_URL}}", "https://bynix.com/unsubscribe")
+    
+    # Store campaign record
+    campaign_record = {
+        "campaign_id": campaign_id,
+        "type": "email",
+        "subject": campaign.subject,
+        "html_body": html_body,
+        "plain_body": campaign.plain_body,
+        "template": campaign.template,
+        "image_url": campaign.image_url,
+        "cta_text": campaign.cta_text,
+        "cta_url": campaign.cta_url,
+        "target_audience": campaign.target_audience,
+        "target_count": len(target_emails),
+        "sent_count": 0,
+        "open_count": 0,
+        "click_count": 0,
+        "bounce_count": 0,
+        "status": "scheduled" if campaign.schedule_at else "sending",
+        "schedule_at": campaign.schedule_at,
+        "created_by": admin.user_id,
+        "created_at": datetime.now(timezone.utc)
+    }
+    await db.marketing_campaigns.insert_one(campaign_record)
+    
+    # Send if not scheduled
+    if not campaign.schedule_at:
+        result = await marketing_service.send_bulk_emails(
+            recipients=target_emails,
+            subject=campaign.subject,
+            html_body=html_body,
+            plain_body=campaign.plain_body,
+            campaign_id=campaign_id
+        )
+        
+        # Update record
+        await db.marketing_campaigns.update_one(
+            {"campaign_id": campaign_id},
+            {
+                "$set": {
+                    "status": "sent",
+                    "sent_count": result["sent"],
+                    "failed_count": result["failed"],
+                    "sent_at": datetime.now(timezone.utc)
+                }
+            }
+        )
+        
+        # Also send in-app notification
+        await marketing_service.send_bulk_in_app_notifications(
+            db=db,
+            user_ids=target_user_ids,
+            title=f"📧 {campaign.subject}",
+            message="Check your email for an important update from Bynix!",
+            notification_type="email_campaign"
+        )
+    
+    return {
+        "success": True,
+        "campaign_id": campaign_id,
+        "target_count": len(target_emails),
+        "status": "scheduled" if campaign.schedule_at else "sent"
+    }
+
+
+@api_router.get("/admin/marketing/email-campaigns")
+async def get_email_campaigns(
+    limit: int = 50,
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get list of email campaigns"""
+    try:
+        admin = await get_current_user(authorization, request)
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Admin authentication required")
+    
+    campaigns = await db.marketing_campaigns.find(
+        {"type": "email"}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    result = []
+    for c in campaigns:
+        result.append({
+            "campaign_id": c.get("campaign_id"),
+            "subject": c.get("subject"),
+            "template": c.get("template"),
+            "target_audience": c.get("target_audience"),
+            "target_count": c.get("target_count", 0),
+            "sent_count": c.get("sent_count", 0),
+            "open_count": c.get("open_count", 0),
+            "click_count": c.get("click_count", 0),
+            "bounce_count": c.get("bounce_count", 0),
+            "status": c.get("status"),
+            "schedule_at": c.get("schedule_at"),
+            "created_at": str(c.get("created_at", ""))
+        })
+    
+    return {"success": True, "campaigns": result}
+
+
+@api_router.get("/admin/marketing/stats")
+async def get_marketing_stats(
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get marketing analytics overview"""
+    try:
+        admin = await get_current_user(authorization, request)
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Admin authentication required")
+    
+    # Notification stats
+    total_notifications = await db.marketing_notifications.count_documents({})
+    total_notif_sent = await db.marketing_notifications.aggregate([
+        {"$group": {"_id": None, "total": {"$sum": "$sent_count"}}}
+    ]).to_list(1)
+    
+    # Campaign stats
+    total_campaigns = await db.marketing_campaigns.count_documents({})
+    total_emails_sent = await db.marketing_campaigns.aggregate([
+        {"$group": {"_id": None, "total": {"$sum": "$sent_count"}}}
+    ]).to_list(1)
+    total_opens = await db.marketing_campaigns.aggregate([
+        {"$group": {"_id": None, "total": {"$sum": "$open_count"}}}
+    ]).to_list(1)
+    
+    return {
+        "success": True,
+        "notifications": {
+            "total": total_notifications,
+            "sent": total_notif_sent[0]["total"] if total_notif_sent else 0
+        },
+        "campaigns": {
+            "total": total_campaigns,
+            "emails_sent": total_emails_sent[0]["total"] if total_emails_sent else 0,
+            "opens": total_opens[0]["total"] if total_opens else 0
+        }
+    }
+
+
+@api_router.get("/admin/marketing/audience-stats")
+async def get_audience_stats(
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get audience statistics for targeting"""
+    try:
+        admin = await get_current_user(authorization, request)
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Admin authentication required")
+    
+    total_users = await db.users.count_documents({})
+    verified_users = await db.users.count_documents({"kyc_status": "verified"})
+    users_with_balance = await db.users.count_documents({"real_balance": {"$gt": 0}})
+    total_affiliates = await db.affiliates.count_documents({})
+    
+    # Country breakdown
+    country_stats = await db.users.aggregate([
+        {"$group": {"_id": "$country", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 10}
+    ]).to_list(10)
+    
+    return {
+        "success": True,
+        "all_users": total_users,
+        "verified_users": verified_users,
+        "users_with_balance": users_with_balance,
+        "affiliates": total_affiliates,
+        "countries": [{"country": c["_id"] or "Unknown", "count": c["count"]} for c in country_stats]
+    }
+
 
 # Start background task on app startup
 @app.on_event("startup")
