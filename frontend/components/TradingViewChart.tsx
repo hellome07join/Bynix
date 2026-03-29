@@ -751,7 +751,7 @@ export default function TradingViewChart({
     ctx.setLineDash([]);
     
     // ============= ALWAYS VISIBLE TRADE PREVIEW LINES (Binolla Style) =============
-    // These show even WITHOUT active trades - based on selected tradeDuration
+    // Running candle is at RIGHT EDGE, lines move with chart scroll
     
     const candleWidth = 8 * scale;
     const candleGap = 4 * scale;
@@ -774,120 +774,117 @@ export default function TradingViewChart({
     
     const intervalMs = getIntervalMs();
     
-    // Calculate position of current/running candle (should be in MIDDLE of screen)
-    // Running candle is at position: visibleCandles.length - 1
-    const runningCandleIndex = visibleCandles.length - 1;
-    const chartMiddleX = width / 2;
+    // Running candle is at the RIGHT EDGE of chart
+    const runningCandleX = chartRightEdge - candleWidth / 2;
     
-    // Beginning of trade line - at running candle position (middle)
-    const beginningX = chartMiddleX;
+    // Beginning of trade = at running candle (right edge)
+    const beginningX = runningCandleX;
     
-    // End of trade line - based on tradeDuration
-    // Calculate how many candles ahead based on duration
+    // End of trade = tradeDuration candles ahead (to the right, may be off screen)
     const durationMs = tradeDuration * 1000;
     const candlesAhead = Math.ceil(durationMs / intervalMs);
-    const endX = beginningX + (candlesAhead * totalCandleWidth);
+    const endX = runningCandleX + (candlesAhead * totalCandleWidth);
     
-    // Calculate countdown for display - time until next candle close
-    const now = Date.now();
-    const currentCandleStartTime = visibleCandles.length > 0 ? visibleCandles[runningCandleIndex]?.time * 1000 : now;
-    const timeInCurrentCandle = now - currentCandleStartTime;
-    const timeRemaining = Math.max(0, intervalMs - timeInCurrentCandle);
-    const countdownSecs = Math.ceil(timeRemaining / 1000) + ((candlesAhead - 1) * intervalMs / 1000);
+    // Calculate countdown - based on trade duration
+    const countdownSecs = tradeDuration;
     
-    // Draw preview lines only if no active trades (don't overlap with active trade markers)
+    // Draw preview lines only if no active trades
     if (tradeMarkers.length === 0) {
-      const previewColor = 'rgba(136, 136, 136, 0.8)'; // Gray color for preview
-      const previewLineColor = 'rgba(136, 136, 136, 0.5)';
+      const previewLineColor = 'rgba(120, 120, 120, 0.6)';
       
-      // ===== BEGINNING OF TRADE LINE (Dashed) =====
+      // ===== BEGINNING OF TRADE LINE (Dashed) - at running candle =====
       ctx.strokeStyle = previewLineColor;
       ctx.lineWidth = 1.5;
       ctx.setLineDash([5, 5]);
       ctx.beginPath();
-      ctx.moveTo(beginningX, padding.top + 25);
+      ctx.moveTo(beginningX, padding.top + 22);
       ctx.lineTo(beginningX, height - padding.bottom);
       ctx.stroke();
       ctx.setLineDash([]);
       
-      // "Beginning of trade" label
-      ctx.fillStyle = 'rgba(30, 30, 50, 0.9)';
-      ctx.beginPath();
-      const beginLabelWidth = 100;
-      ctx.roundRect(beginningX - beginLabelWidth/2, padding.top + 2, beginLabelWidth, 18, 4);
-      ctx.fill();
-      
-      ctx.fillStyle = '#AAAAAA';
-      ctx.font = '10px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText('Beginning of trade', beginningX, padding.top + 14);
-      
-      // ===== COUNTDOWN TIMER IN MIDDLE =====
-      const timerX = (beginningX + Math.min(endX, width - 10)) / 2;
-      const mins = Math.floor(countdownSecs / 60).toString().padStart(2, '0');
-      const secs = Math.floor(countdownSecs % 60).toString().padStart(2, '0');
-      
-      ctx.fillStyle = 'rgba(30, 30, 50, 0.95)';
-      ctx.beginPath();
-      ctx.roundRect(timerX - 28, padding.top + 2, 56, 18, 4);
-      ctx.fill();
-      ctx.strokeStyle = '#666';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 11px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText(`${mins}:${secs}`, timerX, padding.top + 14);
-      
-      // ===== END OF TRADE LINE (Solid) =====
-      if (endX < width) {
+      // ===== END OF TRADE LINE (Solid) - to the right =====
+      // Only draw if visible on screen
+      if (endX <= width + 50) {
         ctx.strokeStyle = previewLineColor;
         ctx.lineWidth = 1.5;
         ctx.setLineDash([]);
         ctx.beginPath();
-        ctx.moveTo(endX, padding.top + 25);
-        ctx.lineTo(endX, height - padding.bottom);
+        ctx.moveTo(Math.min(endX, width - 5), padding.top + 22);
+        ctx.lineTo(Math.min(endX, width - 5), height - padding.bottom);
         ctx.stroke();
-        
-        // "End of trade" label
-        ctx.fillStyle = 'rgba(30, 30, 50, 0.9)';
-        ctx.beginPath();
-        const endLabelWidth = 72;
-        ctx.roundRect(endX - endLabelWidth/2, padding.top + 2, endLabelWidth, 18, 4);
-        ctx.fill();
-        
+      }
+      
+      // ===== COMBINED HEADER BAR with "Beg" | Timer | "End of trade" =====
+      // This creates the Binolla-style header bar
+      const headerY = padding.top + 2;
+      const headerHeight = 18;
+      
+      // Calculate positions for header elements
+      const begLabelWidth = 30; // "Beg"
+      const endLabelWidth = 75; // "End of trade"
+      const timerWidth = 45;
+      const gap = 2;
+      
+      // Header bar starts slightly before beginningX
+      const headerStartX = beginningX - begLabelWidth - 5;
+      const visibleEndX = Math.min(endX, width - 5);
+      const headerEndX = visibleEndX + endLabelWidth / 2 + 5;
+      const totalHeaderWidth = headerEndX - headerStartX;
+      
+      // Draw header background bar
+      ctx.fillStyle = 'rgba(40, 45, 60, 0.95)';
+      ctx.beginPath();
+      ctx.roundRect(headerStartX, headerY, Math.min(totalHeaderWidth, width - headerStartX - 5), headerHeight, 4);
+      ctx.fill();
+      
+      // "Beg" label (short for Beginning)
+      ctx.fillStyle = '#AAAAAA';
+      ctx.font = '10px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('Beg', beginningX - 2, headerY + 13);
+      
+      // Timer in middle
+      const mins = Math.floor(countdownSecs / 60).toString().padStart(2, '0');
+      const secs = (countdownSecs % 60).toString().padStart(2, '0');
+      const timerX = (beginningX + visibleEndX) / 2;
+      
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 11px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${mins}:${secs}`, timerX, headerY + 13);
+      
+      // "End of trade" label
+      if (endX <= width + 50) {
         ctx.fillStyle = '#AAAAAA';
         ctx.font = '10px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('End of trade', endX, padding.top + 14);
+        ctx.fillText('End of trade', visibleEndX + 2, headerY + 13);
       }
     }
     
     // ============= ACTIVE TRADE MARKERS (when trades are running) =============
+    const now = Date.now();
+    
     tradeMarkers.forEach((marker) => {
       const markerY = padding.top + ((maxPrice - marker.entryPrice) / (maxPrice - minPrice)) * chartHeight;
       const markerColor = marker.type === 'call' ? '#00E55A' : '#FF6B6B';
       
-      // Calculate X positions for entry and exit lines based on time
-      const entryTime = marker.entryTime || (now - (marker.duration || 60) * 1000 + (marker.remainingTime || 0) * 1000);
+      // Entry is at the running candle position (right edge) minus elapsed candles
+      const entryTime = marker.entryTime || (now - ((marker.duration || 60) - (marker.remainingTime || 0)) * 1000);
       const expiryTime = marker.expiryTime || (now + (marker.remainingTime || 0) * 1000);
       
-      // Find X positions based on candle times - entry at middle
-      let entryX = chartMiddleX;
-      
-      // Calculate elapsed candles from entry
+      // Calculate elapsed and remaining candles
       const elapsedMs = now - entryTime;
       const elapsedCandles = Math.floor(elapsedMs / intervalMs);
-      entryX = chartMiddleX - (elapsedCandles * totalCandleWidth);
       
-      // Calculate exit X based on remaining time
       const remainingMs = expiryTime - now;
       const remainingCandles = Math.ceil(remainingMs / intervalMs);
-      let exitX = chartMiddleX + (remainingCandles * totalCandleWidth);
       
-      // Clamp exitX
-      exitX = Math.min(exitX, width - 10);
+      // Entry line position - to the left of running candle by elapsed candles
+      const entryX = runningCandleX - (elapsedCandles * totalCandleWidth);
+      
+      // Exit line position - to the right of running candle by remaining candles  
+      const exitX = runningCandleX + (remainingCandles * totalCandleWidth);
       
       // ===== DRAW ENTRY LINE (Beginning of Trade) =====
       if (entryX > padding.left && entryX < width) {
@@ -895,25 +892,10 @@ export default function TradingViewChart({
         ctx.lineWidth = 2;
         ctx.setLineDash([6, 4]);
         ctx.beginPath();
-        ctx.moveTo(entryX, padding.top + 25);
+        ctx.moveTo(entryX, padding.top + 22);
         ctx.lineTo(entryX, height - padding.bottom);
         ctx.stroke();
         ctx.setLineDash([]);
-        
-        // "Beginning of trade" label at top
-        ctx.fillStyle = 'rgba(0,0,0,0.9)';
-        ctx.beginPath();
-        const labelWidth = 100;
-        ctx.roundRect(entryX - labelWidth/2, padding.top + 2, labelWidth, 18, 4);
-        ctx.fill();
-        ctx.strokeStyle = markerColor;
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        
-        ctx.fillStyle = markerColor;
-        ctx.font = '10px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('Beginning of trade', entryX, padding.top + 14);
         
         // Small dot at entry point
         ctx.beginPath();
@@ -925,59 +907,61 @@ export default function TradingViewChart({
         ctx.stroke();
       }
       
-      // ===== COUNTDOWN TIMER IN MIDDLE =====
-      if (marker.remainingTime && marker.remainingTime > 0) {
-        const timerX = (Math.max(entryX, padding.left + 60) + Math.min(exitX, width - 60)) / 2;
-        const mins = Math.floor(marker.remainingTime / 60).toString().padStart(2, '0');
-        const secs = (marker.remainingTime % 60).toString().padStart(2, '0');
-        
-        ctx.fillStyle = 'rgba(0,0,0,0.95)';
-        ctx.beginPath();
-        ctx.roundRect(timerX - 28, padding.top + 2, 56, 18, 4);
-        ctx.fill();
-        ctx.strokeStyle = markerColor;
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 11px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText(`${mins}:${secs}`, timerX, padding.top + 14);
-      }
-      
       // ===== DRAW EXIT LINE (End of Trade) =====
-      if (exitX > padding.left && exitX < width) {
+      const visibleExitX = Math.min(exitX, width - 5);
+      if (exitX > padding.left) {
         ctx.strokeStyle = markerColor;
         ctx.lineWidth = 2;
         ctx.setLineDash([]);
         ctx.beginPath();
-        ctx.moveTo(exitX, padding.top + 25);
-        ctx.lineTo(exitX, height - padding.bottom);
+        ctx.moveTo(visibleExitX, padding.top + 22);
+        ctx.lineTo(visibleExitX, height - padding.bottom);
         ctx.stroke();
-        
-        // "End of trade" label at top
-        ctx.fillStyle = 'rgba(0,0,0,0.9)';
-        ctx.beginPath();
-        const exitLabelWidth = 72;
-        ctx.roundRect(exitX - exitLabelWidth/2, padding.top + 2, exitLabelWidth, 18, 4);
-        ctx.fill();
-        ctx.strokeStyle = markerColor;
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        
+      }
+      
+      // ===== COMBINED HEADER BAR - Binolla Style =====
+      const headerY = padding.top + 2;
+      const headerHeight = 18;
+      
+      // Calculate header positions
+      const headerStartX = Math.max(entryX - 30, padding.left);
+      const headerEndX = Math.min(visibleExitX + 40, width - 5);
+      
+      // Draw header background bar
+      ctx.fillStyle = 'rgba(20, 25, 40, 0.95)';
+      ctx.beginPath();
+      ctx.roundRect(headerStartX, headerY, headerEndX - headerStartX, headerHeight, 4);
+      ctx.fill();
+      ctx.strokeStyle = markerColor;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      
+      // "Beg" label
+      if (entryX > padding.left && entryX < width) {
         ctx.fillStyle = markerColor;
         ctx.font = '10px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('End of trade', exitX, padding.top + 14);
+        ctx.fillText('Beg', entryX, headerY + 13);
+      }
+      
+      // Countdown timer in middle
+      if (marker.remainingTime && marker.remainingTime > 0) {
+        const timerX = (Math.max(entryX, padding.left + 30) + Math.min(visibleExitX, width - 30)) / 2;
+        const mins = Math.floor(marker.remainingTime / 60).toString().padStart(2, '0');
+        const secs = (marker.remainingTime % 60).toString().padStart(2, '0');
         
-        // Small dot at exit point  
-        ctx.beginPath();
-        ctx.arc(exitX, markerY, 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 11px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${mins}:${secs}`, timerX, headerY + 13);
+      }
+      
+      // "End of trade" label
+      if (exitX <= width + 50) {
         ctx.fillStyle = markerColor;
-        ctx.fill();
-        ctx.strokeStyle = '#FFFFFF';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('End of trade', visibleExitX, headerY + 13);
       }
       
       // ===== DRAW HORIZONTAL DASHED LINE connecting entry to exit =====
