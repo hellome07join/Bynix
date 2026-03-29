@@ -1,5 +1,6 @@
 """
 Marketing Service - Push Notifications & Email Campaigns
+Supports separate email accounts for Users and Affiliates
 """
 
 import os
@@ -16,13 +17,19 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# Email Configuration
-SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+# SMTP Configuration
+SMTP_HOST = os.environ.get("SMTP_HOST", "mail.privateemail.com")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
-SMTP_USER = os.environ.get("SMTP_USER", "")
-SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
-EMAIL_FROM = os.environ.get("EMAIL_FROM", "noreply@bynix.com")
-EMAIL_FROM_NAME = os.environ.get("EMAIL_FROM_NAME", "Bynix Trading")
+
+# Affiliate Email Configuration
+AFFILIATE_EMAIL = os.environ.get("AFFILIATE_EMAIL", "")
+AFFILIATE_EMAIL_PASSWORD = os.environ.get("AFFILIATE_EMAIL_PASSWORD", "")
+AFFILIATE_EMAIL_FROM_NAME = os.environ.get("AFFILIATE_EMAIL_FROM_NAME", "Bynix Affiliates")
+
+# User Email Configuration
+USER_EMAIL = os.environ.get("USER_EMAIL", "")
+USER_EMAIL_PASSWORD = os.environ.get("USER_EMAIL_PASSWORD", "")
+USER_EMAIL_FROM_NAME = os.environ.get("USER_EMAIL_FROM_NAME", "Bynix Trading")
 
 
 class MarketingService:
@@ -31,10 +38,41 @@ class MarketingService:
     def __init__(self):
         self.smtp_host = SMTP_HOST
         self.smtp_port = SMTP_PORT
-        self.smtp_user = SMTP_USER
-        self.smtp_password = SMTP_PASSWORD
-        self.email_from = EMAIL_FROM
-        self.email_from_name = EMAIL_FROM_NAME
+        
+        # Email accounts
+        self.affiliate_email = AFFILIATE_EMAIL
+        self.affiliate_password = AFFILIATE_EMAIL_PASSWORD
+        self.affiliate_from_name = AFFILIATE_EMAIL_FROM_NAME
+        
+        self.user_email = USER_EMAIL
+        self.user_password = USER_EMAIL_PASSWORD
+        self.user_from_name = USER_EMAIL_FROM_NAME
+    
+    def _get_email_account(self, account_type: str = "user") -> Dict[str, str]:
+        """Get email credentials based on account type"""
+        if account_type == "affiliate":
+            return {
+                "email": self.affiliate_email,
+                "password": self.affiliate_password,
+                "from_name": self.affiliate_from_name
+            }
+        else:
+            # Default to user email, fallback to affiliate if user not configured
+            if self.user_email and self.user_password:
+                return {
+                    "email": self.user_email,
+                    "password": self.user_password,
+                    "from_name": self.user_from_name
+                }
+            elif self.affiliate_email and self.affiliate_password:
+                # Fallback to affiliate email
+                return {
+                    "email": self.affiliate_email,
+                    "password": self.affiliate_password,
+                    "from_name": self.affiliate_from_name
+                }
+            else:
+                return {"email": "", "password": "", "from_name": "Bynix"}
     
     async def send_email(
         self,
@@ -43,7 +81,8 @@ class MarketingService:
         html_body: str,
         plain_body: Optional[str] = None,
         attachments: Optional[List[Dict]] = None,
-        tracking_id: Optional[str] = None
+        tracking_id: Optional[str] = None,
+        account_type: str = "user"  # "user" or "affiliate"
     ) -> Dict[str, Any]:
         """
         Send an email to a single recipient
@@ -55,20 +94,28 @@ class MarketingService:
             plain_body: Plain text fallback (optional)
             attachments: List of {"filename": "", "data": bytes, "content_type": ""} (optional)
             tracking_id: Campaign tracking ID (optional)
+            account_type: "user" for user emails, "affiliate" for affiliate emails
         
         Returns:
             {"success": bool, "message": str}
         """
         try:
+            # Get email account based on type
+            account = self._get_email_account(account_type)
+            
+            if not account["email"] or not account["password"]:
+                print(f"[Marketing] No {account_type} email configured, using mock mode")
+                return {"success": True, "message": f"Email sent (mock mode - no {account_type} email configured)"}
+            
             # Create message
             msg = MIMEMultipart('alternative')
             msg['Subject'] = subject
-            msg['From'] = f"{self.email_from_name} <{self.email_from}>"
+            msg['From'] = f"{account['from_name']} <{account['email']}>"
             msg['To'] = to_email
             
             # Add tracking pixel if tracking_id provided
             if tracking_id:
-                html_body += f'<img src="https://bynix.com/api/marketing/track/open/{tracking_id}" width="1" height="1" style="display:none;" />'
+                html_body += f'<img src="https://bynix.io/api/marketing/track/open/{tracking_id}" width="1" height="1" style="display:none;" />'
             
             # Add plain text and HTML parts
             if plain_body:
@@ -83,20 +130,20 @@ class MarketingService:
                         img.add_header('Content-Disposition', 'attachment', filename=attachment.get("filename", "image.png"))
                         msg.attach(img)
             
-            # Send email
-            if self.smtp_user and self.smtp_password:
-                with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                    server.starttls()
-                    server.login(self.smtp_user, self.smtp_password)
-                    server.send_message(msg)
-                return {"success": True, "message": "Email sent successfully"}
-            else:
-                # Mock send if no SMTP configured
-                print(f"[Marketing] Mock email sent to {to_email}: {subject}")
-                return {"success": True, "message": "Email sent (mock mode)"}
+            # Send email via SMTP
+            print(f"[Marketing] Sending email from {account['email']} to {to_email}")
+            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+                server.starttls()
+                server.login(account["email"], account["password"])
+                server.send_message(msg)
+            
+            print(f"[Marketing] Email sent successfully to {to_email}")
+            return {"success": True, "message": "Email sent successfully"}
                 
         except Exception as e:
             print(f"[Marketing] Email send error: {e}")
+            import traceback
+            traceback.print_exc()
             return {"success": False, "message": str(e)}
     
     async def send_bulk_emails(
@@ -105,7 +152,8 @@ class MarketingService:
         subject: str,
         html_body: str,
         plain_body: Optional[str] = None,
-        campaign_id: Optional[str] = None
+        campaign_id: Optional[str] = None,
+        account_type: str = "user"
     ) -> Dict[str, Any]:
         """
         Send emails to multiple recipients
@@ -123,7 +171,8 @@ class MarketingService:
                 subject=subject,
                 html_body=html_body,
                 plain_body=plain_body,
-                tracking_id=f"{campaign_id}_{email}" if campaign_id else None
+                tracking_id=f"{campaign_id}_{email}" if campaign_id else None,
+                account_type=account_type
             )
             
             if result["success"]:
@@ -231,6 +280,21 @@ class MarketingService:
                 failed += 1
         
         return {"sent": sent, "failed": failed}
+    
+    def get_email_status(self) -> Dict[str, Any]:
+        """Get email configuration status"""
+        return {
+            "affiliate_email": {
+                "configured": bool(self.affiliate_email and self.affiliate_password),
+                "email": self.affiliate_email if self.affiliate_email else "Not configured"
+            },
+            "user_email": {
+                "configured": bool(self.user_email and self.user_password),
+                "email": self.user_email if self.user_email else "Not configured (will use affiliate email)"
+            },
+            "smtp_host": self.smtp_host,
+            "smtp_port": self.smtp_port
+        }
 
 
 # Email Templates

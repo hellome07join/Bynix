@@ -13142,12 +13142,16 @@ async def create_email_campaign(
     
     # Send if not scheduled
     if not campaign.schedule_at:
+        # Determine account type based on audience
+        account_type = "affiliate" if campaign.target_audience == "all_affiliates" else "user"
+        
         result = await marketing_service.send_bulk_emails(
             recipients=target_emails,
             subject=campaign.subject,
             html_body=html_body,
             plain_body=campaign.plain_body,
-            campaign_id=campaign_id
+            campaign_id=campaign_id,
+            account_type=account_type
         )
         
         # Update record
@@ -13286,6 +13290,23 @@ async def get_audience_stats(
         "users_with_balance": users_with_balance,
         "affiliates": total_affiliates,
         "countries": [{"country": c["_id"] or "Unknown", "count": c["count"]} for c in country_stats]
+    }
+
+
+@api_router.get("/admin/marketing/email-status")
+async def get_email_status(
+    authorization: Optional[str] = Header(None),
+    request: Request = None
+):
+    """Get email configuration status"""
+    try:
+        admin = await get_current_user(authorization, request)
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Admin authentication required")
+    
+    return {
+        "success": True,
+        "status": marketing_service.get_email_status()
     }
 
 
