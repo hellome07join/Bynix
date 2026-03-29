@@ -668,8 +668,8 @@ export default function TradingViewChart({
     const centerOffset = scrollOffset === 0 ? (chartCenter - defaultRunningCandleX) : 0;
     
     // Apply scroll offset for user scrolling
-    // scrollOffset > 0 = dragged right (finger moved right) = candles move right = see history
-    // scrollOffset < 0 = dragged left (finger moved left) = candles move left = running candle goes right
+    // Drag LEFT (finger moves left) → scrollOffset increases → candles move RIGHT → see previous/history
+    // Drag RIGHT (finger moves right) → scrollOffset decreases → candles move LEFT → running candle goes right
     const scrollAdjustment = scrollOffset;
     const xOffset = centerOffset + scrollAdjustment;
     
