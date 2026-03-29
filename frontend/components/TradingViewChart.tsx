@@ -1888,10 +1888,13 @@ export default function TradingViewChart({
               
               lastX = currentX;
               lastTime = currentTime;
-              // FIXED: Drag RIGHT = positive offset = see history
-              // Drag LEFT = negative offset = running candle goes right
-              // Adjust scroll sensitivity based on scale - more zoom = less scroll needed
-              setScrollOffset(startOffset + diff * SCROLL_SENSITIVITY * scale);
+              // FIXED: Drag RIGHT = positive offset = see history (unlimited)
+              // Drag LEFT = negative offset = running candle goes right (limited to 0)
+              const newOffset = startOffset + diff * SCROLL_SENSITIVITY * scale;
+              // Limit: running candle can come to center (offset=0) but not go further left
+              // Positive offset = historical scroll (unlimited)
+              // Negative offset = not allowed (running candle already at center)
+              setScrollOffset(Math.max(0, newOffset));
             };
             
             const onMouseUp = () => {
@@ -1905,17 +1908,11 @@ export default function TradingViewChart({
                   setScrollOffset(prev => {
                     // FIXED: momentum follows drag direction
                     const newOffset = prev + scrollVelocityRef.current * scale;
-                    // Scale-aware limits - zoom in = smaller scroll range needed
-                    // Negative = towards running candle, Positive = towards history
-                    const maxNegativeOffset = -2000 * scale; // Allow scrolling back to running candle
-                    const maxPositiveOffset = 20000 * scale; // Allow deep history scrolling
-                    if (newOffset < maxNegativeOffset) {
-                      scrollVelocityRef.current *= 0.3;
-                      return maxNegativeOffset;
-                    }
-                    if (newOffset > maxPositiveOffset) {
-                      scrollVelocityRef.current *= 0.3;
-                      return maxPositiveOffset;
+                    // LIMIT: Running candle at center (offset=0) is the minimum
+                    // Positive offset = historical scroll (unlimited)
+                    if (newOffset < 0) {
+                      scrollVelocityRef.current = 0; // Stop momentum at boundary
+                      return 0;
                     }
                     return newOffset;
                   });
@@ -2003,8 +2000,8 @@ export default function TradingViewChart({
                 if (moveE.touches.length === 1 && isDraggingRef.current) {
                   const currentX = moveE.touches[0].clientX;
                   const currentTime = Date.now();
-                  // FIXED: Drag right = positive offset = see history
-                  // Drag left = negative offset = running candle goes right
+                  // FIXED: Drag right = positive offset = see history (unlimited)
+                  // Drag left = negative offset = running candle goes right (limited to 0)
                   const diff = currentX - startX;
                   const timeDiff = currentTime - lastTime;
                   
@@ -2016,7 +2013,9 @@ export default function TradingViewChart({
                   lastX = currentX;
                   lastTime = currentTime;
                   // Scale-aware scroll sensitivity
-                  setScrollOffset(startOffset + diff * SCROLL_SENSITIVITY * scale);
+                  const newOffset = startOffset + diff * SCROLL_SENSITIVITY * scale;
+                  // Limit: running candle can come to center (offset=0) but not go further left
+                  setScrollOffset(Math.max(0, newOffset));
                 }
               };
               
@@ -2032,17 +2031,11 @@ export default function TradingViewChart({
                     setScrollOffset(prev => {
                       // FIXED: momentum follows drag direction with scale-awareness
                       const newOffset = prev + scrollVelocityRef.current * scale;
-                      // Scale-aware limits - zoom in = smaller scroll range needed
-                      // Negative = towards running candle, Positive = towards history
-                      const maxNegativeOffset = -2000 * scale; // Allow scrolling back to running candle
-                      const maxPositiveOffset = 20000 * scale; // Allow deep history scrolling
-                      if (newOffset < maxNegativeOffset) {
-                        scrollVelocityRef.current *= 0.3;
-                        return maxNegativeOffset;
-                      }
-                      if (newOffset > maxPositiveOffset) {
-                        scrollVelocityRef.current *= 0.3;
-                        return maxPositiveOffset;
+                      // LIMIT: Running candle at center (offset=0) is the minimum
+                      // Positive offset = historical scroll (unlimited)
+                      if (newOffset < 0) {
+                        scrollVelocityRef.current = 0; // Stop momentum at boundary
+                        return 0;
                       }
                       return newOffset;
                     });
