@@ -1817,7 +1817,8 @@ export default function TradingViewChart({
               const currentX = moveE.clientX;
               const currentTime = Date.now();
               // Drag direction: drag right (positive diff) = see newer data (negative offset)
-              // Drag left (negative diff) = see older data (positive offset)
+              // Drag right (positive diff) = see older data (positive offset)
+              // Drag left (negative diff) = running candle goes right (negative offset)
               const diff = currentX - startX;
               const timeDiff = currentTime - lastTime;
               
@@ -1829,8 +1830,9 @@ export default function TradingViewChart({
               
               lastX = currentX;
               lastTime = currentTime;
-              // Allow both positive (history) and negative (future/right) scrolling
-              setScrollOffset(startOffset - diff * SCROLL_SENSITIVITY);
+              // FIXED: Drag RIGHT = positive offset = see history
+              // Drag LEFT = negative offset = running candle goes right
+              setScrollOffset(startOffset + diff * SCROLL_SENSITIVITY);
             };
             
             const onMouseUp = () => {
@@ -1842,10 +1844,10 @@ export default function TradingViewChart({
               const applyMomentum = () => {
                 if (Math.abs(scrollVelocityRef.current) > MOMENTUM_MIN_VELOCITY) {
                   setScrollOffset(prev => {
-                    const newOffset = prev - scrollVelocityRef.current;
-                    // Allow negative offset for right scrolling (limited)
-                    // Allow positive offset for history (limited by data)
-                    const maxNegativeOffset = -200; // Can scroll running candle slightly right
+                    // FIXED: momentum follows drag direction
+                    const newOffset = prev + scrollVelocityRef.current;
+                    // Allow negative offset for left scrolling (limited)
+                    const maxNegativeOffset = -200;
                     if (newOffset < maxNegativeOffset) {
                       scrollVelocityRef.current *= 0.3;
                       return maxNegativeOffset;
@@ -1936,7 +1938,8 @@ export default function TradingViewChart({
                 if (moveE.touches.length === 1 && isDraggingRef.current) {
                   const currentX = moveE.touches[0].clientX;
                   const currentTime = Date.now();
-                  // Correct direction: drag right = negative offset (running candle right)
+                  // FIXED: Drag right = positive offset = see history
+                  // Drag left = negative offset = running candle goes right
                   const diff = currentX - startX;
                   const timeDiff = currentTime - lastTime;
                   
@@ -1947,7 +1950,7 @@ export default function TradingViewChart({
                   
                   lastX = currentX;
                   lastTime = currentTime;
-                  setScrollOffset(startOffset - diff * SCROLL_SENSITIVITY);
+                  setScrollOffset(startOffset + diff * SCROLL_SENSITIVITY);
                 }
               };
               
@@ -1961,8 +1964,9 @@ export default function TradingViewChart({
                 const applyMomentum = () => {
                   if (Math.abs(scrollVelocityRef.current) > MOMENTUM_MIN_VELOCITY) {
                     setScrollOffset(prev => {
-                      const newOffset = prev - scrollVelocityRef.current;
-                      // Allow some negative offset for right scrolling
+                      // FIXED: momentum follows drag direction
+                      const newOffset = prev + scrollVelocityRef.current;
+                      // Allow some negative offset for left scrolling
                       const maxNegativeOffset = -200;
                       if (newOffset < maxNegativeOffset) {
                         scrollVelocityRef.current *= 0.3;
