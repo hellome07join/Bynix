@@ -199,6 +199,28 @@ export default function AdminDashboard() {
   // Email Campaign Modal State (Parent level to prevent re-render resets)
   const [showEmailCampaignModal, setShowEmailCampaignModal] = useState(false);
   const [showPushNotificationModal, setShowPushNotificationModal] = useState(false);
+  
+  // Email Campaign Form State (Parent level)
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailHtmlBody, setEmailHtmlBody] = useState('');
+  const [emailImageUrl, setEmailImageUrl] = useState('');
+  const [emailCtaText, setEmailCtaText] = useState('');
+  const [emailCtaUrl, setEmailCtaUrl] = useState('');
+  const [emailTargetAudience, setEmailTargetAudience] = useState('all_users');
+  const [emailTemplate, setEmailTemplate] = useState('promotional');
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailShowPreview, setEmailShowPreview] = useState(false);
+  const [emailAudienceStats, setEmailAudienceStats] = useState<any>({});
+  
+  // Push Notification Form State (Parent level)
+  const [pushTitle, setPushTitle] = useState('');
+  const [pushBody, setPushBody] = useState('');
+  const [pushImageUrl, setPushImageUrl] = useState('');
+  const [pushCtaText, setPushCtaText] = useState('');
+  const [pushCtaUrl, setPushCtaUrl] = useState('');
+  const [pushTargetAudience, setPushTargetAudience] = useState('all_users');
+  const [pushSending, setPushSending] = useState(false);
+  const [pushAudienceStats, setPushAudienceStats] = useState<any>({});
   const [newPromoCode, setNewPromoCode] = useState({
     code: '',
     bonus_type: 'percentage',
@@ -3952,32 +3974,20 @@ export default function AdminDashboard() {
   const EmailCampaignsContent = () => {
     const [campaigns, setCampaigns] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [audienceStats, setAudienceStats] = useState<any>({});
-    const [showPreview, setShowPreview] = useState(false);
-    
-    // Form state
-    const [subject, setSubject] = useState('');
-    const [htmlBody, setHtmlBody] = useState('');
-    const [imageUrl, setImageUrl] = useState('');
-    const [ctaText, setCtaText] = useState('');
-    const [ctaUrl, setCtaUrl] = useState('');
-    const [targetAudience, setTargetAudience] = useState('all_users');
-    const [template, setTemplate] = useState('promotional');
-    const [sending, setSending] = useState(false);
     
     const authHeaders = { 'Authorization': `Bearer ${token}` };
     
-    // Generate preview HTML
+    // Generate preview HTML - uses parent state
     const generatePreviewHtml = () => {
-      let content = `<h2>${subject || 'Email Subject'}</h2>${htmlBody || '<p>Email content will appear here...</p>'}`;
-      if (ctaText && ctaUrl) {
-        content += `<p style="text-align:center;margin-top:20px;"><a href="${ctaUrl}" style="display:inline-block;background:#00E55A;color:#000;padding:14px 30px;text-decoration:none;border-radius:8px;font-weight:bold;">${ctaText}</a></p>`;
+      let content = `<h2>${emailSubject || 'Email Subject'}</h2>${emailHtmlBody || '<p>Email content will appear here...</p>'}`;
+      if (emailCtaText && emailCtaUrl) {
+        content += `<p style="text-align:center;margin-top:20px;"><a href="${emailCtaUrl}" style="display:inline-block;background:#00E55A;color:#000;padding:14px 30px;text-decoration:none;border-radius:8px;font-weight:bold;">${emailCtaText}</a></p>`;
       }
-      if (imageUrl) {
-        content = `<div style="text-align:center;margin-bottom:20px;"><img src="${imageUrl}" alt="" style="max-width:100%;border-radius:8px;"/></div>` + content;
+      if (emailImageUrl) {
+        content = `<div style="text-align:center;margin-bottom:20px;"><img src="${emailImageUrl}" alt="" style="max-width:100%;border-radius:8px;"/></div>` + content;
       }
       
-      if (template === 'promotional') {
+      if (emailTemplate === 'promotional') {
         return `
           <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
             <div style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);padding:30px;text-align:center;">
@@ -4029,7 +4039,7 @@ export default function AdminDashboard() {
         });
         if (response.ok) {
           const data = await response.json();
-          setAudienceStats(data);
+          setEmailAudienceStats(data);
         }
       } catch (error) {
         console.error('Failed to fetch audience stats:', error);
@@ -4037,24 +4047,24 @@ export default function AdminDashboard() {
     };
     
     const handleSendCampaign = async () => {
-      if (!subject || !htmlBody) {
+      if (!emailSubject || !emailHtmlBody) {
         Alert.alert('Error', 'Subject and Body are required');
         return;
       }
       
-      setSending(true);
+      setEmailSending(true);
       try {
         const response = await fetch(`${API_URL}/admin/marketing/email-campaigns`, {
           method: 'POST',
           headers: { ...authHeaders, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            subject,
-            html_body: htmlBody,
-            image_url: imageUrl || null,
-            cta_text: ctaText || null,
-            cta_url: ctaUrl || null,
-            target_audience: targetAudience,
-            template
+            subject: emailSubject,
+            html_body: emailHtmlBody,
+            image_url: emailImageUrl || null,
+            cta_text: emailCtaText || null,
+            cta_url: emailCtaUrl || null,
+            target_audience: emailTargetAudience,
+            template: emailTemplate
           })
         });
         
@@ -4062,11 +4072,11 @@ export default function AdminDashboard() {
         if (data.success) {
           Alert.alert('Success', `Campaign sent to ${data.target_count} recipients!`);
           setShowEmailCampaignModal(false);
-          setSubject('');
-          setHtmlBody('');
-          setImageUrl('');
-          setCtaText('');
-          setCtaUrl('');
+          setEmailSubject('');
+          setEmailHtmlBody('');
+          setEmailImageUrl('');
+          setEmailCtaText('');
+          setEmailCtaUrl('');
           fetchCampaigns();
         } else {
           Alert.alert('Error', data.error || 'Failed to send campaign');
@@ -4074,7 +4084,7 @@ export default function AdminDashboard() {
       } catch (error) {
         Alert.alert('Error', 'Failed to send campaign');
       } finally {
-        setSending(false);
+        setEmailSending(false);
       }
     };
     
@@ -4163,198 +4173,6 @@ export default function AdminDashboard() {
             ))
           )}
         </View>
-        
-        {/* Create Modal */}
-        <Modal visible={showEmailCampaignModal} transparent animationType="slide">
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { maxHeight: '90%' }]}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Create Email Campaign</Text>
-                <TouchableOpacity onPress={() => setShowEmailCampaignModal(false)}>
-                  <Ionicons name="close-circle" size={28} color={COLORS.danger} />
-                </TouchableOpacity>
-              </View>
-              
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <Text style={styles.inputLabel}>Subject Line *</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={subject}
-                  onChangeText={setSubject}
-                  placeholder="Email subject"
-                  placeholderTextColor="#999"
-                />
-                
-                <Text style={styles.inputLabel}>Email Body (HTML) *</Text>
-                <TextInput
-                  style={[styles.textInput, { height: 120, textAlignVertical: 'top' }]}
-                  value={htmlBody}
-                  onChangeText={setHtmlBody}
-                  placeholder="<h2>Your content here</h2><p>Email body...</p>"
-                  placeholderTextColor="#999"
-                  multiline
-                />
-                
-                {/* Email Preview Toggle - Moved here for easy access */}
-                <TouchableOpacity
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: showPreview ? COLORS.primary : '#2A2A4A',
-                    padding: 12,
-                    borderRadius: 8,
-                    marginBottom: 12,
-                    borderWidth: 1,
-                    borderColor: COLORS.primary
-                  }}
-                  onPress={() => setShowPreview(!showPreview)}
-                >
-                  <Ionicons name={showPreview ? 'eye-off' : 'eye'} size={18} color={showPreview ? '#FFF' : COLORS.primary} />
-                  <Text style={{ color: showPreview ? '#FFF' : COLORS.primary, fontWeight: '600', marginLeft: 8 }}>
-                    {showPreview ? 'Hide Preview' : '👁️ Preview Email'}
-                  </Text>
-                </TouchableOpacity>
-                
-                {showPreview && (
-                  <View style={{ marginBottom: 16, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#333' }}>
-                    <View style={{ 
-                      backgroundColor: '#1A1A2E', 
-                      padding: 8, 
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 6
-                    }}>
-                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#FF5F56' }} />
-                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#FFBD2E' }} />
-                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#27C93F' }} />
-                      <Text style={{ marginLeft: 8, color: '#888', fontSize: 11 }}>📧 {template === 'promotional' ? 'Promotional' : 'Notification'} Template</Text>
-                    </View>
-                    <View style={{ 
-                      backgroundColor: '#E8E8E8',
-                      padding: 12,
-                      maxHeight: 300,
-                    }}>
-                      {Platform.OS === 'web' ? (
-                        <div 
-                          style={{ 
-                            width: '100%',
-                            maxWidth: 500,
-                            margin: '0 auto',
-                            backgroundColor: '#fff',
-                            borderRadius: 8,
-                            overflow: 'hidden',
-                            fontSize: '14px'
-                          }}
-                          dangerouslySetInnerHTML={{ __html: generatePreviewHtml() }}
-                        />
-                      ) : (
-                        <ScrollView style={{ maxHeight: 280 }}>
-                          <View style={{ backgroundColor: '#1a1a2e', padding: 16, alignItems: 'center' }}>
-                            <Text style={{ color: '#00E55A', fontSize: 16, fontWeight: '700' }}>Bynix Trading</Text>
-                          </View>
-                          <View style={{ backgroundColor: '#fff', padding: 16 }}>
-                            {imageUrl ? (
-                              <Image source={{ uri: imageUrl }} style={{ width: '100%', height: 100, borderRadius: 6, marginBottom: 12 }} resizeMode="cover" />
-                            ) : null}
-                            <Text style={{ fontSize: 16, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 }}>{subject || 'Email Subject'}</Text>
-                            <Text style={{ color: '#333', lineHeight: 20 }}>{htmlBody?.replace(/<[^>]*>/g, '') || 'Email content here...'}</Text>
-                            {ctaText && (
-                              <View style={{ marginTop: 16, alignItems: 'center' }}>
-                                <View style={{ backgroundColor: '#00E55A', paddingVertical: 10, paddingHorizontal: 24, borderRadius: 6 }}>
-                                  <Text style={{ color: '#000', fontWeight: '600' }}>{ctaText}</Text>
-                                </View>
-                              </View>
-                            )}
-                          </View>
-                        </ScrollView>
-                      )}
-                    </View>
-                  </View>
-                )}
-                
-                <Text style={styles.inputLabel}>Banner Image URL (Optional)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={imageUrl}
-                  onChangeText={setImageUrl}
-                  placeholder="https://..."
-                  placeholderTextColor="#999"
-                />
-                
-                <Text style={styles.inputLabel}>CTA Button Text</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={ctaText}
-                  onChangeText={setCtaText}
-                  placeholder="e.g., Start Trading"
-                  placeholderTextColor="#999"
-                />
-                
-                <Text style={styles.inputLabel}>CTA Button URL</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={ctaUrl}
-                  onChangeText={setCtaUrl}
-                  placeholder="https://..."
-                  placeholderTextColor="#999"
-                />
-                
-                <Text style={styles.inputLabel}>Email Template</Text>
-                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
-                  {['promotional', 'notification'].map((t) => (
-                    <TouchableOpacity
-                      key={t}
-                      style={{
-                        paddingHorizontal: 20,
-                        paddingVertical: 10,
-                        borderRadius: 8,
-                        backgroundColor: template === t ? COLORS.primary : '#E0E0E0'
-                      }}
-                      onPress={() => setTemplate(t)}
-                    >
-                      <Text style={{ color: template === t ? '#FFF' : '#333', fontWeight: '600', textTransform: 'capitalize' }}>{t}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                
-                <Text style={styles.inputLabel}>Target Audience</Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
-                  {[
-                    { value: 'all_users', label: `All Users (${audienceStats.all_users || 0})` },
-                    { value: 'all_affiliates', label: `Affiliates (${audienceStats.affiliates || 0})` },
-                    { value: 'verified', label: `Verified (${audienceStats.verified_users || 0})` }
-                  ].map((option) => (
-                    <TouchableOpacity
-                      key={option.value}
-                      style={{
-                        paddingHorizontal: 16,
-                        paddingVertical: 10,
-                        borderRadius: 20,
-                        backgroundColor: targetAudience === option.value ? COLORS.primary : '#E0E0E0'
-                      }}
-                      onPress={() => setTargetAudience(option.value)}
-                    >
-                      <Text style={{ color: targetAudience === option.value ? '#FFF' : '#333', fontWeight: '600' }}>{option.label}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                
-                <TouchableOpacity
-                  style={{ backgroundColor: COLORS.success, padding: 16, borderRadius: 10, alignItems: 'center' }}
-                  onPress={handleSendCampaign}
-                  disabled={sending}
-                >
-                  {sending ? (
-                    <ActivityIndicator color="#FFF" />
-                  ) : (
-                    <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 16 }}>Send Campaign</Text>
-                  )}
-                </TouchableOpacity>
-              </ScrollView>
-            </View>
-          </View>
-        </Modal>
       </ScrollView>
     );
   };
@@ -7437,6 +7255,204 @@ export default function AdminDashboard() {
         {/* Content */}
         {renderContent()}
       </View>
+      
+      {/* Email Campaign Modal - Rendered at parent level for stability */}
+      <Modal visible={showEmailCampaignModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '90%' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Create Email Campaign</Text>
+              <TouchableOpacity onPress={() => setShowEmailCampaignModal(false)}>
+                <Ionicons name="close-circle" size={28} color={COLORS.danger} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.inputLabel}>Subject Line *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={emailSubject}
+                onChangeText={setEmailSubject}
+                placeholder="Email subject"
+                placeholderTextColor="#999"
+              />
+              
+              <Text style={styles.inputLabel}>Email Body (HTML) *</Text>
+              <TextInput
+                style={[styles.textInput, { height: 120, textAlignVertical: 'top' }]}
+                value={emailHtmlBody}
+                onChangeText={setEmailHtmlBody}
+                placeholder="<h2>Your content here</h2><p>Email body...</p>"
+                placeholderTextColor="#999"
+                multiline
+              />
+              
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: emailShowPreview ? COLORS.primary : '#2A2A4A',
+                  padding: 12,
+                  borderRadius: 8,
+                  marginBottom: 12,
+                  borderWidth: 1,
+                  borderColor: COLORS.primary
+                }}
+                onPress={() => setEmailShowPreview(!emailShowPreview)}
+              >
+                <Ionicons name={emailShowPreview ? 'eye-off' : 'eye'} size={18} color={emailShowPreview ? '#FFF' : COLORS.primary} />
+                <Text style={{ color: emailShowPreview ? '#FFF' : COLORS.primary, fontWeight: '600', marginLeft: 8 }}>
+                  {emailShowPreview ? 'Hide Preview' : '👁️ Preview Email'}
+                </Text>
+              </TouchableOpacity>
+              
+              {emailShowPreview && (
+                <View style={{ marginBottom: 16, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#333' }}>
+                  <View style={{ backgroundColor: '#1A1A2E', padding: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#FF5F56' }} />
+                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#FFBD2E' }} />
+                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#27C93F' }} />
+                    <Text style={{ marginLeft: 8, color: '#888', fontSize: 11 }}>📧 {emailTemplate === 'promotional' ? 'Promotional' : 'Notification'} Template</Text>
+                  </View>
+                  <View style={{ backgroundColor: '#E8E8E8', padding: 12, maxHeight: 200 }}>
+                    <View style={{ backgroundColor: '#1a1a2e', padding: 12, alignItems: 'center', borderTopLeftRadius: 6, borderTopRightRadius: 6 }}>
+                      <Text style={{ color: '#00E55A', fontSize: 14, fontWeight: '700' }}>Bynix Trading</Text>
+                    </View>
+                    <View style={{ backgroundColor: '#fff', padding: 12 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#1a1a2e', marginBottom: 6 }}>{emailSubject || 'Email Subject'}</Text>
+                      <Text style={{ color: '#333', fontSize: 12, lineHeight: 18 }}>{emailHtmlBody?.replace(/<[^>]*>/g, '') || 'Email content here...'}</Text>
+                      {emailCtaText && (
+                        <View style={{ marginTop: 12, alignItems: 'center' }}>
+                          <View style={{ backgroundColor: '#00E55A', paddingVertical: 8, paddingHorizontal: 20, borderRadius: 6 }}>
+                            <Text style={{ color: '#000', fontWeight: '600', fontSize: 12 }}>{emailCtaText}</Text>
+                          </View>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                </View>
+              )}
+              
+              <Text style={styles.inputLabel}>Banner Image URL (Optional)</Text>
+              <TextInput
+                style={styles.textInput}
+                value={emailImageUrl}
+                onChangeText={setEmailImageUrl}
+                placeholder="https://..."
+                placeholderTextColor="#999"
+              />
+              
+              <Text style={styles.inputLabel}>CTA Button Text</Text>
+              <TextInput
+                style={styles.textInput}
+                value={emailCtaText}
+                onChangeText={setEmailCtaText}
+                placeholder="e.g., Start Trading"
+                placeholderTextColor="#999"
+              />
+              
+              <Text style={styles.inputLabel}>CTA Button URL</Text>
+              <TextInput
+                style={styles.textInput}
+                value={emailCtaUrl}
+                onChangeText={setEmailCtaUrl}
+                placeholder="https://..."
+                placeholderTextColor="#999"
+              />
+              
+              <Text style={styles.inputLabel}>Email Template</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+                {['promotional', 'notification'].map((t) => (
+                  <TouchableOpacity
+                    key={t}
+                    style={{
+                      paddingHorizontal: 20,
+                      paddingVertical: 10,
+                      borderRadius: 8,
+                      backgroundColor: emailTemplate === t ? COLORS.primary : '#E0E0E0'
+                    }}
+                    onPress={() => setEmailTemplate(t)}
+                  >
+                    <Text style={{ color: emailTemplate === t ? '#FFF' : '#333', fontWeight: '600', textTransform: 'capitalize' }}>{t}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              
+              <Text style={styles.inputLabel}>Target Audience</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+                {[
+                  { value: 'all_users', label: `All Users (${emailAudienceStats.all_users || 0})` },
+                  { value: 'all_affiliates', label: `Affiliates (${emailAudienceStats.affiliates || 0})` },
+                  { value: 'verified', label: `Verified (${emailAudienceStats.verified_users || 0})` }
+                ].map((option) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 10,
+                      borderRadius: 20,
+                      backgroundColor: emailTargetAudience === option.value ? COLORS.primary : '#E0E0E0'
+                    }}
+                    onPress={() => setEmailTargetAudience(option.value)}
+                  >
+                    <Text style={{ color: emailTargetAudience === option.value ? '#FFF' : '#333', fontWeight: '600' }}>{option.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              
+              <TouchableOpacity
+                style={{ backgroundColor: COLORS.success, padding: 16, borderRadius: 10, alignItems: 'center' }}
+                onPress={async () => {
+                  if (!emailSubject || !emailHtmlBody) {
+                    Alert.alert('Error', 'Subject and Body are required');
+                    return;
+                  }
+                  setEmailSending(true);
+                  try {
+                    const response = await fetch(`${API_URL}/admin/marketing/email-campaigns`, {
+                      method: 'POST',
+                      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        subject: emailSubject,
+                        html_body: emailHtmlBody,
+                        image_url: emailImageUrl || null,
+                        cta_text: emailCtaText || null,
+                        cta_url: emailCtaUrl || null,
+                        target_audience: emailTargetAudience,
+                        template: emailTemplate
+                      })
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                      Alert.alert('Success', `Campaign sent to ${data.target_count} recipients!`);
+                      setShowEmailCampaignModal(false);
+                      setEmailSubject('');
+                      setEmailHtmlBody('');
+                      setEmailImageUrl('');
+                      setEmailCtaText('');
+                      setEmailCtaUrl('');
+                    } else {
+                      Alert.alert('Error', data.error || 'Failed to send campaign');
+                    }
+                  } catch (error) {
+                    Alert.alert('Error', 'Failed to send campaign');
+                  } finally {
+                    setEmailSending(false);
+                  }
+                }}
+                disabled={emailSending}
+              >
+                {emailSending ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 16 }}>Send Campaign</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
