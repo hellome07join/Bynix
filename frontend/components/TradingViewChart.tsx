@@ -684,14 +684,15 @@ export default function TradingViewChart({
       ctx.stroke();
     }
     
-    // Draw candles - offset X so running candle (last candle) is in middle
+    // Draw candles normally (running candle at right edge)
+    // This allows natural scrolling behavior
     const runningCandleIndex = visibleData.length - 1;
-    const chartCenter = (width - padding.left - padding.right) / 2 + padding.left;
-    const runningCandleTargetX = chartCenter; // Running candle should be at center
-    const xOffset = runningCandleTargetX - (runningCandleIndex * totalBarWidth + padding.left + 15 + baseBarWidth / 2);
+    
+    // Calculate actual running candle X position (at right edge of visible area)
+    const actualRunningCandleX = padding.left + runningCandleIndex * totalBarWidth + 15 + baseBarWidth / 2;
     
     visibleData.forEach((candle, i) => {
-      const x = padding.left + i * totalBarWidth + 15 + xOffset;
+      const x = padding.left + i * totalBarWidth + 15;
       const isGreen = candle.close >= candle.open;
       const color = isGreen ? '#00E55A' : '#FF3B3B';
       
@@ -761,15 +762,15 @@ export default function TradingViewChart({
     ctx.setLineDash([]);
     
     // ============= ALWAYS VISIBLE TRADE PREVIEW LINES (Binolla Style) =============
-    // Running candle is at MIDDLE of screen for better visibility of labels
+    // Lines follow the actual running candle position (moves with scroll)
     
     const candleWidth = baseBarWidth; // Use same candle width
     const candleGap = barSpacing;
     const totalCandleWidth = candleWidth + candleGap;
     const chartRightEdge = width - padding.right;
     
-    // Running candle X position is at chart center (same as candle drawing)
-    const runningCandleXPos = chartCenter;
+    // Running candle X position - use actualRunningCandleX calculated during candle drawing
+    const runningCandleXPos = actualRunningCandleX;
     
     // Helper function to get interval in milliseconds
     const getIntervalMs = () => {
@@ -787,10 +788,10 @@ export default function TradingViewChart({
     
     const intervalMs = getIntervalMs();
     
-    // Running candle is at chart center (using same calculation as candle drawing)
+    // Running candle is at actualRunningCandleX (follows scroll)
     const runningCandleX = runningCandleXPos;
     
-    // Beginning of trade = at running candle (center)
+    // Beginning of trade = at running candle position
     const beginningX = runningCandleX;
     
     // End of trade = tradeDuration candles ahead (to the right)
