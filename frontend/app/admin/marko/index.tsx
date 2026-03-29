@@ -365,7 +365,8 @@ export default function AdminDashboard() {
       }
       
       // Fetch live trades
-      const liveTradesRes = await fetch(`${API_URL}/admin/trades?limit=50&status=active`, { headers });
+      // Fetch live trades (only REAL account)
+      const liveTradesRes = await fetch(`${API_URL}/admin/trades?limit=50&status=active&account_type=real`, { headers });
       if (liveTradesRes.ok) {
         const data = await liveTradesRes.json();
         setLiveTrades(data.trades || []);

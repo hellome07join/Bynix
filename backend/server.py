@@ -5724,18 +5724,23 @@ async def admin_get_users(
 async def admin_get_trades(
     limit: int = 50,
     status: Optional[str] = None,
+    account_type: Optional[str] = None,
     authorization: Optional[str] = Header(None),
     request: Request = None
 ):
-    """Get all trades for admin with optional status filter"""
+    """Get all trades for admin with optional status and account_type filter"""
     user = await get_current_user(authorization, request)
     
-    # Build query with optional status filter
+    # Build query with optional filters
     query = {}
     if status == "active":
         query["status"] = "pending"
     elif status:
         query["status"] = status
+    
+    # Filter by account type (real/demo)
+    if account_type:
+        query["account_type"] = account_type
     
     trades = await db.trades.find(query).sort("created_at", -1).limit(limit).to_list(limit)
     
