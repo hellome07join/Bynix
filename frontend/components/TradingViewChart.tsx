@@ -655,10 +655,23 @@ export default function TradingViewChart({
     
     if (visibleData.length === 0) return;
     
-    // Calculate offset to center the running candle in middle of screen
+    // Calculate offset to CENTER the running candle by default
     // Running candle is the last candle in visibleData
-    const halfVisibleCandles = Math.floor(visibleCandles / 2);
-    const runningCandleOffset = halfVisibleCandles * totalBarWidth;
+    const runningCandleIndex = visibleData.length - 1;
+    const chartCenter = (width - padding.left - padding.right) / 2 + padding.left;
+    
+    // Default X offset to center running candle, adjusted by scroll
+    // When scrollOffset is 0, running candle should be at center
+    // When user scrolls right (positive scrollOffset), candles move left, running candle moves right
+    const defaultRunningCandleX = padding.left + runningCandleIndex * totalBarWidth + 15 + baseBarWidth / 2;
+    const centerOffset = chartCenter - defaultRunningCandleX;
+    
+    // Apply scroll offset - scrolling right moves candles left (negative offset to candles)
+    const scrollAdjustment = scrollCandles * totalBarWidth;
+    const xOffset = centerOffset + scrollAdjustment;
+    
+    // Calculate actual running candle X position after offset
+    const actualRunningCandleX = defaultRunningCandleX + xOffset;
     
     // Calculate price range
     let minPrice = Math.min(...visibleData.map(c => c.low));
@@ -684,15 +697,13 @@ export default function TradingViewChart({
       ctx.stroke();
     }
     
-    // Draw candles normally (running candle at right edge)
-    // This allows natural scrolling behavior
-    const runningCandleIndex = visibleData.length - 1;
-    
-    // Calculate actual running candle X position (at right edge of visible area)
-    const actualRunningCandleX = padding.left + runningCandleIndex * totalBarWidth + 15 + baseBarWidth / 2;
-    
+    // Draw candles with offset (running candle at center by default, moves with scroll)
     visibleData.forEach((candle, i) => {
-      const x = padding.left + i * totalBarWidth + 15;
+      const x = padding.left + i * totalBarWidth + 15 + xOffset;
+      
+      // Skip candles outside visible area
+      if (x < padding.left - baseBarWidth || x > width - padding.right + baseBarWidth) return;
+      
       const isGreen = candle.close >= candle.open;
       const color = isGreen ? '#00E55A' : '#FF3B3B';
       
