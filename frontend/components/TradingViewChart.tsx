@@ -655,6 +655,11 @@ export default function TradingViewChart({
     
     if (visibleData.length === 0) return;
     
+    // Calculate offset to center the running candle in middle of screen
+    // Running candle is the last candle in visibleData
+    const halfVisibleCandles = Math.floor(visibleCandles / 2);
+    const runningCandleOffset = halfVisibleCandles * totalBarWidth;
+    
     // Calculate price range
     let minPrice = Math.min(...visibleData.map(c => c.low));
     let maxPrice = Math.max(...visibleData.map(c => c.high));
@@ -679,9 +684,14 @@ export default function TradingViewChart({
       ctx.stroke();
     }
     
-    // Draw candles
+    // Draw candles - offset X so running candle (last candle) is in middle
+    const runningCandleIndex = visibleData.length - 1;
+    const chartCenter = (width - padding.left - padding.right) / 2 + padding.left;
+    const runningCandleTargetX = chartCenter; // Running candle should be at center
+    const xOffset = runningCandleTargetX - (runningCandleIndex * totalBarWidth + padding.left + 15 + baseBarWidth / 2);
+    
     visibleData.forEach((candle, i) => {
-      const x = padding.left + i * totalBarWidth + 15;
+      const x = padding.left + i * totalBarWidth + 15 + xOffset;
       const isGreen = candle.close >= candle.open;
       const color = isGreen ? '#00E55A' : '#FF3B3B';
       
@@ -753,11 +763,13 @@ export default function TradingViewChart({
     // ============= ALWAYS VISIBLE TRADE PREVIEW LINES (Binolla Style) =============
     // Running candle is at MIDDLE of screen for better visibility of labels
     
-    const candleWidth = 8 * scale;
-    const candleGap = 4 * scale;
+    const candleWidth = baseBarWidth; // Use same candle width
+    const candleGap = barSpacing;
     const totalCandleWidth = candleWidth + candleGap;
     const chartRightEdge = width - padding.right;
-    const chartMiddle = width / 2; // Running candle at CENTER
+    
+    // Running candle X position is at chart center (same as candle drawing)
+    const runningCandleXPos = chartCenter;
     
     // Helper function to get interval in milliseconds
     const getIntervalMs = () => {
@@ -775,10 +787,10 @@ export default function TradingViewChart({
     
     const intervalMs = getIntervalMs();
     
-    // Running candle is at the MIDDLE of chart
-    const runningCandleX = chartMiddle;
+    // Running candle is at chart center (using same calculation as candle drawing)
+    const runningCandleX = runningCandleXPos;
     
-    // Beginning of trade = at running candle (middle)
+    // Beginning of trade = at running candle (center)
     const beginningX = runningCandleX;
     
     // End of trade = tradeDuration candles ahead (to the right)
@@ -859,7 +871,7 @@ export default function TradingViewChart({
       const markerY = padding.top + ((maxPrice - marker.entryPrice) / (maxPrice - minPrice)) * chartHeight;
       const markerColor = marker.type === 'call' ? '#00E55A' : '#FF6B6B';
       
-      // Entry is at chartMiddle minus elapsed candles
+      // Entry is at runningCandleXPos minus elapsed candles
       const entryTime = marker.entryTime || (now - ((marker.duration || 60) - (marker.remainingTime || 0)) * 1000);
       const expiryTime = marker.expiryTime || (now + (marker.remainingTime || 0) * 1000);
       
@@ -870,11 +882,11 @@ export default function TradingViewChart({
       const remainingMs = expiryTime - now;
       const remainingCandles = Math.ceil(remainingMs / intervalMs);
       
-      // Entry line position - to the left of middle by elapsed candles
-      const entryX = chartMiddle - (elapsedCandles * totalCandleWidth);
+      // Entry line position - to the left of center by elapsed candles
+      const entryX = runningCandleXPos - (elapsedCandles * totalCandleWidth);
       
-      // Exit line position - to the right of middle by remaining candles  
-      const exitX = chartMiddle + (remainingCandles * totalCandleWidth);
+      // Exit line position - to the right of center by remaining candles  
+      const exitX = runningCandleXPos + (remainingCandles * totalCandleWidth);
       const visibleExitX = Math.min(exitX, width - padding.right - 20);
       
       // Horizontal line Y position
