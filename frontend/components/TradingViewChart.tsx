@@ -660,15 +660,17 @@ export default function TradingViewChart({
     const runningCandleIndex = visibleData.length - 1;
     const chartCenter = (width - padding.left - padding.right) / 2 + padding.left;
     
-    // Default X offset to center running candle, adjusted by scroll
-    // scrollOffset > 0 = scrolled left (seeing history) = candles move RIGHT
-    // scrollOffset < 0 = scrolled right = candles move LEFT (running candle goes right)
+    // Default X position for running candle (without any offset)
     const defaultRunningCandleX = padding.left + runningCandleIndex * totalBarWidth + 15 + baseBarWidth / 2;
-    const centerOffset = chartCenter - defaultRunningCandleX;
     
-    // Apply scroll offset - NEGATIVE scroll adjustment for correct direction
-    // Positive scrollOffset = dragged left = candles should move RIGHT (add to X)
-    const scrollAdjustment = -scrollCandles * totalBarWidth;
+    // Center offset - only apply when user hasn't scrolled (scrollOffset === 0)
+    // This centers the running candle by default
+    const centerOffset = scrollOffset === 0 ? (chartCenter - defaultRunningCandleX) : 0;
+    
+    // Apply scroll offset for user scrolling
+    // scrollOffset > 0 = dragged right (finger moved right) = candles move right = see history
+    // scrollOffset < 0 = dragged left (finger moved left) = candles move left = running candle goes right
+    const scrollAdjustment = scrollOffset;
     const xOffset = centerOffset + scrollAdjustment;
     
     // Calculate actual running candle X position after offset
