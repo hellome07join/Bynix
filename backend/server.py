@@ -5429,28 +5429,58 @@ async def get_nowpayments_withdrawal_status(
 
 def get_base_price(symbol: str) -> float:
     """Get base price for a symbol"""
-    symbol_upper = symbol.upper()
-    if 'EUR/USD' in symbol_upper: return 1.0850
-    if 'GBP/USD' in symbol_upper: return 1.2650
-    if 'USD/JPY' in symbol_upper: return 149.50
-    if 'AUD/USD' in symbol_upper: return 0.6550
-    if 'USD/CHF' in symbol_upper: return 0.8750
-    if 'EUR/GBP' in symbol_upper: return 0.8550
-    if 'NZD/USD' in symbol_upper: return 0.6150
-    if 'USD/CAD' in symbol_upper: return 1.3550
-    if 'EUR/JPY' in symbol_upper: return 162.50
-    if 'GBP/JPY' in symbol_upper: return 189.50
-    if 'BTC' in symbol_upper: return 67500
-    if 'ETH' in symbol_upper: return 3500
-    if 'XRP' in symbol_upper: return 0.55
-    if 'SOL' in symbol_upper: return 145
-    if 'ADA' in symbol_upper: return 0.45
-    if 'DOGE' in symbol_upper: return 0.12
-    if 'AAPL' in symbol_upper: return 178
-    if 'GOOGL' in symbol_upper: return 141
-    if 'MSFT' in symbol_upper: return 378
-    if 'AMZN' in symbol_upper: return 178
-    if 'TSLA' in symbol_upper: return 245
+    # Normalize symbol: remove OTC, spaces, slashes, and uppercase
+    symbol_clean = symbol.upper().replace(" OTC", "").replace("OTC", "").replace("/", "").replace(" ", "").replace("_", "")
+    
+    # Match against normalized symbols
+    if 'EURUSD' in symbol_clean: return 1.0850
+    if 'GBPUSD' in symbol_clean: return 1.2650
+    if 'USDJPY' in symbol_clean: return 149.50
+    if 'AUDUSD' in symbol_clean: return 0.6550
+    if 'USDCHF' in symbol_clean: return 0.8750
+    if 'EURGBP' in symbol_clean: return 0.8550
+    if 'NZDUSD' in symbol_clean: return 0.6150
+    if 'USDCAD' in symbol_clean: return 1.3550
+    if 'EURJPY' in symbol_clean: return 162.50
+    if 'GBPJPY' in symbol_clean: return 189.50
+    if 'AUDJPY' in symbol_clean: return 98.50
+    if 'CADJPY' in symbol_clean: return 110.50
+    if 'CHFJPY' in symbol_clean: return 170.50
+    if 'NZDJPY' in symbol_clean: return 92.50
+    if 'EURAUD' in symbol_clean: return 1.66
+    if 'EURCHF' in symbol_clean: return 0.95
+    if 'EURCAD' in symbol_clean: return 1.47
+    if 'EURNZD' in symbol_clean: return 1.77
+    if 'GBPAUD' in symbol_clean: return 1.93
+    if 'GBPCAD' in symbol_clean: return 1.71
+    if 'GBPCHF' in symbol_clean: return 1.11
+    if 'GBPNZD' in symbol_clean: return 2.06
+    if 'AUDCAD' in symbol_clean: return 0.89
+    if 'AUDCHF' in symbol_clean: return 0.57
+    if 'AUDNZD' in symbol_clean: return 1.07
+    if 'CADCHF' in symbol_clean: return 0.64
+    if 'NZDCAD' in symbol_clean: return 0.83
+    if 'NZDCHF' in symbol_clean: return 0.54
+    if 'BTC' in symbol_clean: return 67500
+    if 'ETH' in symbol_clean: return 3500
+    if 'XRP' in symbol_clean: return 0.55
+    if 'SOL' in symbol_clean: return 145
+    if 'ADA' in symbol_clean: return 0.45
+    if 'DOGE' in symbol_clean: return 0.12
+    if 'BNB' in symbol_clean: return 580
+    if 'AAPL' in symbol_clean: return 178
+    if 'GOOGL' in symbol_clean: return 141
+    if 'MSFT' in symbol_clean: return 378
+    if 'AMZN' in symbol_clean: return 178
+    if 'TSLA' in symbol_clean: return 245
+    if 'META' in symbol_clean: return 485
+    if 'NVDA' in symbol_clean: return 890
+    if 'NFLX' in symbol_clean: return 620
+    # Commodities
+    if 'XAUUSD' in symbol_clean or 'GOLD' in symbol_clean: return 2350
+    if 'XAGUSD' in symbol_clean or 'SILVER' in symbol_clean: return 28.50
+    if 'USOIL' in symbol_clean or 'CRUDEOIL' in symbol_clean: return 78.50
+    
     return 1.0850
 
 def generate_server_chart_data(symbol: str) -> list:

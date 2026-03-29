@@ -156,14 +156,58 @@ export default function TradingViewChart({
   
   // Generate initial placeholder data synchronously for instant display
   const getInitialPlaceholderData = useCallback((sym: string): CandleData[] => {
-    const basePrices: { [key: string]: number } = {
-      'EUR/USD': 1.0850, 'EUR/USD OTC': 1.0850,
-      'GBP/USD': 1.2650, 'GBP/USD OTC': 1.2650,
-      'USD/JPY': 149.50, 'USD/JPY OTC': 149.50,
-      'BTC/USD': 67500, 'BTC/USD OTC': 67500,
-      'ETH/USD': 3500, 'ETH/USD OTC': 3500,
-    };
-    const basePrice = basePrices[sym] || 1.0850;
+    // Normalize symbol for matching
+    const symClean = sym.toUpperCase().replace(' OTC', '').replace('OTC', '').replace('/', '').replace(' ', '');
+    
+    // Comprehensive base prices for all assets
+    let basePrice = 1.0850; // Default
+    if (symClean.includes('EURUSD')) basePrice = 1.0850;
+    else if (symClean.includes('GBPUSD')) basePrice = 1.2650;
+    else if (symClean.includes('USDJPY')) basePrice = 149.50;
+    else if (symClean.includes('AUDUSD')) basePrice = 0.6550;
+    else if (symClean.includes('USDCHF')) basePrice = 0.8750;
+    else if (symClean.includes('EURGBP')) basePrice = 0.8550;
+    else if (symClean.includes('NZDUSD')) basePrice = 0.6150;
+    else if (symClean.includes('USDCAD')) basePrice = 1.3550;
+    else if (symClean.includes('EURJPY')) basePrice = 162.50;
+    else if (symClean.includes('GBPJPY')) basePrice = 189.50;
+    else if (symClean.includes('AUDJPY')) basePrice = 98.50;
+    else if (symClean.includes('CADJPY')) basePrice = 110.50;
+    else if (symClean.includes('CHFJPY')) basePrice = 170.50;
+    else if (symClean.includes('NZDJPY')) basePrice = 92.50;
+    else if (symClean.includes('EURAUD')) basePrice = 1.66;
+    else if (symClean.includes('EURCHF')) basePrice = 0.95;
+    else if (symClean.includes('EURCAD')) basePrice = 1.47;
+    else if (symClean.includes('EURNZD')) basePrice = 1.77;
+    else if (symClean.includes('GBPAUD')) basePrice = 1.93;
+    else if (symClean.includes('GBPCAD')) basePrice = 1.71;
+    else if (symClean.includes('GBPCHF')) basePrice = 1.11;
+    else if (symClean.includes('GBPNZD')) basePrice = 2.06;
+    else if (symClean.includes('AUDCAD')) basePrice = 0.89;
+    else if (symClean.includes('AUDCHF')) basePrice = 0.57;
+    else if (symClean.includes('AUDNZD')) basePrice = 1.07;
+    else if (symClean.includes('CADCHF')) basePrice = 0.64;
+    else if (symClean.includes('NZDCAD')) basePrice = 0.83;
+    else if (symClean.includes('NZDCHF')) basePrice = 0.54;
+    else if (symClean.includes('BTC')) basePrice = 67500;
+    else if (symClean.includes('ETH')) basePrice = 3500;
+    else if (symClean.includes('XRP')) basePrice = 0.55;
+    else if (symClean.includes('SOL')) basePrice = 145;
+    else if (symClean.includes('ADA')) basePrice = 0.45;
+    else if (symClean.includes('DOGE')) basePrice = 0.12;
+    else if (symClean.includes('BNB')) basePrice = 580;
+    else if (symClean.includes('AAPL')) basePrice = 178;
+    else if (symClean.includes('GOOGL')) basePrice = 141;
+    else if (symClean.includes('MSFT')) basePrice = 378;
+    else if (symClean.includes('AMZN')) basePrice = 178;
+    else if (symClean.includes('TSLA')) basePrice = 245;
+    else if (symClean.includes('META')) basePrice = 485;
+    else if (symClean.includes('NVDA')) basePrice = 890;
+    else if (symClean.includes('NFLX')) basePrice = 620;
+    else if (symClean.includes('XAU') || symClean.includes('GOLD')) basePrice = 2350;
+    else if (symClean.includes('XAG') || symClean.includes('SILVER')) basePrice = 28.50;
+    else if (symClean.includes('USOIL') || symClean.includes('CRUDEOIL')) basePrice = 78.50;
+    
     const ticks: CandleData[] = [];
     const now = Date.now();
     
