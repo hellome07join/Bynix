@@ -86,12 +86,12 @@ const MENU_ITEMS = [
   { id: 'overview', label: 'Overview', icon: 'grid-outline', section: 'main' },
   { id: 'analytics', label: 'Analytics', icon: 'stats-chart-outline', section: 'main' },
   { id: 'users', label: 'User Management', icon: 'people-outline', section: 'management' },
-  { id: 'kyc', label: 'KYC Requests', icon: 'shield-checkmark-outline', section: 'management', badge: 5 },
+  { id: 'kyc', label: 'KYC Requests', icon: 'shield-checkmark-outline', section: 'management', badgeKey: 'pendingKyc' },
   { id: 'trading', label: 'Trading Control', icon: 'trending-up-outline', section: 'trading' },
   { id: 'ai-control', label: 'AI Automation', icon: 'hardware-chip-outline', section: 'trading' },
   { id: 'live-trades', label: 'Live Trades', icon: 'pulse-outline', section: 'trading', live: true },
   { id: 'deposits', label: 'Deposits', icon: 'arrow-down-circle-outline', section: 'finance' },
-  { id: 'withdrawals', label: 'Withdrawals', icon: 'arrow-up-circle-outline', section: 'finance', badge: 3 },
+  { id: 'withdrawals', label: 'Withdrawals', icon: 'arrow-up-circle-outline', section: 'finance', badgeKey: 'pendingWithdrawals' },
   { id: 'affiliates', label: 'Affiliates', icon: 'git-network-outline', section: 'partners' },
   { id: 'staff', label: 'Staff Management', icon: 'briefcase-outline', section: 'admin' },
   { id: 'settings', label: 'Settings', icon: 'settings-outline', section: 'admin' },
@@ -6682,10 +6682,20 @@ export default function AdminDashboard() {
                 </Text>
               )}
             </View>
-            {!sidebarCollapsed && item.badge && (
-              <View style={styles.menuBadge}>
-                <Text style={styles.menuBadgeText}>{item.badge}</Text>
-              </View>
+            {!sidebarCollapsed && item.badgeKey && (
+              (() => {
+                let badgeCount = 0;
+                if (item.badgeKey === 'pendingKyc') {
+                  badgeCount = kycSubmissions.length;
+                } else if (item.badgeKey === 'pendingWithdrawals') {
+                  badgeCount = withdrawals.filter(w => w.status === 'pending' || w.status === 'pending_approval').length;
+                }
+                return badgeCount > 0 ? (
+                  <View style={styles.menuBadge}>
+                    <Text style={styles.menuBadgeText}>{badgeCount}</Text>
+                  </View>
+                ) : null;
+              })()
             )}
             {!sidebarCollapsed && item.live && (
               <View style={styles.menuLiveDot} />
