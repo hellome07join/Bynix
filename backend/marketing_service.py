@@ -331,7 +331,7 @@ EMAIL_TEMPLATES = {
         </div>
         <div class="footer">
             <p>© 2025 Bynix Trading. All rights reserved.</p>
-            <p><a href="{{UNSUBSCRIBE_URL}}">Unsubscribe</a> | <a href="https://bynix.com">Visit Website</a></p>
+            <p><a href="{{UNSUBSCRIBE_URL}}">Unsubscribe</a> | <a href="https://bynix.io">Visit Website</a></p>
         </div>
     </div>
 </body>

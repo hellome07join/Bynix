@@ -8534,7 +8534,7 @@ def generate_affiliate_code():
 
 def generate_referral_link(affiliate_code: str):
     """Generate referral link"""
-    base_url = "https://bynix.com"
+    base_url = "https://bynix.io"
     return f"{base_url}/ref/{affiliate_code}"
 
 @api_router.post("/affiliates/register")
@@ -13114,7 +13114,7 @@ async def create_email_campaign(
         if campaign.image_url:
             content = f'<div class="image-container"><img src="{campaign.image_url}" alt=""/></div>' + content
         html_body = EMAIL_TEMPLATES[campaign.template].replace("{{CONTENT}}", content)
-        html_body = html_body.replace("{{UNSUBSCRIBE_URL}}", "https://bynix.com/unsubscribe")
+        html_body = html_body.replace("{{UNSUBSCRIBE_URL}}", "https://bynix.io/unsubscribe")
     
     # Store campaign record
     campaign_record = {

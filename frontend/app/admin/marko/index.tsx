@@ -6704,7 +6704,7 @@ export default function AdminDashboard() {
                   <Text style={styles.affSectionTitle}>🔗 Referral Links</Text>
                   <View style={styles.affLinkBox}>
                     <Text style={styles.affLinkText} numberOfLines={1}>
-                      {`https://bynix.com/ref/${selectedAffiliate.ref_code || selectedAffiliate.affiliate_code || 'N/A'}`}
+                      {`https://bynix.io/ref/${selectedAffiliate.ref_code || selectedAffiliate.affiliate_code || 'N/A'}`}
                     </Text>
                     <TouchableOpacity style={styles.affCopyBtn}>
                       <Ionicons name="copy" size={16} color={COLORS.primary} />
