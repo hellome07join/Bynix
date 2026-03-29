@@ -867,31 +867,40 @@ async def create_trade(trade: TradeCreate, authorization: Optional[str] = Header
     else:
         # Real account - real_balance already contains deposit + bonus
         # bonus_balance is just for tracking (non-withdrawable portion)
-        # DO NOT double-count by adding bonus_balance again!
         total_available = user.real_balance
         if total_available < trade.amount:
             raise HTTPException(status_code=400, detail="Insufficient balance")
         
-        # Calculate deductions:
-        # - All trades deduct from real_balance
-        # - Track how much was from deposit vs bonus for commission purposes
-        deducted_from_real = trade.amount
+        # ============= CORRECT BONUS LOGIC =============
+        # RULE: Trade losses should FIRST come from deposit (real portion), THEN from bonus
+        # 
+        # Example: User has $30 total (real_balance=30), with $20 bonus (bonus_balance=20)
+        # So actual deposit = $30 - $20 = $10 (this is the withdrawable portion)
+        # 
+        # If user trades $15:
+        # - First deduct from deposit: $10 (deposit becomes 0)
+        # - Then deduct from bonus: $5 (bonus becomes $15)
+        # - Result: real_balance = $15, bonus_balance = $15
+        #
+        # This ensures deposits are used first, bonus last.
         
-        # Calculate how much of this trade came from bonus vs actual deposits
-        # This is for affiliate commission calculation (no commission on bonus trades)
-        if bonus_balance > 0:
-            # If user has bonus, some of their balance is bonus
-            # Proportion: if real_balance is 60 (30 deposit + 30 bonus), and bonus_balance is 30
-            # Then 50% of any trade is from bonus
-            bonus_ratio = min(bonus_balance / user.real_balance, 1.0) if user.real_balance > 0 else 0
-            deducted_from_bonus = trade.amount * bonus_ratio
-            deducted_from_real_portion = trade.amount - deducted_from_bonus
-        else:
+        # Calculate deposit (non-bonus) portion
+        deposit_portion = max(0, user.real_balance - bonus_balance)  # e.g., 30 - 20 = 10
+        
+        # Determine deduction split
+        if deposit_portion >= trade.amount:
+            # Entire trade comes from deposit (no bonus used)
+            deducted_from_real_deposit = trade.amount
             deducted_from_bonus = 0
-            deducted_from_real_portion = trade.amount
+        else:
+            # Use all deposit first, then use bonus for the rest
+            deducted_from_real_deposit = deposit_portion
+            deducted_from_bonus = trade.amount - deposit_portion
         
-        # Deduct from real_balance (the actual trading balance)
-        # Also proportionally reduce bonus_balance for tracking
+        # For affiliate commission: only the deposit portion counts (not bonus)
+        deducted_from_real = deducted_from_real_deposit
+        
+        # Deduct from real_balance (total) and proportionally from bonus_balance
         update_fields = {"real_balance": -trade.amount}
         if deducted_from_bonus > 0:
             update_fields["bonus_balance"] = -deducted_from_bonus
@@ -901,8 +910,7 @@ async def create_trade(trade: TradeCreate, authorization: Optional[str] = Header
             {"$inc": update_fields}
         )
         
-        # For commission tracking, only the non-bonus portion counts
-        deducted_from_real = deducted_from_real_portion
+        print(f"[TRADE DEDUCTION] deposit_portion=${deposit_portion:.2f}, trade=${trade.amount:.2f}, from_deposit=${deducted_from_real_deposit:.2f}, from_bonus=${deducted_from_bonus:.2f}")
     
     # For DEMO accounts only: Predetermine outcome based on AI win rate settings
     # For REAL accounts: Also use AI win rate if AI is enabled
