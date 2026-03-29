@@ -1579,6 +1579,12 @@ async def get_notifications(authorization: Optional[str] = Header(None), request
         {"_id": 0}
     ).sort("created_at", -1).limit(50).to_list(50)
     
+    # Convert datetime to ISO format with Z suffix for proper timezone handling
+    for notif in notifications:
+        if 'created_at' in notif and notif['created_at']:
+            if isinstance(notif['created_at'], datetime):
+                notif['created_at'] = notif['created_at'].strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
+    
     # Count unread
     unread_count = await db.notifications.count_documents({
         "user_id": user.user_id,
