@@ -1853,11 +1853,17 @@ export default function TradingViewChart({
                   setScrollOffset(prev => {
                     // FIXED: momentum follows drag direction
                     const newOffset = prev + scrollVelocityRef.current;
-                    // Allow negative offset for left scrolling (limited)
-                    const maxNegativeOffset = -200;
+                    // Allow generous negative offset for scrolling back to running candle
+                    // Negative = towards running candle, Positive = towards history
+                    const maxNegativeOffset = -1000; // Allow scrolling back to running candle
+                    const maxPositiveOffset = 10000; // Allow deep history scrolling
                     if (newOffset < maxNegativeOffset) {
                       scrollVelocityRef.current *= 0.3;
                       return maxNegativeOffset;
+                    }
+                    if (newOffset > maxPositiveOffset) {
+                      scrollVelocityRef.current *= 0.3;
+                      return maxPositiveOffset;
                     }
                     return newOffset;
                   });
@@ -1973,11 +1979,17 @@ export default function TradingViewChart({
                     setScrollOffset(prev => {
                       // FIXED: momentum follows drag direction
                       const newOffset = prev + scrollVelocityRef.current;
-                      // Allow some negative offset for left scrolling
-                      const maxNegativeOffset = -200;
+                      // Allow generous negative offset for scrolling back to running candle
+                      // Negative = towards running candle, Positive = towards history
+                      const maxNegativeOffset = -1000; // Allow scrolling back to running candle
+                      const maxPositiveOffset = 10000; // Allow deep history scrolling
                       if (newOffset < maxNegativeOffset) {
                         scrollVelocityRef.current *= 0.3;
                         return maxNegativeOffset;
+                      }
+                      if (newOffset > maxPositiveOffset) {
+                        scrollVelocityRef.current *= 0.3;
+                        return maxPositiveOffset;
                       }
                       return newOffset;
                     });
