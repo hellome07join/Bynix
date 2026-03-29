@@ -1845,26 +1845,16 @@ export default function TradingViewChart({
             const zoomIntensity = 0.08;
             const delta = e.deltaY > 0 ? (1 - zoomIntensity) : (1 + zoomIntensity);
             
-            // Get mouse position relative to chart
-            const rect = e.currentTarget.getBoundingClientRect();
-            const zoomPointX = e.clientX - rect.left;
-            
             const oldScale = scale;
             const newScaleValue = Math.max(MIN_SCALE, Math.min(MAX_SCALE, oldScale * delta));
             
             // Skip if scale didn't change
             if (newScaleValue === oldScale) return;
             
-            const scaleRatio = newScaleValue / oldScale;
-            
-            // CORRECT ZOOM-TO-POINT FORMULA:
-            // To keep the point under the mouse stationary after zoom:
-            // newScrollOffset = zoomPointX * (1 - scaleRatio) + oldScrollOffset * scaleRatio
-            // This ensures the data point at zoomPointX stays at zoomPointX after zoom
-            setScrollOffset(prev => {
-              return zoomPointX * (1 - scaleRatio) + prev * scaleRatio;
-            });
-            
+            // Simply update scale without adjusting scrollOffset
+            // The chart will zoom centered naturally
+            // Reset scrollOffset to 0 to keep the running candle centered
+            setScrollOffset(0);
             setTargetScale(newScaleValue);
           }}
           onMouseDown={(e: any) => {
@@ -2087,25 +2077,14 @@ export default function TradingViewChart({
               const dy = touch2.clientY - touch1.clientY;
               const currentDistance = Math.sqrt(dx * dx + dy * dy);
               
-              // Calculate pinch center point (zoom point)
-              const rect = e.currentTarget.getBoundingClientRect();
-              const zoomPointX = ((touch1.clientX + touch2.clientX) / 2) - rect.left;
-              
               // Calculate scale factor
               if (initialPinchDistanceRef.current > 0) {
                 const scaleFactor = currentDistance / initialPinchDistanceRef.current;
                 const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, initialScaleRef.current * scaleFactor));
                 
-                const oldScale = scale;
-                const scaleRatio = newScale / oldScale;
-                
-                // CORRECT ZOOM-TO-POINT FORMULA (same as mouse wheel):
-                // newScrollOffset = zoomPointX * (1 - scaleRatio) + oldScrollOffset * scaleRatio
-                setScrollOffset(prev => {
-                  return zoomPointX * (1 - scaleRatio) + prev * scaleRatio;
-                });
-                
-                // Apply with constraints
+                // Simply update scale without adjusting scrollOffset
+                // Reset scrollOffset to 0 to keep the running candle centered
+                setScrollOffset(0);
                 setTargetScale(newScale);
               }
             }
