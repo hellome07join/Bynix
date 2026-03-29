@@ -2244,6 +2244,70 @@ export default function AdminDashboard() {
         </View>
       )}
 
+      {/* Successful Withdrawals List */}
+      <View style={styles.sectionCard}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <Text style={styles.sectionTitle}>✅ Successful Withdrawals</Text>
+          <View style={{ backgroundColor: COLORS.successLight, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 }}>
+            <Text style={{ color: COLORS.success, fontWeight: '600' }}>
+              {withdrawals.filter(w => w.status === 'completed').length} Completed
+            </Text>
+          </View>
+        </View>
+        
+        {withdrawals.filter(w => w.status === 'completed').length > 0 ? (
+          <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
+            {withdrawals.filter(w => w.status === 'completed').slice(0, 50).map((wd, index) => (
+              <View key={wd.withdrawal_id || wd.order_id || wd.transaction_id || index} style={[styles.withdrawalCard, { backgroundColor: '#E8F5E9', borderLeftWidth: 3, borderLeftColor: COLORS.success }]}>
+                <TouchableOpacity 
+                  style={styles.withdrawalLeft}
+                  onPress={() => fetchWithdrawalUserStats(wd.user_id, wd)}
+                >
+                  <View style={[styles.withdrawalIcon, { backgroundColor: COLORS.successLight }]}>
+                    <Ionicons name="checkmark-done-circle" size={20} color={COLORS.success} />
+                  </View>
+                  <View style={styles.withdrawalInfo}>
+                    <Text style={[styles.withdrawalEmail, { color: COLORS.success }]}>{wd.user_email || 'User'}</Text>
+                    <Text style={styles.withdrawalAddress} numberOfLines={1}>
+                      {wd.payment_type === 'tarspay' 
+                        ? `${wd.channel_name || 'E-Wallet'}: ${wd.wallet_id || 'N/A'}`
+                        : wd.payment_type === 'nowpayments'
+                          ? `USDT TRC20: ${wd.crypto_address ? wd.crypto_address.substring(0, 10) + '...' : 'N/A'}`
+                          : wd.crypto_address || wd.wallet_address || 'N/A'
+                      }
+                    </Text>
+                    <Text style={styles.withdrawalDate}>
+                      {wd.completed_at 
+                        ? new Date(wd.completed_at).toLocaleDateString() + ' ' + new Date(wd.completed_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                        : wd.created_at?.split(' ')[0] || 'N/A'
+                      }
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+                <View style={styles.withdrawalRight}>
+                  <Text style={[styles.withdrawalAmount, { color: COLORS.success }]}>
+                    ${(wd.amount || wd.amount_usd || 0).toFixed(2)}
+                  </Text>
+                  {wd.payment_type === 'tarspay' && wd.net_amount_bdt && (
+                    <Text style={{ fontSize: 11, color: '#666', marginTop: 2 }}>
+                      ৳{wd.net_amount_bdt}
+                    </Text>
+                  )}
+                  <View style={[styles.statusBadge, { backgroundColor: COLORS.successLight, marginTop: 4 }]}>
+                    <Text style={[styles.statusBadgeText, { color: COLORS.success, fontSize: 10 }]}>COMPLETED</Text>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+        ) : (
+          <View style={styles.emptyState}>
+            <Ionicons name="wallet-outline" size={48} color={COLORS.border} />
+            <Text style={styles.emptyStateText}>No completed withdrawals yet</Text>
+          </View>
+        )}
+      </View>
+
       {/* Withdrawal User Stats Modal */}
       <Modal
         visible={showWithdrawalUserModal}

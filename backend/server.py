@@ -6145,33 +6145,90 @@ async def get_admin_withdrawals(
     authorization: Optional[str] = Header(None),
     request: Request = None
 ):
-    """Get all withdrawals for admin"""
+    """Get all withdrawals for admin - from both transactions and withdrawals collections"""
     user = await get_current_user(authorization, request)
     
     # Query from transactions collection where type is withdrawal
-    query = {"type": "withdrawal"}
+    tx_query = {"type": "withdrawal"}
     if status:
-        query["status"] = status
+        tx_query["status"] = status
     
-    withdrawals = await db.transactions.find(query).sort("created_at", -1).limit(100).to_list(100)
+    tx_withdrawals = await db.transactions.find(tx_query).sort("created_at", -1).limit(100).to_list(100)
     
-    # Get user info for each withdrawal
+    # Also query from withdrawals collection (TarsPay E-Wallet withdrawals)
+    wd_query = {}
+    if status:
+        wd_query["status"] = status
+    wd_withdrawals = await db.withdrawals.find(wd_query).sort("created_at", -1).limit(100).to_list(100)
+    
+    # Merge and deduplicate by order_id/transaction_id
+    seen_ids = set()
     result = []
-    for w in withdrawals:
+    
+    # Process transactions collection
+    for w in tx_withdrawals:
+        tx_id = w.get("transaction_id") or str(w.get("_id"))
+        if tx_id in seen_ids:
+            continue
+        seen_ids.add(tx_id)
+        
         user_info = await db.users.find_one({"user_id": w.get("user_id")})
         result.append({
-            "withdrawal_id": w.get("transaction_id") or str(w.get("_id")),
+            "withdrawal_id": tx_id,
+            "order_id": w.get("order_id") or tx_id,
+            "transaction_id": tx_id,
             "user_id": w.get("user_id"),
             "user_email": user_info.get("email") if user_info else "Unknown",
             "user_name": user_info.get("name") or user_info.get("full_name") if user_info else "Unknown",
             "amount": w.get("amount", 0),
-            "method": "USDT_TRC20",
+            "amount_usd": w.get("amount", 0),
+            "net_amount": w.get("net_amount", w.get("amount", 0)),
+            "payment_type": w.get("payment_type", "usdt"),
+            "method": "USDT_TRC20" if w.get("payment_type") == "nowpayments" else w.get("currency", "USDT"),
             "wallet_address": w.get("crypto_address", ""),
+            "crypto_address": w.get("crypto_address", ""),
             "status": w.get("status", "pending"),
-            "created_at": str(w.get("created_at", ""))
+            "requires_admin_approval": w.get("requires_admin_approval", False),
+            "created_at": str(w.get("created_at", "")),
+            "completed_at": str(w.get("completed_at", "")) if w.get("completed_at") else None
         })
     
-    return {"withdrawals": result}
+    # Process withdrawals collection (TarsPay)
+    for w in wd_withdrawals:
+        order_id = w.get("order_id") or w.get("transaction_id") or str(w.get("_id"))
+        if order_id in seen_ids:
+            continue
+        seen_ids.add(order_id)
+        
+        user_info = await db.users.find_one({"user_id": w.get("user_id")})
+        result.append({
+            "withdrawal_id": order_id,
+            "order_id": order_id,
+            "transaction_id": w.get("transaction_id") or order_id,
+            "user_id": w.get("user_id"),
+            "user_email": user_info.get("email") if user_info else "Unknown",
+            "user_name": user_info.get("name") or user_info.get("full_name") if user_info else "Unknown",
+            "amount": w.get("amount_usd", w.get("amount", 0)),
+            "amount_usd": w.get("amount_usd", w.get("amount", 0)),
+            "amount_bdt": w.get("amount_bdt", 0),
+            "net_amount_bdt": w.get("net_amount_bdt", 0),
+            "payment_type": w.get("payment_type", "tarspay"),
+            "channel": w.get("channel", ""),
+            "channel_name": w.get("channel_name", "E-Wallet"),
+            "wallet_id": w.get("wallet_id", ""),
+            "method": w.get("channel_name", "E-Wallet"),
+            "wallet_address": w.get("wallet_id", ""),
+            "crypto_address": w.get("crypto_address", ""),
+            "status": w.get("status", "pending"),
+            "requires_admin_approval": w.get("requires_admin_approval", False),
+            "created_at": str(w.get("created_at", "")),
+            "completed_at": str(w.get("completed_at", "")) if w.get("completed_at") else None
+        })
+    
+    # Sort by created_at descending
+    result.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    
+    return {"withdrawals": result[:200]}
 
 @api_router.post("/admin/withdrawals/{withdrawal_id}/approve")
 async def approve_withdrawal(
