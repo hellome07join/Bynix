@@ -1750,7 +1750,10 @@ export default function Trade() {
               entryPrice: trade.entry_price,
               type: trade.type,
               amount: trade.amount,
-              remainingTime: trade.countdown
+              remainingTime: trade.countdown,
+              entryTime: trade.startTime,
+              expiryTime: trade.endTime,
+              duration: trade.duration
             }))}
             horizontalLines={horizontalLines}
             trendLines={trendLines}

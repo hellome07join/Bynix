@@ -26,6 +26,9 @@ interface TradeMarker {
   type: 'call' | 'put';
   amount?: number;
   remainingTime?: number;
+  entryTime?: number; // Unix timestamp when trade started
+  expiryTime?: number; // Unix timestamp when trade will end
+  duration?: number; // Trade duration in seconds
 }
 
 interface HorizontalLine {
@@ -745,22 +748,138 @@ export default function TradingViewChart({
     ctx.stroke();
     ctx.setLineDash([]);
     
-    // Draw trade markers
+    // Draw trade markers with Entry/Exit vertical lines (like Binolla)
     tradeMarkers.forEach((marker) => {
       const markerY = padding.top + ((maxPrice - marker.entryPrice) / (maxPrice - minPrice)) * chartHeight;
       const markerColor = marker.type === 'call' ? '#00E55A' : '#FF6B6B';
       
-      // Horizontal line
+      // Calculate X positions for entry and exit lines based on time
+      const now = Date.now();
+      const entryTime = marker.entryTime || (now - (marker.duration || 60) * 1000 + (marker.remainingTime || 0) * 1000);
+      const expiryTime = marker.expiryTime || (now + (marker.remainingTime || 0) * 1000);
+      
+      // Find X positions based on candle times
+      let entryX = -1;
+      let exitX = -1;
+      
+      const candleWidth = 8 * scale;
+      const candleGap = 4 * scale;
+      const totalCandleWidth = candleWidth + candleGap;
+      const chartRightEdge = width - padding.right;
+      
+      // Find entry candle position
+      for (let i = 0; i < visibleCandles.length; i++) {
+        const candle = visibleCandles[i];
+        const candleTime = candle.time * 1000; // Convert to ms
+        if (Math.abs(candleTime - entryTime) < 60000) { // Within 1 minute
+          entryX = chartRightEdge - (visibleCandles.length - 1 - i) * totalCandleWidth - candleWidth / 2;
+          break;
+        }
+      }
+      
+      // Calculate exit X based on remaining time and candle interval
+      const intervalMs = getIntervalMs();
+      const candlesUntilExit = Math.ceil((expiryTime - now) / intervalMs);
+      exitX = chartRightEdge + candlesUntilExit * totalCandleWidth - candleWidth / 2;
+      
+      // Clamp exitX to be within reasonable range
+      exitX = Math.min(exitX, chartRightEdge + 100);
+      
+      // If entry line not found, place it at a reasonable position based on elapsed time
+      if (entryX < 0) {
+        const elapsed = (marker.duration || 60) - (marker.remainingTime || 0);
+        const candlesPassed = Math.floor(elapsed / (intervalMs / 1000));
+        entryX = chartRightEdge - candlesPassed * totalCandleWidth - candleWidth / 2;
+      }
+      
+      // ===== DRAW ENTRY LINE (Beginning of Trade) =====
+      if (entryX > padding.left) {
+        // Dashed green vertical line
+        ctx.strokeStyle = markerColor;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(entryX, padding.top);
+        ctx.lineTo(entryX, height - padding.bottom);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        
+        // "Beginning of trade" label at top
+        ctx.fillStyle = 'rgba(0,0,0,0.85)';
+        ctx.beginPath();
+        const labelWidth = 90;
+        const labelHeight = 20;
+        ctx.roundRect(entryX - labelWidth/2, padding.top + 5, labelWidth, labelHeight, 4);
+        ctx.fill();
+        ctx.strokeStyle = markerColor;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        ctx.fillStyle = markerColor;
+        ctx.font = 'bold 9px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Beginning of trade', entryX, padding.top + 18);
+        
+        // Small dot at entry point
+        ctx.beginPath();
+        ctx.arc(entryX, markerY, 5, 0, Math.PI * 2);
+        ctx.fillStyle = markerColor;
+        ctx.fill();
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+      
+      // ===== DRAW EXIT LINE (End of Trade) =====
+      if (exitX > padding.left && exitX < width) {
+        // Solid green vertical line
+        ctx.strokeStyle = markerColor;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(exitX, padding.top);
+        ctx.lineTo(exitX, height - padding.bottom);
+        ctx.stroke();
+        
+        // "End of trade" label at top
+        ctx.fillStyle = 'rgba(0,0,0,0.85)';
+        ctx.beginPath();
+        const exitLabelWidth = 70;
+        const exitLabelHeight = 20;
+        ctx.roundRect(exitX - exitLabelWidth/2, padding.top + 5, exitLabelWidth, exitLabelHeight, 4);
+        ctx.fill();
+        ctx.strokeStyle = markerColor;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        ctx.fillStyle = markerColor;
+        ctx.font = 'bold 9px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('End of trade', exitX, padding.top + 18);
+        
+        // Small dot at exit point  
+        ctx.beginPath();
+        ctx.arc(exitX, markerY, 5, 0, Math.PI * 2);
+        ctx.fillStyle = markerColor;
+        ctx.fill();
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+      
+      // ===== DRAW HORIZONTAL DASHED LINE connecting entry to exit =====
       ctx.strokeStyle = markerColor;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 1.5;
       ctx.setLineDash([8, 4]);
       ctx.beginPath();
-      ctx.moveTo(padding.left, markerY);
-      ctx.lineTo(width - padding.right, markerY);
+      const startX = Math.max(entryX, padding.left);
+      const endX = Math.min(exitX, width - padding.right);
+      ctx.moveTo(startX, markerY);
+      ctx.lineTo(endX, markerY);
       ctx.stroke();
       ctx.setLineDash([]);
       
-      // Entry badge
+      // Entry badge on left side
       ctx.fillStyle = markerColor;
       ctx.beginPath();
       ctx.roundRect(10, markerY - 12, 60, 24, 6);
@@ -771,7 +890,7 @@ export default function TradingViewChart({
       ctx.textAlign = 'left';
       ctx.fillText(`${marker.type === 'call' ? '↑' : '↓'} ${marker.amount || 0}$`, 16, markerY + 4);
       
-      // Countdown timer
+      // Countdown timer badge
       if (marker.remainingTime && marker.remainingTime > 0) {
         const mins = Math.floor(marker.remainingTime / 60).toString().padStart(2, '0');
         const secs = (marker.remainingTime % 60).toString().padStart(2, '0');
@@ -790,7 +909,7 @@ export default function TradingViewChart({
         ctx.fillText(`${mins}:${secs}`, 82, markerY + 4);
       }
       
-      // Position dot
+      // Position dot on right price axis
       ctx.fillStyle = markerColor;
       ctx.beginPath();
       ctx.arc(width - padding.right - 10, markerY, 6, 0, Math.PI * 2);
@@ -799,6 +918,20 @@ export default function TradingViewChart({
       ctx.lineWidth = 2;
       ctx.stroke();
     });
+    
+    // Helper function to get interval in milliseconds
+    function getIntervalMs() {
+      const intervalMap: { [key: string]: number } = {
+        '1': 60000,
+        '5': 300000,
+        '15': 900000,
+        '30': 1800000,
+        '60': 3600000,
+        '240': 14400000,
+        '1D': 86400000
+      };
+      return intervalMap[interval] || 60000;
+    }
     
     // Draw horizontal lines
     console.log('Drawing horizontal lines:', horizontalLines.length, 'minPrice:', minPrice, 'maxPrice:', maxPrice);
