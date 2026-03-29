@@ -3951,6 +3951,7 @@ export default function AdminDashboard() {
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [audienceStats, setAudienceStats] = useState<any>({});
+    const [showPreview, setShowPreview] = useState(false);
     
     // Form state
     const [subject, setSubject] = useState('');
@@ -3963,6 +3964,45 @@ export default function AdminDashboard() {
     const [sending, setSending] = useState(false);
     
     const authHeaders = { 'Authorization': `Bearer ${token}` };
+    
+    // Generate preview HTML
+    const generatePreviewHtml = () => {
+      let content = `<h2>${subject || 'Email Subject'}</h2>${htmlBody || '<p>Email content will appear here...</p>'}`;
+      if (ctaText && ctaUrl) {
+        content += `<p style="text-align:center;margin-top:20px;"><a href="${ctaUrl}" style="display:inline-block;background:#00E55A;color:#000;padding:14px 30px;text-decoration:none;border-radius:8px;font-weight:bold;">${ctaText}</a></p>`;
+      }
+      if (imageUrl) {
+        content = `<div style="text-align:center;margin-bottom:20px;"><img src="${imageUrl}" alt="" style="max-width:100%;border-radius:8px;"/></div>` + content;
+      }
+      
+      if (template === 'promotional') {
+        return `
+          <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
+            <div style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);padding:30px;text-align:center;">
+              <h1 style="color:#00E55A;margin:0;font-size:24px;">Bynix Trading</h1>
+            </div>
+            <div style="padding:30px;">
+              ${content}
+            </div>
+            <div style="background:#1a1a2e;color:#888;padding:20px;text-align:center;font-size:12px;">
+              <p style="margin:0;">© 2025 Bynix Trading. All rights reserved.</p>
+              <p style="margin:10px 0 0;"><a href="#" style="color:#00E55A;">Unsubscribe</a> | <a href="#" style="color:#00E55A;">Visit Website</a></p>
+            </div>
+          </div>
+        `;
+      } else {
+        return `
+          <div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
+            <div style="background:#1a1a2e;color:#00E55A;padding:20px;text-align:center;">
+              <h1 style="margin:0;font-size:20px;">Bynix</h1>
+            </div>
+            <div style="padding:25px;">
+              ${content}
+            </div>
+          </div>
+        `;
+      }
+    };
     
     const fetchCampaigns = async () => {
       try {
@@ -4219,6 +4259,94 @@ export default function AdminDashboard() {
                     </TouchableOpacity>
                   ))}
                 </View>
+                
+                {/* Email Preview Section */}
+                <TouchableOpacity
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    backgroundColor: '#F0F4FF',
+                    padding: 14,
+                    borderRadius: 10,
+                    marginBottom: 12,
+                    borderWidth: 1,
+                    borderColor: COLORS.primary
+                  }}
+                  onPress={() => setShowPreview(!showPreview)}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Ionicons name="eye" size={20} color={COLORS.primary} />
+                    <Text style={{ color: COLORS.primary, fontWeight: '600', marginLeft: 8 }}>
+                      {showPreview ? 'Hide Preview' : 'Show Email Preview'}
+                    </Text>
+                  </View>
+                  <Ionicons name={showPreview ? 'chevron-up' : 'chevron-down'} size={20} color={COLORS.primary} />
+                </TouchableOpacity>
+                
+                {showPreview && (
+                  <View style={{ marginBottom: 20 }}>
+                    <View style={{ 
+                      backgroundColor: '#F5F5F5', 
+                      padding: 8, 
+                      borderTopLeftRadius: 10, 
+                      borderTopRightRadius: 10,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6
+                    }}>
+                      <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#FF5F56' }} />
+                      <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#FFBD2E' }} />
+                      <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#27C93F' }} />
+                      <Text style={{ marginLeft: 8, color: '#666', fontSize: 12 }}>Email Preview - {template}</Text>
+                    </View>
+                    <View style={{ 
+                      backgroundColor: '#E8E8E8',
+                      padding: 16,
+                      borderBottomLeftRadius: 10,
+                      borderBottomRightRadius: 10,
+                      maxHeight: 400,
+                      overflow: 'hidden'
+                    }}>
+                      {Platform.OS === 'web' ? (
+                        <div 
+                          style={{ 
+                            width: '100%',
+                            maxWidth: 600,
+                            margin: '0 auto',
+                            backgroundColor: '#fff',
+                            borderRadius: 8,
+                            overflow: 'hidden'
+                          }}
+                          dangerouslySetInnerHTML={{ __html: generatePreviewHtml() }}
+                        />
+                      ) : (
+                        <ScrollView style={{ maxHeight: 350 }}>
+                          <View style={{ backgroundColor: '#1a1a2e', padding: 20, alignItems: 'center' }}>
+                            <Text style={{ color: '#00E55A', fontSize: 18, fontWeight: '700' }}>Bynix Trading</Text>
+                          </View>
+                          <View style={{ backgroundColor: '#fff', padding: 20 }}>
+                            {imageUrl ? (
+                              <Image source={{ uri: imageUrl }} style={{ width: '100%', height: 150, borderRadius: 8, marginBottom: 16 }} resizeMode="cover" />
+                            ) : null}
+                            <Text style={{ fontSize: 18, fontWeight: '700', color: '#333', marginBottom: 12 }}>{subject || 'Email Subject'}</Text>
+                            <Text style={{ color: '#666', lineHeight: 22 }}>{htmlBody?.replace(/<[^>]*>/g, '') || 'Email content will appear here...'}</Text>
+                            {ctaText && (
+                              <View style={{ marginTop: 20, alignItems: 'center' }}>
+                                <View style={{ backgroundColor: '#00E55A', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 }}>
+                                  <Text style={{ color: '#000', fontWeight: '700' }}>{ctaText}</Text>
+                                </View>
+                              </View>
+                            )}
+                          </View>
+                          <View style={{ backgroundColor: '#1a1a2e', padding: 16, alignItems: 'center' }}>
+                            <Text style={{ color: '#888', fontSize: 11 }}>© 2025 Bynix Trading. All rights reserved.</Text>
+                          </View>
+                        </ScrollView>
+                      )}
+                    </View>
+                  </View>
+                )}
                 
                 <TouchableOpacity
                   style={{ backgroundColor: COLORS.success, padding: 16, borderRadius: 10, alignItems: 'center' }}
