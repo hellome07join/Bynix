@@ -661,13 +661,14 @@ export default function TradingViewChart({
     const chartCenter = (width - padding.left - padding.right) / 2 + padding.left;
     
     // Default X offset to center running candle, adjusted by scroll
-    // When scrollOffset is 0, running candle should be at center
-    // When user scrolls right (positive scrollOffset), candles move left, running candle moves right
+    // scrollOffset > 0 = scrolled left (seeing history) = candles move RIGHT
+    // scrollOffset < 0 = scrolled right = candles move LEFT (running candle goes right)
     const defaultRunningCandleX = padding.left + runningCandleIndex * totalBarWidth + 15 + baseBarWidth / 2;
     const centerOffset = chartCenter - defaultRunningCandleX;
     
-    // Apply scroll offset - scrolling right moves candles left (negative offset to candles)
-    const scrollAdjustment = scrollCandles * totalBarWidth;
+    // Apply scroll offset - NEGATIVE scroll adjustment for correct direction
+    // Positive scrollOffset = dragged left = candles should move RIGHT (add to X)
+    const scrollAdjustment = -scrollCandles * totalBarWidth;
     const xOffset = centerOffset + scrollAdjustment;
     
     // Calculate actual running candle X position after offset
@@ -1836,21 +1837,21 @@ export default function TradingViewChart({
             const onMouseMove = (moveE: any) => {
               const currentX = moveE.clientX;
               const currentTime = Date.now();
-              // INVERT direction: drag left = positive offset = see older data
-              const diff = startX - currentX;
+              // Drag direction: drag right (positive diff) = see newer data (negative offset)
+              // Drag left (negative diff) = see older data (positive offset)
+              const diff = currentX - startX;
               const timeDiff = currentTime - lastTime;
               
               if (timeDiff > 0) {
-                // Better velocity calculation with smoother tracking
-                // INVERT velocity direction as well
-                const rawVelocity = (lastX - currentX) / timeDiff * VELOCITY_MULTIPLIER;
-                // Clamp velocity for controlled feel
+                // Velocity for momentum - follows drag direction
+                const rawVelocity = (currentX - lastX) / timeDiff * VELOCITY_MULTIPLIER;
                 scrollVelocityRef.current = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, rawVelocity));
               }
               
               lastX = currentX;
               lastTime = currentTime;
-              setScrollOffset(prev => Math.max(0, startOffset + diff * SCROLL_SENSITIVITY));
+              // Allow both positive (history) and negative (future/right) scrolling
+              setScrollOffset(startOffset - diff * SCROLL_SENSITIVITY);
             };
             
             const onMouseUp = () => {
@@ -1862,12 +1863,13 @@ export default function TradingViewChart({
               const applyMomentum = () => {
                 if (Math.abs(scrollVelocityRef.current) > MOMENTUM_MIN_VELOCITY) {
                   setScrollOffset(prev => {
-                    const newOffset = prev + scrollVelocityRef.current;
-                    // Boundary: can't go negative (current data edge)
-                    // Allow positive values to see historical data
-                    if (newOffset < 0) {
-                      scrollVelocityRef.current *= 0.3; // Strong dampen at right edge
-                      return 0;
+                    const newOffset = prev - scrollVelocityRef.current;
+                    // Allow negative offset for right scrolling (limited)
+                    // Allow positive offset for history (limited by data)
+                    const maxNegativeOffset = -200; // Can scroll running candle slightly right
+                    if (newOffset < maxNegativeOffset) {
+                      scrollVelocityRef.current *= 0.3;
+                      return maxNegativeOffset;
                     }
                     return newOffset;
                   });
@@ -1955,21 +1957,18 @@ export default function TradingViewChart({
                 if (moveE.touches.length === 1 && isDraggingRef.current) {
                   const currentX = moveE.touches[0].clientX;
                   const currentTime = Date.now();
-                  // INVERT direction: drag left = positive offset = see older data
-                  const diff = startX - currentX;
+                  // Correct direction: drag right = negative offset (running candle right)
+                  const diff = currentX - startX;
                   const timeDiff = currentTime - lastTime;
                   
                   if (timeDiff > 0) {
-                    // Better velocity calculation with smoother tracking
-                    // INVERT velocity direction as well
-                    const rawVelocity = (lastX - currentX) / timeDiff * VELOCITY_MULTIPLIER;
-                    // Clamp velocity for controlled feel
+                    const rawVelocity = (currentX - lastX) / timeDiff * VELOCITY_MULTIPLIER;
                     scrollVelocityRef.current = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, rawVelocity));
                   }
                   
                   lastX = currentX;
                   lastTime = currentTime;
-                  setScrollOffset(prev => Math.max(0, startOffset + diff * SCROLL_SENSITIVITY));
+                  setScrollOffset(startOffset - diff * SCROLL_SENSITIVITY);
                 }
               };
               
@@ -1983,11 +1982,12 @@ export default function TradingViewChart({
                 const applyMomentum = () => {
                   if (Math.abs(scrollVelocityRef.current) > MOMENTUM_MIN_VELOCITY) {
                     setScrollOffset(prev => {
-                      const newOffset = prev + scrollVelocityRef.current;
-                      // Boundary: can't go negative (current data edge)
-                      if (newOffset < 0) {
-                        scrollVelocityRef.current *= 0.3; // Strong dampen at right edge
-                        return 0;
+                      const newOffset = prev - scrollVelocityRef.current;
+                      // Allow some negative offset for right scrolling
+                      const maxNegativeOffset = -200;
+                      if (newOffset < maxNegativeOffset) {
+                        scrollVelocityRef.current *= 0.3;
+                        return maxNegativeOffset;
                       }
                       return newOffset;
                     });
