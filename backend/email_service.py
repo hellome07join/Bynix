@@ -106,10 +106,10 @@ If you didn't request this code, please ignore this email.
         <tr>
             <td align="center" style="padding: 40px 0;">
                 <table role="presentation" style="width: 100%; max-width: 500px; border-collapse: collapse; background-color: #0F1428; border-radius: 16px; overflow: hidden;">
-                    <!-- Header -->
+                    <!-- Header with Logo -->
                     <tr>
                         <td style="padding: 30px 40px; text-align: center; background: linear-gradient(135deg, #0D2818 0%, #0F1428 100%);">
-                            <h1 style="margin: 0; color: #00E55A; font-size: 28px; font-weight: 700;">Bynix</h1>
+                            <img src="https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/zzctjkxm_IMG_3541.jpeg" alt="Bynix" style="width: 120px; height: 120px; border-radius: 12px; margin-bottom: 15px;" />
                             <p style="margin: 10px 0 0; color: #888; font-size: 14px;">Email Verification</p>
                         </td>
                     </tr>

@@ -309,7 +309,7 @@ EMAIL_TEMPLATES = {
         body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f4; }
         .container { max-width: 600px; margin: 0 auto; background: #ffffff; }
         .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; text-align: center; }
-        .header img { max-width: 150px; }
+        .header img { max-width: 120px; border-radius: 12px; }
         .header h1 { color: #00E55A; margin: 10px 0 0; font-size: 24px; }
         .content { padding: 30px; }
         .content h2 { color: #1a1a2e; margin-top: 0; }
@@ -324,7 +324,7 @@ EMAIL_TEMPLATES = {
 <body>
     <div class="container">
         <div class="header">
-            <h1>Bynix Trading</h1>
+            <img src="https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/zzctjkxm_IMG_3541.jpeg" alt="Bynix" />
         </div>
         <div class="content">
             {{CONTENT}}
@@ -346,6 +346,7 @@ EMAIL_TEMPLATES = {
         body { font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px; }
         .card { max-width: 500px; margin: 0 auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         .card-header { background: #1a1a2e; color: #00E55A; padding: 20px; text-align: center; }
+        .card-header img { max-width: 100px; border-radius: 10px; }
         .card-body { padding: 25px; }
         .card-body h2 { color: #333; margin-top: 0; }
         .card-body p { color: #666; }
@@ -355,7 +356,7 @@ EMAIL_TEMPLATES = {
 <body>
     <div class="card">
         <div class="card-header">
-            <h1>Bynix</h1>
+            <img src="https://customer-assets.emergentagent.com/job_bynix-markets/artifacts/zzctjkxm_IMG_3541.jpeg" alt="Bynix" />
         </div>
         <div class="card-body">
             {{CONTENT}}
