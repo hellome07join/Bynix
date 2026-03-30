@@ -1115,12 +1115,14 @@ export default function TradingViewChart({
     
     // Draw preview lines only if no active trades
     if (tradeMarkers.length === 0) {
-      const previewLineColor = 'rgba(0, 229, 90, 0.5)'; // Green color like Binolla
+      // Shadow-like subtle color for preview lines
+      const previewLineColor = 'rgba(150, 150, 150, 0.3)'; // Subtle gray shadow
+      const previewTextColor = 'rgba(150, 150, 150, 0.6)'; // Slightly more visible text
       
       // ===== BEGINNING OF TRADE LINE (Dashed) - at running candle (middle) =====
       ctx.strokeStyle = previewLineColor;
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([5, 5]);
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
       ctx.beginPath();
       ctx.moveTo(beginningX, padding.top + 35);
       ctx.lineTo(beginningX, height - padding.bottom);
@@ -1130,7 +1132,7 @@ export default function TradingViewChart({
       // ===== END OF TRADE LINE (Solid) - to the right =====
       const visibleEndX = Math.min(endX, width - padding.right - 20);
       ctx.strokeStyle = previewLineColor;
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 1;
       ctx.setLineDash([]);
       ctx.beginPath();
       ctx.moveTo(visibleEndX, padding.top + 35);
@@ -1147,14 +1149,14 @@ export default function TradingViewChart({
       ctx.stroke();
       
       // ===== "Beginning of trade" LABEL - left of beginning line =====
-      ctx.fillStyle = '#AAAAAA';
-      ctx.font = '11px Arial';
+      ctx.fillStyle = previewTextColor;
+      ctx.font = '10px Arial';
       ctx.textAlign = 'right';
       ctx.fillText('Beginning of trade', beginningX - 8, horizontalY + 4);
       
       // ===== "End of trade" LABEL - right of end line =====
-      ctx.fillStyle = '#AAAAAA';
-      ctx.font = '11px Arial';
+      ctx.fillStyle = previewTextColor;
+      ctx.font = '10px Arial';
       ctx.textAlign = 'left';
       ctx.fillText('End of trade', visibleEndX + 8, horizontalY + 4);
     }
@@ -1166,7 +1168,11 @@ export default function TradingViewChart({
       const markerYBase = padding.top + ((maxPrice - marker.entryPrice) / (maxPrice - minPrice)) * chartHeight;
       // Apply yScale to marker Y position
       const markerY = applyYScaleAndClamp(markerYBase);
-      const markerColor = marker.type === 'call' ? '#00E55A' : '#FF6B6B';
+      
+      // Use shadow-like subtle colors instead of bright highlighted colors
+      const lineColor = 'rgba(150, 150, 150, 0.3)'; // Subtle gray shadow for lines
+      const textColor = 'rgba(150, 150, 150, 0.6)'; // Slightly more visible for text
+      const dotColor = marker.type === 'call' ? 'rgba(0, 229, 90, 0.6)' : 'rgba(255, 107, 107, 0.6)'; // Soft dot color
       
       // Entry is at runningCandleXPos minus elapsed candles
       const entryTime = marker.entryTime || (now - ((marker.duration || 60) - (marker.remainingTime || 0)) * 1000);
@@ -1191,29 +1197,26 @@ export default function TradingViewChart({
       
       // ===== DRAW ENTRY LINE (Beginning of Trade) =====
       if (entryX > padding.left && entryX < width) {
-        ctx.strokeStyle = markerColor;
-        ctx.lineWidth = 2;
-        ctx.setLineDash([6, 4]);
+        ctx.strokeStyle = lineColor;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
         ctx.beginPath();
         ctx.moveTo(entryX, padding.top + 35);
         ctx.lineTo(entryX, height - padding.bottom);
         ctx.stroke();
         ctx.setLineDash([]);
         
-        // Small dot at entry point
+        // Small dot at entry point - slightly visible
         ctx.beginPath();
-        ctx.arc(entryX, markerY, 5, 0, Math.PI * 2);
-        ctx.fillStyle = markerColor;
+        ctx.arc(entryX, markerY, 4, 0, Math.PI * 2);
+        ctx.fillStyle = dotColor;
         ctx.fill();
-        ctx.strokeStyle = '#FFFFFF';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
       }
       
       // ===== DRAW EXIT LINE (End of Trade) =====
       if (exitX > padding.left) {
-        ctx.strokeStyle = markerColor;
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = lineColor;
+        ctx.lineWidth = 1;
         ctx.setLineDash([]);
         ctx.beginPath();
         ctx.moveTo(visibleExitX, padding.top + 35);
@@ -1222,7 +1225,7 @@ export default function TradingViewChart({
       }
       
       // ===== HORIZONTAL LINE connecting both vertical lines =====
-      ctx.strokeStyle = markerColor;
+      ctx.strokeStyle = lineColor;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(Math.max(entryX, padding.left), horizontalY);
@@ -1231,24 +1234,24 @@ export default function TradingViewChart({
       
       // ===== "Beginning of trade" LABEL - left of entry line =====
       if (entryX > padding.left + 100) {
-        ctx.fillStyle = markerColor;
-        ctx.font = '11px Arial';
+        ctx.fillStyle = textColor;
+        ctx.font = '10px Arial';
         ctx.textAlign = 'right';
         ctx.fillText('Beginning of trade', entryX - 8, horizontalY + 4);
       }
       
       // ===== "End of trade" LABEL - right of exit line =====
       if (visibleExitX < width - 80) {
-        ctx.fillStyle = markerColor;
-        ctx.font = '11px Arial';
+        ctx.fillStyle = textColor;
+        ctx.font = '10px Arial';
         ctx.textAlign = 'left';
         ctx.fillText('End of trade', visibleExitX + 8, horizontalY + 4);
       }
       
       // ===== DRAW HORIZONTAL DASHED LINE at entry price =====
-      ctx.strokeStyle = markerColor;
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([8, 4]);
+      ctx.strokeStyle = lineColor;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([6, 4]);
       ctx.beginPath();
       const startX = Math.max(entryX, padding.left);
       const endXClamped = Math.min(exitX, width - padding.right);
