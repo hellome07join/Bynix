@@ -1146,7 +1146,9 @@ export default function TradingViewChart({
     const now = Date.now();
     
     tradeMarkers.forEach((marker) => {
-      const markerY = padding.top + ((maxPrice - marker.entryPrice) / (maxPrice - minPrice)) * chartHeight;
+      const markerYBase = padding.top + ((maxPrice - marker.entryPrice) / (maxPrice - minPrice)) * chartHeight;
+      // Apply yScale to marker Y position
+      const markerY = applyYScaleAndClamp(markerYBase);
       const markerColor = marker.type === 'call' ? '#00E55A' : '#FF6B6B';
       
       // Entry is at runningCandleXPos minus elapsed candles
