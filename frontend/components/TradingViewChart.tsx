@@ -6,11 +6,11 @@ import Constants from 'expo-constants';
 // Fine-tuned for Binolla-like smoothness
 
 // Scroll Physics
-const SCROLL_SENSITIVITY = 0.8;
-const MOMENTUM_FRICTION = 0.97; // Higher = longer momentum (0.92 was too abrupt)
+const SCROLL_SENSITIVITY = 0.25; // Reduced from 0.8 for smoother, slower scroll
+const MOMENTUM_FRICTION = 0.92; // More friction for controlled deceleration
 const MOMENTUM_MIN_VELOCITY = 0.1; // Lower threshold for smoother stop
-const VELOCITY_MULTIPLIER = 20; // Better velocity tracking
-const MAX_VELOCITY = 50; // Cap velocity for controlled feel
+const VELOCITY_MULTIPLIER = 6; // Reduced from 20 for gentler momentum
+const MAX_VELOCITY = 12; // Reduced from 50 for controlled feel
 
 // Zoom Physics  
 const ZOOM_EASING = 0.12; // Smooth zoom interpolation
@@ -1890,14 +1890,15 @@ export default function TradingViewChart({
               lastTime = currentTime;
               // FIXED: Drag RIGHT = positive offset = see history (unlimited)
               // Drag LEFT = negative offset = running candle goes right (limited to 0)
-              const newOffset = startOffset + diff * SCROLL_SENSITIVITY * scale;
+              // Removed scale multiplication for consistent feel at all zoom levels
+              const newOffset = startOffset + diff * SCROLL_SENSITIVITY;
               // Limit: running candle can come to center (offset=0) but not go further left
               // Positive offset = historical scroll (unlimited)
               // Negative offset = not allowed (running candle already at center)
               setScrollOffset(Math.max(0, newOffset));
             };
             
-            const onMouseUp = () => {
+              const onMouseUp = () => {
               isDraggingRef.current = false;
               document.removeEventListener('mousemove', onMouseMove);
               document.removeEventListener('mouseup', onMouseUp);
@@ -1906,8 +1907,8 @@ export default function TradingViewChart({
               const applyMomentum = () => {
                 if (Math.abs(scrollVelocityRef.current) > MOMENTUM_MIN_VELOCITY) {
                   setScrollOffset(prev => {
-                    // FIXED: momentum follows drag direction
-                    const newOffset = prev + scrollVelocityRef.current * scale;
+                    // FIXED: momentum follows drag direction (no scale multiplication)
+                    const newOffset = prev + scrollVelocityRef.current;
                     // LIMIT: Running candle at center (offset=0) is the minimum
                     // Positive offset = historical scroll (unlimited)
                     if (newOffset < 0) {
@@ -2012,8 +2013,8 @@ export default function TradingViewChart({
                   
                   lastX = currentX;
                   lastTime = currentTime;
-                  // Scale-aware scroll sensitivity
-                  const newOffset = startOffset + diff * SCROLL_SENSITIVITY * scale;
+                  // Scale-aware scroll sensitivity - removed scale multiplication for consistent feel
+                  const newOffset = startOffset + diff * SCROLL_SENSITIVITY;
                   // Limit: running candle can come to center (offset=0) but not go further left
                   setScrollOffset(Math.max(0, newOffset));
                 }
@@ -2029,8 +2030,8 @@ export default function TradingViewChart({
                 const applyMomentum = () => {
                   if (Math.abs(scrollVelocityRef.current) > MOMENTUM_MIN_VELOCITY) {
                     setScrollOffset(prev => {
-                      // FIXED: momentum follows drag direction with scale-awareness
-                      const newOffset = prev + scrollVelocityRef.current * scale;
+                      // FIXED: momentum follows drag direction (no scale multiplication)
+                      const newOffset = prev + scrollVelocityRef.current;
                       // LIMIT: Running candle at center (offset=0) is the minimum
                       // Positive offset = historical scroll (unlimited)
                       if (newOffset < 0) {
