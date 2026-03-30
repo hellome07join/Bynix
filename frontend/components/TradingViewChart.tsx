@@ -1032,11 +1032,28 @@ export default function TradingViewChart({
     ctx.font = '10px Arial';
     ctx.textAlign = 'center';
     
-    // Calculate time labels based on visible candles
+    // Calculate time labels based on visible candles + future times
     const timeAxisY = height - padding.bottom + 20; // Position in the padding area at bottom
     const numTimeLabels = 6; // Show 6 time labels
     const visibleWidth = width - padding.left - padding.right;
     const labelSpacing = visibleWidth / (numTimeLabels - 1);
+    
+    // Get interval in ms for calculating future times
+    const intervalMs = (() => {
+      const intervalMap: { [key: string]: number } = {
+        '1': 60000,
+        '5': 300000,
+        '15': 900000,
+        '30': 1800000,
+        '60': 3600000,
+        '240': 14400000,
+        'D': 86400000,
+      };
+      return intervalMap[interval] || 60000;
+    })();
+    
+    // Get the last candle time as reference
+    const lastCandleTime = visibleData.length > 0 ? visibleData[visibleData.length - 1]?.time : Date.now() / 1000;
     
     // Draw small tick marks and time labels
     for (let i = 0; i < numTimeLabels; i++) {
@@ -1045,25 +1062,38 @@ export default function TradingViewChart({
       // Find the candle at this X position
       const candleIndex = Math.floor((labelX - padding.left - 15 - xOffset) / totalBarWidth);
       
+      let timeLabel = '';
+      
       if (candleIndex >= 0 && candleIndex < visibleData.length) {
+        // Existing candle - use its time
         const candle = visibleData[candleIndex];
         if (candle && candle.time) {
           const date = new Date(candle.time * 1000);
           const hours = date.getHours().toString().padStart(2, '0');
           const minutes = date.getMinutes().toString().padStart(2, '0');
-          const timeLabel = `${hours}:${minutes}`;
-          
-          // Draw tick mark
-          ctx.strokeStyle = '#444';
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.moveTo(labelX, height - padding.bottom);
-          ctx.lineTo(labelX, height - padding.bottom + 5);
-          ctx.stroke();
-          
-          // Draw time label
-          ctx.fillText(timeLabel, labelX, timeAxisY);
+          timeLabel = `${hours}:${minutes}`;
         }
+      } else if (candleIndex >= visibleData.length && lastCandleTime) {
+        // Future time - calculate based on last candle + intervals
+        const futureOffset = candleIndex - visibleData.length + 1;
+        const futureTimeMs = (lastCandleTime * 1000) + (futureOffset * intervalMs);
+        const futureDate = new Date(futureTimeMs);
+        const hours = futureDate.getHours().toString().padStart(2, '0');
+        const minutes = futureDate.getMinutes().toString().padStart(2, '0');
+        timeLabel = `${hours}:${minutes}`;
+      }
+      
+      if (timeLabel) {
+        // Draw tick mark
+        ctx.strokeStyle = '#444';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(labelX, height - padding.bottom);
+        ctx.lineTo(labelX, height - padding.bottom + 5);
+        ctx.stroke();
+        
+        // Draw time label
+        ctx.fillText(timeLabel, labelX, timeAxisY);
       }
     }
     
@@ -1104,7 +1134,7 @@ export default function TradingViewChart({
       return intervalMap[interval] || 60000;
     };
     
-    const intervalMs = getIntervalMs();
+    const tradeIntervalMs = getIntervalMs();
     
     // Running candle is at actualRunningCandleX (follows scroll)
     const runningCandleX = runningCandleXPos;
