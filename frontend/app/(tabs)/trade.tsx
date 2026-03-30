@@ -3886,12 +3886,13 @@ export default function Trade() {
       {tradeResult && priceRange.max > priceRange.min && (
         (() => {
           // Calculate Y position based on entry price relative to price range
-          const chartTop = 100; // Approximate top of chart area
-          const chartHeight = 320; // Approximate chart height
+          // Chart starts after header (~170px) and has height of ~400px
+          const chartTop = 200; // Start of chart candle area (after header, timer, labels)
+          const chartHeight = 380; // Height of chart candle area
           const priceRatio = (priceRange.max - tradeResult.entryPrice) / (priceRange.max - priceRange.min);
           const exitDotY = chartTop + (priceRatio * chartHeight);
-          // Clamp to reasonable bounds
-          const clampedY = Math.max(chartTop + 30, Math.min(exitDotY - 45, chartTop + chartHeight - 60));
+          // Clamp to stay within chart area
+          const clampedY = Math.max(chartTop, Math.min(exitDotY - 35, chartTop + chartHeight - 50));
           
           return (
             <View style={{
