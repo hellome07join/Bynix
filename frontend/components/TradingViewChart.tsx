@@ -1169,11 +1169,12 @@ export default function TradingViewChart({
       // Apply yScale to marker Y position
       const markerY = applyYScaleAndClamp(markerYBase);
       
-      // ALWAYS use shadow-like subtle colors - NEVER highlight even when trade is active
+      // ALWAYS use shadow-like subtle colors for lines - NEVER highlight
       const lineColor = 'rgba(255, 255, 255, 0.1)'; // Very subtle white shadow for lines
       const textColor = 'rgba(255, 255, 255, 0.25)'; // Subtle text, barely visible
       const dotColor = marker.type === 'call' ? 'rgba(0, 229, 90, 0.4)' : 'rgba(255, 107, 107, 0.4)'; // Soft muted dot
-      const markerColor = marker.type === 'call' ? 'rgba(0, 229, 90, 0.5)' : 'rgba(255, 107, 107, 0.5)'; // Muted badge color
+      // SOLID badge color - NOT transparent, so amount is highlighted
+      const markerColor = marker.type === 'call' ? '#00C853' : '#FF5252';
       
       // Entry is at runningCandleXPos minus elapsed candles
       const entryTime = marker.entryTime || (now - ((marker.duration || 60) - (marker.remainingTime || 0)) * 1000);
