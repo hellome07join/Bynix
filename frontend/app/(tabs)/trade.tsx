@@ -97,6 +97,7 @@ export default function Trade() {
   const [demoOnlyAssets, setDemoOnlyAssets] = useState<Set<string>>(new Set());
   const [isTradingEnabled, setIsTradingEnabled] = useState(true);
   const [dbAssets, setDbAssets] = useState<any[]>([]); // Assets from database
+  const [hasUserSelectedAsset, setHasUserSelectedAsset] = useState(false); // Track if user manually selected asset
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showAmountPicker, setShowAmountPicker] = useState(false);
@@ -1010,7 +1011,8 @@ export default function Trade() {
           
           console.log('Available assets for selection:', availableAssets.length, 'accountType:', accountType);
           
-          if (availableAssets.length > 0) {
+          if (availableAssets.length > 0 && !hasUserSelectedAsset) {
+            // Only auto-select highest payout if user hasn't manually selected an asset
             // Find highest payout asset
             let highestPayoutAsset = availableAssets[0];
             let highestPayout = 0;
@@ -1031,7 +1033,7 @@ export default function Trade() {
             
             console.log('Highest payout asset found:', highestPayoutAsset.value, 'payout:', highestPayout);
             
-            // Set selected asset
+            // Set selected asset only if user hasn't manually selected
             if (highestPayoutAsset.value) {
               setSelectedAsset(highestPayoutAsset.value);
             }
@@ -2426,6 +2428,7 @@ export default function Trade() {
                           return;
                         }
                         setSelectedAsset(item.asset);
+                        setHasUserSelectedAsset(true); // Mark that user manually selected
                         setShowAssetPicker(false);
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                       }}
@@ -2584,6 +2587,7 @@ export default function Trade() {
                       return;
                     }
                     setSelectedAsset(asset.value);
+                    setHasUserSelectedAsset(true); // Mark that user manually selected
                     setShowAssetPicker(false);
                     setAssetSearchQuery('');
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
