@@ -5,12 +5,13 @@ import Constants from 'expo-constants';
 // ============= SMOOTH CHART PHYSICS CONSTANTS =============
 // Fine-tuned for Binolla-like smoothness
 
-// Scroll Physics - Ultra smooth pixel-based scrolling
-const SCROLL_DAMPING = 0.15; // Very low = very slow scroll (0.15 means 15% of drag distance)
-const MOMENTUM_FRICTION = 0.75; // Very high friction for quick stop
+// Scroll Physics - Candle-based scrolling (no pixel offset)
+// scrollOffset now represents number of candles to scroll (converted from drag distance)
+const DRAG_TO_CANDLE_RATIO = 0.02; // 50px drag = 1 candle scroll
+const MOMENTUM_FRICTION = 0.75;
 const MOMENTUM_MIN_VELOCITY = 0.5;
 const VELOCITY_MULTIPLIER = 1;
-const MAX_VELOCITY = 3; // Very low max velocity
+const MAX_VELOCITY = 3;
 
 // Zoom Physics  
 const ZOOM_EASING = 0.12; // Smooth zoom interpolation
@@ -666,47 +667,49 @@ export default function TradingViewChart({
     const baseBarWidth = 10 * scale;
     const barSpacing = 2 * scale;
     const totalBarWidth = baseBarWidth + barSpacing;
-    const visibleCandles = Math.floor(chartWidth / totalBarWidth);
+    const visibleCandlesOnScreen = Math.floor(chartWidth / totalBarWidth);
     
-    // FIXED: Calculate extra candles needed based on scroll offset
-    // When zoomed in (scale > 1), totalBarWidth is larger, so we need fewer candles
-    // But scrollOffset is in pixels, so we need to convert properly
-    // Also add a minimum buffer to prevent jumping
-    const scrolledCandles = Math.ceil(Math.abs(scrollOffset) / totalBarWidth);
-    const minBuffer = 50; // Always load at least 50 extra candles
-    const extraCandlesNeeded = Math.max(minBuffer, scrolledCandles + 20);
+    // scrollOffset is now in "candle units" (how many candles to scroll)
+    // Round to integer for discrete candle positioning
+    const scrolledCandleCount = Math.round(scrollOffset);
     
-    // Load more candles than visible for smooth scrolling
-    const totalCandlesToLoad = visibleCandles + extraCandlesNeeded;
+    // Calculate which candles to show
+    // By default (scrollOffset=0), show the last N candles (running candle at center)
+    // When scrolling right (positive offset), show older candles
+    const totalCandles = aggregatedCandles.length;
     
-    // Calculate start index - load from beginning if we've scrolled far
-    const baseStartIndex = Math.max(0, aggregatedCandles.length - totalCandlesToLoad);
-    const startIndex = baseStartIndex;
-    const endIndex = aggregatedCandles.length;
+    // We want to show enough candles to fill the screen plus some buffer
+    const candlesToShow = visibleCandlesOnScreen + 30; // Buffer
+    
+    // Calculate end index - by default show up to the last candle
+    // But shift when scrolling to historical data
+    const endIndex = totalCandles;
+    const startIndex = Math.max(0, endIndex - candlesToShow - scrolledCandleCount);
+    
     const visibleData = aggregatedCandles.slice(startIndex, endIndex);
     
     if (visibleData.length === 0) return;
     
-    // Calculate offset to CENTER the running candle by default
-    // Running candle is the last candle in visibleData
-    const runningCandleIndex = visibleData.length - 1;
+    // Find the running candle's index in visibleData
+    // Running candle is always at the end of the original data
+    // Its position in visibleData depends on how much we've scrolled
+    const runningCandleIndexInVisibleData = visibleData.length - 1 - scrolledCandleCount;
+    
+    // Calculate chart center for centering
     const chartCenter = (width - padding.left - padding.right) / 2 + padding.left;
     
-    // Default X position for running candle (without any offset)
-    const defaultRunningCandleX = padding.left + runningCandleIndex * totalBarWidth + 15 + baseBarWidth / 2;
+    // We want the running candle to be at center by default (when scrolledCandleCount = 0)
+    // Calculate offset to achieve this
+    const runningCandleDefaultX = padding.left + runningCandleIndexInVisibleData * totalBarWidth + 15 + baseBarWidth / 2;
     
-    // Center offset - only apply when user hasn't scrolled (scrollOffset === 0)
-    // This centers the running candle by default
-    const centerOffset = scrollOffset === 0 ? (chartCenter - defaultRunningCandleX) : 0;
+    // Always center the running candle view
+    const centerOffset = chartCenter - runningCandleDefaultX;
     
-    // Apply scroll offset for user scrolling
-    // Drag LEFT (finger moves left) → scrollOffset increases → candles move RIGHT → see previous/history
-    // Drag RIGHT (finger moves right) → scrollOffset decreases → candles move LEFT → running candle goes right
-    const scrollAdjustment = scrollOffset;
-    const xOffset = centerOffset + scrollAdjustment;
+    // No pixel-based scroll adjustment needed - we're doing candle-based
+    const xOffset = centerOffset;
     
     // Calculate actual running candle X position after offset
-    const actualRunningCandleX = defaultRunningCandleX + xOffset;
+    const actualRunningCandleX = runningCandleDefaultX + xOffset;
     
     // Calculate price range
     let minPrice = Math.min(...visibleData.map(c => c.low));
@@ -1879,11 +1882,13 @@ export default function TradingViewChart({
               const currentX = moveE.clientX;
               const diff = currentX - startX;
               
-              // Ultra smooth: only move 15% of the drag distance
-              const smoothOffset = diff * SCROLL_DAMPING;
-              const newOffset = startOffset + smoothOffset;
+              // Convert pixel drag to candle count
+              // Positive diff (drag right) = positive scrollOffset = see historical candles
+              const candleOffset = diff * DRAG_TO_CANDLE_RATIO;
+              const newOffset = startOffset + candleOffset;
               
               // Limit: running candle at center (offset=0) is minimum
+              // Positive offset = historical view, unlimited
               setScrollOffset(Math.max(0, newOffset));
             };
             
@@ -1965,11 +1970,13 @@ export default function TradingViewChart({
                   const currentX = moveE.touches[0].clientX;
                   const diff = currentX - startX;
                   
-                  // Ultra smooth: only move 15% of the drag distance
-                  const smoothOffset = diff * SCROLL_DAMPING;
-                  const newOffset = startOffset + smoothOffset;
+                  // Convert pixel drag to candle count
+                  // Positive diff (drag right) = positive scrollOffset = see historical candles
+                  const candleOffset = diff * DRAG_TO_CANDLE_RATIO;
+                  const newOffset = startOffset + candleOffset;
                   
                   // Limit: running candle at center (offset=0) is minimum
+                  // Positive offset = historical view, unlimited
                   setScrollOffset(Math.max(0, newOffset));
                 }
               };
