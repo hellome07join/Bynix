@@ -894,13 +894,11 @@ export default function TradingViewChart({
     let maxPrice = Math.max(...visibleData.map(c => c.high));
     const basePriceRange = maxPrice - minPrice;
     const pricePadding = basePriceRange * 0.1;
+    minPrice -= pricePadding;
+    maxPrice += pricePadding;
     
-    // Apply vertical zoom (yScale) - affects how much of price range is visible
-    // Higher yScale = more zoomed in = smaller price range visible = taller candles
-    const centerPrice = (maxPrice + minPrice) / 2;
-    const adjustedRange = (basePriceRange + pricePadding * 2) / yScale;
-    minPrice = centerPrice - adjustedRange / 2;
-    maxPrice = centerPrice + adjustedRange / 2;
+    // Chart vertical center for yScale transformation
+    const chartVerticalCenter = padding.top + chartHeight / 2;
     
     // Notify parent about price range change
     if (onPriceRangeChange) {
@@ -924,6 +922,13 @@ export default function TradingViewChart({
     ctx.rect(padding.left, padding.top, chartWidth, chartHeight);
     ctx.clip();
     
+    // Helper function to apply yScale - scales Y coordinate from chart center
+    const applyYScale = (y: number) => {
+      // Scale from chart vertical center
+      const offsetFromCenter = y - chartVerticalCenter;
+      return chartVerticalCenter + offsetFromCenter * yScale;
+    };
+    
     // Draw candles with offset (running candle at center by default, moves with scroll)
     visibleData.forEach((candle, i) => {
       const x = padding.left + i * totalBarWidth + 15 + xOffset;
@@ -934,10 +939,17 @@ export default function TradingViewChart({
       const isGreen = candle.close >= candle.open;
       const color = isGreen ? '#00E55A' : '#FF3B3B';
       
-      const yOpen = padding.top + ((maxPrice - candle.open) / (maxPrice - minPrice)) * chartHeight;
-      const yClose = padding.top + ((maxPrice - candle.close) / (maxPrice - minPrice)) * chartHeight;
-      const yHigh = padding.top + ((maxPrice - candle.high) / (maxPrice - minPrice)) * chartHeight;
-      const yLow = padding.top + ((maxPrice - candle.low) / (maxPrice - minPrice)) * chartHeight;
+      // Calculate base Y positions
+      const yOpenBase = padding.top + ((maxPrice - candle.open) / (maxPrice - minPrice)) * chartHeight;
+      const yCloseBase = padding.top + ((maxPrice - candle.close) / (maxPrice - minPrice)) * chartHeight;
+      const yHighBase = padding.top + ((maxPrice - candle.high) / (maxPrice - minPrice)) * chartHeight;
+      const yLowBase = padding.top + ((maxPrice - candle.low) / (maxPrice - minPrice)) * chartHeight;
+      
+      // Apply yScale transformation (scale from chart center)
+      const yOpen = applyYScale(yOpenBase);
+      const yClose = applyYScale(yCloseBase);
+      const yHigh = applyYScale(yHighBase);
+      const yLow = applyYScale(yLowBase);
       
       if (chartType === 'line') {
         if (i === 0) {
