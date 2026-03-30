@@ -70,7 +70,7 @@ interface TradingViewChartProps {
   chartType?: 'candle' | 'line' | 'bar';
   tradeMarkers?: TradeMarker[];
   tradeResult?: { won: boolean; profitLoss: number; exitTime?: number; entryPrice?: number } | null;
-  completedTradeResults?: Array<{ id: string; won: boolean; profitLoss: number; entryPrice: number; exitTime: number }>;
+  completedTradeResults?: Array<{ id: string; won: boolean; profitLoss: number; entryPrice: number; exitTime: number; amount?: number }>;
   tradeDuration?: number; // Selected trade duration in seconds (for preview lines)
   horizontalLines?: HorizontalLine[];
   trendLines?: TrendLine[];
@@ -1415,11 +1415,25 @@ export default function TradingViewChart({
         
         const isWin = result.won;
         const plColor = isWin ? '#00C853' : '#E53935';
-        const plAmount = Math.abs(result.profitLoss);
-        const plSign = isWin ? '+' : '-';
         
-        // Badge
-        const badgeWidth = 55;
+        // For winning trades: show total payout (amount + profit)
+        // For losing trades: show loss amount
+        let displayAmount: number;
+        let plSign: string;
+        
+        if (isWin) {
+          // Total payout = trade amount + profit
+          const tradeAmount = result.amount || 0;
+          displayAmount = tradeAmount + Math.abs(result.profitLoss);
+          plSign = '+';
+        } else {
+          displayAmount = Math.abs(result.profitLoss);
+          plSign = '-';
+        }
+        
+        // Badge - make wider for larger amounts
+        const amountText = `${plSign}$${displayAmount.toFixed(0)}`;
+        const badgeWidth = Math.max(60, amountText.length * 8 + 25);
         const badgeHeight = 18;
         const badgeX = Math.min(exitX + 12, width - padding.right - badgeWidth - 5);
         const badgeY = finalY - badgeHeight / 2;
@@ -1467,7 +1481,7 @@ export default function TradingViewChart({
         ctx.font = 'bold 10px Arial';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        ctx.fillText(`${plSign}$${plAmount.toFixed(0)}`, badgeX + 20, finalY);
+        ctx.fillText(amountText, badgeX + 20, finalY);
         
         // Exit dot
         ctx.fillStyle = plColor;

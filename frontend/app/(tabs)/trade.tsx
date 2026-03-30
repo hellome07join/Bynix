@@ -627,6 +627,7 @@ export default function Trade() {
     entryPrice: number;
     exitTime: number;
     asset: string;
+    amount: number;
   }>>([]);
   const resultAnim = useRef(new Animated.Value(0)).current;
   
@@ -1696,6 +1697,7 @@ export default function Trade() {
         entryPrice: trade.entry_price,
         exitTime: Date.now(),
         asset: trade.asset, // Track which asset this trade was on
+        amount: trade.amount, // Trade amount for total payout calculation
       };
       setCompletedTradeResults(prev => [...prev, newResult]);
       
