@@ -819,7 +819,8 @@ export default function TradingViewChart({
     
     const width = displayWidth;
     const height = displayHeight;
-    const padding = { top: 20, right: 60, bottom: 45, left: 10 }; // Increased bottom for time axis
+    // Increased padding: top 35 for "Beginning of trade" text, bottom 50 for time axis
+    const padding = { top: 35, right: 60, bottom: 50, left: 10 };
     const chartWidth = width - padding.left - padding.right;
     const chartHeight = height - padding.top - padding.bottom;
     
@@ -2628,7 +2629,7 @@ export default function TradingViewChart({
                 const deltaY = startY - moveE.clientY; // Up = positive
                 // Drag up = increase yScale (zoom in), drag down = decrease
                 const sensitivity = 0.005;
-                const newYScale = Math.max(0.3, Math.min(5, startYScale + deltaY * sensitivity));
+                const newYScale = Math.max(0.5, Math.min(2.5, startYScale + deltaY * sensitivity));
                 setTargetYScale(newYScale);
               };
               
@@ -2653,7 +2654,7 @@ export default function TradingViewChart({
                   if (!isDraggingPriceAxisRef.current || moveE.touches.length !== 1) return;
                   const deltaY = startY - moveE.touches[0].clientY; // Up = positive
                   const sensitivity = 0.005;
-                  const newYScale = Math.max(0.3, Math.min(5, startYScale + deltaY * sensitivity));
+                  const newYScale = Math.max(0.5, Math.min(2.5, startYScale + deltaY * sensitivity));
                   setTargetYScale(newYScale);
                 };
                 
