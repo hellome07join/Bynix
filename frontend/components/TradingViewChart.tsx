@@ -1047,8 +1047,9 @@ export default function TradingViewChart({
       }
     }
     
-    // Draw current price line
-    const currentPriceY = padding.top + ((maxPrice - internalPrice) / (maxPrice - minPrice)) * chartHeight;
+    // Draw current price line (applies yScale for vertical zoom)
+    const currentPriceYBase = padding.top + ((maxPrice - internalPrice) / (maxPrice - minPrice)) * chartHeight;
+    const currentPriceY = applyYScaleAndClamp(currentPriceYBase);
     ctx.strokeStyle = '#00E55A';
     ctx.lineWidth = 1;
     ctx.setLineDash([5, 5]);
@@ -1273,7 +1274,8 @@ export default function TradingViewChart({
         return;
       }
       
-      const lineY = padding.top + ((maxPrice - line.price) / (maxPrice - minPrice)) * chartHeight;
+      const lineYBase = padding.top + ((maxPrice - line.price) / (maxPrice - minPrice)) * chartHeight;
+      const lineY = applyYScaleAndClamp(lineYBase);
       console.log('Line Y position:', lineY);
       
       // Draw dashed line
@@ -1311,9 +1313,11 @@ export default function TradingViewChart({
     // Draw trend lines
     console.log('Drawing trend lines:', trendLines.length, 'scrollOffset:', scrollOffset, 'scale:', scale);
     trendLines.forEach((line, index) => {
-      // Calculate Y positions from prices
-      const startY = padding.top + ((maxPrice - line.startPrice) / (maxPrice - minPrice)) * chartHeight;
-      const endY = padding.top + ((maxPrice - line.endPrice) / (maxPrice - minPrice)) * chartHeight;
+      // Calculate Y positions from prices - apply yScale
+      const startYBase = padding.top + ((maxPrice - line.startPrice) / (maxPrice - minPrice)) * chartHeight;
+      const endYBase = padding.top + ((maxPrice - line.endPrice) / (maxPrice - minPrice)) * chartHeight;
+      const startY = applyYScaleAndClamp(startYBase);
+      const endY = applyYScaleAndClamp(endYBase);
       
       // Calculate X positions from candle indices - accounting for scroll and scale
       // Candles are drawn from right to left, so we need to invert the calculation
