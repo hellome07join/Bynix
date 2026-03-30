@@ -98,6 +98,7 @@ export default function Trade() {
   const [isTradingEnabled, setIsTradingEnabled] = useState(true);
   const [dbAssets, setDbAssets] = useState<any[]>([]); // Assets from database
   const [hasUserSelectedAsset, setHasUserSelectedAsset] = useState(false); // Track if user manually selected asset
+  const hasUserSelectedAssetRef = useRef(false); // Ref for closure access in async functions
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showAmountPicker, setShowAmountPicker] = useState(false);
@@ -1009,9 +1010,9 @@ export default function Trade() {
             return true;
           });
           
-          console.log('Available assets for selection:', availableAssets.length, 'accountType:', accountType, 'hasUserSelectedAsset:', hasUserSelectedAsset);
+          console.log('Available assets for selection:', availableAssets.length, 'accountType:', accountType, 'hasUserSelectedAssetRef:', hasUserSelectedAssetRef.current);
           
-          if (availableAssets.length > 0 && !hasUserSelectedAsset) {
+          if (availableAssets.length > 0 && !hasUserSelectedAssetRef.current) {
             // Only auto-select highest payout if user hasn't manually selected an asset
             // Find highest payout asset
             let highestPayoutAsset = availableAssets[0];
@@ -1364,6 +1365,7 @@ export default function Trade() {
 
     // Mark that user is using this asset (don't auto-switch)
     setHasUserSelectedAsset(true);
+    hasUserSelectedAssetRef.current = true;
 
     // Check if trading is enabled globally
     if (!isTradingEnabled) {
@@ -2432,6 +2434,7 @@ export default function Trade() {
                         }
                         setSelectedAsset(item.asset);
                         setHasUserSelectedAsset(true); // Mark that user manually selected
+                        hasUserSelectedAssetRef.current = true;
                         setShowAssetPicker(false);
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                       }}
@@ -2591,6 +2594,7 @@ export default function Trade() {
                     }
                     setSelectedAsset(asset.value);
                     setHasUserSelectedAsset(true); // Mark that user manually selected
+                    hasUserSelectedAssetRef.current = true;
                     setShowAssetPicker(false);
                     setAssetSearchQuery('');
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
