@@ -1115,9 +1115,9 @@ export default function TradingViewChart({
     
     // Draw preview lines only if no active trades
     if (tradeMarkers.length === 0) {
-      // Shadow-like subtle color for preview lines
-      const previewLineColor = 'rgba(150, 150, 150, 0.3)'; // Subtle gray shadow
-      const previewTextColor = 'rgba(150, 150, 150, 0.6)'; // Slightly more visible text
+      // ALWAYS shadow-like - very subtle, never highlighted
+      const previewLineColor = 'rgba(255, 255, 255, 0.1)'; // Very subtle white shadow
+      const previewTextColor = 'rgba(255, 255, 255, 0.25)'; // Barely visible text
       
       // ===== BEGINNING OF TRADE LINE (Dashed) - at running candle (middle) =====
       ctx.strokeStyle = previewLineColor;
@@ -1169,10 +1169,11 @@ export default function TradingViewChart({
       // Apply yScale to marker Y position
       const markerY = applyYScaleAndClamp(markerYBase);
       
-      // Use shadow-like subtle colors instead of bright highlighted colors
-      const lineColor = 'rgba(150, 150, 150, 0.3)'; // Subtle gray shadow for lines
-      const textColor = 'rgba(150, 150, 150, 0.6)'; // Slightly more visible for text
-      const dotColor = marker.type === 'call' ? 'rgba(0, 229, 90, 0.6)' : 'rgba(255, 107, 107, 0.6)'; // Soft dot color
+      // ALWAYS use shadow-like subtle colors - NEVER highlight even when trade is active
+      const lineColor = 'rgba(255, 255, 255, 0.1)'; // Very subtle white shadow for lines
+      const textColor = 'rgba(255, 255, 255, 0.25)'; // Subtle text, barely visible
+      const dotColor = marker.type === 'call' ? 'rgba(0, 229, 90, 0.4)' : 'rgba(255, 107, 107, 0.4)'; // Soft muted dot
+      const markerColor = marker.type === 'call' ? 'rgba(0, 229, 90, 0.5)' : 'rgba(255, 107, 107, 0.5)'; // Muted badge color
       
       // Entry is at runningCandleXPos minus elapsed candles
       const entryTime = marker.entryTime || (now - ((marker.duration || 60) - (marker.remainingTime || 0)) * 1000);
