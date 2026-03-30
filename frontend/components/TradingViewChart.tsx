@@ -2235,7 +2235,7 @@ export default function TradingViewChart({
     
     // ============== END INDICATOR DRAWING ==============
     
-  }, [aggregatedCandles, chartType, internalPrice, scrollOffset, scale, tradeMarkers, horizontalLines, trendLines, trendLinePreview, selectedTrendLineId, activeIndicators]);
+  }, [aggregatedCandles, chartType, internalPrice, scrollOffset, scale, tradeMarkers, tradeResult, horizontalLines, trendLines, trendLinePreview, selectedTrendLineId, activeIndicators]);
 
   // Redraw chart when data changes
   useEffect(() => {
