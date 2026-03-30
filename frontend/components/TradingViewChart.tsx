@@ -1363,102 +1363,92 @@ export default function TradingViewChart({
       }
     });
     
-    // ===== DRAW TRADE RESULT BADGE at exit point =====
+    // ===== DRAW TRADE RESULT BADGE at exit point (same style as entry badge) =====
     if (tradeResult && tradeResult.entryPrice) {
       console.log('[TRADE RESULT] Drawing badge:', tradeResult);
       
       const resultYBase = padding.top + ((maxPrice - tradeResult.entryPrice) / (maxPrice - minPrice)) * chartHeight;
       const resultY = applyYScaleAndClamp(resultYBase);
       
-      // Position at running candle (exit point) - center of chart
-      const resultX = runningCandleXPos;
+      // Position at running candle (exit point)
+      const exitX = runningCandleXPos;
       
-      console.log('[TRADE RESULT] Position:', { resultX, resultY, runningCandleXPos });
+      console.log('[TRADE RESULT] Position:', { exitX, resultY, runningCandleXPos });
       
       const isWin = tradeResult.won;
       const plColor = isWin ? '#00C853' : '#E53935';
       const plAmount = Math.abs(tradeResult.profitLoss);
       const plSign = isWin ? '+' : '-';
       
-      // Badge dimensions - VERY SMALL
-      const badgeW = 58;
-      const badgeH = 18;
-      const badgeX = resultX - badgeW / 2;
-      const badgeY = resultY - badgeH - 15; // Above the exit point
+      // ===== RESULT BADGE - same style as entry badge, but on RIGHT side =====
+      const badgeWidth = 55;
+      const badgeHeight = 18;
+      // Position badge to the RIGHT of exit point (entry is on LEFT)
+      const badgeX = Math.min(exitX + 12, width - padding.right - badgeWidth - 5);
+      const badgeY = resultY - badgeHeight / 2;
       
-      // Badge background
+      // Badge background with rounded corners
       ctx.fillStyle = plColor;
       ctx.beginPath();
       if (ctx.roundRect) {
-        ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 4);
+        ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 5);
       } else {
-        ctx.rect(badgeX, badgeY, badgeW, badgeH);
+        ctx.rect(badgeX, badgeY, badgeWidth, badgeHeight);
       }
       ctx.fill();
       
-      // Badge border glow
-      ctx.strokeStyle = isWin ? '#00E55A' : '#FF5252';
-      ctx.lineWidth = 1;
-      ctx.stroke();
+      // ===== ICON CIRCLE (left side of badge) =====
+      const iconCenterX = badgeX + 11;
+      const iconCenterY = resultY;
+      const iconRadius = 6;
       
-      // Trophy/X icon circle
-      const iconR = 6;
-      const iconX = badgeX + 10;
-      const iconY = badgeY + badgeH / 2;
-      
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+      // Circle background
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
       ctx.beginPath();
-      ctx.arc(iconX, iconY, iconR, 0, Math.PI * 2);
+      ctx.arc(iconCenterX, iconCenterY, iconRadius, 0, Math.PI * 2);
       ctx.fill();
       
-      // Draw trophy or X
+      // Draw icon inside circle
       ctx.strokeStyle = '#FFFFFF';
       ctx.fillStyle = '#FFFFFF';
-      ctx.lineWidth = 1.2;
+      ctx.lineWidth = 1.5;
       ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
       
       if (isWin) {
-        // Simple trophy shape
+        // Checkmark ✓ for win
         ctx.beginPath();
-        // Cup
-        ctx.moveTo(iconX - 3, iconY - 2);
-        ctx.lineTo(iconX - 2, iconY + 1);
-        ctx.lineTo(iconX + 2, iconY + 1);
-        ctx.lineTo(iconX + 3, iconY - 2);
-        ctx.stroke();
-        // Base
-        ctx.beginPath();
-        ctx.moveTo(iconX - 2, iconY + 2);
-        ctx.lineTo(iconX + 2, iconY + 2);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(iconX, iconY + 1);
-        ctx.lineTo(iconX, iconY + 2);
+        ctx.moveTo(iconCenterX - 3, iconCenterY);
+        ctx.lineTo(iconCenterX - 1, iconCenterY + 2);
+        ctx.lineTo(iconCenterX + 3, iconCenterY - 2);
         ctx.stroke();
       } else {
-        // X mark
+        // X mark for loss
         ctx.beginPath();
-        ctx.moveTo(iconX - 2, iconY - 2);
-        ctx.lineTo(iconX + 2, iconY + 2);
-        ctx.moveTo(iconX + 2, iconY - 2);
-        ctx.lineTo(iconX - 2, iconY + 2);
+        ctx.moveTo(iconCenterX - 2, iconCenterY - 2);
+        ctx.lineTo(iconCenterX + 2, iconCenterY + 2);
+        ctx.moveTo(iconCenterX + 2, iconCenterY - 2);
+        ctx.lineTo(iconCenterX - 2, iconCenterY + 2);
         ctx.stroke();
       }
       
-      // Amount text
+      // ===== AMOUNT TEXT (right side of badge) =====
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 9px Arial';
+      ctx.font = 'bold 10px Arial';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      ctx.fillText(`${plSign}$${plAmount.toFixed(2)}`, badgeX + 20, badgeY + badgeH / 2);
+      ctx.fillText(`${plSign}$${plAmount.toFixed(0)}`, badgeX + 20, resultY);
       
-      // Arrow pointing down to exit point
+      // ===== EXIT DOT at exit point =====
       ctx.fillStyle = plColor;
       ctx.beginPath();
-      ctx.moveTo(resultX - 5, badgeY + badgeH);
-      ctx.lineTo(resultX, badgeY + badgeH + 8);
-      ctx.lineTo(resultX + 5, badgeY + badgeH);
-      ctx.closePath();
+      ctx.arc(exitX, resultY, 5, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Inner white circle
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(exitX, resultY, 2, 0, Math.PI * 2);
       ctx.fill();
     }
     
