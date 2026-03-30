@@ -5,13 +5,12 @@ import Constants from 'expo-constants';
 // ============= SMOOTH CHART PHYSICS CONSTANTS =============
 // Fine-tuned for Binolla-like smoothness
 
-// Scroll Physics - Candle-based smooth scrolling
-const CANDLES_PER_SCROLL = 3; // Move exactly 3 candles per scroll gesture
-const SCROLL_THRESHOLD = 30; // Minimum drag distance to trigger scroll (pixels)
-const MOMENTUM_FRICTION = 0.85; // Friction for momentum
-const MOMENTUM_MIN_VELOCITY = 0.1; // Lower threshold for smoother stop
-const VELOCITY_MULTIPLIER = 2; // For momentum calculation
-const MAX_VELOCITY = 5; // Cap velocity
+// Scroll Physics - Ultra smooth pixel-based scrolling
+const SCROLL_DAMPING = 0.15; // Very low = very slow scroll (0.15 means 15% of drag distance)
+const MOMENTUM_FRICTION = 0.75; // Very high friction for quick stop
+const MOMENTUM_MIN_VELOCITY = 0.5;
+const VELOCITY_MULTIPLIER = 1;
+const MAX_VELOCITY = 3; // Very low max velocity
 
 // Zoom Physics  
 const ZOOM_EASING = 0.12; // Smooth zoom interpolation
@@ -1874,47 +1873,21 @@ export default function TradingViewChart({
             
             const onMouseMove = (moveE: any) => {
               const currentX = moveE.clientX;
-              const currentTime = Date.now();
               const diff = currentX - startX;
-              const timeDiff = currentTime - lastTime;
               
-              if (timeDiff > 0) {
-                const rawVelocity = (currentX - lastX) / timeDiff * VELOCITY_MULTIPLIER;
-                scrollVelocityRef.current = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, rawVelocity));
-              }
+              // Ultra smooth: only move 15% of the drag distance
+              const smoothOffset = diff * SCROLL_DAMPING;
+              const newOffset = startOffset + smoothOffset;
               
-              lastX = currentX;
-              lastTime = currentTime;
-              
-              // Calculate candle width based on current scale
-              const candleWidth = (10 + 2) * scale; // baseBarWidth + barSpacing
-              const scrollPerCandle = candleWidth * CANDLES_PER_SCROLL;
-              
-              // Only scroll if dragged beyond threshold
-              if (Math.abs(diff) >= SCROLL_THRESHOLD) {
-                // Calculate how many "3-candle units" to scroll
-                const scrollUnits = Math.floor(Math.abs(diff) / SCROLL_THRESHOLD);
-                const scrollAmount = scrollUnits * scrollPerCandle * (diff > 0 ? 1 : -1);
-                const newOffset = startOffset + scrollAmount;
-                
-                // Limit: running candle can come to center (offset=0) but not go further left
-                setScrollOffset(Math.max(0, newOffset));
-              }
+              // Limit: running candle at center (offset=0) is minimum
+              setScrollOffset(Math.max(0, newOffset));
             };
             
               const onMouseUp = () => {
               isDraggingRef.current = false;
               document.removeEventListener('mousemove', onMouseMove);
               document.removeEventListener('mouseup', onMouseUp);
-              
-              // Snap to nearest candle position (no momentum - just snap)
-              const candleWidth = (10 + 2) * scale;
-              setScrollOffset(prev => {
-                // Snap to nearest 3-candle boundary
-                const snapUnit = candleWidth * CANDLES_PER_SCROLL;
-                const snapped = Math.round(prev / snapUnit) * snapUnit;
-                return Math.max(0, snapped);
-              });
+              // No momentum - just stop where released
             };
             
             document.addEventListener('mousemove', onMouseMove);
@@ -1986,32 +1959,14 @@ export default function TradingViewChart({
                 
                 if (moveE.touches.length === 1 && isDraggingRef.current) {
                   const currentX = moveE.touches[0].clientX;
-                  const currentTime = Date.now();
                   const diff = currentX - startX;
-                  const timeDiff = currentTime - lastTime;
                   
-                  if (timeDiff > 0) {
-                    const rawVelocity = (currentX - lastX) / timeDiff * VELOCITY_MULTIPLIER;
-                    scrollVelocityRef.current = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, rawVelocity));
-                  }
+                  // Ultra smooth: only move 15% of the drag distance
+                  const smoothOffset = diff * SCROLL_DAMPING;
+                  const newOffset = startOffset + smoothOffset;
                   
-                  lastX = currentX;
-                  lastTime = currentTime;
-                  
-                  // Calculate candle width based on current scale
-                  const candleWidth = (10 + 2) * scale; // baseBarWidth + barSpacing
-                  const scrollPerCandle = candleWidth * CANDLES_PER_SCROLL;
-                  
-                  // Only scroll if dragged beyond threshold
-                  if (Math.abs(diff) >= SCROLL_THRESHOLD) {
-                    // Calculate how many "3-candle units" to scroll
-                    const scrollUnits = Math.floor(Math.abs(diff) / SCROLL_THRESHOLD);
-                    const scrollAmount = scrollUnits * scrollPerCandle * (diff > 0 ? 1 : -1);
-                    const newOffset = startOffset + scrollAmount;
-                    
-                    // Limit: running candle can come to center (offset=0) but not go further left
-                    setScrollOffset(Math.max(0, newOffset));
-                  }
+                  // Limit: running candle at center (offset=0) is minimum
+                  setScrollOffset(Math.max(0, newOffset));
                 }
               };
               
@@ -2020,15 +1975,7 @@ export default function TradingViewChart({
                 isPinchingRef.current = false;
                 document.removeEventListener('touchmove', onTouchMove);
                 document.removeEventListener('touchend', onTouchEnd);
-                
-                // Snap to nearest candle position (no momentum - just snap)
-                const candleWidth = (10 + 2) * scale;
-                setScrollOffset(prev => {
-                  // Snap to nearest 3-candle boundary
-                  const snapUnit = candleWidth * CANDLES_PER_SCROLL;
-                  const snapped = Math.round(prev / snapUnit) * snapUnit;
-                  return Math.max(0, snapped);
-                });
+                // No momentum - just stop where released
               };
               
               document.addEventListener('touchmove', onTouchMove, { passive: false });
