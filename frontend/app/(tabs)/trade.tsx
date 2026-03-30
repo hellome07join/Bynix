@@ -598,6 +598,13 @@ export default function Trade() {
   // Trade result
   const [showResult, setShowResult] = useState(false);
   const [tradeResult, setTradeResult] = useState<any>(null);
+  const [completedTradeResults, setCompletedTradeResults] = useState<Array<{
+    id: string;
+    won: boolean;
+    profitLoss: number;
+    entryPrice: number;
+    exitTime: number;
+  }>>([]);
   const resultAnim = useRef(new Animated.Value(0)).current;
   
   const wsRef = useRef<any>(null);
@@ -1570,6 +1577,22 @@ export default function Trade() {
     // Only show popup and sounds if not batch settling (shouldRefreshUser = true means single trade)
     if (shouldRefreshUser) {
       setTradeResult(tradeResultData);
+      
+      // Add to completed results array for display at exit positions
+      const newResult = {
+        id: trade.id,
+        won,
+        profitLoss,
+        entryPrice: trade.entry_price,
+        exitTime: Date.now(),
+      };
+      setCompletedTradeResults(prev => [...prev, newResult]);
+      
+      // Remove this result after 8 seconds
+      setTimeout(() => {
+        setCompletedTradeResults(prev => prev.filter(r => r.id !== trade.id));
+      }, 8000);
+      
       showResultPopup();
       
       // Result haptic and sound
@@ -1771,6 +1794,7 @@ export default function Trade() {
               duration: trade.duration
             }))}
             tradeResult={tradeResult}
+            completedTradeResults={completedTradeResults}
             horizontalLines={horizontalLines}
             trendLines={trendLines}
             trendLinePreview={trendLinePreview}

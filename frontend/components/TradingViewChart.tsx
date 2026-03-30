@@ -70,6 +70,7 @@ interface TradingViewChartProps {
   chartType?: 'candle' | 'line' | 'bar';
   tradeMarkers?: TradeMarker[];
   tradeResult?: { won: boolean; profitLoss: number; exitTime?: number; entryPrice?: number } | null;
+  completedTradeResults?: Array<{ id: string; won: boolean; profitLoss: number; entryPrice: number; exitTime: number }>;
   tradeDuration?: number; // Selected trade duration in seconds (for preview lines)
   horizontalLines?: HorizontalLine[];
   trendLines?: TrendLine[];
@@ -205,6 +206,7 @@ export default function TradingViewChart({
   chartType = 'candle',
   tradeMarkers = [],
   tradeResult = null,
+  completedTradeResults = [],
   tradeDuration = 60,
   horizontalLines = [],
   trendLines = [],
@@ -327,7 +329,6 @@ export default function TradingViewChart({
   const [targetYScale, setTargetYScale] = useState(1);
   const [targetScale, setTargetScale] = useState(1);
   const [targetScrollOffset, setTargetScrollOffset] = useState(0);
-  const [displayedResult, setDisplayedResult] = useState<{ won: boolean; profitLoss: number; entryPrice: number } | null>(null);
   const priceTickerRef = useRef<any>(null);
   const candleIntervalRef = useRef<any>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1364,102 +1365,91 @@ export default function TradingViewChart({
       }
     });
     
-    // ===== DRAW TRADE RESULT BADGE at exit point (same style as entry badge) =====
-    console.log('[TRADE RESULT DEBUG] tradeResult:', tradeResult, 'displayedResult:', displayedResult);
-    
-    // Use displayedResult (internal state) for drawing - it persists longer
-    const resultToShow = displayedResult || (tradeResult && tradeResult.entryPrice ? {
-      won: tradeResult.won,
-      profitLoss: tradeResult.profitLoss,
-      entryPrice: tradeResult.entryPrice
-    } : null);
-    
-    if (resultToShow && resultToShow.entryPrice && resultToShow.entryPrice > 0) {
-      console.log('[TRADE RESULT] Drawing result badge:', resultToShow);
+    // ===== DRAW COMPLETED TRADE RESULTS at their exit positions =====
+    if (completedTradeResults && completedTradeResults.length > 0) {
+      console.log('[COMPLETED RESULTS] Drawing', completedTradeResults.length, 'results');
       
-      const resultYBase = padding.top + ((maxPrice - resultToShow.entryPrice) / (maxPrice - minPrice)) * chartHeight;
-      const resultY = applyYScaleAndClamp(resultYBase);
-      
-      // Position at running candle (exit point)
-      const exitX = runningCandleXPos;
-      
-      console.log('[TRADE RESULT] Position:', { exitX, resultY, runningCandleXPos });
-      
-      const isWin = resultToShow.won;
-      const plColor = isWin ? '#00C853' : '#E53935';
-      const plAmount = Math.abs(resultToShow.profitLoss);
-      const plSign = isWin ? '+' : '-';
-      
-      // ===== RESULT BADGE - same style as entry badge, but on RIGHT side =====
-      const badgeWidth = 55;
-      const badgeHeight = 18;
-      // Position badge to the RIGHT of exit point (entry is on LEFT)
-      const badgeX = Math.min(exitX + 12, width - padding.right - badgeWidth - 5);
-      const badgeY = resultY - badgeHeight / 2;
-      
-      // Badge background with rounded corners
-      ctx.fillStyle = plColor;
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 5);
-      } else {
-        ctx.rect(badgeX, badgeY, badgeWidth, badgeHeight);
-      }
-      ctx.fill();
-      
-      // ===== ICON CIRCLE (left side of badge) =====
-      const iconCenterX = badgeX + 11;
-      const iconCenterY = resultY;
-      const iconRadius = 6;
-      
-      // Circle background
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-      ctx.beginPath();
-      ctx.arc(iconCenterX, iconCenterY, iconRadius, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // Draw icon inside circle
-      ctx.strokeStyle = '#FFFFFF';
-      ctx.fillStyle = '#FFFFFF';
-      ctx.lineWidth = 1.5;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      
-      if (isWin) {
-        // Checkmark ✓ for win
+      completedTradeResults.forEach((result, index) => {
+        if (!result.entryPrice || result.entryPrice <= 0) return;
+        
+        const resultYBase = padding.top + ((maxPrice - result.entryPrice) / (maxPrice - minPrice)) * chartHeight;
+        const resultY = applyYScaleAndClamp(resultYBase);
+        
+        // Position at running candle (exit point) - offset for multiple results
+        const exitX = runningCandleXPos;
+        const verticalOffset = index * 30;
+        const finalY = resultY - verticalOffset;
+        
+        // Skip if outside visible area
+        if (finalY < padding.top || finalY > height - padding.bottom - 50) return;
+        
+        const isWin = result.won;
+        const plColor = isWin ? '#00C853' : '#E53935';
+        const plAmount = Math.abs(result.profitLoss);
+        const plSign = isWin ? '+' : '-';
+        
+        // Badge
+        const badgeWidth = 55;
+        const badgeHeight = 18;
+        const badgeX = Math.min(exitX + 12, width - padding.right - badgeWidth - 5);
+        const badgeY = finalY - badgeHeight / 2;
+        
+        ctx.fillStyle = plColor;
         ctx.beginPath();
-        ctx.moveTo(iconCenterX - 3, iconCenterY);
-        ctx.lineTo(iconCenterX - 1, iconCenterY + 2);
-        ctx.lineTo(iconCenterX + 3, iconCenterY - 2);
-        ctx.stroke();
-      } else {
-        // X mark for loss
+        if (ctx.roundRect) {
+          ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 5);
+        } else {
+          ctx.rect(badgeX, badgeY, badgeWidth, badgeHeight);
+        }
+        ctx.fill();
+        
+        // Icon circle
+        const iconCenterX = badgeX + 11;
+        const iconCenterY = finalY;
+        
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
         ctx.beginPath();
-        ctx.moveTo(iconCenterX - 2, iconCenterY - 2);
-        ctx.lineTo(iconCenterX + 2, iconCenterY + 2);
-        ctx.moveTo(iconCenterX + 2, iconCenterY - 2);
-        ctx.lineTo(iconCenterX - 2, iconCenterY + 2);
-        ctx.stroke();
-      }
-      
-      // ===== AMOUNT TEXT (right side of badge) =====
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 10px Arial';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(`${plSign}$${plAmount.toFixed(0)}`, badgeX + 20, resultY);
-      
-      // ===== EXIT DOT at exit point =====
-      ctx.fillStyle = plColor;
-      ctx.beginPath();
-      ctx.arc(exitX, resultY, 5, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // Inner white circle
-      ctx.fillStyle = '#FFFFFF';
-      ctx.beginPath();
-      ctx.arc(exitX, resultY, 2, 0, Math.PI * 2);
-      ctx.fill();
+        ctx.arc(iconCenterX, iconCenterY, 6, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Icon
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 1.5;
+        ctx.lineCap = 'round';
+        
+        if (isWin) {
+          ctx.beginPath();
+          ctx.moveTo(iconCenterX - 3, iconCenterY);
+          ctx.lineTo(iconCenterX - 1, iconCenterY + 2);
+          ctx.lineTo(iconCenterX + 3, iconCenterY - 2);
+          ctx.stroke();
+        } else {
+          ctx.beginPath();
+          ctx.moveTo(iconCenterX - 2, iconCenterY - 2);
+          ctx.lineTo(iconCenterX + 2, iconCenterY + 2);
+          ctx.moveTo(iconCenterX + 2, iconCenterY - 2);
+          ctx.lineTo(iconCenterX - 2, iconCenterY + 2);
+          ctx.stroke();
+        }
+        
+        // Amount text
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${plSign}$${plAmount.toFixed(0)}`, badgeX + 20, finalY);
+        
+        // Exit dot
+        ctx.fillStyle = plColor;
+        ctx.beginPath();
+        ctx.arc(exitX, finalY, 5, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.arc(exitX, finalY, 2, 0, Math.PI * 2);
+        ctx.fill();
+      });
     }
     
     // Draw horizontal lines
@@ -2239,7 +2229,7 @@ export default function TradingViewChart({
     
     // ============== END INDICATOR DRAWING ==============
     
-  }, [aggregatedCandles, chartType, internalPrice, scrollOffset, scale, tradeMarkers, tradeResult, displayedResult, horizontalLines, trendLines, trendLinePreview, selectedTrendLineId, activeIndicators]);
+  }, [aggregatedCandles, chartType, internalPrice, scrollOffset, scale, tradeMarkers, completedTradeResults, horizontalLines, trendLines, trendLinePreview, selectedTrendLineId, activeIndicators]);
 
   // Redraw chart when data changes
   useEffect(() => {
@@ -2265,27 +2255,6 @@ export default function TradingViewChart({
       clearTimeout(timer);
     };
   }, [drawChart]);
-
-  // Force redraw when tradeResult changes - store in displayedResult for persistence
-  useEffect(() => {
-    if (tradeResult && tradeResult.entryPrice) {
-      console.log('[TRADE RESULT] Storing result for display:', tradeResult);
-      setDisplayedResult({
-        won: tradeResult.won,
-        profitLoss: tradeResult.profitLoss,
-        entryPrice: tradeResult.entryPrice
-      });
-      drawChart();
-      
-      // Clear displayed result after 8 seconds
-      const timer = setTimeout(() => {
-        console.log('[TRADE RESULT] Clearing displayed result');
-        setDisplayedResult(null);
-      }, 8000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [tradeResult]);
 
   // Web platform rendering with Canvas
   if (Platform.OS === 'web') {
