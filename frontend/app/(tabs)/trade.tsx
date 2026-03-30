@@ -2279,14 +2279,8 @@ export default function Trade() {
 
         {/* Payout Preview */}
         <View style={styles.profitPreview}>
-          <Text style={styles.profitPreviewLabel}>Your payout:</Text>
+          <Text style={styles.profitPreviewLabel}>You will get:</Text>
           <Text style={styles.profitPreviewValue}>{potentialProfit.toFixed(2)} $</Text>
-        </View>
-
-        {/* Market Payout Percentage Display */}
-        <View style={styles.marketPayoutRow}>
-          <Text style={styles.marketPayoutLabel}>Payout</Text>
-          <Text style={styles.marketPayoutValue}>{payoutPercentage}%</Text>
         </View>
 
         {/* Trading Disabled Banner */}
@@ -2305,8 +2299,9 @@ export default function Trade() {
             disabled={loading || !isTradingEnabled}
             activeOpacity={0.85}
           >
-            <Text style={styles.tradeBtnText}>Up</Text>
-            <Ionicons name="arrow-up-circle" size={22} color="#FFFFFF" />
+            <Ionicons name="arrow-up" size={18} color="#FFFFFF" />
+            <Text style={styles.tradeBtnText}>UP</Text>
+            <Text style={styles.btnPayout}>{payoutPercentage}%</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -2315,8 +2310,9 @@ export default function Trade() {
             disabled={loading || !isTradingEnabled}
             activeOpacity={0.85}
           >
-            <Text style={styles.tradeBtnText}>Down</Text>
-            <Ionicons name="arrow-down-circle" size={22} color="#FFFFFF" />
+            <Ionicons name="arrow-down" size={18} color="#FFFFFF" />
+            <Text style={styles.tradeBtnText}>DOWN</Text>
+            <Text style={styles.btnPayout}>{payoutPercentage}%</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -6075,14 +6071,15 @@ const styles = StyleSheet.create({
   },
   tradeBtnText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
   btnPayout: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 9,
-    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 14,
+    fontWeight: '700',
+    marginLeft: 2,
   },
   activeTradeBox: {
     borderWidth: 2,
