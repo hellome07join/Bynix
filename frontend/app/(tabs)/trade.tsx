@@ -4019,7 +4019,8 @@ export default function Trade() {
 
       {/* Trade Result Popup - Small Badge Style */}
       {/* Trade result popup - simple centered design */}
-      {tradeResult && (
+      {/* Trade result popup - only show for current asset */}
+      {tradeResult && tradeResult.asset === selectedAsset && (
         <View style={{
           position: 'absolute',
           top: '40%',
