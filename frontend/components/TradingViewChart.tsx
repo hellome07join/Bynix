@@ -321,6 +321,8 @@ export default function TradingViewChart({
   const [error, setError] = useState<string | null>(null);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [scale, setScale] = useState(1);  // Default scale (horizontal zoom)
+  const [yScale, setYScale] = useState(1); // Vertical scale for price axis zoom
+  const [targetYScale, setTargetYScale] = useState(1);
   const [targetScale, setTargetScale] = useState(1);
   const [targetScrollOffset, setTargetScrollOffset] = useState(0);
   const priceTickerRef = useRef<any>(null);
@@ -335,6 +337,7 @@ export default function TradingViewChart({
   const animationFrameRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
   const isPinchingRef = useRef(false);
+  const isDraggingPriceAxisRef = useRef(false); // For vertical zoom
   const initialPinchDistanceRef = useRef(0);
   const initialScaleRef = useRef(1);
   const lastPinchCenterRef = useRef({ x: 0, y: 0 });
@@ -421,6 +424,31 @@ export default function TradingViewChart({
     };
   }, [targetScrollOffset]);
   
+  // Smooth Y scale animation - interpolate to target Y scale
+  useEffect(() => {
+    let isAnimating = true;
+    let animFrame: number;
+    
+    const animate = () => {
+      if (!isAnimating) return;
+      
+      setYScale(prev => {
+        const diff = targetYScale - prev;
+        if (Math.abs(diff) < 0.001) return targetYScale;
+        return prev + diff * 0.15;
+      });
+      
+      animFrame = requestAnimationFrame(animate);
+    };
+    
+    animFrame = requestAnimationFrame(animate);
+    
+    return () => {
+      isAnimating = false;
+      cancelAnimationFrame(animFrame);
+    };
+  }, [targetYScale]);
+  
   // Smooth price animation - interpolate to target price
   useEffect(() => {
     targetPriceRef.current = internalPrice;
@@ -474,6 +502,8 @@ export default function TradingViewChart({
     // Reset to default position when asset changes
     setScale(1);
     setTargetScale(1);
+    setYScale(1);
+    setTargetYScale(1);
     setScrollOffset(0);
     setTargetScrollOffset(0);
     scrollVelocityRef.current = 0;
@@ -867,6 +897,20 @@ export default function TradingViewChart({
     minPrice -= pricePadding;
     maxPrice += pricePadding;
     
+    // Chart boundaries for clamping
+    const chartTop = padding.top;
+    const chartBottom = padding.top + chartHeight;
+    const chartVerticalCenter = padding.top + chartHeight / 2;
+    
+    // Helper function to apply yScale and clamp within chart boundaries
+    const applyYScaleAndClamp = (y: number) => {
+      // Scale from chart center
+      const offsetFromCenter = y - chartVerticalCenter;
+      const scaled = chartVerticalCenter + offsetFromCenter * yScale;
+      // Clamp to chart boundaries
+      return Math.max(chartTop, Math.min(chartBottom, scaled));
+    };
+    
     // Notify parent about price range change
     if (onPriceRangeChange) {
       onPriceRangeChange({ min: minPrice, max: maxPrice });
@@ -883,6 +927,12 @@ export default function TradingViewChart({
       ctx.stroke();
     }
     
+    // Set clipping region to ensure nothing goes outside chart area
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(padding.left, padding.top, chartWidth, chartHeight);
+    ctx.clip();
+    
     // Draw candles with offset (running candle at center by default, moves with scroll)
     visibleData.forEach((candle, i) => {
       const x = padding.left + i * totalBarWidth + 15 + xOffset;
@@ -893,10 +943,17 @@ export default function TradingViewChart({
       const isGreen = candle.close >= candle.open;
       const color = isGreen ? '#00E55A' : '#FF3B3B';
       
-      const yOpen = padding.top + ((maxPrice - candle.open) / (maxPrice - minPrice)) * chartHeight;
-      const yClose = padding.top + ((maxPrice - candle.close) / (maxPrice - minPrice)) * chartHeight;
-      const yHigh = padding.top + ((maxPrice - candle.high) / (maxPrice - minPrice)) * chartHeight;
-      const yLow = padding.top + ((maxPrice - candle.low) / (maxPrice - minPrice)) * chartHeight;
+      // Calculate base Y positions
+      const yOpenBase = padding.top + ((maxPrice - candle.open) / (maxPrice - minPrice)) * chartHeight;
+      const yCloseBase = padding.top + ((maxPrice - candle.close) / (maxPrice - minPrice)) * chartHeight;
+      const yHighBase = padding.top + ((maxPrice - candle.high) / (maxPrice - minPrice)) * chartHeight;
+      const yLowBase = padding.top + ((maxPrice - candle.low) / (maxPrice - minPrice)) * chartHeight;
+      
+      // Apply yScale and clamp to boundaries
+      const yOpen = applyYScaleAndClamp(yOpenBase);
+      const yClose = applyYScaleAndClamp(yCloseBase);
+      const yHigh = applyYScaleAndClamp(yHighBase);
+      const yLow = applyYScaleAndClamp(yLowBase);
       
       if (chartType === 'line') {
         if (i === 0) {
@@ -936,6 +993,9 @@ export default function TradingViewChart({
         ctx.fillRect(x, bodyTop, baseBarWidth, bodyHeight);
       }
     });
+    
+    // Restore context to remove clipping
+    ctx.restore();
     
     // Draw price scale
     ctx.fillStyle = '#888';
@@ -2549,6 +2609,69 @@ export default function TradingViewChart({
             />
           )}
         </div>
+        
+        {/* Price Axis Vertical Zoom Overlay - Touch this to zoom vertically */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 20,
+            right: 0,
+            width: 60,
+            bottom: 45,
+            cursor: 'ns-resize',
+            zIndex: 10,
+          }}
+          onMouseDown={(e: any) => {
+            e.preventDefault();
+            e.stopPropagation();
+            isDraggingPriceAxisRef.current = true;
+            const startY = e.clientY;
+            const startYScale = yScale;
+            
+            const onMouseMove = (moveE: any) => {
+              if (!isDraggingPriceAxisRef.current) return;
+              const deltaY = startY - moveE.clientY;
+              const sensitivity = 0.008;
+              const newYScale = Math.max(0.5, Math.min(3, startYScale + deltaY * sensitivity));
+              setTargetYScale(newYScale);
+            };
+            
+            const onMouseUp = () => {
+              isDraggingPriceAxisRef.current = false;
+              document.removeEventListener('mousemove', onMouseMove);
+              document.removeEventListener('mouseup', onMouseUp);
+            };
+            
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+          }}
+          onTouchStart={(e: any) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.touches.length === 1) {
+              isDraggingPriceAxisRef.current = true;
+              const startY = e.touches[0].clientY;
+              const startYScale = yScale;
+              
+              const onTouchMove = (moveE: any) => {
+                if (!isDraggingPriceAxisRef.current || moveE.touches.length !== 1) return;
+                const deltaY = startY - moveE.touches[0].clientY;
+                const sensitivity = 0.008;
+                const newYScale = Math.max(0.5, Math.min(3, startYScale + deltaY * sensitivity));
+                setTargetYScale(newYScale);
+              };
+              
+              const onTouchEnd = () => {
+                isDraggingPriceAxisRef.current = false;
+                document.removeEventListener('touchmove', onTouchMove);
+                document.removeEventListener('touchend', onTouchEnd);
+              };
+              
+              document.addEventListener('touchmove', onTouchMove, { passive: false });
+              document.addEventListener('touchend', onTouchEnd);
+            }
+          }}
+        />
         
         {/* Current Price Overlay */}
         {internalPrice > 0 && (
