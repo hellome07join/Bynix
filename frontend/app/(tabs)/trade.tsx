@@ -3886,9 +3886,9 @@ export default function Trade() {
       {tradeResult && priceRange.max > priceRange.min && (
         (() => {
           // Calculate Y position based on entry price relative to price range
-          // Chart starts after header (~170px) and has height of ~400px
-          const chartTop = 200; // Start of chart candle area (after header, timer, labels)
-          const chartHeight = 380; // Height of chart candle area
+          // Chart area starts much lower due to header elements
+          const chartTop = 320; // Start of chart candle area (after all headers)
+          const chartHeight = 350; // Height of chart candle area
           const priceRatio = (priceRange.max - tradeResult.entryPrice) / (priceRange.max - priceRange.min);
           const exitDotY = chartTop + (priceRatio * chartHeight);
           // Clamp to stay within chart area
