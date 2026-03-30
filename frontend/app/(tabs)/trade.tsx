@@ -2214,11 +2214,11 @@ export default function Trade() {
               <TouchableOpacity 
                 style={styles.compactBtn}
                 onPress={() => {
-                  const newDur = Math.max(5, duration - 5);
+                  const newDur = Math.max(5, duration - 60); // Decrease by 1 minute
                   setDuration(newDur);
                 }}
               >
-                <Ionicons name="remove" size={14} color="#666" />
+                <Ionicons name="remove" size={12} color="#666" />
               </TouchableOpacity>
               
               <TouchableOpacity 
@@ -2231,11 +2231,11 @@ export default function Trade() {
               <TouchableOpacity 
                 style={styles.compactBtn}
                 onPress={() => {
-                  const newDur = duration + 5;
+                  const newDur = duration + 60; // Increase by 1 minute
                   setDuration(newDur);
                 }}
               >
-                <Ionicons name="add" size={14} color="#666" />
+                <Ionicons name="add" size={12} color="#666" />
               </TouchableOpacity>
             </View>
           </View>
@@ -2254,7 +2254,7 @@ export default function Trade() {
                   setAmount(newVal.toString());
                 }}
               >
-                <Ionicons name="remove" size={14} color="#666" />
+                <Ionicons name="remove" size={12} color="#666" />
               </TouchableOpacity>
               
               <TouchableOpacity 
@@ -2271,7 +2271,7 @@ export default function Trade() {
                   setAmount(newVal.toString());
                 }}
               >
-                <Ionicons name="add" size={14} color="#666" />
+                <Ionicons name="add" size={12} color="#666" />
               </TouchableOpacity>
             </View>
           </View>
@@ -5764,55 +5764,53 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  // Timer | Investment Row Styles (Quotex Style) - COMPACT
+  // Timer | Investment Row Styles (Quotex Style) - ULTRA COMPACT
   timerInvestmentRow: {
     flexDirection: 'row',
-    marginBottom: 6,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    overflow: 'hidden',
+    marginBottom: 4,
   },
   timerSection: {
     flex: 1,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
     alignItems: 'center',
   },
   investmentSection: {
     flex: 1,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
     alignItems: 'center',
   },
   sectionDivider: {
     width: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    marginVertical: 2,
   },
   sectionLabel: {
-    color: 'rgba(255, 255, 255, 0.25)',
-    fontSize: 9,
-    marginBottom: 4,
+    color: 'rgba(255, 255, 255, 0.2)',
+    fontSize: 8,
+    marginBottom: 2,
   },
   compactInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   compactBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   compactValueBox: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
   },
   compactValue: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
   },
   timerBox: {
