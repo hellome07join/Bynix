@@ -789,7 +789,7 @@ export default function TradingViewChart({
     
     const width = displayWidth;
     const height = displayHeight;
-    const padding = { top: 20, right: 60, bottom: 30, left: 10 };
+    const padding = { top: 20, right: 60, bottom: 45, left: 10 }; // Increased bottom for time axis
     const chartWidth = width - padding.left - padding.right;
     const chartHeight = height - padding.top - padding.bottom;
     
@@ -945,6 +945,46 @@ export default function TradingViewChart({
       const price = maxPrice - ((maxPrice - minPrice) / 5) * i;
       const y = padding.top + (chartHeight / 5) * i;
       ctx.fillText(price.toFixed(5), width - 5, y + 4);
+    }
+    
+    // Draw time axis at the bottom
+    ctx.fillStyle = '#888';
+    ctx.font = '10px Arial';
+    ctx.textAlign = 'center';
+    
+    // Calculate time labels based on visible candles
+    const timeAxisY = height - padding.bottom + 20; // Position in the padding area at bottom
+    const numTimeLabels = 6; // Show 6 time labels
+    const visibleWidth = width - padding.left - padding.right;
+    const labelSpacing = visibleWidth / (numTimeLabels - 1);
+    
+    // Draw small tick marks and time labels
+    for (let i = 0; i < numTimeLabels; i++) {
+      const labelX = padding.left + labelSpacing * i;
+      
+      // Find the candle at this X position
+      const candleIndex = Math.floor((labelX - padding.left - 15 - xOffset) / totalBarWidth);
+      
+      if (candleIndex >= 0 && candleIndex < visibleData.length) {
+        const candle = visibleData[candleIndex];
+        if (candle && candle.time) {
+          const date = new Date(candle.time * 1000);
+          const hours = date.getHours().toString().padStart(2, '0');
+          const minutes = date.getMinutes().toString().padStart(2, '0');
+          const timeLabel = `${hours}:${minutes}`;
+          
+          // Draw tick mark
+          ctx.strokeStyle = '#444';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(labelX, height - padding.bottom);
+          ctx.lineTo(labelX, height - padding.bottom + 5);
+          ctx.stroke();
+          
+          // Draw time label
+          ctx.fillText(timeLabel, labelX, timeAxisY);
+        }
+      }
     }
     
     // Draw current price line
