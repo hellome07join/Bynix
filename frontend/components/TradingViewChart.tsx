@@ -192,10 +192,6 @@ const ChartLoader = () => {
           resizeMode="contain"
         />
       </Animated.View>
-      {/* Loading text */}
-      <Text style={{ color: '#00E55A', fontSize: 12, marginTop: 15, letterSpacing: 1 }}>
-        Loading Chart...
-      </Text>
     </View>
   );
 };
