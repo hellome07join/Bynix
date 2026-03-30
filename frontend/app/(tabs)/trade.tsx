@@ -2283,6 +2283,12 @@ export default function Trade() {
           <Text style={styles.profitPreviewValue}>{potentialProfit.toFixed(2)} $</Text>
         </View>
 
+        {/* Market Payout Percentage Display */}
+        <View style={styles.marketPayoutRow}>
+          <Text style={styles.marketPayoutLabel}>Payout</Text>
+          <Text style={styles.marketPayoutValue}>{payoutPercentage}%</Text>
+        </View>
+
         {/* Trading Disabled Banner */}
         {!isTradingEnabled && (
           <View style={styles.tradingDisabledBanner}>
@@ -4864,7 +4870,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 4,
     paddingVertical: 3,
-    backgroundColor: 'rgba(10, 26, 15, 0.95)',
+    backgroundColor: 'rgba(10, 26, 15, 0.98)',
     gap: 3,
   },
   toolsBtn: {
@@ -5468,8 +5474,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingTop: 4,
     paddingBottom: 2,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
   },
   payoutDisplay: {
     flexDirection: 'row',
@@ -5996,6 +6000,23 @@ const styles = StyleSheet.create({
   profitPreviewValue: {
     color: '#00E55A',
     fontSize: 14,
+    fontWeight: '800',
+  },
+  marketPayoutRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  marketPayoutLabel: {
+    color: '#888',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  marketPayoutValue: {
+    color: '#00E55A',
+    fontSize: 16,
     fontWeight: '800',
   },
   pendingTradeRow: {
