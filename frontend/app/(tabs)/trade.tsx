@@ -102,6 +102,9 @@ export default function Trade() {
   const [showAmountPicker, setShowAmountPicker] = useState(false);
   const [tradeTimeMode, setTradeTimeMode] = useState<'TIMER' | 'TIME'>('TIMER'); // TIMER = fixed duration, TIME = candle-based
   const [selectedCandleCloseTime, setSelectedCandleCloseTime] = useState<string | null>(null); // For TIME mode - actual clock time
+  const [showManualTimeInput, setShowManualTimeInput] = useState(false); // For manual time entry
+  const [manualMinutes, setManualMinutes] = useState('1');
+  const [manualSeconds, setManualSeconds] = useState('0');
   const [showToolsModal, setShowToolsModal] = useState(false);
   const [showTradeHistory, setShowTradeHistory] = useState(false);
   const [tradeHistory, setTradeHistory] = useState<any[]>([]);
@@ -3691,14 +3694,58 @@ export default function Trade() {
                 </View>
 
                 {/* Manual Time Input */}
-                <TouchableOpacity 
-                  style={styles.setManuallyBtn}
-                  onPress={() => {
-                    // Show manual input - toggle visibility or expand
-                  }}
-                >
-                  <Text style={styles.setManuallyBtnText}>Set manually</Text>
-                </TouchableOpacity>
+                {!showManualTimeInput ? (
+                  <TouchableOpacity 
+                    style={styles.setManuallyBtn}
+                    onPress={() => {
+                      setShowManualTimeInput(true);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                  >
+                    <Text style={styles.setManuallyBtnText}>Set manually</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.manualTimeInputContainer}>
+                    <Text style={styles.manualTimeLabel}>Enter duration (MM:SS)</Text>
+                    <View style={styles.manualTimeRow}>
+                      <TextInput
+                        style={styles.manualTimeInput}
+                        value={manualMinutes}
+                        onChangeText={setManualMinutes}
+                        keyboardType="number-pad"
+                        placeholder="MM"
+                        placeholderTextColor="#666"
+                        maxLength={2}
+                      />
+                      <Text style={styles.manualTimeColon}>:</Text>
+                      <TextInput
+                        style={styles.manualTimeInput}
+                        value={manualSeconds}
+                        onChangeText={setManualSeconds}
+                        keyboardType="number-pad"
+                        placeholder="SS"
+                        placeholderTextColor="#666"
+                        maxLength={2}
+                      />
+                      <TouchableOpacity 
+                        style={styles.manualTimeConfirmBtn}
+                        onPress={() => {
+                          const mins = parseInt(manualMinutes) || 0;
+                          const secs = parseInt(manualSeconds) || 0;
+                          const totalSeconds = mins * 60 + secs;
+                          if (totalSeconds >= 5) {
+                            setDuration(totalSeconds);
+                            setShowManualTimeInput(false);
+                            setShowTimePicker(false);
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Success);
+                          }
+                        }}
+                      >
+                        <Text style={styles.manualTimeConfirmText}>OK</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
               </>
             ) : (
               <>
@@ -3730,6 +3777,7 @@ export default function Trade() {
                         ]}
                         onPress={() => {
                           setSelectedCandleCloseTime(time);
+                          setShowTimePicker(false);
                           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                         }}
                       >
@@ -3745,7 +3793,9 @@ export default function Trade() {
                 <TouchableOpacity 
                   style={styles.setManuallyBtn}
                   onPress={() => {
-                    // Set manually functionality
+                    // Switch to TIMER mode for manual input
+                    setTradeTimeMode('TIMER');
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   }}
                 >
                   <Text style={styles.setManuallyBtnText}>Set manually</Text>
@@ -5450,6 +5500,53 @@ const styles = StyleSheet.create({
   },
   candleTimeTextActive: {
     color: '#FFFFFF',
+  },
+  manualTimeInputContainer: {
+    backgroundColor: 'rgba(40, 50, 60, 0.8)',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 8,
+  },
+  manualTimeLabel: {
+    color: '#AAA',
+    fontSize: 12,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  manualTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  manualTimeInput: {
+    width: 60,
+    height: 44,
+    backgroundColor: 'rgba(60, 70, 80, 0.8)',
+    borderRadius: 8,
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  manualTimeColon: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  manualTimeConfirmBtn: {
+    backgroundColor: '#00E55A',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginLeft: 12,
+  },
+  manualTimeConfirmText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
   drawToolsGrid: {
     flexDirection: 'row',
