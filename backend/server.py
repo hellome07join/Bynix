@@ -1005,11 +1005,14 @@ async def get_trade_history(
     limit: int = 50,
     account_type: Optional[str] = None
 ):
-    """Get user's formatted trade history for display"""
+    """Get user's formatted trade history for display - ONLY completed trades (won/lost), NOT pending"""
     user = await get_current_user(authorization, request)
     
-    # Build query filter
-    query_filter = {"user_id": user.user_id}
+    # Build query filter - EXCLUDE pending trades from history
+    query_filter = {
+        "user_id": user.user_id,
+        "status": {"$in": ["won", "lost"]}  # Only show completed trades
+    }
     if account_type and account_type in ["demo", "real"]:
         query_filter["account_type"] = account_type
     
