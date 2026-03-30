@@ -1364,7 +1364,11 @@ export default function TradingViewChart({
     });
     
     // ===== DRAW TRADE RESULT BADGE at exit point (same style as entry badge) =====
-    if (tradeResult && tradeResult.entryPrice) {
+    console.log('[TRADE RESULT DEBUG] tradeResult:', tradeResult);
+    if (tradeResult) {
+      console.log('[TRADE RESULT DEBUG] entryPrice:', tradeResult.entryPrice, 'won:', tradeResult.won);
+    }
+    if (tradeResult && tradeResult.entryPrice && tradeResult.entryPrice > 0) {
       console.log('[TRADE RESULT] Drawing badge:', tradeResult);
       
       const resultYBase = padding.top + ((maxPrice - tradeResult.entryPrice) / (maxPrice - minPrice)) * chartHeight;
