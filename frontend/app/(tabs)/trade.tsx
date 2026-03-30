@@ -5767,29 +5767,28 @@ const styles = StyleSheet.create({
   // Timer | Investment Row Styles (Quotex Style) - ULTRA COMPACT
   timerInvestmentRow: {
     flexDirection: 'row',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   timerSection: {
     flex: 1,
-    paddingVertical: 4,
-    paddingHorizontal: 4,
+    paddingVertical: 1,
+    paddingHorizontal: 2,
     alignItems: 'center',
   },
   investmentSection: {
     flex: 1,
-    paddingVertical: 4,
-    paddingHorizontal: 4,
+    paddingVertical: 1,
+    paddingHorizontal: 2,
     alignItems: 'center',
   },
   sectionDivider: {
     width: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    marginVertical: 2,
   },
   sectionLabel: {
     color: 'rgba(255, 255, 255, 0.2)',
     fontSize: 8,
-    marginBottom: 2,
+    marginBottom: 1,
   },
   compactInputRow: {
     flexDirection: 'row',
@@ -5806,7 +5805,7 @@ const styles = StyleSheet.create({
   },
   compactValueBox: {
     paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingVertical: 0,
   },
   compactValue: {
     color: '#FFFFFF',
