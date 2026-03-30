@@ -2218,7 +2218,7 @@ export default function Trade() {
                   setDuration(newDur);
                 }}
               >
-                <Ionicons name="remove" size={12} color="#666" />
+                <Ionicons name="remove" size={16} color="#FFB800" />
               </TouchableOpacity>
               
               <TouchableOpacity 
@@ -2235,7 +2235,7 @@ export default function Trade() {
                   setDuration(newDur);
                 }}
               >
-                <Ionicons name="add" size={12} color="#666" />
+                <Ionicons name="add" size={16} color="#FFB800" />
               </TouchableOpacity>
             </View>
           </View>
@@ -2254,7 +2254,7 @@ export default function Trade() {
                   setAmount(newVal.toString());
                 }}
               >
-                <Ionicons name="remove" size={12} color="#666" />
+                <Ionicons name="remove" size={16} color="#FFB800" />
               </TouchableOpacity>
               
               <TouchableOpacity 
@@ -2271,7 +2271,7 @@ export default function Trade() {
                   setAmount(newVal.toString());
                 }}
               >
-                <Ionicons name="add" size={12} color="#666" />
+                <Ionicons name="add" size={16} color="#FFB800" />
               </TouchableOpacity>
             </View>
           </View>
@@ -5771,46 +5771,51 @@ const styles = StyleSheet.create({
   },
   timerSection: {
     flex: 1,
-    paddingVertical: 1,
-    paddingHorizontal: 2,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
     alignItems: 'center',
   },
   investmentSection: {
     flex: 1,
-    paddingVertical: 1,
-    paddingHorizontal: 2,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
     alignItems: 'center',
   },
   sectionDivider: {
     width: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: 'rgba(255, 184, 0, 0.2)',
+    marginVertical: 4,
   },
   sectionLabel: {
-    color: 'rgba(255, 255, 255, 0.2)',
-    fontSize: 8,
-    marginBottom: 1,
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 10,
+    marginBottom: 4,
+    fontWeight: '600',
   },
   compactInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   compactBtn: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: 'rgba(180, 140, 50, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 184, 0, 0.4)',
+    boxShadow: '0 0 8px rgba(255, 184, 0, 0.3)',
   },
   compactValueBox: {
-    paddingHorizontal: 6,
-    paddingVertical: 0,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
   compactValue: {
     color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
   },
   timerBox: {
     backgroundColor: 'rgba(255, 184, 0, 0.15)',
