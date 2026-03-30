@@ -1359,11 +1359,7 @@ export default function TradingViewChart({
         ctx.fill();
       }
       
-      // ===== Price indicator on right axis =====
-      ctx.fillStyle = markerColor;
-      ctx.beginPath();
-      ctx.arc(width - padding.right - 10, markerY, 5, 0, Math.PI * 2);
-      ctx.fill();
+      // Price indicator on right axis - REMOVED (user request)
     });
     
     // Draw horizontal lines
