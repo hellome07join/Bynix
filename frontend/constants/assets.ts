@@ -118,7 +118,17 @@ export const getAssetsForAccount = (accountType: 'demo' | 'real'): Asset[] => {
   return accountType === 'demo' ? DEMO_ASSETS : REAL_ASSETS;
 };
 
-// Get default asset for an account type
+// Get default asset for an account type - returns highest payout asset
 export const getDefaultAssetForAccount = (accountType: 'demo' | 'real'): string => {
-  return accountType === 'demo' ? DEMO_ASSETS[0].value : REAL_ASSETS[0].value;
+  const assets = accountType === 'demo' ? DEMO_ASSETS : REAL_ASSETS;
+  
+  // Find asset with highest payout
+  let highestPayoutAsset = assets[0];
+  for (const asset of assets) {
+    if (asset.payout > highestPayoutAsset.payout) {
+      highestPayoutAsset = asset;
+    }
+  }
+  
+  return highestPayoutAsset.value;
 };

@@ -968,6 +968,42 @@ export default function Trade() {
         setInactiveAssets(inactiveSet);
         setDemoOnlyAssets(demoOnlySet);
         console.log('Loaded', formattedAssets.length, 'assets from API, demo-only:', demoOnlySet.size);
+        
+        // Auto-select highest payout asset on load
+        if (formattedAssets.length > 0) {
+          // Filter assets based on account type
+          const isDemoOnlyAsset = (assetValue: string) => {
+            const clean = assetValue.toUpperCase().replace(/[\/\s]/g, '').replace('OTC', '');
+            const demoOnlyPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'NZDUSD', 'USDCAD'];
+            return demoOnlyPairs.some(pair => clean.includes(pair) || pair.includes(clean));
+          };
+          
+          const availableAssets = formattedAssets.filter((asset: any) => {
+            const isDemoOnly = isDemoOnlyAsset(asset.value);
+            // For real account: exclude demo-only assets
+            // For demo account: include all
+            if (accountType === 'real') return !isDemoOnly;
+            return true;
+          });
+          
+          if (availableAssets.length > 0) {
+            // Find highest payout asset
+            let highestPayoutAsset = availableAssets[0];
+            for (const asset of availableAssets) {
+              const payout = payoutMap[asset.value] || payoutMap[asset.label] || asset.payout || 0;
+              const currentHighest = payoutMap[highestPayoutAsset.value] || payoutMap[highestPayoutAsset.label] || highestPayoutAsset.payout || 0;
+              if (payout > currentHighest) {
+                highestPayoutAsset = asset;
+              }
+            }
+            
+            // Only set if different from current
+            if (highestPayoutAsset.value !== selectedAsset) {
+              console.log('Auto-selecting highest payout asset:', highestPayoutAsset.value, 'with payout:', payoutMap[highestPayoutAsset.value] || highestPayoutAsset.payout);
+              setSelectedAsset(highestPayoutAsset.value);
+            }
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching asset payouts:', error);
