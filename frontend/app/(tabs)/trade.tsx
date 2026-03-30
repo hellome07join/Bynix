@@ -3872,7 +3872,47 @@ export default function Trade() {
       </Modal>
 
       {/* Trade Result Popup - Small Badge Style */}
-      {/* Trade result is drawn on canvas like entry badge */}
+      {/* Trade result popup - simple centered design */}
+      {tradeResult && (
+        <View style={{
+          position: 'absolute',
+          top: '40%',
+          left: 0,
+          right: 0,
+          alignItems: 'center',
+          zIndex: 1000,
+        }}>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: tradeResult.won ? '#00C853' : '#E53935',
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+            borderRadius: 10,
+            gap: 8,
+            borderWidth: 1.5,
+            borderColor: tradeResult.won ? '#00E55A' : '#FF5252',
+          }}>
+            <View style={{
+              width: 24,
+              height: 24,
+              borderRadius: 12,
+              backgroundColor: 'rgba(255,255,255,0.3)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              <Ionicons 
+                name={tradeResult.won ? 'trophy' : 'close'} 
+                size={14} 
+                color="#FFFFFF" 
+              />
+            </View>
+            <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>
+              {tradeResult.won ? 'Profit' : 'Loss'} {tradeResult.won ? '+' : '-'}${Math.abs(tradeResult.profitLoss).toFixed(2)}
+            </Text>
+          </View>
+        </View>
+      )}
 
       {/* Onboarding Tutorial Modal */}
       <Modal
