@@ -383,8 +383,15 @@ export default function TradingViewChart({
   // Convert symbol for API
   const apiSymbol = symbol.replace(' OTC', '').replace('/', '');
   
+  // Track if chart data is ready
+  const [isChartReady, setIsChartReady] = useState(false);
+  
   // Reset zoom and scroll when switching to a different asset
   useEffect(() => {
+    // Show loading when asset changes
+    setIsChartReady(false);
+    setIsLoading(true);
+    
     // Reset to default position when asset changes
     setScale(1);
     setTargetScale(1);
@@ -398,7 +405,7 @@ export default function TradingViewChart({
       animationFrameRef.current = null;
     }
     
-    console.log(`[CHART] Asset changed to ${symbol}, reset zoom and scroll to default`);
+    console.log(`[CHART] Asset changed to ${symbol}, showing loader...`);
   }, [symbol]);
   
   // Get interval in seconds
@@ -591,6 +598,19 @@ export default function TradingViewChart({
     
     return candles;
   }, [baseTickData, stableInterval, getIntervalSeconds]);
+  
+  // Mark chart as ready when we have candle data
+  useEffect(() => {
+    if (aggregatedCandles.length > 10) {
+      // Small delay for smooth transition
+      const timer = setTimeout(() => {
+        setIsChartReady(true);
+        setIsLoading(false);
+        console.log(`[CHART] Chart ready for ${symbol} with ${aggregatedCandles.length} candles`);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [aggregatedCandles.length, symbol]);
 
   // Initialize data on mount or symbol change
   useEffect(() => {
@@ -1883,6 +1903,23 @@ export default function TradingViewChart({
     
     return (
       <View style={styles.container}>
+        {/* Loading Overlay */}
+        {!isChartReady && (
+          <View style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: '#0A1A0F',
+            zIndex: 100,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}>
+            <ActivityIndicator size="large" color="#00E55A" />
+            <Text style={{ color: '#00E55A', fontSize: 14, marginTop: 12 }}>Loading Chart...</Text>
+          </View>
+        )}
         <div 
           style={{ 
             width: '100%', 
