@@ -1261,101 +1261,101 @@ export default function TradingViewChart({
       ctx.stroke();
       ctx.setLineDash([]);
       
-      // ===== ENTRY CIRCLE MARKER at entry point =====
+      // ===== ENTRY CIRCLE MARKER at entry point (SMALL - subtle like text) =====
       if (entryX > padding.left && entryX < width - padding.right) {
-        // Outer colored circle
+        // Outer colored circle - small
         ctx.fillStyle = markerColor;
-        ctx.beginPath();
-        ctx.arc(entryX, markerY, 10, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Inner white circle
-        ctx.fillStyle = '#FFFFFF';
         ctx.beginPath();
         ctx.arc(entryX, markerY, 5, 0, Math.PI * 2);
         ctx.fill();
+        
+        // Inner white circle - tiny
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.arc(entryX, markerY, 2, 0, Math.PI * 2);
+        ctx.fill();
       }
       
-      // ===== ENTRY BADGE - positioned LEFT of entry point (near entry line) =====
-      const badgeWidth = 75;
-      const badgeHeight = 30;
+      // ===== ENTRY BADGE - SMALL SIZE positioned LEFT of entry point =====
+      const badgeWidth = 52;
+      const badgeHeight = 18;
       // Position badge to the left of entry circle marker
-      const badgeX = Math.max(entryX - badgeWidth - 15, padding.left + 5);
+      const badgeX = Math.max(entryX - badgeWidth - 8, padding.left + 5);
       const badgeY = markerY - badgeHeight / 2;
       
       // Badge background with rounded corners
       ctx.fillStyle = markerColor;
       ctx.beginPath();
       if (ctx.roundRect) {
-        ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 8);
+        ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 5);
       } else {
         ctx.rect(badgeX, badgeY, badgeWidth, badgeHeight);
       }
       ctx.fill();
       
-      // ===== ARROW ICON INSIDE CIRCLE (left side of badge) =====
-      const iconCenterX = badgeX + 18;
+      // ===== ARROW ICON INSIDE CIRCLE (left side of badge) - SMALL =====
+      const iconCenterX = badgeX + 11;
       const iconCenterY = markerY;
-      const iconRadius = 11;
+      const iconRadius = 6;
       
-      // Circle background for arrow icon (slightly lighter/darker)
-      ctx.fillStyle = marker.type === 'call' ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.25)';
+      // Circle background for arrow icon
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
       ctx.beginPath();
       ctx.arc(iconCenterX, iconCenterY, iconRadius, 0, Math.PI * 2);
       ctx.fill();
       
-      // Draw arrow inside circle
+      // Draw arrow inside circle - smaller
       ctx.strokeStyle = '#FFFFFF';
       ctx.fillStyle = '#FFFFFF';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 1.5;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       
       if (marker.type === 'call') {
-        // UP arrow (↑)
+        // UP arrow (↑) - small
         ctx.beginPath();
-        ctx.moveTo(iconCenterX, iconCenterY + 5);  // Bottom
-        ctx.lineTo(iconCenterX, iconCenterY - 5);  // Top
+        ctx.moveTo(iconCenterX, iconCenterY + 3);
+        ctx.lineTo(iconCenterX, iconCenterY - 3);
         ctx.stroke();
         // Arrow head
         ctx.beginPath();
-        ctx.moveTo(iconCenterX - 4, iconCenterY - 1);
-        ctx.lineTo(iconCenterX, iconCenterY - 6);
-        ctx.lineTo(iconCenterX + 4, iconCenterY - 1);
+        ctx.moveTo(iconCenterX - 2.5, iconCenterY - 0.5);
+        ctx.lineTo(iconCenterX, iconCenterY - 4);
+        ctx.lineTo(iconCenterX + 2.5, iconCenterY - 0.5);
         ctx.stroke();
       } else {
-        // DOWN arrow (↓)
+        // DOWN arrow (↓) - small
         ctx.beginPath();
-        ctx.moveTo(iconCenterX, iconCenterY - 5);  // Top
-        ctx.lineTo(iconCenterX, iconCenterY + 5);  // Bottom
+        ctx.moveTo(iconCenterX, iconCenterY - 3);
+        ctx.lineTo(iconCenterX, iconCenterY + 3);
         ctx.stroke();
         // Arrow head
         ctx.beginPath();
-        ctx.moveTo(iconCenterX - 4, iconCenterY + 1);
-        ctx.lineTo(iconCenterX, iconCenterY + 6);
-        ctx.lineTo(iconCenterX + 4, iconCenterY + 1);
+        ctx.moveTo(iconCenterX - 2.5, iconCenterY + 0.5);
+        ctx.lineTo(iconCenterX, iconCenterY + 4);
+        ctx.lineTo(iconCenterX + 2.5, iconCenterY + 0.5);
         ctx.stroke();
       }
       
-      // ===== AMOUNT TEXT (right side of badge) =====
+      // ===== AMOUNT TEXT (right side of badge) - SMALL 10px like text labels =====
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 14px Arial';
+      ctx.font = 'bold 10px Arial';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      ctx.fillText(`${marker.amount || 0}$`, badgeX + 34, markerY);
+      ctx.fillText(`${marker.amount || 0}$`, badgeX + 20, markerY);
       
-      // ===== EXIT CIRCLE MARKER at exit point =====
+      // ===== EXIT CIRCLE MARKER at exit point (SMALL - subtle like text) =====
       if (visibleExitX > padding.left && visibleExitX < width - padding.right) {
-        // Outer colored circle
+        // Outer colored circle - small
         ctx.fillStyle = markerColor;
         ctx.beginPath();
-        ctx.arc(visibleExitX, markerY, 10, 0, Math.PI * 2);
+        ctx.arc(visibleExitX, markerY, 5, 0, Math.PI * 2);
         ctx.fill();
         
-        // Inner white circle
+        // Inner white circle - tiny
         ctx.fillStyle = '#FFFFFF';
         ctx.beginPath();
-        ctx.arc(visibleExitX, markerY, 5, 0, Math.PI * 2);
+        ctx.arc(visibleExitX, markerY, 2, 0, Math.PI * 2);
         ctx.fill();
       }
       
