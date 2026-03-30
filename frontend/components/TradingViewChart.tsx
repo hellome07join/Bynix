@@ -321,8 +321,6 @@ export default function TradingViewChart({
   const [error, setError] = useState<string | null>(null);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [scale, setScale] = useState(1);  // Default scale (horizontal zoom)
-  const [yScale, setYScale] = useState(1); // Vertical scale for price axis zoom
-  const [targetYScale, setTargetYScale] = useState(1);
   const [targetScale, setTargetScale] = useState(1);
   const [targetScrollOffset, setTargetScrollOffset] = useState(0);
   const priceTickerRef = useRef<any>(null);
@@ -337,7 +335,6 @@ export default function TradingViewChart({
   const animationFrameRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
   const isPinchingRef = useRef(false);
-  const isDraggingPriceAxisRef = useRef(false); // For vertical zoom on price axis
   const initialPinchDistanceRef = useRef(0);
   const initialScaleRef = useRef(1);
   const lastPinchCenterRef = useRef({ x: 0, y: 0 });
@@ -424,31 +421,6 @@ export default function TradingViewChart({
     };
   }, [targetScrollOffset]);
   
-  // Smooth Y scale animation - interpolate to target Y scale
-  useEffect(() => {
-    let isAnimating = true;
-    let animFrame: number;
-    
-    const animate = () => {
-      if (!isAnimating) return;
-      
-      setYScale(prev => {
-        const diff = targetYScale - prev;
-        if (Math.abs(diff) < 0.001) return targetYScale;
-        return prev + diff * 0.15; // Same easing as zoom
-      });
-      
-      animFrame = requestAnimationFrame(animate);
-    };
-    
-    animFrame = requestAnimationFrame(animate);
-    
-    return () => {
-      isAnimating = false;
-      cancelAnimationFrame(animFrame);
-    };
-  }, [targetYScale]);
-  
   // Smooth price animation - interpolate to target price
   useEffect(() => {
     targetPriceRef.current = internalPrice;
@@ -502,8 +474,6 @@ export default function TradingViewChart({
     // Reset to default position when asset changes
     setScale(1);
     setTargetScale(1);
-    setYScale(1); // Reset vertical zoom
-    setTargetYScale(1);
     setScrollOffset(0);
     setTargetScrollOffset(0);
     scrollVelocityRef.current = 0;
@@ -819,8 +789,7 @@ export default function TradingViewChart({
     
     const width = displayWidth;
     const height = displayHeight;
-    // Increased padding: top 35 for "Beginning of trade" text, bottom 50 for time axis
-    const padding = { top: 35, right: 60, bottom: 50, left: 10 };
+    const padding = { top: 20, right: 60, bottom: 45, left: 10 }; // bottom for time axis
     const chartWidth = width - padding.left - padding.right;
     const chartHeight = height - padding.top - padding.bottom;
     
@@ -893,13 +862,10 @@ export default function TradingViewChart({
     // Calculate price range
     let minPrice = Math.min(...visibleData.map(c => c.low));
     let maxPrice = Math.max(...visibleData.map(c => c.high));
-    const basePriceRange = maxPrice - minPrice;
-    const pricePadding = basePriceRange * 0.1;
+    const priceRange = maxPrice - minPrice;
+    const pricePadding = priceRange * 0.1;
     minPrice -= pricePadding;
     maxPrice += pricePadding;
-    
-    // Chart vertical center for yScale transformation
-    const chartVerticalCenter = padding.top + chartHeight / 2;
     
     // Notify parent about price range change
     if (onPriceRangeChange) {
@@ -917,19 +883,6 @@ export default function TradingViewChart({
       ctx.stroke();
     }
     
-    // Set clipping region to chart area so candles don't overflow
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(padding.left, padding.top, chartWidth, chartHeight);
-    ctx.clip();
-    
-    // Helper function to apply yScale - scales Y coordinate from chart center
-    const applyYScale = (y: number) => {
-      // Scale from chart vertical center
-      const offsetFromCenter = y - chartVerticalCenter;
-      return chartVerticalCenter + offsetFromCenter * yScale;
-    };
-    
     // Draw candles with offset (running candle at center by default, moves with scroll)
     visibleData.forEach((candle, i) => {
       const x = padding.left + i * totalBarWidth + 15 + xOffset;
@@ -940,17 +893,10 @@ export default function TradingViewChart({
       const isGreen = candle.close >= candle.open;
       const color = isGreen ? '#00E55A' : '#FF3B3B';
       
-      // Calculate base Y positions
-      const yOpenBase = padding.top + ((maxPrice - candle.open) / (maxPrice - minPrice)) * chartHeight;
-      const yCloseBase = padding.top + ((maxPrice - candle.close) / (maxPrice - minPrice)) * chartHeight;
-      const yHighBase = padding.top + ((maxPrice - candle.high) / (maxPrice - minPrice)) * chartHeight;
-      const yLowBase = padding.top + ((maxPrice - candle.low) / (maxPrice - minPrice)) * chartHeight;
-      
-      // Apply yScale transformation (scale from chart center)
-      const yOpen = applyYScale(yOpenBase);
-      const yClose = applyYScale(yCloseBase);
-      const yHigh = applyYScale(yHighBase);
-      const yLow = applyYScale(yLowBase);
+      const yOpen = padding.top + ((maxPrice - candle.open) / (maxPrice - minPrice)) * chartHeight;
+      const yClose = padding.top + ((maxPrice - candle.close) / (maxPrice - minPrice)) * chartHeight;
+      const yHigh = padding.top + ((maxPrice - candle.high) / (maxPrice - minPrice)) * chartHeight;
+      const yLow = padding.top + ((maxPrice - candle.low) / (maxPrice - minPrice)) * chartHeight;
       
       if (chartType === 'line') {
         if (i === 0) {
@@ -990,9 +936,6 @@ export default function TradingViewChart({
         ctx.fillRect(x, bodyTop, baseBarWidth, bodyHeight);
       }
     });
-    
-    // Restore context after clipping (for candles)
-    ctx.restore();
     
     // Draw price scale
     ctx.fillStyle = '#888';
@@ -2605,70 +2548,6 @@ export default function TradingViewChart({
               }}
             />
           )}
-          
-          {/* Price Axis Vertical Zoom Overlay - Right side of chart */}
-          <div
-            style={{
-              position: 'absolute',
-              top: 20,
-              right: 0,
-              width: 60,
-              bottom: 45,
-              cursor: 'ns-resize',
-              zIndex: 10,
-            }}
-            onMouseDown={(e: any) => {
-              e.preventDefault();
-              e.stopPropagation();
-              isDraggingPriceAxisRef.current = true;
-              const startY = e.clientY;
-              const startYScale = yScale;
-              
-              const onMouseMove = (moveE: any) => {
-                if (!isDraggingPriceAxisRef.current) return;
-                const deltaY = startY - moveE.clientY; // Up = positive
-                // Drag up = increase yScale (zoom in), drag down = decrease
-                const sensitivity = 0.005;
-                const newYScale = Math.max(0.5, Math.min(2.5, startYScale + deltaY * sensitivity));
-                setTargetYScale(newYScale);
-              };
-              
-              const onMouseUp = () => {
-                isDraggingPriceAxisRef.current = false;
-                document.removeEventListener('mousemove', onMouseMove);
-                document.removeEventListener('mouseup', onMouseUp);
-              };
-              
-              document.addEventListener('mousemove', onMouseMove);
-              document.addEventListener('mouseup', onMouseUp);
-            }}
-            onTouchStart={(e: any) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (e.touches.length === 1) {
-                isDraggingPriceAxisRef.current = true;
-                const startY = e.touches[0].clientY;
-                const startYScale = yScale;
-                
-                const onTouchMove = (moveE: any) => {
-                  if (!isDraggingPriceAxisRef.current || moveE.touches.length !== 1) return;
-                  const deltaY = startY - moveE.touches[0].clientY; // Up = positive
-                  const sensitivity = 0.005;
-                  const newYScale = Math.max(0.5, Math.min(2.5, startYScale + deltaY * sensitivity));
-                  setTargetYScale(newYScale);
-                };
-                
-                const onTouchEnd = () => {
-                  isDraggingPriceAxisRef.current = false;
-                  document.removeEventListener('touchmove', onTouchMove);
-                  document.removeEventListener('touchend', onTouchEnd);
-                };
-                
-                document.addEventListener('touchmove', onTouchMove, { passive: false });
-                document.addEventListener('touchend', onTouchEnd);
-              }
-            }}
-          />
         </div>
         
         {/* Current Price Overlay */}
