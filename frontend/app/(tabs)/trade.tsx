@@ -99,6 +99,7 @@ export default function Trade() {
   const [dbAssets, setDbAssets] = useState<any[]>([]); // Assets from database
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showAmountPicker, setShowAmountPicker] = useState(false);
   const [tradeTimeMode, setTradeTimeMode] = useState<'TIMER' | 'TIME'>('TIMER'); // TIMER = fixed duration, TIME = candle-based
   const [showToolsModal, setShowToolsModal] = useState(false);
   const [showTradeHistory, setShowTradeHistory] = useState(false);
@@ -2160,16 +2161,6 @@ export default function Trade() {
 
       {/* Tools Bar - Between chart and trading panel */}
       <View style={styles.toolsBar}>
-        {/* Time Button */}
-        <TouchableOpacity 
-          style={styles.setTimeBtn}
-          onPress={() => setShowTimePicker(true)}
-        >
-          <Ionicons name="time" size={16} color="#FFB800" />
-          <Text style={styles.setTimeText}>Time</Text>
-          <Ionicons name="chevron-down" size={14} color="#FFB800" />
-        </TouchableOpacity>
-
         {/* Tools Button */}
         <TouchableOpacity 
           style={styles.toolsBtn}
@@ -2212,41 +2203,62 @@ export default function Trade() {
         </TouchableOpacity>
       </View>
 
-      {/* Bottom Trading Panel - Fixed at bottom */}
+      {/* Bottom Trading Panel - Quotex Style */}
       <View style={styles.bottomPanel}>
-        {/* Investment Amount */}
-        <View style={styles.amountSection}>
-          <Text style={styles.labelText}>Investment Amount</Text>
-          <View style={styles.amountRow}>
-            <View style={styles.amountInput}>
-              <Text style={styles.dollarSign}>$</Text>
-              <TextInput
-                style={styles.input}
-                value={amount}
-                onChangeText={setAmount}
-                keyboardType="numeric"
-                placeholder="100"
-                placeholderTextColor="#666"
-              />
+        {/* Timer | Investment Row - Side by Side */}
+        <View style={styles.timerInvestmentRow}>
+          {/* Timer Section (Left) */}
+          <TouchableOpacity 
+            style={styles.timerSection}
+            onPress={() => setShowTimePicker(true)}
+          >
+            <Text style={styles.sectionLabel}>Timer</Text>
+            <View style={styles.timerBox}>
+              <Text style={styles.timerValue}>{formatDuration(duration)}</Text>
             </View>
-            <View style={styles.quickButtons}>
-              {[10, 50, 100].map(val => (
-                <TouchableOpacity 
-                  key={val}
-                  style={styles.quickButton}
-                  onPress={() => setAmount(val.toString())}
-                >
-                  <Text style={styles.quickButtonText}>${val}</Text>
-                </TouchableOpacity>
-              ))}
+          </TouchableOpacity>
+
+          {/* Divider */}
+          <View style={styles.sectionDivider} />
+
+          {/* Investment Section (Right) */}
+          <View style={styles.investmentSection}>
+            <Text style={styles.sectionLabel}>Investment</Text>
+            <View style={styles.investmentBox}>
+              <TouchableOpacity 
+                style={styles.investmentBtn}
+                onPress={() => {
+                  const newVal = Math.max(1, parseInt(amount || '0') - 1);
+                  setAmount(newVal.toString());
+                }}
+              >
+                <Ionicons name="remove" size={18} color="#888" />
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.investmentValueContainer}
+                onPress={() => setShowAmountPicker(true)}
+              >
+                <Text style={styles.investmentValue}>{amount || '0'} $</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.investmentBtn}
+                onPress={() => {
+                  const newVal = parseInt(amount || '0') + 1;
+                  setAmount(newVal.toString());
+                }}
+              >
+                <Ionicons name="add" size={18} color="#888" />
+              </TouchableOpacity>
             </View>
           </View>
         </View>
 
-        {/* Profit Preview */}
+        {/* Payout Preview */}
         <View style={styles.profitPreview}>
-          <Text style={styles.profitPreviewLabel}>You will get:</Text>
-          <Text style={styles.profitPreviewValue}>${potentialProfit.toFixed(2)}</Text>
+          <Text style={styles.profitPreviewLabel}>Your payout:</Text>
+          <Text style={styles.profitPreviewValue}>{potentialProfit.toFixed(2)} $</Text>
         </View>
 
         {/* Trading Disabled Banner */}
@@ -2265,9 +2277,8 @@ export default function Trade() {
             disabled={loading || !isTradingEnabled}
             activeOpacity={0.85}
           >
-            <Ionicons name="arrow-up" size={18} color="#FFFFFF" />
-            <Text style={styles.tradeBtnText}>UP</Text>
-            <Text style={styles.btnPayout}>{payoutPercentage}%</Text>
+            <Text style={styles.tradeBtnText}>Up</Text>
+            <Ionicons name="arrow-up-circle" size={22} color="#FFFFFF" />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -2276,12 +2287,66 @@ export default function Trade() {
             disabled={loading || !isTradingEnabled}
             activeOpacity={0.85}
           >
-            <Ionicons name="arrow-down" size={18} color="#FFFFFF" />
-            <Text style={styles.tradeBtnText}>DOWN</Text>
-            <Text style={styles.btnPayout}>{payoutPercentage}%</Text>
+            <Text style={styles.tradeBtnText}>Down</Text>
+            <Ionicons name="arrow-down-circle" size={22} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Amount Picker Modal */}
+      <Modal
+        visible={showAmountPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAmountPicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Amount</Text>
+              <TouchableOpacity onPress={() => setShowAmountPicker(false)}>
+                <Ionicons name="close-circle" size={22} color="#666" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.quickAmountGrid}>
+              {[1, 2, 5, 10, 25, 50, 100, 200, 500, 1000].map(val => (
+                <TouchableOpacity
+                  key={val}
+                  style={[styles.quickAmountItem, parseInt(amount) === val && styles.quickAmountItemActive]}
+                  onPress={() => {
+                    setAmount(val.toString());
+                    setShowAmountPicker(false);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <Text style={[styles.quickAmountText, parseInt(amount) === val && styles.quickAmountTextActive]}>
+                    {val} $
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            
+            {/* Manual Input */}
+            <View style={styles.manualAmountRow}>
+              <TextInput
+                style={styles.manualAmountInput}
+                value={amount}
+                onChangeText={setAmount}
+                keyboardType="numeric"
+                placeholder="Enter amount"
+                placeholderTextColor="#666"
+              />
+              <TouchableOpacity 
+                style={styles.manualAmountConfirm}
+                onPress={() => setShowAmountPicker(false)}
+              >
+                <Text style={styles.manualAmountConfirmText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Asset Picker Modal */}
       <Modal
@@ -5676,6 +5741,125 @@ const styles = StyleSheet.create({
     color: '#00E55A',
     fontSize: 13,
     fontWeight: '600',
+  },
+  // Timer | Investment Row Styles (Quotex Style)
+  timerInvestmentRow: {
+    flexDirection: 'row',
+    marginBottom: 8,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    overflow: 'hidden',
+  },
+  timerSection: {
+    flex: 1,
+    padding: 12,
+    alignItems: 'center',
+  },
+  investmentSection: {
+    flex: 1,
+    padding: 12,
+    alignItems: 'center',
+  },
+  sectionDivider: {
+    width: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  sectionLabel: {
+    color: '#888',
+    fontSize: 11,
+    marginBottom: 6,
+  },
+  timerBox: {
+    backgroundColor: 'rgba(255, 184, 0, 0.15)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 184, 0, 0.3)',
+  },
+  timerValue: {
+    color: '#FFB800',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  investmentBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  investmentBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  investmentValueContainer: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  investmentValue: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  // Amount Picker Modal Styles
+  quickAmountGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  quickAmountItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    minWidth: 70,
+    alignItems: 'center',
+  },
+  quickAmountItemActive: {
+    backgroundColor: 'rgba(0, 229, 90, 0.2)',
+    borderColor: '#00E55A',
+  },
+  quickAmountText: {
+    color: '#888',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  quickAmountTextActive: {
+    color: '#00E55A',
+  },
+  manualAmountRow: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+  },
+  manualAmountInput: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: '#FFFFFF',
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  manualAmountConfirm: {
+    backgroundColor: '#00E55A',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  manualAmountConfirmText: {
+    color: '#0A1A0F',
+    fontSize: 14,
+    fontWeight: '700',
   },
   labelText: {
     color: '#999',
