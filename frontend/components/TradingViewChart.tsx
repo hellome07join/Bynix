@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, Text, Platform, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Text, Platform, ActivityIndicator, Animated, Easing, Image } from 'react-native';
 import Constants from 'expo-constants';
 
 // ============= SMOOTH CHART PHYSICS CONSTANTS =============
@@ -116,6 +116,89 @@ const getApiUrl = () => {
 
 // Store base tick data globally to persist across re-renders
 const baseTickDataStore: { [symbol: string]: CandleData[] } = {};
+
+// Chart Loader Component with Bynix Logo Animation
+const ChartLoader = () => {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+  
+  useEffect(() => {
+    // Pulse animation
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.15,
+          duration: 800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulse.start();
+    
+    // Rotation animation
+    const rotate = Animated.loop(
+      Animated.timing(rotateAnim, {
+        toValue: 1,
+        duration: 2000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    );
+    rotate.start();
+    
+    return () => {
+      pulse.stop();
+      rotate.stop();
+    };
+  }, []);
+  
+  const rotateInterpolate = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+  
+  return (
+    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+      {/* Rotating ring */}
+      <Animated.View
+        style={{
+          position: 'absolute',
+          width: 80,
+          height: 80,
+          borderRadius: 40,
+          borderWidth: 3,
+          borderColor: 'transparent',
+          borderTopColor: '#00E55A',
+          borderRightColor: '#00E55A50',
+          transform: [{ rotate: rotateInterpolate }],
+        }}
+      />
+      {/* Pulsing logo */}
+      <Animated.View
+        style={{
+          transform: [{ scale: pulseAnim }],
+        }}
+      >
+        <Image
+          source={require('../assets/images/bynix-logo.png')}
+          style={{ width: 50, height: 50 }}
+          resizeMode="contain"
+        />
+      </Animated.View>
+      {/* Loading text */}
+      <Text style={{ color: '#00E55A', fontSize: 12, marginTop: 15, letterSpacing: 1 }}>
+        Loading Chart...
+      </Text>
+    </View>
+  );
+};
 
 export default function TradingViewChart({ 
   symbol = 'EUR/USD OTC', 
@@ -1903,7 +1986,7 @@ export default function TradingViewChart({
     
     return (
       <View style={styles.container}>
-        {/* Loading Overlay */}
+        {/* Loading Overlay with Bynix Logo */}
         {!isChartReady && (
           <View style={{
             position: 'absolute',
@@ -1916,8 +1999,7 @@ export default function TradingViewChart({
             justifyContent: 'center',
             alignItems: 'center',
           }}>
-            <ActivityIndicator size="large" color="#00E55A" />
-            <Text style={{ color: '#00E55A', fontSize: 14, marginTop: 12 }}>Loading Chart...</Text>
+            <ChartLoader />
           </View>
         )}
         <div 
