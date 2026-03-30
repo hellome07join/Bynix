@@ -2223,7 +2223,7 @@ export default function Trade() {
                     setDuration(newDur);
                   }}
                 >
-                  <Ionicons name="remove" size={14} color="#2196F3" />
+                  <Ionicons name="remove" size={14} color="#00E55A" />
                 </TouchableOpacity>
               )}
               
@@ -2246,7 +2246,7 @@ export default function Trade() {
                     setDuration(newDur);
                   }}
                 >
-                  <Ionicons name="add" size={14} color="#2196F3" />
+                  <Ionicons name="add" size={14} color="#00E55A" />
                 </TouchableOpacity>
               )}
             </View>
@@ -2266,7 +2266,7 @@ export default function Trade() {
                   setAmount(newVal.toString());
                 }}
               >
-                <Ionicons name="remove" size={14} color="#2196F3" />
+                <Ionicons name="remove" size={14} color="#00E55A" />
               </TouchableOpacity>
               
               <TouchableOpacity 
@@ -2283,7 +2283,7 @@ export default function Trade() {
                   setAmount(newVal.toString());
                 }}
               >
-                <Ionicons name="add" size={14} color="#2196F3" />
+                <Ionicons name="add" size={14} color="#00E55A" />
               </TouchableOpacity>
             </View>
           </View>
@@ -5913,7 +5913,7 @@ const styles = StyleSheet.create({
   },
   sectionDivider: {
     width: 1,
-    backgroundColor: 'rgba(33, 150, 243, 0.3)',
+    backgroundColor: 'rgba(0, 229, 90, 0.25)',
     marginVertical: 2,
   },
   sectionLabel: {
@@ -5931,11 +5931,11 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 6,
-    backgroundColor: 'rgba(33, 150, 243, 0.25)',
+    backgroundColor: 'rgba(0, 229, 90, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(33, 150, 243, 0.5)',
+    borderColor: 'rgba(0, 229, 90, 0.4)',
   },
   compactValueBox: {
     paddingHorizontal: 6,
