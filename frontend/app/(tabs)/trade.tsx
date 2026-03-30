@@ -3882,56 +3882,68 @@ export default function Trade() {
       </Modal>
 
       {/* Trade Result Popup - Small Badge Style */}
-      {/* Trade result badge near exit point */}
-      {tradeResult && (
-        <View style={{
-          position: 'absolute',
-          top: '42%',
-          left: '50%',
-          transform: [{ translateX: -40 }],
-          zIndex: 1000,
-        }}>
-          <View style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: tradeResult.won ? '#00C853' : '#E53935',
-            paddingHorizontal: 10,
-            paddingVertical: 6,
-            borderRadius: 6,
-            gap: 5,
-            borderWidth: 1,
-            borderColor: tradeResult.won ? '#00E55A' : '#FF5252',
-          }}>
+      {/* Trade result badge positioned at exit dot */}
+      {tradeResult && priceRange.max > priceRange.min && (
+        (() => {
+          // Calculate Y position based on entry price relative to price range
+          const chartTop = 100; // Approximate top of chart area
+          const chartHeight = 320; // Approximate chart height
+          const priceRatio = (priceRange.max - tradeResult.entryPrice) / (priceRange.max - priceRange.min);
+          const exitDotY = chartTop + (priceRatio * chartHeight);
+          // Clamp to reasonable bounds
+          const clampedY = Math.max(chartTop + 30, Math.min(exitDotY - 45, chartTop + chartHeight - 60));
+          
+          return (
             <View style={{
-              width: 18,
-              height: 18,
-              borderRadius: 9,
-              backgroundColor: 'rgba(255,255,255,0.3)',
-              alignItems: 'center',
-              justifyContent: 'center',
+              position: 'absolute',
+              top: clampedY,
+              left: '50%',
+              transform: [{ translateX: -35 }],
+              zIndex: 1000,
             }}>
-              <Ionicons 
-                name={tradeResult.won ? 'trophy' : 'close'} 
-                size={11} 
-                color="#FFFFFF" 
-              />
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: tradeResult.won ? '#00C853' : '#E53935',
+                paddingHorizontal: 8,
+                paddingVertical: 5,
+                borderRadius: 5,
+                gap: 4,
+                borderWidth: 1,
+                borderColor: tradeResult.won ? '#00E55A' : '#FF5252',
+              }}>
+                <View style={{
+                  width: 16,
+                  height: 16,
+                  borderRadius: 8,
+                  backgroundColor: 'rgba(255,255,255,0.3)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <Ionicons 
+                    name={tradeResult.won ? 'trophy' : 'close'} 
+                    size={10} 
+                    color="#FFFFFF" 
+                  />
+                </View>
+                <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '700' }}>
+                  {tradeResult.won ? '+' : '-'}${Math.abs(tradeResult.profitLoss).toFixed(2)}
+                </Text>
+              </View>
+              <View style={{
+                width: 0,
+                height: 0,
+                alignSelf: 'center',
+                borderLeftWidth: 5,
+                borderRightWidth: 5,
+                borderTopWidth: 6,
+                borderLeftColor: 'transparent',
+                borderRightColor: 'transparent',
+                borderTopColor: tradeResult.won ? '#00C853' : '#E53935',
+              }} />
             </View>
-            <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '700' }}>
-              {tradeResult.won ? '+' : '-'}${Math.abs(tradeResult.profitLoss).toFixed(2)}
-            </Text>
-          </View>
-          <View style={{
-            width: 0,
-            height: 0,
-            alignSelf: 'center',
-            borderLeftWidth: 6,
-            borderRightWidth: 6,
-            borderTopWidth: 8,
-            borderLeftColor: 'transparent',
-            borderRightColor: 'transparent',
-            borderTopColor: tradeResult.won ? '#00C853' : '#E53935',
-          }} />
-        </View>
+          );
+        })()
       )}
 
       {/* Onboarding Tutorial Modal */}
