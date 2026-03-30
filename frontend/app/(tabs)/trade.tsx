@@ -99,6 +99,7 @@ export default function Trade() {
   const [dbAssets, setDbAssets] = useState<any[]>([]); // Assets from database
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [tradeTimeMode, setTradeTimeMode] = useState<'TIMER' | 'TIME'>('TIMER'); // TIMER = fixed duration, TIME = candle-based
   const [showToolsModal, setShowToolsModal] = useState(false);
   const [showTradeHistory, setShowTradeHistory] = useState(false);
   const [tradeHistory, setTradeHistory] = useState<any[]>([]);
@@ -364,6 +365,20 @@ export default function Trade() {
       default: return 60;
     }
   }, [timeframe]);
+  
+  // Get candle duration in milliseconds
+  const getCandleDurationMs = useCallback((tf: string) => {
+    switch(tf) {
+      case '1s': return 1000;
+      case '5s': return 5000;
+      case '15s': return 15000;
+      case '1m': return 60000;
+      case '5m': return 300000;
+      case '15m': return 900000;
+      case '1h': return 3600000;
+      default: return 60000;
+    }
+  }, []);
   
   // Update UTC time and candle countdown every second
   useEffect(() => {
@@ -1390,7 +1405,40 @@ export default function Trade() {
     const now = Date.now();
     const tradeId = `trade_${now}_${Math.random().toString(36).substr(2, 9)}`;
 
+    // Calculate trade duration based on mode
+    let tradeDuration = duration;
+    
+    if (tradeTimeMode === 'TIME') {
+      // TIME mode: Trade closes when candle closes
+      // Calculate time until current candle closes based on timeframe
+      const candleDurationMs = getCandleDurationMs(timeframe); // Get candle duration in ms
+      const candleStartTime = Math.floor(now / candleDurationMs) * candleDurationMs;
+      const candleEndTime = candleStartTime + candleDurationMs;
+      const remainingTimeMs = candleEndTime - now;
+      const remainingTimeSec = Math.floor(remainingTimeMs / 1000);
+      
+      console.log('TIME MODE - Candle calculation:', {
+        timeframe,
+        candleDurationMs,
+        candleStartTime: new Date(candleStartTime).toISOString(),
+        candleEndTime: new Date(candleEndTime).toISOString(),
+        remainingTimeSec
+      });
+      
+      if (remainingTimeSec < 30) {
+        // Less than 30 seconds remaining - trade closes with NEXT candle
+        tradeDuration = remainingTimeSec + Math.floor(candleDurationMs / 1000);
+        console.log('TIME MODE: <30s remaining, closing with NEXT candle, duration:', tradeDuration);
+      } else {
+        // 30+ seconds remaining - trade closes with CURRENT candle
+        tradeDuration = remainingTimeSec;
+        console.log('TIME MODE: >=30s remaining, closing with CURRENT candle, duration:', tradeDuration);
+      }
+    }
+
     console.log('=== PLACE TRADE DEBUG ===');
+    console.log('tradeTimeMode:', tradeTimeMode);
+    console.log('tradeDuration (calculated):', tradeDuration);
     console.log('accountType:', accountType);
     console.log('token:', token ? 'EXISTS' : 'NULL');
     console.log('selectedAsset:', selectedAsset);
@@ -1445,7 +1493,7 @@ export default function Trade() {
         trade_type: type,
         direction: type === 'call' ? 'up' : 'down',
         amount: tradeAmount,
-        duration,
+        duration: tradeDuration,
         entry_price: currentPrice,
         account_type: accountType,
         payout_percentage: payoutPercentage,
@@ -1455,7 +1503,7 @@ export default function Trade() {
         trade_type: type,
         direction: type === 'call' ? 'up' : 'down',
         amount: tradeAmount,
-        duration,
+        duration: tradeDuration,
         entry_price: currentPrice,
         account_type: accountType,
         payout_percentage: payoutPercentage,
@@ -1468,10 +1516,10 @@ export default function Trade() {
         type,
         amount: tradeAmount,
         entry_price: currentPrice,
-        duration,
+        duration: tradeDuration,
         startTime: now,
-        endTime: now + duration * 1000,
-        countdown: duration,
+        endTime: now + tradeDuration * 1000,
+        countdown: tradeDuration,
         asset: selectedAsset,
       };
       
@@ -3470,7 +3518,7 @@ export default function Trade() {
         </View>
       </Modal>
 
-      {/* Time Picker Modal */}
+      {/* Time Picker Modal - TIMER / TIME modes */}
       <Modal
         visible={showTimePicker}
         transparent
@@ -3480,86 +3528,107 @@ export default function Trade() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Set Trade Time</Text>
+              <Text style={styles.modalTitle}>Trade Time</Text>
               <TouchableOpacity onPress={() => setShowTimePicker(false)}>
                 <Ionicons name="close-circle" size={22} color="#666" />
               </TouchableOpacity>
             </View>
 
-            {/* Manual Time Input */}
-            <View style={styles.timeInputSection}>
-              <Text style={styles.timeInputLabel}>Custom Time (minutes : seconds)</Text>
-              <View style={styles.timeInputRow}>
-                {/* Minutes Input with Text Overlay */}
-                <View style={styles.timeInputColumn}>
-                  <View style={styles.timeInputBox}>
-                    <Text style={styles.timeInputValue}>{customMinutes || '0'}</Text>
-                  </View>
-                  <View style={styles.timeInputButtons}>
-                    <TouchableOpacity 
-                      onPress={() => setCustomMinutes(String(Math.max(0, parseInt(customMinutes || '0') - 1)))}
-                      style={styles.timeInputBtnMinus}
-                    >
-                      <Text style={styles.timeInputBtnMinusText}>−</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      onPress={() => setCustomMinutes(String(parseInt(customMinutes || '0') + 1))}
-                      style={styles.timeInputBtnPlus}
-                    >
-                      <Text style={styles.timeInputBtnPlusText}>+</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <Text style={styles.timeInputUnit}>min</Text>
-                </View>
-                
-                <Text style={styles.timeInputColon}>:</Text>
-                
-                {/* Seconds Input with Text Overlay */}
-                <View style={styles.timeInputColumn}>
-                  <View style={styles.timeInputBox}>
-                    <Text style={styles.timeInputValue}>{customSeconds || '0'}</Text>
-                  </View>
-                  <View style={styles.timeInputButtons}>
-                    <TouchableOpacity 
-                      onPress={() => setCustomSeconds(String(Math.max(0, Math.min(59, parseInt(customSeconds || '0') - 5))))}
-                      style={styles.timeInputBtnMinus}
-                    >
-                      <Text style={styles.timeInputBtnMinusText}>−5</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      onPress={() => setCustomSeconds(String(Math.min(59, parseInt(customSeconds || '0') + 5)))}
-                      style={styles.timeInputBtnPlus}
-                    >
-                      <Text style={styles.timeInputBtnPlusText}>+5</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <Text style={styles.timeInputUnit}>sec</Text>
-                </View>
-              </View>
-              <TouchableOpacity style={styles.setCustomTimeBtn} onPress={setCustomTime}>
-                <Text style={styles.setCustomTimeBtnText}>Set Time</Text>
+            {/* TIMER / TIME Tab Switcher */}
+            <View style={styles.timeModeTabContainer}>
+              <TouchableOpacity 
+                style={[styles.timeModeTab, tradeTimeMode === 'TIMER' && styles.timeModeTabActive]}
+                onPress={() => setTradeTimeMode('TIMER')}
+              >
+                <Text style={[styles.timeModeTabText, tradeTimeMode === 'TIMER' && styles.timeModeTabTextActive]}>TIMER</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.timeModeTab, tradeTimeMode === 'TIME' && styles.timeModeTabActive]}
+                onPress={() => setTradeTimeMode('TIME')}
+              >
+                <Text style={[styles.timeModeTabText, tradeTimeMode === 'TIME' && styles.timeModeTabTextActive]}>TIME</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Quick Time Options */}
-            <Text style={styles.quickTimeLabel}>Quick Select</Text>
-            <View style={styles.quickTimeGrid}>
-              {DURATIONS.map((d) => (
-                <TouchableOpacity
-                  key={d.label}
-                  style={[styles.quickTimeGridItem, duration === d.seconds && styles.quickTimeGridItemActive]}
+            {tradeTimeMode === 'TIMER' ? (
+              <>
+                {/* TIMER Mode - Fixed Duration */}
+                <Text style={styles.timeModeDescription}>Trade closes after fixed duration</Text>
+                
+                {/* Quick Time Options Grid */}
+                <View style={styles.quickTimeGrid}>
+                  {[
+                    { label: '00:05', seconds: 5 },
+                    { label: '00:10', seconds: 10 },
+                    { label: '00:15', seconds: 15 },
+                    { label: '00:30', seconds: 30 },
+                    { label: '01:00', seconds: 60 },
+                    { label: '02:00', seconds: 120 },
+                    { label: '05:00', seconds: 300 },
+                    { label: '10:00', seconds: 600 },
+                    { label: '15:00', seconds: 900 },
+                    { label: '30:00', seconds: 1800 },
+                    { label: '01:00:00', seconds: 3600 },
+                    { label: '02:00:00', seconds: 7200 },
+                  ].map((d) => (
+                    <TouchableOpacity
+                      key={d.label}
+                      style={[styles.quickTimeGridItem, duration === d.seconds && styles.quickTimeGridItemActive]}
+                      onPress={() => {
+                        setDuration(d.seconds);
+                        setShowTimePicker(false);
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }}
+                    >
+                      <Text style={[styles.quickTimeGridText, duration === d.seconds && styles.quickTimeGridTextActive]}>
+                        {d.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Manual Time Input */}
+                <TouchableOpacity 
+                  style={styles.setManuallyBtn}
                   onPress={() => {
-                    setDuration(d.seconds);
+                    // Show manual input - toggle visibility or expand
+                  }}
+                >
+                  <Text style={styles.setManuallyBtnText}>Set manually</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                {/* TIME Mode - Candle-based */}
+                <Text style={styles.timeModeDescription}>Trade closes when candle closes</Text>
+                
+                <View style={styles.candleModeInfo}>
+                  <View style={styles.candleModeInfoRow}>
+                    <Ionicons name="information-circle" size={18} color="#FFB800" />
+                    <Text style={styles.candleModeInfoText}>
+                      If candle has {'>'} 30s remaining: Trade closes with current candle
+                    </Text>
+                  </View>
+                  <View style={styles.candleModeInfoRow}>
+                    <Ionicons name="information-circle" size={18} color="#FFB800" />
+                    <Text style={styles.candleModeInfoText}>
+                      If candle has {'<'} 30s remaining: Trade closes with next candle
+                    </Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity 
+                  style={styles.confirmTimeModeBtn}
+                  onPress={() => {
                     setShowTimePicker(false);
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   }}
                 >
-                  <Text style={[styles.quickTimeGridText, duration === d.seconds && styles.quickTimeGridTextActive]}>
-                    {d.label}
-                  </Text>
+                  <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                  <Text style={styles.confirmTimeModeBtnText}>Use Candle Time</Text>
                 </TouchableOpacity>
-              ))}
-            </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -5529,6 +5598,78 @@ const styles = StyleSheet.create({
   },
   quickTimeGridTextActive: {
     color: '#00E55A',
+  },
+  // TIMER/TIME Mode Styles
+  timeModeTabContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 10,
+    padding: 4,
+    marginBottom: 16,
+  },
+  timeModeTab: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  timeModeTabActive: {
+    backgroundColor: '#00E55A',
+  },
+  timeModeTabText: {
+    color: '#888',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  timeModeTabTextActive: {
+    color: '#0A1A0F',
+  },
+  timeModeDescription: {
+    color: '#888',
+    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  candleModeInfo: {
+    backgroundColor: 'rgba(255, 184, 0, 0.1)',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+    gap: 10,
+  },
+  candleModeInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  candleModeInfoText: {
+    color: '#FFB800',
+    fontSize: 11,
+    flex: 1,
+  },
+  confirmTimeModeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#00E55A',
+    paddingVertical: 14,
+    borderRadius: 10,
+    gap: 8,
+  },
+  confirmTimeModeBtnText: {
+    color: '#0A1A0F',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  setManuallyBtn: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginTop: 10,
+  },
+  setManuallyBtnText: {
+    color: '#00E55A',
+    fontSize: 13,
+    fontWeight: '600',
   },
   labelText: {
     color: '#999',
