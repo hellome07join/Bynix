@@ -957,6 +957,9 @@ export default function Trade() {
             if (asset.symbol) {
               payoutMap[asset.symbol] = asset.payout_percentage;
               payoutMap[asset.symbol + ' OTC'] = asset.payout_percentage;
+              // Also add without OTC and clean formats
+              payoutMap[asset.symbol.toUpperCase()] = asset.payout_percentage;
+              payoutMap[asset.symbol.toUpperCase() + ' OTC'] = asset.payout_percentage;
             }
             if (asset.name) {
               payoutMap[asset.name] = asset.payout_percentage;
@@ -964,6 +967,7 @@ export default function Trade() {
           }
         });
         
+        console.log('Payout Map sample:', Object.entries(payoutMap).slice(0, 6));
         setApiPayouts(payoutMap);
         setInactiveAssets(inactiveSet);
         setDemoOnlyAssets(demoOnlySet);
@@ -971,35 +975,43 @@ export default function Trade() {
         
         // Auto-select highest payout asset on load
         if (formattedAssets.length > 0) {
-          // Filter assets based on account type
-          const isDemoOnlyAsset = (assetValue: string) => {
-            const clean = assetValue.toUpperCase().replace(/[\/\s]/g, '').replace('OTC', '');
-            const demoOnlyPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'NZDUSD', 'USDCAD'];
-            return demoOnlyPairs.some(pair => clean.includes(pair) || pair.includes(clean));
-          };
-          
+          // For real account, exclude demo-only assets from demoOnlySet
+          // For demo account, include all
           const availableAssets = formattedAssets.filter((asset: any) => {
-            const isDemoOnly = isDemoOnlyAsset(asset.value);
-            // For real account: exclude demo-only assets
-            // For demo account: include all
-            if (accountType === 'real') return !isDemoOnly;
+            if (accountType === 'real') {
+              // Check if this asset is in demo-only set
+              const assetVal = asset.value || '';
+              const assetLabel = asset.label || '';
+              return !demoOnlySet.has(assetVal) && !demoOnlySet.has(assetLabel);
+            }
             return true;
           });
+          
+          console.log('Available assets for selection:', availableAssets.length, 'accountType:', accountType);
           
           if (availableAssets.length > 0) {
             // Find highest payout asset
             let highestPayoutAsset = availableAssets[0];
+            let highestPayout = 0;
+            
             for (const asset of availableAssets) {
-              const payout = payoutMap[asset.value] || payoutMap[asset.label] || asset.payout || 0;
-              const currentHighest = payoutMap[highestPayoutAsset.value] || payoutMap[highestPayoutAsset.label] || highestPayoutAsset.payout || 0;
-              if (payout > currentHighest) {
+              // Try multiple key formats for payout lookup
+              const payout = payoutMap[asset.value] || 
+                             payoutMap[asset.label] || 
+                             payoutMap[asset.value?.replace(' OTC', '')] ||
+                             payoutMap[asset.label?.replace(' OTC', '')] ||
+                             asset.payout || 0;
+              
+              if (payout > highestPayout) {
+                highestPayout = payout;
                 highestPayoutAsset = asset;
               }
             }
             
-            // Only set if different from current
-            if (highestPayoutAsset.value !== selectedAsset) {
-              console.log('Auto-selecting highest payout asset:', highestPayoutAsset.value, 'with payout:', payoutMap[highestPayoutAsset.value] || highestPayoutAsset.payout);
+            console.log('Highest payout asset found:', highestPayoutAsset.value, 'payout:', highestPayout);
+            
+            // Set selected asset
+            if (highestPayoutAsset.value) {
               setSelectedAsset(highestPayoutAsset.value);
             }
           }
