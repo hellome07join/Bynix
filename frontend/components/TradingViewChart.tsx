@@ -1337,22 +1337,87 @@ export default function TradingViewChart({
         ctx.stroke();
       }
       
-      // ===== AMOUNT TEXT (right side of badge) - SMALL 10px like text labels =====
+      // ===== AMOUNT TEXT (right side of badge) - BIGGER SIZE =====
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 10px Arial';
+      ctx.font = 'bold 12px Arial';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
       ctx.fillText(`${marker.amount || 0}$`, badgeX + 20, markerY);
       
-      // ===== EXIT CIRCLE MARKER at exit point (SMALL - subtle like text) =====
+      // ===== EXIT POINT - P/L RESULT BOX =====
       if (visibleExitX > padding.left && visibleExitX < width - padding.right) {
-        // Outer colored circle - small
+        
+        // Calculate real-time P/L based on current price vs entry price
+        const currentPriceValue = internalPrice || 0;
+        const entryPriceValue = marker.entryPrice || 0;
+        const tradeAmount = marker.amount || 0;
+        const payoutPercent = 85; // Default payout
+        
+        // Determine if winning or losing based on trade direction and price movement
+        let isWinning = false;
+        if (marker.type === 'call') {
+          isWinning = currentPriceValue > entryPriceValue;
+        } else {
+          isWinning = currentPriceValue < entryPriceValue;
+        }
+        
+        // Calculate P/L
+        const profitLoss = isWinning ? (tradeAmount * payoutPercent / 100) : -tradeAmount;
+        const plSign = profitLoss >= 0 ? '+' : '';
+        const plColor = isWinning ? 'rgba(0, 200, 83, 0.95)' : 'rgba(255, 68, 68, 0.95)';
+        
+        // P/L Result Box dimensions - positioned LEFT of exit dot
+        const plBoxWidth = 85;
+        const plBoxHeight = 55;
+        const plBoxX = visibleExitX - plBoxWidth - 12;
+        const plBoxY = markerY - plBoxHeight / 2;
+        
+        // Draw P/L box background with rounded corners
+        ctx.fillStyle = plColor;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(plBoxX, plBoxY, plBoxWidth, plBoxHeight, 8);
+        } else {
+          ctx.rect(plBoxX, plBoxY, plBoxWidth, plBoxHeight);
+        }
+        ctx.fill();
+        
+        // Arrow pointer pointing to exit dot
+        ctx.beginPath();
+        ctx.moveTo(plBoxX + plBoxWidth, markerY - 8);
+        ctx.lineTo(plBoxX + plBoxWidth + 12, markerY);
+        ctx.lineTo(plBoxX + plBoxWidth, markerY + 8);
+        ctx.closePath();
+        ctx.fill();
+        
+        // "RESULT (P/L)" header text
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText('RESULT (P/L)', plBoxX + plBoxWidth / 2, plBoxY + 8);
+        
+        // P/L amount text - BIGGER
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${plSign}${profitLoss.toFixed(2)} $`, plBoxX + plBoxWidth / 2, plBoxY + plBoxHeight / 2 + 8);
+        
+        // X close button (decorative)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'top';
+        ctx.fillText('×', plBoxX + plBoxWidth - 6, plBoxY + 4);
+        
+        // Exit dot marker (small circle at the arrow tip)
         ctx.fillStyle = markerColor;
         ctx.beginPath();
         ctx.arc(visibleExitX, markerY, 5, 0, Math.PI * 2);
         ctx.fill();
         
-        // Inner white circle - tiny
+        // Inner white circle
         ctx.fillStyle = '#FFFFFF';
         ctx.beginPath();
         ctx.arc(visibleExitX, markerY, 2, 0, Math.PI * 2);
