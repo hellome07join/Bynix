@@ -668,12 +668,16 @@ export default function TradingViewChart({
     const totalBarWidth = baseBarWidth + barSpacing;
     const visibleCandles = Math.floor(chartWidth / totalBarWidth);
     
-    // Calculate how many extra candles we need to load based on scroll
-    // Positive scrollOffset = scrolled right = need more historical candles
-    const extraCandlesNeeded = Math.ceil(Math.abs(scrollOffset) / totalBarWidth) + 10; // Buffer of 10
+    // FIXED: Calculate extra candles needed based on scroll offset
+    // When zoomed in (scale > 1), totalBarWidth is larger, so we need fewer candles
+    // But scrollOffset is in pixels, so we need to convert properly
+    // Also add a minimum buffer to prevent jumping
+    const scrolledCandles = Math.ceil(Math.abs(scrollOffset) / totalBarWidth);
+    const minBuffer = 50; // Always load at least 50 extra candles
+    const extraCandlesNeeded = Math.max(minBuffer, scrolledCandles + 20);
     
     // Load more candles than visible for smooth scrolling
-    const totalCandlesToLoad = visibleCandles + extraCandlesNeeded * 2; // Load extra on both sides
+    const totalCandlesToLoad = visibleCandles + extraCandlesNeeded;
     
     // Calculate start index - load from beginning if we've scrolled far
     const baseStartIndex = Math.max(0, aggregatedCandles.length - totalCandlesToLoad);
