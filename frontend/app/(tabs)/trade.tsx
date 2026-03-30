@@ -2107,13 +2107,13 @@ export default function Trade() {
 
       {/* Tools Bar - Between chart and trading panel */}
       <View style={styles.toolsBar}>
-        {/* Set Time Button */}
+        {/* Time Button */}
         <TouchableOpacity 
           style={styles.setTimeBtn}
           onPress={() => setShowTimePicker(true)}
         >
           <Ionicons name="time" size={16} color="#FFB800" />
-          <Text style={styles.setTimeText}>{formatDuration(duration)}</Text>
+          <Text style={styles.setTimeText}>Time</Text>
           <Ionicons name="chevron-down" size={14} color="#FFB800" />
         </TouchableOpacity>
 
