@@ -619,6 +619,7 @@ export default function Trade() {
     profitLoss: number;
     entryPrice: number;
     exitTime: number;
+    asset: string;
   }>>([]);
   const resultAnim = useRef(new Animated.Value(0)).current;
   
@@ -1668,6 +1669,7 @@ export default function Trade() {
       profitLoss,
       entryPrice: trade.entry_price,
       exitPrice: finalExitPrice,
+      asset: trade.asset, // Track which asset this trade was on
     };
 
     // Only show popup and sounds if not batch settling (shouldRefreshUser = true means single trade)
@@ -1681,6 +1683,7 @@ export default function Trade() {
         profitLoss,
         entryPrice: trade.entry_price,
         exitTime: Date.now(),
+        asset: trade.asset, // Track which asset this trade was on
       };
       setCompletedTradeResults(prev => [...prev, newResult]);
       
@@ -1879,18 +1882,20 @@ export default function Trade() {
             currentPrice={currentPrice}
             chartType={chartType}
             tradeDuration={duration}
-            tradeMarkers={activeTrades.map(trade => ({
-              id: trade.id,
-              entryPrice: trade.entry_price,
-              type: trade.type,
-              amount: trade.amount,
-              remainingTime: trade.countdown,
-              entryTime: trade.startTime,
-              expiryTime: trade.endTime,
-              duration: trade.duration
-            }))}
-            tradeResult={tradeResult}
-            completedTradeResults={completedTradeResults}
+            tradeMarkers={activeTrades
+              .filter(trade => trade.asset === selectedAsset) // Only show trades for current asset
+              .map(trade => ({
+                id: trade.id,
+                entryPrice: trade.entry_price,
+                type: trade.type,
+                amount: trade.amount,
+                remainingTime: trade.countdown,
+                entryTime: trade.startTime,
+                expiryTime: trade.endTime,
+                duration: trade.duration
+              }))}
+            tradeResult={tradeResult && tradeResult.asset === selectedAsset ? tradeResult : null}
+            completedTradeResults={completedTradeResults.filter(r => r.asset === selectedAsset)}
             horizontalLines={horizontalLines}
             trendLines={trendLines}
             trendLinePreview={trendLinePreview}
