@@ -6,11 +6,11 @@ import Constants from 'expo-constants';
 // Fine-tuned for Binolla-like smoothness
 
 // Scroll Physics
-const SCROLL_SENSITIVITY = 0.25; // Reduced from 0.8 for smoother, slower scroll
-const MOMENTUM_FRICTION = 0.92; // More friction for controlled deceleration
+const SCROLL_SENSITIVITY = 0.1; // Reduced further for much slower scroll
+const MOMENTUM_FRICTION = 0.85; // Much more friction for quicker stop
 const MOMENTUM_MIN_VELOCITY = 0.1; // Lower threshold for smoother stop
-const VELOCITY_MULTIPLIER = 6; // Reduced from 20 for gentler momentum
-const MAX_VELOCITY = 12; // Reduced from 50 for controlled feel
+const VELOCITY_MULTIPLIER = 2; // Reduced from 6 for very gentle momentum
+const MAX_VELOCITY = 5; // Reduced from 12 for very controlled feel
 
 // Zoom Physics  
 const ZOOM_EASING = 0.12; // Smooth zoom interpolation
