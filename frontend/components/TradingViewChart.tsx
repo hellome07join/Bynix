@@ -691,24 +691,29 @@ export default function TradingViewChart({
     if (visibleData.length === 0) return;
     
     // Find the running candle's index in visibleData
-    // Running candle is always at the end of the original data
-    // Its position in visibleData depends on how much we've scrolled
-    const runningCandleIndexInVisibleData = visibleData.length - 1 - scrolledCandleCount;
+    // Running candle is always at the END of aggregatedCandles
+    // In visibleData, it's at index (visibleData.length - 1)
+    const runningCandleIndexInVisibleData = visibleData.length - 1;
     
     // Calculate chart center for centering
     const chartCenter = (width - padding.left - padding.right) / 2 + padding.left;
     
-    // We want the running candle to be at center by default (when scrolledCandleCount = 0)
-    // Calculate offset to achieve this
+    // Calculate default X position for running candle in visibleData
     const runningCandleDefaultX = padding.left + runningCandleIndexInVisibleData * totalBarWidth + 15 + baseBarWidth / 2;
     
-    // Always center the running candle view
+    // When NOT scrolled (scrolledCandleCount = 0), center the running candle
+    // When scrolled, apply offset to move candles to show historical data
+    // Positive scrolledCandleCount = see more historical = candles move RIGHT
     const centerOffset = chartCenter - runningCandleDefaultX;
     
-    // No pixel-based scroll adjustment needed - we're doing candle-based
-    const xOffset = centerOffset;
+    // Apply scroll: each scrolled candle moves all candles right by one candle width
+    const scrollPixelOffset = scrolledCandleCount * totalBarWidth;
+    
+    // Combined offset
+    const xOffset = centerOffset + scrollPixelOffset;
     
     // Calculate actual running candle X position after offset
+    // This is where the running candle appears on screen
     const actualRunningCandleX = runningCandleDefaultX + xOffset;
     
     // Calculate price range
