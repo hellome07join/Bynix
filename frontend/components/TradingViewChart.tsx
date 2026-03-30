@@ -5,12 +5,13 @@ import Constants from 'expo-constants';
 // ============= SMOOTH CHART PHYSICS CONSTANTS =============
 // Fine-tuned for Binolla-like smoothness
 
-// Scroll Physics
-const SCROLL_SENSITIVITY = 0.1; // Reduced further for much slower scroll
-const MOMENTUM_FRICTION = 0.85; // Much more friction for quicker stop
+// Scroll Physics - Candle-based smooth scrolling
+const CANDLES_PER_SCROLL = 3; // Move exactly 3 candles per scroll gesture
+const SCROLL_THRESHOLD = 30; // Minimum drag distance to trigger scroll (pixels)
+const MOMENTUM_FRICTION = 0.85; // Friction for momentum
 const MOMENTUM_MIN_VELOCITY = 0.1; // Lower threshold for smoother stop
-const VELOCITY_MULTIPLIER = 2; // Reduced from 6 for very gentle momentum
-const MAX_VELOCITY = 5; // Reduced from 12 for very controlled feel
+const VELOCITY_MULTIPLIER = 2; // For momentum calculation
+const MAX_VELOCITY = 5; // Cap velocity
 
 // Zoom Physics  
 const ZOOM_EASING = 0.12; // Smooth zoom interpolation
@@ -1874,28 +1875,31 @@ export default function TradingViewChart({
             const onMouseMove = (moveE: any) => {
               const currentX = moveE.clientX;
               const currentTime = Date.now();
-              // Drag direction: drag right (positive diff) = see newer data (negative offset)
-              // Drag right (positive diff) = see older data (positive offset)
-              // Drag left (negative diff) = running candle goes right (negative offset)
               const diff = currentX - startX;
               const timeDiff = currentTime - lastTime;
               
               if (timeDiff > 0) {
-                // Velocity for momentum - follows drag direction
                 const rawVelocity = (currentX - lastX) / timeDiff * VELOCITY_MULTIPLIER;
                 scrollVelocityRef.current = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, rawVelocity));
               }
               
               lastX = currentX;
               lastTime = currentTime;
-              // FIXED: Drag RIGHT = positive offset = see history (unlimited)
-              // Drag LEFT = negative offset = running candle goes right (limited to 0)
-              // Removed scale multiplication for consistent feel at all zoom levels
-              const newOffset = startOffset + diff * SCROLL_SENSITIVITY;
-              // Limit: running candle can come to center (offset=0) but not go further left
-              // Positive offset = historical scroll (unlimited)
-              // Negative offset = not allowed (running candle already at center)
-              setScrollOffset(Math.max(0, newOffset));
+              
+              // Calculate candle width based on current scale
+              const candleWidth = (10 + 2) * scale; // baseBarWidth + barSpacing
+              const scrollPerCandle = candleWidth * CANDLES_PER_SCROLL;
+              
+              // Only scroll if dragged beyond threshold
+              if (Math.abs(diff) >= SCROLL_THRESHOLD) {
+                // Calculate how many "3-candle units" to scroll
+                const scrollUnits = Math.floor(Math.abs(diff) / SCROLL_THRESHOLD);
+                const scrollAmount = scrollUnits * scrollPerCandle * (diff > 0 ? 1 : -1);
+                const newOffset = startOffset + scrollAmount;
+                
+                // Limit: running candle can come to center (offset=0) but not go further left
+                setScrollOffset(Math.max(0, newOffset));
+              }
             };
             
               const onMouseUp = () => {
@@ -1903,32 +1907,14 @@ export default function TradingViewChart({
               document.removeEventListener('mousemove', onMouseMove);
               document.removeEventListener('mouseup', onMouseUp);
               
-              // Physics-based momentum scrolling with natural deceleration
-              const applyMomentum = () => {
-                if (Math.abs(scrollVelocityRef.current) > MOMENTUM_MIN_VELOCITY) {
-                  setScrollOffset(prev => {
-                    // FIXED: momentum follows drag direction (no scale multiplication)
-                    const newOffset = prev + scrollVelocityRef.current;
-                    // LIMIT: Running candle at center (offset=0) is the minimum
-                    // Positive offset = historical scroll (unlimited)
-                    if (newOffset < 0) {
-                      scrollVelocityRef.current = 0; // Stop momentum at boundary
-                      return 0;
-                    }
-                    return newOffset;
-                  });
-                  // Apply friction with slight easing curve
-                  scrollVelocityRef.current *= MOMENTUM_FRICTION;
-                  animationFrameRef.current = requestAnimationFrame(applyMomentum);
-                } else {
-                  scrollVelocityRef.current = 0;
-                }
-              };
-              
-              // Start momentum if velocity is significant
-              if (Math.abs(scrollVelocityRef.current) > 0.3) {
-                animationFrameRef.current = requestAnimationFrame(applyMomentum);
-              }
+              // Snap to nearest candle position (no momentum - just snap)
+              const candleWidth = (10 + 2) * scale;
+              setScrollOffset(prev => {
+                // Snap to nearest 3-candle boundary
+                const snapUnit = candleWidth * CANDLES_PER_SCROLL;
+                const snapped = Math.round(prev / snapUnit) * snapUnit;
+                return Math.max(0, snapped);
+              });
             };
             
             document.addEventListener('mousemove', onMouseMove);
@@ -2001,8 +1987,6 @@ export default function TradingViewChart({
                 if (moveE.touches.length === 1 && isDraggingRef.current) {
                   const currentX = moveE.touches[0].clientX;
                   const currentTime = Date.now();
-                  // FIXED: Drag right = positive offset = see history (unlimited)
-                  // Drag left = negative offset = running candle goes right (limited to 0)
                   const diff = currentX - startX;
                   const timeDiff = currentTime - lastTime;
                   
@@ -2013,10 +1997,21 @@ export default function TradingViewChart({
                   
                   lastX = currentX;
                   lastTime = currentTime;
-                  // Scale-aware scroll sensitivity - removed scale multiplication for consistent feel
-                  const newOffset = startOffset + diff * SCROLL_SENSITIVITY;
-                  // Limit: running candle can come to center (offset=0) but not go further left
-                  setScrollOffset(Math.max(0, newOffset));
+                  
+                  // Calculate candle width based on current scale
+                  const candleWidth = (10 + 2) * scale; // baseBarWidth + barSpacing
+                  const scrollPerCandle = candleWidth * CANDLES_PER_SCROLL;
+                  
+                  // Only scroll if dragged beyond threshold
+                  if (Math.abs(diff) >= SCROLL_THRESHOLD) {
+                    // Calculate how many "3-candle units" to scroll
+                    const scrollUnits = Math.floor(Math.abs(diff) / SCROLL_THRESHOLD);
+                    const scrollAmount = scrollUnits * scrollPerCandle * (diff > 0 ? 1 : -1);
+                    const newOffset = startOffset + scrollAmount;
+                    
+                    // Limit: running candle can come to center (offset=0) but not go further left
+                    setScrollOffset(Math.max(0, newOffset));
+                  }
                 }
               };
               
@@ -2026,32 +2021,14 @@ export default function TradingViewChart({
                 document.removeEventListener('touchmove', onTouchMove);
                 document.removeEventListener('touchend', onTouchEnd);
                 
-                // Physics-based momentum scrolling for touch with natural deceleration
-                const applyMomentum = () => {
-                  if (Math.abs(scrollVelocityRef.current) > MOMENTUM_MIN_VELOCITY) {
-                    setScrollOffset(prev => {
-                      // FIXED: momentum follows drag direction (no scale multiplication)
-                      const newOffset = prev + scrollVelocityRef.current;
-                      // LIMIT: Running candle at center (offset=0) is the minimum
-                      // Positive offset = historical scroll (unlimited)
-                      if (newOffset < 0) {
-                        scrollVelocityRef.current = 0; // Stop momentum at boundary
-                        return 0;
-                      }
-                      return newOffset;
-                    });
-                    // Apply friction with slight easing curve
-                    scrollVelocityRef.current *= MOMENTUM_FRICTION;
-                    animationFrameRef.current = requestAnimationFrame(applyMomentum);
-                  } else {
-                    scrollVelocityRef.current = 0;
-                  }
-                };
-                
-                // Start momentum if velocity is significant
-                if (Math.abs(scrollVelocityRef.current) > 0.3) {
-                  animationFrameRef.current = requestAnimationFrame(applyMomentum);
-                }
+                // Snap to nearest candle position (no momentum - just snap)
+                const candleWidth = (10 + 2) * scale;
+                setScrollOffset(prev => {
+                  // Snap to nearest 3-candle boundary
+                  const snapUnit = candleWidth * CANDLES_PER_SCROLL;
+                  const snapped = Math.round(prev / snapUnit) * snapUnit;
+                  return Math.max(0, snapped);
+                });
               };
               
               document.addEventListener('touchmove', onTouchMove, { passive: false });
