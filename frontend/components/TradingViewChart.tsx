@@ -1357,6 +1357,85 @@ export default function TradingViewChart({
         ctx.beginPath();
         ctx.arc(visibleExitX, markerY, 2, 0, Math.PI * 2);
         ctx.fill();
+        
+        // ===== P/L RESULT BOX near exit point =====
+        // Calculate real-time P/L based on current price vs entry price
+        const currentPriceValue = internalPrice || 0;
+        const entryPriceValue = marker.entryPrice || 0;
+        const tradeAmount = marker.amount || 0;
+        const payoutPercent = 85; // Default payout
+        
+        // Determine if winning or losing based on trade direction and price movement
+        let isWinning = false;
+        if (marker.type === 'call') {
+          isWinning = currentPriceValue > entryPriceValue;
+        } else {
+          isWinning = currentPriceValue < entryPriceValue;
+        }
+        
+        // Calculate P/L
+        const profitLoss = isWinning ? (tradeAmount * payoutPercent / 100) : -tradeAmount;
+        const plSign = profitLoss >= 0 ? '+' : '';
+        const plColor = isWinning ? 'rgba(0, 229, 90, 0.9)' : 'rgba(255, 82, 82, 0.9)';
+        const plBorderColor = isWinning ? '#00E55A' : '#FF5252';
+        
+        // P/L Result Box dimensions and position
+        const plBoxWidth = 75;
+        const plBoxHeight = 45;
+        const plBoxX = visibleExitX - plBoxWidth - 15; // Left of exit dot
+        const plBoxY = markerY - plBoxHeight / 2;
+        
+        // Draw P/L box background with arrow pointer
+        ctx.fillStyle = plColor;
+        ctx.beginPath();
+        
+        // Main box with rounded corners
+        if (ctx.roundRect) {
+          ctx.roundRect(plBoxX, plBoxY, plBoxWidth, plBoxHeight, 6);
+        } else {
+          ctx.rect(plBoxX, plBoxY, plBoxWidth, plBoxHeight);
+        }
+        ctx.fill();
+        
+        // Arrow pointer pointing to exit dot
+        ctx.beginPath();
+        ctx.moveTo(plBoxX + plBoxWidth, markerY - 6);
+        ctx.lineTo(plBoxX + plBoxWidth + 10, markerY);
+        ctx.lineTo(plBoxX + plBoxWidth, markerY + 6);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Border
+        ctx.strokeStyle = plBorderColor;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(plBoxX, plBoxY, plBoxWidth, plBoxHeight, 6);
+        } else {
+          ctx.rect(plBoxX, plBoxY, plBoxWidth, plBoxHeight);
+        }
+        ctx.stroke();
+        
+        // "RESULT (P/L)" header text
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.font = '8px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText('RESULT (P/L)', plBoxX + plBoxWidth / 2, plBoxY + 5);
+        
+        // P/L amount text
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 13px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${plSign}${profitLoss.toFixed(2)} $`, plBoxX + plBoxWidth / 2, plBoxY + plBoxHeight / 2 + 6);
+        
+        // X close button (decorative)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'top';
+        ctx.fillText('×', plBoxX + plBoxWidth - 5, plBoxY + 3);
       }
       
       // Price indicator on right axis - REMOVED (user request)
