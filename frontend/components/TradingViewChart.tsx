@@ -1365,11 +1365,15 @@ export default function TradingViewChart({
     
     // ===== DRAW TRADE RESULT BADGE at exit point =====
     if (tradeResult && tradeResult.entryPrice) {
+      console.log('[TRADE RESULT] Drawing badge:', tradeResult);
+      
       const resultYBase = padding.top + ((maxPrice - tradeResult.entryPrice) / (maxPrice - minPrice)) * chartHeight;
       const resultY = applyYScaleAndClamp(resultYBase);
       
       // Position at running candle (exit point) - center of chart
       const resultX = runningCandleXPos;
+      
+      console.log('[TRADE RESULT] Position:', { resultX, resultY, runningCandleXPos });
       
       const isWin = tradeResult.won;
       const plColor = isWin ? '#00C853' : '#E53935';
@@ -2261,6 +2265,14 @@ export default function TradingViewChart({
       clearTimeout(timer);
     };
   }, [drawChart]);
+
+  // Force redraw when tradeResult changes
+  useEffect(() => {
+    if (tradeResult) {
+      console.log('[TRADE RESULT] tradeResult changed, forcing redraw:', tradeResult);
+      drawChart();
+    }
+  }, [tradeResult, drawChart]);
 
   // Web platform rendering with Canvas
   if (Platform.OS === 'web') {

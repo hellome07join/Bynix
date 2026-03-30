@@ -1631,7 +1631,7 @@ export default function Trade() {
         tension: 50,
         friction: 7,
       }),
-      Animated.delay(3000),
+      Animated.delay(5000), // Show for 5 seconds
       Animated.timing(resultAnim, {
         toValue: 0,
         duration: 300,
@@ -1639,7 +1639,10 @@ export default function Trade() {
       }),
     ]).start(() => {
       setShowResult(false);
-      setTradeResult(null);
+      // Keep tradeResult for 2 more seconds for canvas display
+      setTimeout(() => {
+        setTradeResult(null);
+      }, 2000);
     });
   };
 
@@ -1767,7 +1770,7 @@ export default function Trade() {
               expiryTime: trade.endTime,
               duration: trade.duration
             }))}
-            tradeResult={showResult && tradeResult ? {
+            tradeResult={tradeResult ? {
               won: tradeResult.won,
               profitLoss: tradeResult.profitLoss,
               entryPrice: tradeResult.entryPrice
