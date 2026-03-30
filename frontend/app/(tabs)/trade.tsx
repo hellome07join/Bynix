@@ -1770,17 +1770,7 @@ export default function Trade() {
               expiryTime: trade.endTime,
               duration: trade.duration
             }))}
-            tradeResult={(() => {
-              const result = tradeResult ? {
-                won: tradeResult.won,
-                profitLoss: tradeResult.profitLoss,
-                entryPrice: tradeResult.entryPrice
-              } : null;
-              if (result) {
-                console.log('[TRADE.TSX] Passing tradeResult to chart:', result);
-              }
-              return result;
-            })()}
+            tradeResult={tradeResult}
             horizontalLines={horizontalLines}
             trendLines={trendLines}
             trendLinePreview={trendLinePreview}

@@ -327,6 +327,7 @@ export default function TradingViewChart({
   const [targetYScale, setTargetYScale] = useState(1);
   const [targetScale, setTargetScale] = useState(1);
   const [targetScrollOffset, setTargetScrollOffset] = useState(0);
+  const [displayedResult, setDisplayedResult] = useState<{ won: boolean; profitLoss: number; entryPrice: number } | null>(null);
   const priceTickerRef = useRef<any>(null);
   const candleIntervalRef = useRef<any>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1364,14 +1365,19 @@ export default function TradingViewChart({
     });
     
     // ===== DRAW TRADE RESULT BADGE at exit point (same style as entry badge) =====
-    console.log('[TRADE RESULT DEBUG] tradeResult:', tradeResult);
-    if (tradeResult) {
-      console.log('[TRADE RESULT DEBUG] entryPrice:', tradeResult.entryPrice, 'won:', tradeResult.won);
-    }
-    if (tradeResult && tradeResult.entryPrice && tradeResult.entryPrice > 0) {
-      console.log('[TRADE RESULT] Drawing badge:', tradeResult);
+    console.log('[TRADE RESULT DEBUG] tradeResult:', tradeResult, 'displayedResult:', displayedResult);
+    
+    // Use displayedResult (internal state) for drawing - it persists longer
+    const resultToShow = displayedResult || (tradeResult && tradeResult.entryPrice ? {
+      won: tradeResult.won,
+      profitLoss: tradeResult.profitLoss,
+      entryPrice: tradeResult.entryPrice
+    } : null);
+    
+    if (resultToShow && resultToShow.entryPrice && resultToShow.entryPrice > 0) {
+      console.log('[TRADE RESULT] Drawing result badge:', resultToShow);
       
-      const resultYBase = padding.top + ((maxPrice - tradeResult.entryPrice) / (maxPrice - minPrice)) * chartHeight;
+      const resultYBase = padding.top + ((maxPrice - resultToShow.entryPrice) / (maxPrice - minPrice)) * chartHeight;
       const resultY = applyYScaleAndClamp(resultYBase);
       
       // Position at running candle (exit point)
@@ -1379,9 +1385,9 @@ export default function TradingViewChart({
       
       console.log('[TRADE RESULT] Position:', { exitX, resultY, runningCandleXPos });
       
-      const isWin = tradeResult.won;
+      const isWin = resultToShow.won;
       const plColor = isWin ? '#00C853' : '#E53935';
-      const plAmount = Math.abs(tradeResult.profitLoss);
+      const plAmount = Math.abs(resultToShow.profitLoss);
       const plSign = isWin ? '+' : '-';
       
       // ===== RESULT BADGE - same style as entry badge, but on RIGHT side =====
@@ -2233,7 +2239,7 @@ export default function TradingViewChart({
     
     // ============== END INDICATOR DRAWING ==============
     
-  }, [aggregatedCandles, chartType, internalPrice, scrollOffset, scale, tradeMarkers, tradeResult, horizontalLines, trendLines, trendLinePreview, selectedTrendLineId, activeIndicators]);
+  }, [aggregatedCandles, chartType, internalPrice, scrollOffset, scale, tradeMarkers, tradeResult, displayedResult, horizontalLines, trendLines, trendLinePreview, selectedTrendLineId, activeIndicators]);
 
   // Redraw chart when data changes
   useEffect(() => {
@@ -2260,13 +2266,26 @@ export default function TradingViewChart({
     };
   }, [drawChart]);
 
-  // Force redraw when tradeResult changes
+  // Force redraw when tradeResult changes - store in displayedResult for persistence
   useEffect(() => {
-    if (tradeResult) {
-      console.log('[TRADE RESULT] tradeResult changed, forcing redraw:', tradeResult);
+    if (tradeResult && tradeResult.entryPrice) {
+      console.log('[TRADE RESULT] Storing result for display:', tradeResult);
+      setDisplayedResult({
+        won: tradeResult.won,
+        profitLoss: tradeResult.profitLoss,
+        entryPrice: tradeResult.entryPrice
+      });
       drawChart();
+      
+      // Clear displayed result after 8 seconds
+      const timer = setTimeout(() => {
+        console.log('[TRADE RESULT] Clearing displayed result');
+        setDisplayedResult(null);
+      }, 8000);
+      
+      return () => clearTimeout(timer);
     }
-  }, [tradeResult, drawChart]);
+  }, [tradeResult]);
 
   // Web platform rendering with Canvas
   if (Platform.OS === 'web') {
