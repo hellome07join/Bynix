@@ -1400,6 +1400,14 @@ export default function TradingViewChart({
       console.log('[COMPLETED RESULTS] Drawing', completedTradeResults.length, 'results');
       
       completedTradeResults.forEach((result, index) => {
+        console.log('[RESULT DEBUG]', {
+          id: result.id,
+          won: result.won,
+          profitLoss: result.profitLoss,
+          amount: result.amount,
+          entryPrice: result.entryPrice
+        });
+        
         if (!result.entryPrice || result.entryPrice <= 0) return;
         
         const resultYBase = padding.top + ((maxPrice - result.entryPrice) / (maxPrice - minPrice)) * chartHeight;
@@ -1421,16 +1429,22 @@ export default function TradingViewChart({
         let displayAmount: number;
         let plSign: string;
         
+        const tradeAmount = result.amount || 0;
+        const profit = Math.abs(result.profitLoss);
+        
+        console.log('[BADGE CALC]', { isWin, tradeAmount, profit, profitLoss: result.profitLoss });
+        
         if (isWin) {
           // Total payout = trade amount + profit
-          const tradeAmount = result.amount || 0;
-          displayAmount = tradeAmount + Math.abs(result.profitLoss);
+          displayAmount = tradeAmount + profit;
           plSign = '+';
         } else {
           // Loss = user gets $0 back
           displayAmount = 0;
           plSign = '-';
         }
+        
+        console.log('[BADGE DISPLAY]', { displayAmount, plSign });
         
         // Badge - make wider for larger amounts
         const amountText = `${plSign}$${displayAmount.toFixed(0)}`;
