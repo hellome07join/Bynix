@@ -1344,110 +1344,20 @@ export default function TradingViewChart({
       ctx.textBaseline = 'middle';
       ctx.fillText(`${marker.amount || 0}$`, badgeX + 20, markerY);
       
-      // ===== EXIT POINT - Diamond marker + P/L Result Badge =====
+      // ===== EXIT POINT - Simple circle marker =====
       if (visibleExitX > padding.left && visibleExitX < width - padding.right) {
-        
-        // Calculate real-time P/L
-        const currentPriceValue = internalPrice || 0;
-        const entryPriceValue = marker.entryPrice || 0;
-        const tradeAmount = marker.amount || 0;
-        const payoutPercent = 85;
-        
-        let isWinning = false;
-        if (marker.type === 'call') {
-          isWinning = currentPriceValue > entryPriceValue;
-        } else {
-          isWinning = currentPriceValue < entryPriceValue;
-        }
-        
-        const profitLoss = isWinning ? (tradeAmount * payoutPercent / 100) : -tradeAmount;
-        const plSign = profitLoss >= 0 ? '+' : '';
-        const plColor = isWinning ? '#00E55A' : '#FF4444';
-        
-        // ===== DIAMOND MARKER at exit =====
-        ctx.strokeStyle = plColor;
-        ctx.fillStyle = 'transparent';
-        ctx.lineWidth = 2;
+        // Outer colored circle
+        ctx.fillStyle = markerColor;
         ctx.beginPath();
-        ctx.moveTo(visibleExitX, markerY - 7);
-        ctx.lineTo(visibleExitX + 7, markerY);
-        ctx.lineTo(visibleExitX, markerY + 7);
-        ctx.lineTo(visibleExitX - 7, markerY);
-        ctx.closePath();
-        ctx.stroke();
-        
-        // Inner small diamond fill
-        ctx.fillStyle = plColor;
-        ctx.beginPath();
-        ctx.moveTo(visibleExitX, markerY - 3);
-        ctx.lineTo(visibleExitX + 3, markerY);
-        ctx.lineTo(visibleExitX, markerY + 3);
-        ctx.lineTo(visibleExitX - 3, markerY);
-        ctx.closePath();
+        ctx.arc(visibleExitX, markerY, 5, 0, Math.PI * 2);
         ctx.fill();
         
-        // ===== P/L RESULT BADGE (small inline) =====
-        const badgePLWidth = 70;
-        const badgePLHeight = 22;
-        const badgePLX = visibleExitX + 12;
-        const badgePLY = markerY - badgePLHeight / 2;
-        
-        // Badge outline
-        ctx.strokeStyle = plColor;
-        ctx.lineWidth = 1.5;
+        // Inner white circle
+        ctx.fillStyle = '#FFFFFF';
         ctx.beginPath();
-        if (ctx.roundRect) {
-          ctx.roundRect(badgePLX, badgePLY, badgePLWidth, badgePLHeight, 4);
-        } else {
-          ctx.rect(badgePLX, badgePLY, badgePLWidth, badgePLHeight);
-        }
-        ctx.stroke();
-        
-        // Badge background (semi-transparent)
-        ctx.fillStyle = isWinning ? 'rgba(0, 229, 90, 0.15)' : 'rgba(255, 68, 68, 0.15)';
+        ctx.arc(visibleExitX, markerY, 2, 0, Math.PI * 2);
         ctx.fill();
-        
-        // P/L Amount text
-        ctx.fillStyle = plColor;
-        ctx.font = 'bold 11px Arial';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(`${plSign}$${Math.abs(profitLoss).toFixed(2)}`, badgePLX + 6, markerY);
-        
-        // Checkmark or X icon circle
-        const iconX = badgePLX + badgePLWidth - 12;
-        const iconY = markerY;
-        
-        ctx.fillStyle = plColor;
-        ctx.beginPath();
-        ctx.arc(iconX, iconY, 7, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Draw checkmark or X
-        ctx.strokeStyle = '#FFFFFF';
-        ctx.lineWidth = 1.5;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        
-        if (isWinning) {
-          // Checkmark ✓
-          ctx.beginPath();
-          ctx.moveTo(iconX - 3, iconY);
-          ctx.lineTo(iconX - 1, iconY + 2.5);
-          ctx.lineTo(iconX + 3.5, iconY - 2.5);
-          ctx.stroke();
-        } else {
-          // X mark ✗
-          ctx.beginPath();
-          ctx.moveTo(iconX - 2.5, iconY - 2.5);
-          ctx.lineTo(iconX + 2.5, iconY + 2.5);
-          ctx.moveTo(iconX + 2.5, iconY - 2.5);
-          ctx.lineTo(iconX - 2.5, iconY + 2.5);
-          ctx.stroke();
-        }
       }
-      
-      // Price indicator on right axis - REMOVED (user request)
     });
     
     // Draw horizontal lines
