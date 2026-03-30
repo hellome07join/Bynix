@@ -1767,6 +1767,11 @@ export default function Trade() {
               expiryTime: trade.endTime,
               duration: trade.duration
             }))}
+            tradeResult={showResult && tradeResult ? {
+              won: tradeResult.won,
+              profitLoss: tradeResult.profitLoss,
+              entryPrice: tradeResult.entryPrice
+            } : null}
             horizontalLines={horizontalLines}
             trendLines={trendLines}
             trendLinePreview={trendLinePreview}
@@ -3868,37 +3873,7 @@ export default function Trade() {
       </Modal>
 
       {/* Trade Result Popup - Small Badge Style */}
-      {showResult && tradeResult && (
-        <Animated.View 
-          style={[
-            styles.resultPopup,
-            {
-              opacity: resultAnim,
-              transform: [
-                {
-                  scale: resultAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.9, 1],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <View style={[styles.resultBadge, tradeResult.won ? styles.resultBadgeWin : styles.resultBadgeLoss]}>
-            <View style={styles.resultIconCircle}>
-              <Ionicons 
-                name={tradeResult.won ? 'trophy' : 'close'} 
-                size={16} 
-                color="#FFFFFF"
-              />
-            </View>
-            <Text style={[styles.resultBadgeText, tradeResult.won ? styles.resultTextWin : styles.resultTextLoss]}>
-              {tradeResult.won ? 'Profit' : 'Loss'} {tradeResult.won ? '+' : '-'}${Math.abs(tradeResult.profitLoss).toFixed(2)}
-            </Text>
-          </View>
-        </Animated.View>
-      )}
+      {/* Trade result is now drawn on canvas at exit point */}
 
       {/* Onboarding Tutorial Modal */}
       <Modal

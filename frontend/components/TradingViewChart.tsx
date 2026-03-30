@@ -69,6 +69,7 @@ interface TradingViewChartProps {
   currentPrice?: number;
   chartType?: 'candle' | 'line' | 'bar';
   tradeMarkers?: TradeMarker[];
+  tradeResult?: { won: boolean; profitLoss: number; exitTime?: number; entryPrice?: number } | null;
   tradeDuration?: number; // Selected trade duration in seconds (for preview lines)
   horizontalLines?: HorizontalLine[];
   trendLines?: TrendLine[];
@@ -203,6 +204,7 @@ export default function TradingViewChart({
   currentPrice,
   chartType = 'candle',
   tradeMarkers = [],
+  tradeResult = null,
   tradeDuration = 60,
   horizontalLines = [],
   trendLines = [],
@@ -1360,6 +1362,101 @@ export default function TradingViewChart({
         ctx.fill();
       }
     });
+    
+    // ===== DRAW TRADE RESULT BADGE at exit point =====
+    if (tradeResult && tradeResult.entryPrice) {
+      const resultYBase = padding.top + ((maxPrice - tradeResult.entryPrice) / (maxPrice - minPrice)) * chartHeight;
+      const resultY = applyYScaleAndClamp(resultYBase);
+      
+      // Position at running candle (exit point) - center of chart
+      const resultX = runningCandleXPos;
+      
+      const isWin = tradeResult.won;
+      const plColor = isWin ? '#00C853' : '#E53935';
+      const plAmount = Math.abs(tradeResult.profitLoss);
+      const plSign = isWin ? '+' : '-';
+      
+      // Badge dimensions - VERY SMALL
+      const badgeW = 58;
+      const badgeH = 18;
+      const badgeX = resultX - badgeW / 2;
+      const badgeY = resultY - badgeH - 15; // Above the exit point
+      
+      // Badge background
+      ctx.fillStyle = plColor;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 4);
+      } else {
+        ctx.rect(badgeX, badgeY, badgeW, badgeH);
+      }
+      ctx.fill();
+      
+      // Badge border glow
+      ctx.strokeStyle = isWin ? '#00E55A' : '#FF5252';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      
+      // Trophy/X icon circle
+      const iconR = 6;
+      const iconX = badgeX + 10;
+      const iconY = badgeY + badgeH / 2;
+      
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.beginPath();
+      ctx.arc(iconX, iconY, iconR, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Draw trophy or X
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.lineWidth = 1.2;
+      ctx.lineCap = 'round';
+      
+      if (isWin) {
+        // Simple trophy shape
+        ctx.beginPath();
+        // Cup
+        ctx.moveTo(iconX - 3, iconY - 2);
+        ctx.lineTo(iconX - 2, iconY + 1);
+        ctx.lineTo(iconX + 2, iconY + 1);
+        ctx.lineTo(iconX + 3, iconY - 2);
+        ctx.stroke();
+        // Base
+        ctx.beginPath();
+        ctx.moveTo(iconX - 2, iconY + 2);
+        ctx.lineTo(iconX + 2, iconY + 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(iconX, iconY + 1);
+        ctx.lineTo(iconX, iconY + 2);
+        ctx.stroke();
+      } else {
+        // X mark
+        ctx.beginPath();
+        ctx.moveTo(iconX - 2, iconY - 2);
+        ctx.lineTo(iconX + 2, iconY + 2);
+        ctx.moveTo(iconX + 2, iconY - 2);
+        ctx.lineTo(iconX - 2, iconY + 2);
+        ctx.stroke();
+      }
+      
+      // Amount text
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 9px Arial';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${plSign}$${plAmount.toFixed(2)}`, badgeX + 20, badgeY + badgeH / 2);
+      
+      // Arrow pointing down to exit point
+      ctx.fillStyle = plColor;
+      ctx.beginPath();
+      ctx.moveTo(resultX - 5, badgeY + badgeH);
+      ctx.lineTo(resultX, badgeY + badgeH + 8);
+      ctx.lineTo(resultX + 5, badgeY + badgeH);
+      ctx.closePath();
+      ctx.fill();
+    }
     
     // Draw horizontal lines
     console.log('Drawing horizontal lines:', horizontalLines.length, 'minPrice:', minPrice, 'maxPrice:', maxPrice);
