@@ -7,11 +7,11 @@ import Constants from 'expo-constants';
 
 // Scroll Physics - Candle-based scrolling (no pixel offset)
 // scrollOffset now represents number of candles to scroll (converted from drag distance)
-const DRAG_TO_CANDLE_RATIO = 0.02; // 50px drag = 1 candle scroll
-const MOMENTUM_FRICTION = 0.75;
-const MOMENTUM_MIN_VELOCITY = 0.5;
-const VELOCITY_MULTIPLIER = 1;
-const MAX_VELOCITY = 3;
+const DRAG_TO_CANDLE_RATIO = 0.008; // Smoother: 125px drag = 1 candle scroll (was 0.02 = 50px)
+const MOMENTUM_FRICTION = 0.92; // Smoother momentum decay
+const MOMENTUM_MIN_VELOCITY = 0.02;
+const VELOCITY_MULTIPLIER = 0.5;
+const MAX_VELOCITY = 2;
 
 // Zoom Physics  
 const ZOOM_EASING = 0.12; // Smooth zoom interpolation
@@ -1885,7 +1885,18 @@ export default function TradingViewChart({
             
             const onMouseMove = (moveE: any) => {
               const currentX = moveE.clientX;
+              const currentTime = Date.now();
               const diff = currentX - startX;
+              const timeDiff = currentTime - lastTime;
+              
+              // Track velocity for momentum
+              if (timeDiff > 0) {
+                const pixelVelocity = (currentX - lastX) / timeDiff;
+                scrollVelocityRef.current = pixelVelocity * VELOCITY_MULTIPLIER * DRAG_TO_CANDLE_RATIO;
+              }
+              
+              lastX = currentX;
+              lastTime = currentTime;
               
               // Convert pixel drag to candle count
               // Positive diff (drag right) = positive scrollOffset = see historical candles
@@ -1901,7 +1912,28 @@ export default function TradingViewChart({
               isDraggingRef.current = false;
               document.removeEventListener('mousemove', onMouseMove);
               document.removeEventListener('mouseup', onMouseUp);
-              // No momentum - just stop where released
+              
+              // Light momentum for smooth stop
+              const applyMomentum = () => {
+                if (Math.abs(scrollVelocityRef.current) > MOMENTUM_MIN_VELOCITY) {
+                  setScrollOffset(prev => {
+                    const newOffset = prev + scrollVelocityRef.current;
+                    if (newOffset < 0) {
+                      scrollVelocityRef.current = 0;
+                      return 0;
+                    }
+                    return newOffset;
+                  });
+                  scrollVelocityRef.current *= MOMENTUM_FRICTION;
+                  animationFrameRef.current = requestAnimationFrame(applyMomentum);
+                } else {
+                  scrollVelocityRef.current = 0;
+                }
+              };
+              
+              if (Math.abs(scrollVelocityRef.current) > MOMENTUM_MIN_VELOCITY) {
+                animationFrameRef.current = requestAnimationFrame(applyMomentum);
+              }
             };
             
             document.addEventListener('mousemove', onMouseMove);
@@ -1973,7 +2005,18 @@ export default function TradingViewChart({
                 
                 if (moveE.touches.length === 1 && isDraggingRef.current) {
                   const currentX = moveE.touches[0].clientX;
+                  const currentTime = Date.now();
                   const diff = currentX - startX;
+                  const timeDiff = currentTime - lastTime;
+                  
+                  // Track velocity for momentum
+                  if (timeDiff > 0) {
+                    const pixelVelocity = (currentX - lastX) / timeDiff;
+                    scrollVelocityRef.current = pixelVelocity * VELOCITY_MULTIPLIER * DRAG_TO_CANDLE_RATIO;
+                  }
+                  
+                  lastX = currentX;
+                  lastTime = currentTime;
                   
                   // Convert pixel drag to candle count
                   // Positive diff (drag right) = positive scrollOffset = see historical candles
@@ -1991,7 +2034,28 @@ export default function TradingViewChart({
                 isPinchingRef.current = false;
                 document.removeEventListener('touchmove', onTouchMove);
                 document.removeEventListener('touchend', onTouchEnd);
-                // No momentum - just stop where released
+                
+                // Light momentum for smooth stop
+                const applyMomentum = () => {
+                  if (Math.abs(scrollVelocityRef.current) > MOMENTUM_MIN_VELOCITY) {
+                    setScrollOffset(prev => {
+                      const newOffset = prev + scrollVelocityRef.current;
+                      if (newOffset < 0) {
+                        scrollVelocityRef.current = 0;
+                        return 0;
+                      }
+                      return newOffset;
+                    });
+                    scrollVelocityRef.current *= MOMENTUM_FRICTION;
+                    animationFrameRef.current = requestAnimationFrame(applyMomentum);
+                  } else {
+                    scrollVelocityRef.current = 0;
+                  }
+                };
+                
+                if (Math.abs(scrollVelocityRef.current) > MOMENTUM_MIN_VELOCITY) {
+                  animationFrameRef.current = requestAnimationFrame(applyMomentum);
+                }
               };
               
               document.addEventListener('touchmove', onTouchMove, { passive: false });
