@@ -1417,7 +1417,7 @@ export default function TradingViewChart({
         const plColor = isWin ? '#00C853' : '#E53935';
         
         // For winning trades: show total payout (amount + profit)
-        // For losing trades: show loss amount
+        // For losing trades: show $0 (user gets nothing back)
         let displayAmount: number;
         let plSign: string;
         
@@ -1427,7 +1427,8 @@ export default function TradingViewChart({
           displayAmount = tradeAmount + Math.abs(result.profitLoss);
           plSign = '+';
         } else {
-          displayAmount = Math.abs(result.profitLoss);
+          // Loss = user gets $0 back
+          displayAmount = 0;
           plSign = '-';
         }
         
