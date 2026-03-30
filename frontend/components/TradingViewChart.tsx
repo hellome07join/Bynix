@@ -383,6 +383,24 @@ export default function TradingViewChart({
   // Convert symbol for API
   const apiSymbol = symbol.replace(' OTC', '').replace('/', '');
   
+  // Reset zoom and scroll when switching to a different asset
+  useEffect(() => {
+    // Reset to default position when asset changes
+    setScale(1);
+    setTargetScale(1);
+    setScrollOffset(0);
+    setTargetScrollOffset(0);
+    scrollVelocityRef.current = 0;
+    
+    // Cancel any ongoing scroll animation
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    
+    console.log(`[CHART] Asset changed to ${symbol}, reset zoom and scroll to default`);
+  }, [symbol]);
+  
   // Get interval in seconds
   const getIntervalSeconds = useCallback((int: string): number => {
     switch(int) {
