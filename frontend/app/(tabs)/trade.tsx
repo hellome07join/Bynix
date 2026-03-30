@@ -3878,7 +3878,7 @@ export default function Trade() {
                 {
                   scale: resultAnim.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [0.85, 1],
+                    outputRange: [0.9, 1],
                   }),
                 },
               ],
@@ -3888,8 +3888,8 @@ export default function Trade() {
           <View style={[styles.resultBadge, tradeResult.won ? styles.resultBadgeWin : styles.resultBadgeLoss]}>
             <View style={styles.resultIconCircle}>
               <Ionicons 
-                name={tradeResult.won ? 'checkmark' : 'close'} 
-                size={20} 
+                name={tradeResult.won ? 'trophy' : 'close'} 
+                size={14} 
                 color="#FFFFFF"
               />
             </View>
@@ -5884,36 +5884,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 14,
-    gap: 10,
-    minWidth: 180,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 8,
   },
   resultBadgeWin: {
     backgroundColor: 'rgba(0, 229, 90, 0.95)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(0, 255, 100, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 100, 0.5)',
     shadowColor: '#00E55A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 15,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
   },
   resultBadgeLoss: {
     backgroundColor: 'rgba(255, 68, 68, 0.95)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 100, 100, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 100, 100, 0.5)',
     shadowColor: '#FF4444',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 15,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
   },
   resultBadgeText: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '700',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   resultTextWin: {
     color: '#FFFFFF',
@@ -5922,14 +5921,12 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   resultIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   resultCard: {
     width: '100%',
