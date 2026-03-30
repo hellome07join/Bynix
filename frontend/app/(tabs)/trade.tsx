@@ -1770,11 +1770,17 @@ export default function Trade() {
               expiryTime: trade.endTime,
               duration: trade.duration
             }))}
-            tradeResult={tradeResult ? {
-              won: tradeResult.won,
-              profitLoss: tradeResult.profitLoss,
-              entryPrice: tradeResult.entryPrice
-            } : null}
+            tradeResult={(() => {
+              const result = tradeResult ? {
+                won: tradeResult.won,
+                profitLoss: tradeResult.profitLoss,
+                entryPrice: tradeResult.entryPrice
+              } : null;
+              if (result) {
+                console.log('[TRADE.TSX] Passing tradeResult to chart:', result);
+              }
+              return result;
+            })()}
             horizontalLines={horizontalLines}
             trendLines={trendLines}
             trendLinePreview={trendLinePreview}
@@ -3876,7 +3882,57 @@ export default function Trade() {
       </Modal>
 
       {/* Trade Result Popup - Small Badge Style */}
-      {/* Trade result is now drawn on canvas at exit point */}
+      {/* Trade result badge near exit point */}
+      {tradeResult && (
+        <View style={{
+          position: 'absolute',
+          top: '42%',
+          left: '50%',
+          transform: [{ translateX: -40 }],
+          zIndex: 1000,
+        }}>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: tradeResult.won ? '#00C853' : '#E53935',
+            paddingHorizontal: 10,
+            paddingVertical: 6,
+            borderRadius: 6,
+            gap: 5,
+            borderWidth: 1,
+            borderColor: tradeResult.won ? '#00E55A' : '#FF5252',
+          }}>
+            <View style={{
+              width: 18,
+              height: 18,
+              borderRadius: 9,
+              backgroundColor: 'rgba(255,255,255,0.3)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              <Ionicons 
+                name={tradeResult.won ? 'trophy' : 'close'} 
+                size={11} 
+                color="#FFFFFF" 
+              />
+            </View>
+            <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '700' }}>
+              {tradeResult.won ? '+' : '-'}${Math.abs(tradeResult.profitLoss).toFixed(2)}
+            </Text>
+          </View>
+          <View style={{
+            width: 0,
+            height: 0,
+            alignSelf: 'center',
+            borderLeftWidth: 6,
+            borderRightWidth: 6,
+            borderTopWidth: 8,
+            borderLeftColor: 'transparent',
+            borderRightColor: 'transparent',
+            borderTopColor: tradeResult.won ? '#00C853' : '#E53935',
+          }} />
+        </View>
+      )}
 
       {/* Onboarding Tutorial Modal */}
       <Modal
