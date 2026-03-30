@@ -3886,11 +3886,13 @@ export default function Trade() {
           ]}
         >
           <View style={[styles.resultBadge, tradeResult.won ? styles.resultBadgeWin : styles.resultBadgeLoss]}>
-            <Ionicons 
-              name={tradeResult.won ? 'checkmark-circle' : 'close-circle'} 
-              size={22} 
-              color={tradeResult.won ? '#0A1A0F' : '#FFFFFF'} 
-            />
+            <View style={styles.resultIconCircle}>
+              <Ionicons 
+                name={tradeResult.won ? 'checkmark' : 'close'} 
+                size={32} 
+                color={tradeResult.won ? '#00E55A' : '#FF4444'} 
+              />
+            </View>
             <Text style={[styles.resultBadgeText, tradeResult.won ? styles.resultTextWin : styles.resultTextLoss]}>
               {tradeResult.won ? 'Profit' : 'Loss'} {tradeResult.won ? '+' : '-'}${Math.abs(tradeResult.profitLoss).toFixed(2)}
             </Text>
@@ -5871,48 +5873,61 @@ const styles = StyleSheet.create({
   },
   resultPopup: {
     position: 'absolute',
-    top: '40%',
+    top: '35%',
     left: 0,
     right: 0,
     alignItems: 'center',
+    justifyContent: 'center',
     zIndex: 1000,
   },
   resultBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    gap: 8,
-    borderWidth: 2,
+    justifyContent: 'center',
+    paddingHorizontal: 30,
+    paddingVertical: 25,
+    borderRadius: 20,
+    gap: 15,
+    minWidth: 280,
   },
   resultBadgeWin: {
     backgroundColor: '#00E55A',
-    borderColor: '#00B847',
+    borderWidth: 3,
+    borderColor: 'rgba(0, 180, 71, 0.5)',
     shadowColor: '#00E55A',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 10,
-    elevation: 10,
+    shadowOpacity: 1,
+    shadowRadius: 30,
+    elevation: 20,
   },
   resultBadgeLoss: {
-    backgroundColor: '#FF3B3B',
-    borderColor: '#CC2F2F',
-    shadowColor: '#FF3B3B',
+    backgroundColor: '#FF4444',
+    borderWidth: 3,
+    borderColor: 'rgba(200, 50, 50, 0.5)',
+    shadowColor: '#FF4444',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 10,
-    elevation: 10,
+    shadowOpacity: 1,
+    shadowRadius: 30,
+    elevation: 20,
   },
   resultBadgeText: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 26,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   resultTextWin: {
     color: '#0A1A0F',
   },
   resultTextLoss: {
     color: '#FFFFFF',
+  },
+  resultIconCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   resultCard: {
     width: '100%',
