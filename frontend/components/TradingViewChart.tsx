@@ -5,13 +5,14 @@ import Constants from 'expo-constants';
 // ============= SMOOTH CHART PHYSICS CONSTANTS =============
 // Fine-tuned for Binolla-like smoothness
 
-// Scroll Physics - Candle-based scrolling with smooth animation
+// Scroll Physics - Candle-based scrolling with smooth animation like zoom
 // scrollOffset now represents number of candles to scroll (converted from drag distance)
-const DRAG_TO_CANDLE_RATIO = 0.015; // Faster: ~67px drag = 1 candle scroll
-const MOMENTUM_FRICTION = 0.95; // Higher = longer smooth glide
-const MOMENTUM_MIN_VELOCITY = 0.005; // Lower threshold for smoother stop
-const VELOCITY_MULTIPLIER = 1.5; // More responsive momentum
-const MAX_VELOCITY = 4; // Allow faster swipes
+const DRAG_TO_CANDLE_RATIO = 0.03; // Faster: ~33px drag = 1 candle scroll
+const SCROLL_EASING = 0.15; // Same as ZOOM_EASING for consistent feel
+const MOMENTUM_FRICTION = 0.96; // Higher = longer smooth glide
+const MOMENTUM_MIN_VELOCITY = 0.003; // Very low for smooth ending
+const VELOCITY_MULTIPLIER = 2.5; // More responsive
+const MAX_VELOCITY = 8; // Allow faster swipes
 
 // Zoom Physics  
 const ZOOM_EASING = 0.12; // Smooth zoom interpolation
@@ -313,8 +314,33 @@ export default function TradingViewChart({
     };
   }, [targetScale]);
   
-  // Note: Removed smooth scroll animation that was resetting to center
-  // User scroll position is now respected without auto-centering
+  // Smooth scroll animation - interpolate to target scroll position (like zoom)
+  useEffect(() => {
+    let isAnimating = true;
+    let animFrame: number;
+    
+    const animate = () => {
+      if (!isAnimating) return;
+      
+      // Smooth scroll transition with cubic easing (same as zoom)
+      setScrollOffset(prev => {
+        const diff = targetScrollOffset - prev;
+        if (Math.abs(diff) < 0.001) return targetScrollOffset;
+        // Use SCROLL_EASING for consistent feel with zoom
+        const easedDiff = diff * SCROLL_EASING;
+        return prev + easedDiff;
+      });
+      
+      animFrame = requestAnimationFrame(animate);
+    };
+    
+    animFrame = requestAnimationFrame(animate);
+    
+    return () => {
+      isAnimating = false;
+      cancelAnimationFrame(animFrame);
+    };
+  }, [targetScrollOffset]);
   
   // Smooth price animation - interpolate to target price
   useEffect(() => {
@@ -1904,7 +1930,9 @@ export default function TradingViewChart({
               const newOffset = startOffset + candleOffset;
               
               // Limit: running candle at center (offset=0) is minimum
-              // Positive offset = historical view, unlimited
+              // Use targetScrollOffset for smooth animated scrolling
+              setTargetScrollOffset(Math.max(0, newOffset));
+              // Also update direct offset for real-time feel during drag
               setScrollOffset(Math.max(0, newOffset));
             };
             
@@ -1913,10 +1941,10 @@ export default function TradingViewChart({
               document.removeEventListener('mousemove', onMouseMove);
               document.removeEventListener('mouseup', onMouseUp);
               
-              // Smooth momentum with easing for buttery animation
+              // Apply momentum using targetScrollOffset for smooth animation
               const applyMomentum = () => {
                 if (Math.abs(scrollVelocityRef.current) > MOMENTUM_MIN_VELOCITY) {
-                  setScrollOffset(prev => {
+                  setTargetScrollOffset(prev => {
                     const newOffset = prev + scrollVelocityRef.current;
                     if (newOffset < 0) {
                       scrollVelocityRef.current = 0;
@@ -1925,9 +1953,7 @@ export default function TradingViewChart({
                     return newOffset;
                   });
                   // Smooth easing - velocity decreases more naturally
-                  // Use cubic easing for smoother deceleration
-                  const easedFriction = MOMENTUM_FRICTION + (1 - MOMENTUM_FRICTION) * 0.1;
-                  scrollVelocityRef.current *= easedFriction;
+                  scrollVelocityRef.current *= MOMENTUM_FRICTION;
                   animationFrameRef.current = requestAnimationFrame(applyMomentum);
                 } else {
                   scrollVelocityRef.current = 0;
@@ -2026,8 +2052,9 @@ export default function TradingViewChart({
                   const candleOffset = diff * DRAG_TO_CANDLE_RATIO;
                   const newOffset = startOffset + candleOffset;
                   
-                  // Limit: running candle at center (offset=0) is minimum
-                  // Positive offset = historical view, unlimited
+                  // Use targetScrollOffset for smooth animated scrolling
+                  setTargetScrollOffset(Math.max(0, newOffset));
+                  // Also update direct offset for real-time feel during drag
                   setScrollOffset(Math.max(0, newOffset));
                 }
               };
@@ -2038,10 +2065,10 @@ export default function TradingViewChart({
                 document.removeEventListener('touchmove', onTouchMove);
                 document.removeEventListener('touchend', onTouchEnd);
                 
-                // Light momentum for smooth stop
+                // Apply momentum using targetScrollOffset for smooth animation
                 const applyMomentum = () => {
                   if (Math.abs(scrollVelocityRef.current) > MOMENTUM_MIN_VELOCITY) {
-                    setScrollOffset(prev => {
+                    setTargetScrollOffset(prev => {
                       const newOffset = prev + scrollVelocityRef.current;
                       if (newOffset < 0) {
                         scrollVelocityRef.current = 0;
@@ -2050,9 +2077,7 @@ export default function TradingViewChart({
                       return newOffset;
                     });
                     // Smooth easing - velocity decreases more naturally
-                    // Use cubic easing for smoother deceleration
-                    const easedFriction = MOMENTUM_FRICTION + (1 - MOMENTUM_FRICTION) * 0.1;
-                    scrollVelocityRef.current *= easedFriction;
+                    scrollVelocityRef.current *= MOMENTUM_FRICTION;
                     animationFrameRef.current = requestAnimationFrame(applyMomentum);
                   } else {
                     scrollVelocityRef.current = 0;
