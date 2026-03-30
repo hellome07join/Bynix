@@ -918,6 +918,12 @@ export default function TradingViewChart({
       ctx.stroke();
     }
     
+    // Set clipping region to chart area so candles don't overflow
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(padding.left, padding.top, chartWidth, chartHeight);
+    ctx.clip();
+    
     // Draw candles with offset (running candle at center by default, moves with scroll)
     visibleData.forEach((candle, i) => {
       const x = padding.left + i * totalBarWidth + 15 + xOffset;
@@ -971,6 +977,9 @@ export default function TradingViewChart({
         ctx.fillRect(x, bodyTop, baseBarWidth, bodyHeight);
       }
     });
+    
+    // Restore context after clipping (for candles)
+    ctx.restore();
     
     // Draw price scale
     ctx.fillStyle = '#888';
