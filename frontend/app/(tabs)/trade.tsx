@@ -3889,7 +3889,7 @@ export default function Trade() {
             <View style={styles.resultIconCircle}>
               <Ionicons 
                 name={tradeResult.won ? 'trophy' : 'close'} 
-                size={14} 
+                size={16} 
                 color="#FFFFFF"
               />
             </View>
@@ -5873,7 +5873,7 @@ const styles = StyleSheet.create({
   },
   resultPopup: {
     position: 'absolute',
-    top: '35%',
+    top: '45%',
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -5884,35 +5884,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 10,
-    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
   },
   resultBadgeWin: {
-    backgroundColor: 'rgba(0, 229, 90, 0.95)',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 255, 100, 0.5)',
+    backgroundColor: '#00C853',
+    borderWidth: 1.5,
+    borderColor: '#00E55A',
     shadowColor: '#00E55A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 12,
+    elevation: 10,
   },
   resultBadgeLoss: {
-    backgroundColor: 'rgba(255, 68, 68, 0.95)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 100, 100, 0.5)',
+    backgroundColor: '#E53935',
+    borderWidth: 1.5,
+    borderColor: '#FF5252',
     shadowColor: '#FF4444',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 12,
+    elevation: 10,
   },
   resultBadgeText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    letterSpacing: 0.2,
   },
   resultTextWin: {
     color: '#FFFFFF',
@@ -5921,12 +5920,14 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   resultIconCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.6)',
   },
   resultCard: {
     width: '100%',
