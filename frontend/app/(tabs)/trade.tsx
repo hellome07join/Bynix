@@ -2205,18 +2205,40 @@ export default function Trade() {
 
       {/* Bottom Trading Panel - Quotex Style */}
       <View style={styles.bottomPanel}>
-        {/* Timer | Investment Row - Side by Side */}
+        {/* Timer | Investment Row - Compact */}
         <View style={styles.timerInvestmentRow}>
           {/* Timer Section (Left) */}
-          <TouchableOpacity 
-            style={styles.timerSection}
-            onPress={() => setShowTimePicker(true)}
-          >
+          <View style={styles.timerSection}>
             <Text style={styles.sectionLabel}>Timer</Text>
-            <View style={styles.timerBox}>
-              <Text style={styles.timerValue}>{formatDuration(duration)}</Text>
+            <View style={styles.compactInputRow}>
+              <TouchableOpacity 
+                style={styles.compactBtn}
+                onPress={() => {
+                  const newDur = Math.max(5, duration - 5);
+                  setDuration(newDur);
+                }}
+              >
+                <Ionicons name="remove" size={14} color="#666" />
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.compactValueBox}
+                onPress={() => setShowTimePicker(true)}
+              >
+                <Text style={styles.compactValue}>{formatDuration(duration)}</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.compactBtn}
+                onPress={() => {
+                  const newDur = duration + 5;
+                  setDuration(newDur);
+                }}
+              >
+                <Ionicons name="add" size={14} color="#666" />
+              </TouchableOpacity>
             </View>
-          </TouchableOpacity>
+          </View>
 
           {/* Divider */}
           <View style={styles.sectionDivider} />
@@ -2224,32 +2246,32 @@ export default function Trade() {
           {/* Investment Section (Right) */}
           <View style={styles.investmentSection}>
             <Text style={styles.sectionLabel}>Investment</Text>
-            <View style={styles.investmentBox}>
+            <View style={styles.compactInputRow}>
               <TouchableOpacity 
-                style={styles.investmentBtn}
+                style={styles.compactBtn}
                 onPress={() => {
                   const newVal = Math.max(1, parseInt(amount || '0') - 1);
                   setAmount(newVal.toString());
                 }}
               >
-                <Ionicons name="remove" size={18} color="#888" />
+                <Ionicons name="remove" size={14} color="#666" />
               </TouchableOpacity>
               
               <TouchableOpacity 
-                style={styles.investmentValueContainer}
+                style={styles.compactValueBox}
                 onPress={() => setShowAmountPicker(true)}
               >
-                <Text style={styles.investmentValue}>{amount || '0'} $</Text>
+                <Text style={styles.compactValue}>{amount || '0'} $</Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
-                style={styles.investmentBtn}
+                style={styles.compactBtn}
                 onPress={() => {
                   const newVal = parseInt(amount || '0') + 1;
                   setAmount(newVal.toString());
                 }}
               >
-                <Ionicons name="add" size={18} color="#888" />
+                <Ionicons name="add" size={14} color="#666" />
               </TouchableOpacity>
             </View>
           </View>
@@ -5742,32 +5764,56 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  // Timer | Investment Row Styles (Quotex Style)
+  // Timer | Investment Row Styles (Quotex Style) - COMPACT
   timerInvestmentRow: {
     flexDirection: 'row',
-    marginBottom: 8,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    marginBottom: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
     overflow: 'hidden',
   },
   timerSection: {
     flex: 1,
-    padding: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
     alignItems: 'center',
   },
   investmentSection: {
     flex: 1,
-    padding: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
     alignItems: 'center',
   },
   sectionDivider: {
     width: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   sectionLabel: {
-    color: '#888',
-    fontSize: 11,
-    marginBottom: 6,
+    color: 'rgba(255, 255, 255, 0.25)',
+    fontSize: 9,
+    marginBottom: 4,
+  },
+  compactInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  compactBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compactValueBox: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  compactValue: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
   },
   timerBox: {
     backgroundColor: 'rgba(255, 184, 0, 0.15)',
