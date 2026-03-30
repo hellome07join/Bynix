@@ -889,13 +889,29 @@ export default function TradingViewChart({
     // This is where the running candle appears on screen
     const actualRunningCandleX = runningCandleDefaultX + xOffset;
     
-    // Calculate price range
-    let minPrice = Math.min(...visibleData.map(c => c.low));
-    let maxPrice = Math.max(...visibleData.map(c => c.high));
-    const priceRange = maxPrice - minPrice;
-    const pricePadding = priceRange * 0.1;
-    minPrice -= pricePadding;
-    maxPrice += pricePadding;
+    // Calculate price range CENTERED on current price (running candle)
+    const dataMinPrice = Math.min(...visibleData.map(c => c.low));
+    const dataMaxPrice = Math.max(...visibleData.map(c => c.high));
+    const dataPriceRange = dataMaxPrice - dataMinPrice;
+    const pricePadding = dataPriceRange * 0.1;
+    
+    // Center the price range around current price (internalPrice)
+    // This keeps the running candle vertically centered
+    const halfRange = (dataPriceRange + pricePadding * 2) / 2;
+    let minPrice = internalPrice - halfRange;
+    let maxPrice = internalPrice + halfRange;
+    
+    // Make sure we still show all candle data - expand range if needed
+    if (dataMinPrice - pricePadding < minPrice) {
+      const expandAmount = minPrice - (dataMinPrice - pricePadding);
+      minPrice -= expandAmount;
+      maxPrice -= expandAmount; // Keep current price centered by shifting both
+    }
+    if (dataMaxPrice + pricePadding > maxPrice) {
+      const expandAmount = (dataMaxPrice + pricePadding) - maxPrice;
+      maxPrice += expandAmount;
+      minPrice += expandAmount; // Keep current price centered by shifting both
+    }
     
     // Chart boundaries for clamping
     const chartTop = padding.top;
