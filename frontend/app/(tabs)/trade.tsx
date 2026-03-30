@@ -101,6 +101,7 @@ export default function Trade() {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showAmountPicker, setShowAmountPicker] = useState(false);
   const [tradeTimeMode, setTradeTimeMode] = useState<'TIMER' | 'TIME'>('TIMER'); // TIMER = fixed duration, TIME = candle-based
+  const [selectedCandleCloseTime, setSelectedCandleCloseTime] = useState<string | null>(null); // For TIME mode - actual clock time
   const [showToolsModal, setShowToolsModal] = useState(false);
   const [showTradeHistory, setShowTradeHistory] = useState(false);
   const [tradeHistory, setTradeHistory] = useState<any[]>([]);
@@ -2207,36 +2208,44 @@ export default function Trade() {
       <View style={styles.bottomPanel}>
         {/* Timer | Investment Row - Compact */}
         <View style={styles.timerInvestmentRow}>
-          {/* Timer Section (Left) */}
+          {/* Timer/Time Section (Left) */}
           <View style={styles.timerSection}>
-            <Text style={styles.sectionLabel}>Timer</Text>
+            <Text style={styles.sectionLabel}>{tradeTimeMode === 'TIMER' ? 'Timer' : 'Time'}</Text>
             <View style={styles.compactInputRow}>
-              <TouchableOpacity 
-                style={styles.compactBtn}
-                onPress={() => {
-                  const newDur = Math.max(5, duration - 60); // Decrease by 1 minute
-                  setDuration(newDur);
-                }}
-              >
-                <Ionicons name="remove" size={14} color="#FFB800" />
-              </TouchableOpacity>
+              {tradeTimeMode === 'TIMER' && (
+                <TouchableOpacity 
+                  style={styles.compactBtn}
+                  onPress={() => {
+                    const newDur = Math.max(5, duration - 60); // Decrease by 1 minute
+                    setDuration(newDur);
+                  }}
+                >
+                  <Ionicons name="remove" size={14} color="#FFB800" />
+                </TouchableOpacity>
+              )}
               
               <TouchableOpacity 
                 style={styles.compactValueBox}
                 onPress={() => setShowTimePicker(true)}
               >
-                <Text style={styles.compactValue}>{formatDuration(duration)}</Text>
+                <Text style={styles.compactValue}>
+                  {tradeTimeMode === 'TIMER' 
+                    ? formatDuration(duration) 
+                    : selectedCandleCloseTime || 'Select'}
+                </Text>
               </TouchableOpacity>
               
-              <TouchableOpacity 
-                style={styles.compactBtn}
-                onPress={() => {
-                  const newDur = duration + 60; // Increase by 1 minute
-                  setDuration(newDur);
-                }}
-              >
-                <Ionicons name="add" size={14} color="#FFB800" />
-              </TouchableOpacity>
+              {tradeTimeMode === 'TIMER' && (
+                <TouchableOpacity 
+                  style={styles.compactBtn}
+                  onPress={() => {
+                    const newDur = duration + 60; // Increase by 1 minute
+                    setDuration(newDur);
+                  }}
+                >
+                  <Ionicons name="add" size={14} color="#FFB800" />
+                </TouchableOpacity>
+              )}
             </View>
           </View>
 
@@ -3693,33 +3702,53 @@ export default function Trade() {
               </>
             ) : (
               <>
-                {/* TIME Mode - Candle-based */}
-                <Text style={styles.timeModeDescription}>Trade closes when candle closes</Text>
+                {/* TIME Mode - Candle-based with time grid */}
+                <Text style={styles.timeModeDescription}>Select candle close time</Text>
                 
-                <View style={styles.candleModeInfo}>
-                  <View style={styles.candleModeInfoRow}>
-                    <Ionicons name="information-circle" size={18} color="#FFB800" />
-                    <Text style={styles.candleModeInfoText}>
-                      If candle has {'>'} 30s remaining: Trade closes with current candle
-                    </Text>
-                  </View>
-                  <View style={styles.candleModeInfoRow}>
-                    <Ionicons name="information-circle" size={18} color="#FFB800" />
-                    <Text style={styles.candleModeInfoText}>
-                      If candle has {'<'} 30s remaining: Trade closes with next candle
-                    </Text>
-                  </View>
+                {/* Time Grid - Generate upcoming candle close times */}
+                <View style={styles.candleTimeGrid}>
+                  {(() => {
+                    const now = new Date();
+                    const times: string[] = [];
+                    const baseMinute = Math.ceil(now.getMinutes() / 1) * 1; // Round to next minute
+                    
+                    for (let i = 0; i < 12; i++) {
+                      const futureTime = new Date(now);
+                      futureTime.setMinutes(baseMinute + i);
+                      futureTime.setSeconds(0);
+                      const hours = futureTime.getHours().toString().padStart(2, '0');
+                      const mins = futureTime.getMinutes().toString().padStart(2, '0');
+                      times.push(`${hours}:${mins}`);
+                    }
+                    
+                    return times.map((time, idx) => (
+                      <TouchableOpacity
+                        key={idx}
+                        style={[
+                          styles.candleTimeItem,
+                          selectedCandleCloseTime === time && styles.candleTimeItemActive
+                        ]}
+                        onPress={() => {
+                          setSelectedCandleCloseTime(time);
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        }}
+                      >
+                        <Text style={[
+                          styles.candleTimeText,
+                          selectedCandleCloseTime === time && styles.candleTimeTextActive
+                        ]}>{time}</Text>
+                      </TouchableOpacity>
+                    ));
+                  })()}
                 </View>
 
                 <TouchableOpacity 
-                  style={styles.confirmTimeModeBtn}
+                  style={styles.setManuallyBtn}
                   onPress={() => {
-                    setShowTimePicker(false);
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    // Set manually functionality
                   }}
                 >
-                  <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-                  <Text style={styles.confirmTimeModeBtnText}>Use Candle Time</Text>
+                  <Text style={styles.setManuallyBtnText}>Set manually</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -5401,26 +5430,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+    justifyContent: 'flex-start',
+    marginBottom: 16,
   },
   candleTimeItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    width: '30%',
+    paddingVertical: 14,
     borderRadius: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(80, 90, 100, 0.5)',
+    alignItems: 'center',
   },
   candleTimeItemActive: {
-    backgroundColor: 'rgba(0, 229, 90, 0.2)',
-    borderColor: '#00E55A',
+    backgroundColor: '#2196F3',
   },
   candleTimeText: {
-    color: '#888',
-    fontSize: 13,
+    color: '#FFFFFF',
+    fontSize: 14,
     fontWeight: '600',
   },
   candleTimeTextActive: {
-    color: '#00E55A',
+    color: '#FFFFFF',
   },
   drawToolsGrid: {
     flexDirection: 'row',
