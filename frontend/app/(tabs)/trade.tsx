@@ -1009,7 +1009,7 @@ export default function Trade() {
             return true;
           });
           
-          console.log('Available assets for selection:', availableAssets.length, 'accountType:', accountType);
+          console.log('Available assets for selection:', availableAssets.length, 'accountType:', accountType, 'hasUserSelectedAsset:', hasUserSelectedAsset);
           
           if (availableAssets.length > 0 && !hasUserSelectedAsset) {
             // Only auto-select highest payout if user hasn't manually selected an asset
@@ -1361,6 +1361,9 @@ export default function Trade() {
   const placeTrade = async (type: 'call' | 'put') => {
     // Haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Mark that user is using this asset (don't auto-switch)
+    setHasUserSelectedAsset(true);
 
     // Check if trading is enabled globally
     if (!isTradingEnabled) {
