@@ -2222,7 +2222,7 @@ export default function Trade() {
                   setDuration(newDur);
                 }}
               >
-                <Ionicons name="remove" size={12} color="#00E55A" />
+                <Ionicons name="remove" size={14} color="#00E55A" />
               </TouchableOpacity>
             )}
             <TouchableOpacity 
@@ -2243,7 +2243,7 @@ export default function Trade() {
                   setDuration(newDur);
                 }}
               >
-                <Ionicons name="add" size={12} color="#00E55A" />
+                <Ionicons name="add" size={14} color="#00E55A" />
               </TouchableOpacity>
             )}
           </View>
@@ -2261,7 +2261,7 @@ export default function Trade() {
                 setAmount(newVal.toString());
               }}
             >
-              <Ionicons name="remove" size={12} color="#00E55A" />
+              <Ionicons name="remove" size={14} color="#00E55A" />
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.compactValueBox}
@@ -2276,7 +2276,7 @@ export default function Trade() {
                 setAmount(newVal.toString());
               }}
             >
-              <Ionicons name="add" size={12} color="#00E55A" />
+              <Ionicons name="add" size={14} color="#00E55A" />
             </TouchableOpacity>
           </View>
         </View>
@@ -5885,39 +5885,39 @@ const styles = StyleSheet.create({
   // Timer | Investment Row Styles (Quotex Style) - ULTRA COMPACT
   timerInvestmentRow: {
     flexDirection: 'row',
-    marginBottom: 1,
+    marginBottom: 2,
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderRadius: 4,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.06)',
-    paddingVertical: 2,
+    paddingVertical: 6,
   },
   timerSection: {
     flex: 1,
     paddingVertical: 0,
-    paddingHorizontal: 4,
+    paddingHorizontal: 6,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
   },
   investmentSection: {
     flex: 1,
     paddingVertical: 0,
-    paddingHorizontal: 4,
+    paddingHorizontal: 6,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
   },
   sectionDivider: {
     width: 1,
     backgroundColor: 'rgba(0, 229, 90, 0.25)',
-    marginVertical: 2,
+    marginVertical: 4,
   },
   sectionLabel: {
     color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '600',
   },
   compactInputRow: {
@@ -5926,9 +5926,9 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   compactBtn: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 5,
     backgroundColor: 'rgba(0, 229, 90, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -5936,12 +5936,12 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0, 229, 90, 0.3)',
   },
   compactValueBox: {
-    paddingHorizontal: 4,
+    paddingHorizontal: 6,
     paddingVertical: 0,
   },
   compactValue: {
     color: '#00E55A',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
   },
   timerBox: {
