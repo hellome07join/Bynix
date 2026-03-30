@@ -1261,25 +1261,83 @@ export default function TradingViewChart({
       ctx.stroke();
       ctx.setLineDash([]);
       
-      // Entry badge on left side
+      // ===== ENTRY DIAMOND MARKER at entry point =====
+      if (entryX > padding.left && entryX < width - padding.right) {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.strokeStyle = markerColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        // Draw diamond shape
+        ctx.moveTo(entryX, markerY - 6);  // Top
+        ctx.lineTo(entryX + 6, markerY);   // Right
+        ctx.lineTo(entryX, markerY + 6);   // Bottom
+        ctx.lineTo(entryX - 6, markerY);   // Left
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+      
+      // ===== ENTRY BADGE - positioned LEFT of entry point (near entry line) =====
+      const badgeWidth = 65;
+      const badgeHeight = 26;
+      // Position badge to the left of entry diamond
+      const badgeX = Math.max(entryX - badgeWidth - 12, padding.left + 5);
+      const badgeY = markerY - badgeHeight / 2;
+      
+      // Badge background with gradient-like effect
       ctx.fillStyle = markerColor;
       ctx.beginPath();
-      ctx.roundRect(10, markerY - 12, 60, 24, 6);
+      if (ctx.roundRect) {
+        ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 6);
+      } else {
+        ctx.rect(badgeX, badgeY, badgeWidth, badgeHeight);
+      }
       ctx.fill();
       
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 11px Arial';
-      ctx.textAlign = 'left';
-      ctx.fillText(`${marker.type === 'call' ? '↑' : '↓'} ${marker.amount || 0}$`, 16, markerY + 4);
-      
-      // Position dot on right price axis
-      ctx.fillStyle = markerColor;
-      ctx.beginPath();
-      ctx.arc(width - padding.right - 10, markerY, 6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#FFFFFF';
-      ctx.lineWidth = 2;
+      // Badge border
+      ctx.strokeStyle = marker.type === 'call' ? 'rgba(0, 229, 90, 0.8)' : 'rgba(255, 107, 107, 0.8)';
+      ctx.lineWidth = 1;
       ctx.stroke();
+      
+      // Badge text with arrow and amount
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 13px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const arrowSymbol = marker.type === 'call' ? '↗' : '↘';
+      ctx.fillText(`${arrowSymbol} $${marker.amount || 0}`, badgeX + badgeWidth / 2, markerY);
+      
+      // ===== EXIT DIAMOND MARKER at exit point =====
+      if (visibleExitX > padding.left && visibleExitX < width - padding.right) {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.strokeStyle = markerColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        // Draw diamond shape (slightly larger for exit)
+        ctx.moveTo(visibleExitX, markerY - 7);  // Top
+        ctx.lineTo(visibleExitX + 7, markerY);   // Right
+        ctx.lineTo(visibleExitX, markerY + 7);   // Bottom
+        ctx.lineTo(visibleExitX - 7, markerY);   // Left
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        // Inner color for exit diamond
+        ctx.fillStyle = markerColor;
+        ctx.beginPath();
+        ctx.moveTo(visibleExitX, markerY - 4);
+        ctx.lineTo(visibleExitX + 4, markerY);
+        ctx.lineTo(visibleExitX, markerY + 4);
+        ctx.lineTo(visibleExitX - 4, markerY);
+        ctx.closePath();
+        ctx.fill();
+      }
+      
+      // ===== Price indicator on right axis =====
+      ctx.fillStyle = markerColor;
+      ctx.beginPath();
+      ctx.arc(width - padding.right - 10, markerY, 5, 0, Math.PI * 2);
+      ctx.fill();
     });
     
     // Draw horizontal lines
