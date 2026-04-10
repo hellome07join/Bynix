@@ -3732,7 +3732,7 @@ OTC_BASE_PRICES = {
 # Store current prices for each market
 current_market_prices = {asset: price for asset, price in OTC_BASE_PRICES.items()}
 
-def generate_historical_candles(asset: str, count: int = 1000, interval_seconds: int = 60):
+def generate_historical_candles(asset: str, count: int = 2000, interval_seconds: int = 60):
     """Generate fake historical OHLC data for OTC markets"""
     base_price = OTC_BASE_PRICES.get(asset, 1.0)
     candles = []
@@ -3766,12 +3766,13 @@ def generate_historical_candles(asset: str, count: int = 1000, interval_seconds:
     return candles
 
 @api_router.get("/otc/history")
-async def get_otc_history(asset: str = "EUR/USD OTC", count: int = 1000, interval: str = "1m"):
+async def get_otc_history(asset: str = "EUR/USD OTC", count: int = 2000, interval: str = "1m"):
     """Get historical candle data for OTC markets"""
     interval_map = {
         '1m': 60,
         '5m': 300,
         '15m': 900,
+        '30m': 1800,
         '1h': 3600,
         '4h': 14400,
         '1d': 86400
@@ -5740,10 +5741,9 @@ async def add_chart_tick(symbol: str, authorization: Optional[str] = Header(None
     
     ticks.append(new_tick)
     
-    # Keep only last 35000 ticks (enough for 500+ candles)
-    if len(ticks) > 35000:
-        ticks = ticks[-35000:]
-        ticks = ticks[-3600:]
+    # Keep only last 120000 ticks (enough for 2000 candles at 1m timeframe)
+    if len(ticks) > 120000:
+        ticks = ticks[-120000:]
     
     # Update database
     await db.chart_data.update_one(
