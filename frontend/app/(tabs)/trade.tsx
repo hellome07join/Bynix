@@ -1204,7 +1204,10 @@ export default function Trade() {
           let apiUrl = '';
           if (typeof window !== 'undefined') {
             const currentUrl = window.location.origin;
-            if (currentUrl.includes('preview.emergentagent.com') || currentUrl.includes('ngrok')) {
+            if (currentUrl.includes('bynix.io')) {
+              // Production: use AWS backend
+              apiUrl = 'http://bynix-alb-722862942.ap-south-1.elb.amazonaws.com/api';
+            } else if (currentUrl.includes('preview.emergentagent.com') || currentUrl.includes('ngrok')) {
               apiUrl = `${currentUrl}/api`;
             } else {
               apiUrl = `${currentUrl}/api`;
@@ -1578,11 +1581,14 @@ export default function Trade() {
       let apiUrl = '';
       if (typeof window !== 'undefined') {
         const currentUrl = window.location.origin;
-        if (currentUrl.includes('preview.emergentagent.com') || currentUrl.includes('ngrok')) {
+        if (currentUrl.includes('bynix.io')) {
+          // Production: use AWS backend
+          apiUrl = 'http://bynix-alb-722862942.ap-south-1.elb.amazonaws.com/api';
+        } else if (currentUrl.includes('preview.emergentagent.com') || currentUrl.includes('ngrok')) {
           apiUrl = `${currentUrl}/api`;
         } else if (currentUrl.includes('localhost:3000')) {
-          // Development: use backend directly via preview URL
-          apiUrl = 'https://bynix-markets.preview.emergentagent.com/api';
+          // Development: use backend directly
+          apiUrl = '/api';
         } else {
           apiUrl = `${currentUrl}/api`;
         }

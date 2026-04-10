@@ -101,6 +101,10 @@ const getApiUrl = () => {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     // If running on preview URL, use it directly
     const currentUrl = window.location.origin;
+    if (currentUrl.includes('bynix.io')) {
+      // Production: use AWS backend
+      return 'http://bynix-alb-722862942.ap-south-1.elb.amazonaws.com/api';
+    }
     if (currentUrl.includes('preview.emergentagent.com') || currentUrl.includes('ngrok')) {
       return `${currentUrl}/api`;
     }
