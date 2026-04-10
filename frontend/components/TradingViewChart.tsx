@@ -2394,77 +2394,93 @@ export default function TradingViewChart({
             setTargetScale(newScaleValue);
           }}
           onMouseDown={(e: any) => {
-            e.preventDefault();
-            isDraggingRef.current = true;
-            const startX = e.clientX;
-            const startOffset = scrollOffset;
-            let lastX = startX;
-            let lastTime = Date.now();
-            
-            if (animationFrameRef.current) {
-              cancelAnimationFrame(animationFrameRef.current);
-              animationFrameRef.current = null;
-            }
-            scrollVelocityRef.current = 0;
-            
-            const onMouseMove = (moveE: any) => {
-              const currentX = moveE.clientX;
-              const currentTime = Date.now();
-              const diff = currentX - startX;
-              const timeDiff = currentTime - lastTime;
+            try {
+              e.preventDefault();
+              isDraggingRef.current = true;
+              const startX = e.clientX || 0;
+              const startOffset = scrollOffset;
+              let lastX = startX;
+              let lastTime = Date.now();
               
-              // Track velocity for momentum
-              if (timeDiff > 0) {
-                const pixelVelocity = (currentX - lastX) / timeDiff;
-                scrollVelocityRef.current = pixelVelocity * VELOCITY_MULTIPLIER * DRAG_TO_CANDLE_RATIO;
+              if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current);
+                animationFrameRef.current = null;
               }
+              scrollVelocityRef.current = 0;
               
-              lastX = currentX;
-              lastTime = currentTime;
-              
-              // Convert pixel drag to candle count
-              // Positive diff (drag right) = positive scrollOffset = see historical candles
-              const candleOffset = diff * DRAG_TO_CANDLE_RATIO;
-              const newOffset = startOffset + candleOffset;
-              
-              // Limit: running candle at center (offset=0) is minimum
-              // Use targetScrollOffset for smooth animated scrolling
-              setTargetScrollOffset(Math.max(0, newOffset));
-              // Also update direct offset for real-time feel during drag
-              setScrollOffset(Math.max(0, newOffset));
-            };
-            
-              const onMouseUp = () => {
-              isDraggingRef.current = false;
-              document.removeEventListener('mousemove', onMouseMove);
-              document.removeEventListener('mouseup', onMouseUp);
-              
-              // Apply momentum using targetScrollOffset for smooth animation
-              const applyMomentum = () => {
-                if (Math.abs(scrollVelocityRef.current) > MOMENTUM_MIN_VELOCITY) {
-                  setTargetScrollOffset(prev => {
-                    const newOffset = prev + scrollVelocityRef.current;
-                    if (newOffset < 0) {
-                      scrollVelocityRef.current = 0;
-                      return 0;
-                    }
-                    return newOffset;
-                  });
-                  // Smooth easing - velocity decreases more naturally
-                  scrollVelocityRef.current *= MOMENTUM_FRICTION;
-                  animationFrameRef.current = requestAnimationFrame(applyMomentum);
-                } else {
-                  scrollVelocityRef.current = 0;
+              const onMouseMove = (moveE: any) => {
+                try {
+                  const currentX = moveE.clientX || 0;
+                  const currentTime = Date.now();
+                  const diff = currentX - startX;
+                  const timeDiff = currentTime - lastTime;
+                  
+                  // Track velocity for momentum
+                  if (timeDiff > 0) {
+                    const pixelVelocity = (currentX - lastX) / timeDiff;
+                    scrollVelocityRef.current = pixelVelocity * VELOCITY_MULTIPLIER * DRAG_TO_CANDLE_RATIO;
+                  }
+                  
+                  lastX = currentX;
+                  lastTime = currentTime;
+                  
+                  // Convert pixel drag to candle count
+                  // Positive diff (drag right) = positive scrollOffset = see historical candles
+                  const candleOffset = diff * DRAG_TO_CANDLE_RATIO;
+                  const newOffset = startOffset + candleOffset;
+                  
+                  // Limit: running candle at center (offset=0) is minimum
+                  // Use targetScrollOffset for smooth animated scrolling
+                  setTargetScrollOffset(Math.max(0, newOffset));
+                  // Also update direct offset for real-time feel during drag
+                  setScrollOffset(Math.max(0, newOffset));
+                } catch (err) {
+                  console.log('Mouse move error:', err);
                 }
               };
               
-              if (Math.abs(scrollVelocityRef.current) > MOMENTUM_MIN_VELOCITY) {
-                animationFrameRef.current = requestAnimationFrame(applyMomentum);
+                const onMouseUp = () => {
+                try {
+                  isDraggingRef.current = false;
+                  if (typeof document !== 'undefined') {
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                  }
+                  
+                  // Apply momentum using targetScrollOffset for smooth animation
+                  const applyMomentum = () => {
+                    if (Math.abs(scrollVelocityRef.current) > MOMENTUM_MIN_VELOCITY) {
+                      setTargetScrollOffset(prev => {
+                        const newOffset = prev + scrollVelocityRef.current;
+                        if (newOffset < 0) {
+                          scrollVelocityRef.current = 0;
+                          return 0;
+                        }
+                        return newOffset;
+                      });
+                      // Smooth easing - velocity decreases more naturally
+                      scrollVelocityRef.current *= MOMENTUM_FRICTION;
+                      animationFrameRef.current = requestAnimationFrame(applyMomentum);
+                    } else {
+                      scrollVelocityRef.current = 0;
+                    }
+                  };
+                  
+                  if (Math.abs(scrollVelocityRef.current) > MOMENTUM_MIN_VELOCITY) {
+                    animationFrameRef.current = requestAnimationFrame(applyMomentum);
+                  }
+                } catch (err) {
+                  console.log('Mouse up error:', err);
+                }
+              };
+              
+              if (typeof document !== 'undefined') {
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
               }
-            };
-            
-            document.addEventListener('mousemove', onMouseMove);
-            document.addEventListener('mouseup', onMouseUp);
+            } catch (err) {
+              console.log('Mouse down error:', err);
+            }
           }}
           onTouchStart={(e: any) => {
             // Handle both single touch (pan) and two-finger touch (pinch zoom)
@@ -2887,28 +2903,44 @@ export default function TradingViewChart({
             zIndex: 10,
           }}
           onMouseDown={(e: any) => {
-            e.preventDefault();
-            e.stopPropagation();
-            isDraggingPriceAxisRef.current = true;
-            const startY = e.clientY;
-            const startYScale = yScale;
-            
-            const onMouseMove = (moveE: any) => {
-              if (!isDraggingPriceAxisRef.current) return;
-              const deltaY = startY - moveE.clientY;
-              const sensitivity = 0.008;
-              const newYScale = Math.max(0.5, Math.min(3, startYScale + deltaY * sensitivity));
-              setTargetYScale(newYScale);
-            };
-            
-            const onMouseUp = () => {
-              isDraggingPriceAxisRef.current = false;
-              document.removeEventListener('mousemove', onMouseMove);
-              document.removeEventListener('mouseup', onMouseUp);
-            };
-            
-            document.addEventListener('mousemove', onMouseMove);
-            document.addEventListener('mouseup', onMouseUp);
+            try {
+              e.preventDefault();
+              e.stopPropagation();
+              isDraggingPriceAxisRef.current = true;
+              const startY = e.clientY || 0;
+              const startYScale = yScale;
+              
+              const onMouseMove = (moveE: any) => {
+                try {
+                  if (!isDraggingPriceAxisRef.current) return;
+                  const deltaY = startY - (moveE.clientY || 0);
+                  const sensitivity = 0.008;
+                  const newYScale = Math.max(0.5, Math.min(3, startYScale + deltaY * sensitivity));
+                  setTargetYScale(newYScale);
+                } catch (err) {
+                  console.log('Price axis move error:', err);
+                }
+              };
+              
+              const onMouseUp = () => {
+                try {
+                  isDraggingPriceAxisRef.current = false;
+                  if (typeof document !== 'undefined') {
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                  }
+                } catch (err) {
+                  console.log('Price axis up error:', err);
+                }
+              };
+              
+              if (typeof document !== 'undefined') {
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+              }
+            } catch (err) {
+              console.log('Price axis down error:', err);
+            }
           }}
           onTouchStart={(e: any) => {
             e.preventDefault();
