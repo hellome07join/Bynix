@@ -1426,18 +1426,20 @@ export default function TradingViewChart({
         let displayAmount: number;
         let plSign: string;
         
-        const tradeAmount = result.amount || 0;
         const profit = Math.abs(result.profitLoss);
+        const tradeAmount = result.amount;
         
         if (isWin) {
-          // Total payout = trade amount + profit
-          // If amount is available, use it. Otherwise calculate from profit (assuming ~96% payout)
-          if (tradeAmount > 0) {
+          // Calculate total payout for win
+          if (tradeAmount && tradeAmount > 0) {
+            // If amount is available: total = amount + profit
             displayAmount = tradeAmount + profit;
           } else {
-            // Fallback: estimate trade amount from profit (profit / 0.96 + profit)
-            const estimatedAmount = profit / 0.96;
-            displayAmount = estimatedAmount + profit;
+            // Estimate from profit: assume ~90% payout
+            // profit = amount * 0.9, so amount = profit / 0.9
+            // total = amount + profit = profit/0.9 + profit = profit * (1 + 1/0.9) ≈ profit * 2.11
+            const estimatedTotal = Math.round(profit * 2.1);
+            displayAmount = estimatedTotal;
           }
           plSign = '+';
         } else {
