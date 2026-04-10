@@ -1660,16 +1660,18 @@ async def create_notification(user_id: str, title: str, message: str, notif_type
 
 @api_router.get("/leaderboard")
 async def get_leaderboard():
-    """Get top traders leaderboard for last 24 hours"""
+    """Get top traders leaderboard for last 24 hours - ONLY REAL BALANCE TRADES"""
     # Calculate the time 24 hours ago
     time_24h_ago = datetime.now(timezone.utc) - timedelta(hours=24)
     
     # Aggregate trades to get profit/loss per user in last 24 hours
+    # ONLY count REAL balance trades (not demo)
     pipeline = [
         {
             "$match": {
                 "settled_at": {"$gte": time_24h_ago},
                 "status": {"$in": ["won", "lost"]},
+                "account_type": "real",  # Only real balance trades count for leaderboard
             }
         },
         {
@@ -1756,13 +1758,14 @@ async def get_my_leaderboard_stats(authorization: Optional[str] = Header(None), 
     # Calculate the time 24 hours ago
     time_24h_ago = datetime.now(timezone.utc) - timedelta(hours=24)
     
-    # Get user's stats for last 24 hours
+    # Get user's stats for last 24 hours - ONLY REAL BALANCE TRADES
     user_stats_pipeline = [
         {
             "$match": {
                 "user_id": user.user_id,
                 "settled_at": {"$gte": time_24h_ago},
                 "status": {"$in": ["won", "lost"]},
+                "account_type": "real",  # Only real balance trades count
             }
         },
         {
@@ -1796,12 +1799,13 @@ async def get_my_leaderboard_stats(authorization: Optional[str] = Header(None), 
     user_stats = user_results[0]
     win_rate = (user_stats["won_trades"] / user_stats["total_trades"] * 100) if user_stats["total_trades"] > 0 else 0
     
-    # Calculate user's position by counting users with higher profit
+    # Calculate user's position by counting users with higher profit - ONLY REAL TRADES
     position_pipeline = [
         {
             "$match": {
                 "settled_at": {"$gte": time_24h_ago},
                 "status": {"$in": ["won", "lost"]},
+                "account_type": "real",  # Only real balance trades count
             }
         },
         {
