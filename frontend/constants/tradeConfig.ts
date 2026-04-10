@@ -1,11 +1,13 @@
 // Trade Configuration Constants
 
 export const TIMEFRAMES = [
-  { label: '1m', value: '1m', seconds: 60 },
-  { label: '5m', value: '5m', seconds: 300 },
   { label: '15s', value: '15s', seconds: 15 },
-  { label: '5s', value: '5s', seconds: 5 },
-  { label: '1s', value: '1s', seconds: 1 },
+  { label: '1m', value: '1', seconds: 60 },
+  { label: '5m', value: '5', seconds: 300 },
+  { label: '15m', value: '15', seconds: 900 },
+  { label: '30m', value: '30', seconds: 1800 },
+  { label: '1h', value: '60', seconds: 3600 },
+  { label: '4h', value: '240', seconds: 14400 },
 ];
 
 export const DURATIONS = [

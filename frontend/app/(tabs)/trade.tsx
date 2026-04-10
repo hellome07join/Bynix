@@ -362,13 +362,13 @@ export default function Trade() {
   // Get candle duration in seconds based on timeframe
   const getCandleDuration = useCallback(() => {
     switch(timeframe) {
-      case '1s': return 1;
-      case '5s': return 5;
       case '15s': return 15;
-      case '1m': return 60;
-      case '5m': return 300;
-      case '15m': return 900;
-      case '1h': return 3600;
+      case '1': return 60;
+      case '5': return 300;
+      case '15': return 900;
+      case '30': return 1800;
+      case '60': return 3600;
+      case '240': return 14400;
       default: return 60;
     }
   }, [timeframe]);
@@ -376,13 +376,13 @@ export default function Trade() {
   // Get candle duration in milliseconds
   const getCandleDurationMs = useCallback((tf: string) => {
     switch(tf) {
-      case '1s': return 1000;
-      case '5s': return 5000;
       case '15s': return 15000;
-      case '1m': return 60000;
-      case '5m': return 300000;
-      case '15m': return 900000;
-      case '1h': return 3600000;
+      case '1': return 60000;
+      case '5': return 300000;
+      case '15': return 900000;
+      case '30': return 1800000;
+      case '60': return 3600000;
+      case '240': return 14400000;
       default: return 60000;
     }
   }, []);
