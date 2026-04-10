@@ -1397,6 +1397,13 @@ export default function TradingViewChart({
     
     // ===== DRAW COMPLETED TRADE RESULTS at their exit positions =====
     if (completedTradeResults && completedTradeResults.length > 0) {
+      console.log('[CHART DEBUG] Drawing completed results:', completedTradeResults.map(r => ({
+        id: r.id,
+        won: r.won,
+        profitLoss: r.profitLoss,
+        amount: r.amount
+      })));
+      
       completedTradeResults.forEach((result, index) => {
         if (!result.entryPrice || result.entryPrice <= 0) return;
         

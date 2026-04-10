@@ -1699,6 +1699,15 @@ export default function Trade() {
         asset: trade.asset, // Track which asset this trade was on
         amount: trade.amount, // Trade amount for total payout calculation
       };
+      
+      console.log('[RESULT BADGE DEBUG] Creating result:', {
+        tradeId: trade.id,
+        tradeAmount: trade.amount,
+        won,
+        profitLoss,
+        newResultAmount: newResult.amount
+      });
+      
       setCompletedTradeResults(prev => [...prev, newResult]);
       
       // Remove this result after 8 seconds
