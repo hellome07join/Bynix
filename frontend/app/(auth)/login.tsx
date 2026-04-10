@@ -64,7 +64,10 @@ export default function Login() {
       const redirectUrl = Platform.OS === 'web' 
         ? window.location.origin + '/(tabs)/trade'
         : 'bynix://trade';
-      const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+      
+      // Use backend URL for OAuth flow
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || (Platform.OS === 'web' ? window.location.origin : '');
+      const authUrl = `${backendUrl}/api/auth/google?redirect=${encodeURIComponent(redirectUrl)}`;
       
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
       
