@@ -524,12 +524,18 @@ export default function TradingViewChart({
   // Get interval in seconds
   const getIntervalSeconds = useCallback((int: string): number => {
     switch(int) {
-      case '1s': return 1;
-      case '5s': return 5;
       case '15s': return 15;
+      case '1': return 60;
+      case '5': return 300;
+      case '15': return 900;
+      case '30': return 1800;
+      case '60': return 3600;
+      case '240': return 14400;
+      // Legacy support
       case '1m': return 60;
       case '5m': return 300;
       case '15m': return 900;
+      case '30m': return 1800;
       case '1h': return 3600;
       case '4h': return 14400;
       case '1d': return 86400;
@@ -1041,6 +1047,7 @@ export default function TradingViewChart({
     // Get interval in ms for calculating future times
     const intervalMs = (() => {
       const intervalMap: { [key: string]: number } = {
+        '15s': 15000,
         '1': 60000,
         '5': 300000,
         '15': 900000,
@@ -1123,6 +1130,7 @@ export default function TradingViewChart({
     // Helper function to get interval in milliseconds
     const getIntervalMs = () => {
       const intervalMap: { [key: string]: number } = {
+        '15s': 15000,
         '1': 60000,
         '5': 300000,
         '15': 900000,
