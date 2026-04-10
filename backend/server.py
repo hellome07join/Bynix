@@ -5493,7 +5493,15 @@ def get_base_price(symbol: str) -> float:
     return 1.0850
 
 def generate_server_chart_data(symbol: str) -> list:
-    """Generate chart data on the server (consistent across all devices)"""
+    """Generate chart data on the server (consistent across all devices)
+    
+    For 10 days of historical data across all timeframes:
+    - 10 days = 864,000 seconds
+    - 1m timeframe: 14,400 candles needed
+    - 4h timeframe: 60 candles needed
+    
+    We generate 1 tick per second for 10 days = 864,000 ticks
+    """
     import hashlib
     
     base_price = get_base_price(symbol)
@@ -5506,9 +5514,18 @@ def generate_server_chart_data(symbol: str) -> list:
     
     price = base_price
     
-    # Generate 120000 ticks (2000 minutes of 1-second data = 2000 candles at 1m)
-    # This ensures we have 2000 candles for professional 24hr+ view
-    for i in range(120000, 0, -1):
+    # Generate 864000 ticks (10 days of 1-second data)
+    # 10 days × 24 hours × 60 minutes × 60 seconds = 864,000 ticks
+    # This gives us:
+    # - 14,400 candles at 1m interval
+    # - 2,880 candles at 5m interval
+    # - 960 candles at 15m interval  
+    # - 480 candles at 30m interval
+    # - 240 candles at 1h interval
+    # - 60 candles at 4h interval
+    TOTAL_TICKS = 864000  # 10 days
+    
+    for i in range(TOTAL_TICKS, 0, -1):
         tick_time = now - i
         volatility = price * 0.00008
         change = (random.random() - 0.5) * volatility * 2
@@ -5533,56 +5550,113 @@ def generate_server_chart_data(symbol: str) -> list:
     
     return ticks
 
+# In-memory chart data cache (avoid MongoDB 16MB document limit)
+chart_data_memory_cache = {}
+chart_data_cache_timestamps = {}
+
+def aggregate_ticks_to_candles(ticks: list, interval_seconds: int) -> list:
+    """Aggregate raw ticks into OHLC candles based on interval"""
+    if not ticks:
+        return []
+    
+    candles = []
+    current_candle = None
+    candle_start_time = 0
+    
+    for tick in ticks:
+        tick_candle_start = (tick["time"] // interval_seconds) * interval_seconds
+        
+        if current_candle is None or tick_candle_start != candle_start_time:
+            # Start new candle
+            if current_candle is not None:
+                candles.append(current_candle)
+            candle_start_time = tick_candle_start
+            current_candle = {
+                "time": tick_candle_start,
+                "open": tick["open"],
+                "high": tick["high"],
+                "low": tick["low"],
+                "close": tick["close"],
+            }
+        else:
+            # Update current candle
+            current_candle["high"] = max(current_candle["high"], tick["high"])
+            current_candle["low"] = min(current_candle["low"], tick["low"])
+            current_candle["close"] = tick["close"]
+    
+    # Add the last candle
+    if current_candle is not None:
+        candles.append(current_candle)
+    
+    return candles
+
 @api_router.get("/chart/data/{symbol}")
-async def get_chart_data(symbol: str):
-    """Get chart data for a symbol - synced across all devices"""
+async def get_chart_data(symbol: str, interval: str = "1m"):
+    """Get chart data for a symbol - returns pre-aggregated candles based on interval
+    
+    Interval options: 15s, 1m, 5m, 15m, 30m, 1h, 4h
+    Returns candles instead of raw ticks for better frontend performance
+    """
+    global chart_data_memory_cache, chart_data_cache_timestamps
+    
+    # Interval mapping
+    interval_map = {
+        '15s': 15,
+        '1m': 60,
+        '5m': 300,
+        '15m': 900,
+        '30m': 1800,
+        '1h': 3600,
+        '4h': 14400
+    }
+    interval_seconds = interval_map.get(interval, 60)
+    
     # Normalize symbol
     symbol_key = symbol.replace("/", "_").replace(" ", "_").upper()
     
-    # Check if we have existing data in database
-    chart_doc = await db.chart_data.find_one({"symbol": symbol_key})
+    # Check in-memory cache for raw ticks first
+    if symbol_key not in chart_data_memory_cache:
+        # Generate new raw data (864,000 ticks for 10 days)
+        print(f"[CHART] Generating new data for {symbol_key}...")
+        ticks = generate_server_chart_data(symbol)
+        chart_data_memory_cache[symbol_key] = ticks
+        chart_data_cache_timestamps[symbol_key] = datetime.now(timezone.utc)
+        print(f"[CHART] Generated {len(ticks)} ticks for {symbol_key}")
+    else:
+        cache_time = chart_data_cache_timestamps.get(symbol_key, datetime.min.replace(tzinfo=timezone.utc))
+        age = datetime.now(timezone.utc) - cache_time
+        
+        # Refresh cache if older than 30 minutes
+        if age.total_seconds() > 1800:
+            print(f"[CHART] Refreshing data for {symbol_key}...")
+            ticks = generate_server_chart_data(symbol)
+            chart_data_memory_cache[symbol_key] = ticks
+            chart_data_cache_timestamps[symbol_key] = datetime.now(timezone.utc)
     
-    if chart_doc:
-        # Check if data is recent (within last 30 minutes)
-        last_updated = chart_doc.get("last_updated")
-        if last_updated:
-            # Ensure timezone awareness
-            if last_updated.tzinfo is None:
-                last_updated = last_updated.replace(tzinfo=timezone.utc)
-            age = datetime.now(timezone.utc) - last_updated
-            if age.total_seconds() < 1800:  # 30 minutes
-                return {
-                    "symbol": symbol,
-                    "ticks": chart_doc.get("ticks", []),
-                    "last_updated": last_updated.isoformat()
-                }
+    ticks = chart_data_memory_cache[symbol_key]
     
-    # Generate new data
-    ticks = generate_server_chart_data(symbol)
+    # Aggregate ticks into candles based on requested interval
+    candles = aggregate_ticks_to_candles(ticks, interval_seconds)
     
-    # Save to database
-    await db.chart_data.update_one(
-        {"symbol": symbol_key},
-        {
-            "$set": {
-                "symbol": symbol_key,
-                "ticks": ticks,
-                "last_updated": datetime.now(timezone.utc)
-            }
-        },
-        upsert=True
-    )
+    print(f"[CHART] Serving {symbol_key} interval={interval}: {len(candles)} candles from {len(ticks)} ticks")
     
     return {
         "symbol": symbol,
-        "ticks": ticks,
-        "last_updated": datetime.now(timezone.utc).isoformat()
+        "interval": interval,
+        "ticks": candles,  # Return candles as "ticks" for frontend compatibility
+        "candle_count": len(candles),
+        "last_updated": chart_data_cache_timestamps.get(symbol_key, datetime.now(timezone.utc)).isoformat()
     }
 
 @api_router.post("/chart/tick/{symbol}")
 async def add_chart_tick(symbol: str, authorization: Optional[str] = Header(None), request: Request = None):
     """Add a new tick to the chart data - called periodically to keep data fresh
-    If user has active trades, bias the price movement based on predetermined outcome"""
+    If user has active trades, bias the price movement based on predetermined outcome
+    
+    Uses in-memory cache to avoid MongoDB 16MB document limit
+    """
+    global chart_data_memory_cache, chart_data_cache_timestamps
+    
     symbol_key = symbol.replace("/", "_").replace(" ", "_").upper()
     
     # Get AI settings first
@@ -5635,14 +5709,15 @@ async def add_chart_tick(symbol: str, authorization: Optional[str] = Header(None
     except Exception as e:
         pass  # No auth or error, proceed without trade bias
     
-    # Get existing data
-    chart_doc = await db.chart_data.find_one({"symbol": symbol_key})
+    # Get existing data from memory cache (NOT MongoDB)
+    ticks = chart_data_memory_cache.get(symbol_key, [])
     
-    if not chart_doc or not chart_doc.get("ticks"):
-        # No existing data, generate it first
+    if len(ticks) == 0:
+        # No cached data, generate it first
+        print(f"[CHART TICK] No cache for {symbol_key}, generating...")
         ticks = generate_server_chart_data(symbol)
-    else:
-        ticks = chart_doc.get("ticks", [])
+        chart_data_memory_cache[symbol_key] = ticks
+        chart_data_cache_timestamps[symbol_key] = datetime.now(timezone.utc)
     
     if len(ticks) == 0:
         return {"error": "No chart data found"}
@@ -5742,21 +5817,12 @@ async def add_chart_tick(symbol: str, authorization: Optional[str] = Header(None
     
     ticks.append(new_tick)
     
-    # Keep only last 900000 ticks (enough for 15000 candles at 1m = 10+ days)
+    # Keep only last 900000 ticks in memory (enough for 10+ days)
     if len(ticks) > 900000:
         ticks = ticks[-900000:]
     
-    # Update database
-    await db.chart_data.update_one(
-        {"symbol": symbol_key},
-        {
-            "$set": {
-                "ticks": ticks,
-                "last_updated": datetime.now(timezone.utc)
-            }
-        },
-        upsert=True
-    )
+    # Update memory cache (NOT MongoDB - avoids 16MB limit)
+    chart_data_memory_cache[symbol_key] = ticks
     
     return {"message": "Tick added", "new_tick": new_tick, "ticks_count": len(ticks), "synced": True}
 

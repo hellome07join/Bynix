@@ -561,15 +561,19 @@ export default function TradingViewChart({
   }, []);
 
   // Fetch chart data from backend (synced across all devices) - NON-BLOCKING
-  const fetchChartDataFromServer = useCallback(async (showLoading = false) => {
+  // Backend now returns pre-aggregated candles based on interval for better performance
+  const fetchChartDataFromServer = useCallback(async (showLoading = false, requestedInterval?: string) => {
     try {
       if (showLoading) setIsLoading(true);
       const apiUrl = getApiUrl();
       // Clean symbol for API: remove OTC, replace / with empty, uppercase
       const cleanSymbol = symbol.replace(' OTC', '').replace('/', '').toUpperCase();
       
-      console.log(`Fetching chart data from server for ${cleanSymbol}...`);
-      const response = await fetch(`${apiUrl}/chart/data/${cleanSymbol}`);
+      // Use the requested interval or current stableInterval
+      const intervalToFetch = requestedInterval || stableInterval;
+      
+      console.log(`Fetching chart data from server for ${cleanSymbol} interval=${intervalToFetch}...`);
+      const response = await fetch(`${apiUrl}/chart/data/${cleanSymbol}?interval=${intervalToFetch}`);
       
       if (!response.ok) {
         throw new Error(`Server error: ${response.status}`);
@@ -578,10 +582,11 @@ export default function TradingViewChart({
       const data = await response.json();
       
       if (data.ticks && data.ticks.length > 0) {
-        console.log(`Loaded ${data.ticks.length} ticks from server for ${symbol}`);
+        console.log(`Loaded ${data.ticks.length} candles from server for ${symbol} (${intervalToFetch})`);
         
-        // Store in memory cache
-        baseTickDataStore[symbol] = data.ticks;
+        // Store in memory cache with interval key
+        const cacheKey = `${symbol}_${intervalToFetch}`;
+        baseTickDataStore[cacheKey] = data.ticks;
         setBaseTickData(data.ticks);
         
         const lastTick = data.ticks[data.ticks.length - 1];
@@ -597,7 +602,7 @@ export default function TradingViewChart({
       setIsLoading(false);
       return false;
     }
-  }, [symbol]);
+  }, [symbol, stableInterval]);
 
   // Generate fallback data if server fetch fails
   const generateFallbackData = useCallback(() => {
@@ -608,8 +613,14 @@ export default function TradingViewChart({
     
     let price = basePrice;
     
-    // Generate 120000 ticks for 2000 candles at 1m interval
-    for (let i = 120000; i >= 0; i--) {
+    // Generate 864000 ticks for 10 days of historical data
+    // 10 days × 24 hours × 60 minutes × 60 seconds = 864,000 ticks
+    // This provides:
+    // - 14,400 candles at 1m interval
+    // - 60 candles at 4h interval
+    const TOTAL_TICKS = 864000;
+    
+    for (let i = TOTAL_TICKS; i >= 0; i--) {
       const volatility = price * 0.00005;
       const open = price;
       const change = (Math.random() - 0.5) * volatility * 2;
@@ -637,15 +648,18 @@ export default function TradingViewChart({
 
   // Initialize chart data - INSTANT display, background fetch
   const initializeChartData = useCallback(async () => {
+    // Use cache key with interval
+    const cacheKey = `${symbol}_${stableInterval}`;
+    
     // Check memory cache first - INSTANT
-    if (baseTickDataStore[symbol] && baseTickDataStore[symbol].length > 0) {
-      console.log(`Using memory cached data for ${symbol} - INSTANT`);
-      setBaseTickData(baseTickDataStore[symbol]);
-      const lastTick = baseTickDataStore[symbol][baseTickDataStore[symbol].length - 1];
+    if (baseTickDataStore[cacheKey] && baseTickDataStore[cacheKey].length > 0) {
+      console.log(`Using memory cached data for ${cacheKey} - INSTANT`);
+      setBaseTickData(baseTickDataStore[cacheKey]);
+      const lastTick = baseTickDataStore[cacheKey][baseTickDataStore[cacheKey].length - 1];
       setInternalPrice(lastTick.close);
       setIsLoading(false);
       // Refresh from server in background (no loading state)
-      fetchChartDataFromServer(false);
+      fetchChartDataFromServer(false, stableInterval);
       return;
     }
 
@@ -658,65 +672,21 @@ export default function TradingViewChart({
     setIsLoading(false); // Don't show loading - show placeholder instead
     
     // Fetch real data in background
-    const serverSuccess = await fetchChartDataFromServer(false);
+    const serverSuccess = await fetchChartDataFromServer(false, stableInterval);
     
     if (!serverSuccess) {
       // Generate more data if server fails
       console.log('Server fetch failed, generating local data');
       generateFallbackData();
     }
-  }, [symbol, fetchChartDataFromServer, generateFallbackData, getInitialPlaceholderData]);
+  }, [symbol, stableInterval, fetchChartDataFromServer, generateFallbackData, getInitialPlaceholderData]);
 
-  // Aggregate base tick data into candles based on interval
+  // Candles from server are already pre-aggregated - just use them directly
+  // No need for client-side aggregation anymore
   const aggregatedCandles = useMemo(() => {
-    if (baseTickData.length === 0) return [];
-    
-    const intervalSeconds = getIntervalSeconds(stableInterval);
-    const candles: CandleData[] = [];
-    
-    let currentCandle: CandleData | null = null;
-    let candleStartTime = 0;
-    
-    // Debug: track aggregation
-    let ticksProcessed = 0;
-    
-    for (const tick of baseTickData) {
-      const tickCandleStart = Math.floor(tick.time / intervalSeconds) * intervalSeconds;
-      ticksProcessed++;
-      
-      if (currentCandle === null || tickCandleStart !== candleStartTime) {
-        // Start new candle
-        if (currentCandle !== null) {
-          candles.push(currentCandle);
-        }
-        candleStartTime = tickCandleStart;
-        currentCandle = {
-          time: tickCandleStart,
-          open: tick.open,
-          high: tick.high,
-          low: tick.low,
-          close: tick.close,
-        };
-      } else {
-        // Update current candle
-        currentCandle.high = Math.max(currentCandle.high, tick.high);
-        currentCandle.low = Math.min(currentCandle.low, tick.low);
-        currentCandle.close = tick.close;
-      }
-    }
-    
-    // Add the last candle
-    if (currentCandle !== null) {
-      candles.push(currentCandle);
-    }
-    
-    // Debug log every 10 seconds
-    if (candles.length > 0 && Math.random() < 0.1) {
-      console.log(`[AGGREGATION] interval=${stableInterval}(${intervalSeconds}s), ticks=${ticksProcessed}, candles=${candles.length}`);
-    }
-    
-    return candles;
-  }, [baseTickData, stableInterval, getIntervalSeconds]);
+    // baseTickData now contains pre-aggregated candles from server
+    return baseTickData;
+  }, [baseTickData]);
   
   // Mark chart as ready when we have candle data
   useEffect(() => {
@@ -736,6 +706,12 @@ export default function TradingViewChart({
     dataInitializedRef.current = false;
     initializeChartData();
   }, [symbol, initializeChartData]); // Only regenerate when symbol changes, NOT interval
+
+  // Refetch data when interval changes
+  useEffect(() => {
+    console.log(`[CHART] Interval changed to ${stableInterval}, fetching new data...`);
+    fetchChartDataFromServer(false, stableInterval);
+  }, [stableInterval]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync with server - fetch latest tick data every 500ms for smoother updates
   const syncWithServerRef = useRef<any>(null);
