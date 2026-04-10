@@ -70,6 +70,7 @@ const FloatingParticle = ({ delay, startX, size }: { delay: number, startX: numb
 
   return (
     <Animated.View
+      pointerEvents="none"
       style={{
         position: 'absolute',
         left: startX,
@@ -126,6 +127,7 @@ const PulsingRing = ({ size, delay }: { size: number, delay: number }) => {
 
   return (
     <Animated.View
+      pointerEvents="none"
       style={{
         position: 'absolute',
         width: size,
@@ -1524,6 +1526,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'ios' ? 55 : 35,
     paddingBottom: 15,
+    zIndex: 100,
   },
   logoContainer: {
     flexDirection: 'row',
