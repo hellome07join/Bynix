@@ -1134,22 +1134,6 @@ export default function Welcome() {
               <Text style={styles.sidebarGreeting}>Happy to see you</Text>
               <Text style={styles.sidebarTitle}>Welcome back</Text>
 
-              {/* Social Login */}
-              <Text style={styles.socialLabel}>Log in with</Text>
-              <View style={styles.socialButtonsRow}>
-                <TouchableOpacity style={[styles.socialButton, { flex: 1 }]} onPress={handleGoogleLogin}>
-                  <Image source={{ uri: 'https://www.google.com/favicon.ico' }} style={styles.socialIcon} />
-                  <Text style={styles.socialButtonText}>Google</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Divider */}
-              <View style={styles.sidebarDivider}>
-                <View style={styles.sidebarDividerLine} />
-                <Text style={styles.sidebarDividerText}>or</Text>
-                <View style={styles.sidebarDividerLine} />
-              </View>
-
               {/* Email Input */}
               <Text style={styles.sidebarInputLabel}>Email or phone</Text>
               <View style={styles.sidebarInputContainer}>
@@ -1306,22 +1290,6 @@ export default function Welcome() {
                   {/* Content */}
                   <Text style={styles.sidebarGreeting}>Get started now</Text>
                   <Text style={styles.sidebarTitle}>Create an account</Text>
-
-                  {/* Social Login */}
-                  <Text style={styles.socialLabel}>Continue with</Text>
-                  <View style={styles.socialButtonsRow}>
-                    <TouchableOpacity style={[styles.socialButton, { flex: 1 }]} onPress={handleGoogleLogin}>
-                      <Image source={{ uri: 'https://www.google.com/favicon.ico' }} style={styles.socialIcon} />
-                      <Text style={styles.socialButtonText}>Google</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Divider */}
-                  <View style={styles.sidebarDivider}>
-                    <View style={styles.sidebarDividerLine} />
-                    <Text style={styles.sidebarDividerText}>or</Text>
-                    <View style={styles.sidebarDividerLine} />
-                  </View>
 
                   {/* Email Input */}
                   <View style={styles.sidebarInputContainer}>

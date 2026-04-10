@@ -143,30 +143,6 @@ export default function Login() {
             <Text style={styles.greeting}>Happy to see you</Text>
             <Text style={styles.title}>Welcome back</Text>
 
-            {/* Social Login Section */}
-            <Text style={styles.socialLabel}>Log in with</Text>
-            
-            <View style={styles.socialButtonsRow}>
-              <TouchableOpacity 
-                style={[styles.socialButton, { flex: 1 }]}
-                onPress={handleGoogleLogin}
-                activeOpacity={0.8}
-              >
-                <Image 
-                  source={{ uri: 'https://www.google.com/favicon.ico' }}
-                  style={styles.socialIcon}
-                />
-                <Text style={styles.socialButtonText}>Google</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Divider */}
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
             {/* Email Input */}
             <Text style={styles.inputLabel}>Email or phone</Text>
             <View style={styles.inputContainer}>

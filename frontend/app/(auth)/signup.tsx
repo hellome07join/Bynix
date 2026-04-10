@@ -519,23 +519,6 @@ export default function Signup() {
             <Text style={styles.greeting}>Get started now</Text>
             <Text style={styles.title}>Create an account</Text>
 
-            {/* Social Login */}
-            <Text style={styles.socialLabel}>Continue with</Text>
-            
-            <View style={styles.socialButtonsRow}>
-              <TouchableOpacity style={[styles.socialButton, { flex: 1 }]} onPress={handleGoogleLogin}>
-                <Image source={{ uri: 'https://www.google.com/favicon.ico' }} style={styles.socialIcon} />
-                <Text style={styles.socialButtonText}>Google</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Divider */}
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
             {/* Proceed with Email Button */}
             <TouchableOpacity style={styles.actionButton} onPress={() => setShowEmailForm(true)}>
               <LinearGradient colors={['#00E55A', '#00C94D']} style={styles.actionButtonGradient}>
