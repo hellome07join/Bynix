@@ -324,7 +324,7 @@ export default function TradingViewChart({
 
   const [isLoading, setIsLoading] = useState(false); // Start as false - show instant placeholder
   const [internalPrice, setInternalPrice] = useState(currentPrice || 1.0850);
-  const [loadedDays, setLoadedDays] = useState(3); // Start with 3 days for fast loading, can load up to 30
+  const [loadedDays, setLoadedDays] = useState(1); // Start with 1 day for FAST loading, can load up to 30
   const [isLoadingMoreHistory, setIsLoadingMoreHistory] = useState(false);
   const [baseTickData, setBaseTickData] = useState<CandleData[]>(() => {
     // Check cache first, then generate placeholder
@@ -590,7 +590,7 @@ export default function TradingViewChart({
 
   // Fetch chart data from backend (synced across all devices) - NON-BLOCKING
   // Backend now returns pre-aggregated candles based on interval for better performance
-  const fetchChartDataFromServer = useCallback(async (showLoading = false, requestedInterval?: string, days: number = 3) => {
+  const fetchChartDataFromServer = useCallback(async (showLoading = false, requestedInterval?: string, days: number = 1) => {
     try {
       if (showLoading) setIsLoading(true);
       const apiUrl = getApiUrl();
@@ -817,8 +817,8 @@ export default function TradingViewChart({
   // Refetch data when interval changes
   useEffect(() => {
     console.log(`[CHART] Interval changed to ${stableInterval}, fetching new data...`);
-    fetchChartDataFromServer(false, stableInterval, 3); // Start with 3 days for fast loading
-    setLoadedDays(3); // Reset loaded days when interval changes
+    fetchChartDataFromServer(false, stableInterval, 1); // Start with 1 day for FAST loading
+    setLoadedDays(1); // Reset loaded days when interval changes
   }, [stableInterval]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Lazy load more historical data when user scrolls to the left edge
