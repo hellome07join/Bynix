@@ -1206,7 +1206,7 @@ export default function Trade() {
             const currentUrl = window.location.origin;
             if (currentUrl.includes('bynix.io')) {
               // Production: use AWS backend directly (ALB URL)
-              apiUrl = 'https://bynix-alb-722862942.ap-south-1.elb.amazonaws.com/api';
+              apiUrl = 'https://bynix-backend-94siq.ondigitalocean.app/api';
             } else if (currentUrl.includes('preview.emergentagent.com') || currentUrl.includes('ngrok')) {
               apiUrl = `${currentUrl}/api`;
             } else {
@@ -1583,7 +1583,7 @@ export default function Trade() {
         const currentUrl = window.location.origin;
         if (currentUrl.includes('bynix.io')) {
           // Production: use AWS backend directly (ALB URL)
-          apiUrl = 'https://bynix-alb-722862942.ap-south-1.elb.amazonaws.com/api';
+          apiUrl = 'https://bynix-backend-94siq.ondigitalocean.app/api';
         } else if (currentUrl.includes('preview.emergentagent.com') || currentUrl.includes('ngrok')) {
           apiUrl = `${currentUrl}/api`;
         } else if (currentUrl.includes('localhost:3000')) {
