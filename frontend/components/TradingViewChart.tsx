@@ -704,15 +704,16 @@ export default function TradingViewChart({
     return baseTickData;
   }, [baseTickData]);
   
-  // Mark chart as ready when we have candle data
+  // Mark chart as ready when we have REAL candle data from server (not placeholder)
+  // Real candles have more than 100 entries
   useEffect(() => {
-    if (aggregatedCandles.length > 10) {
-      // Small delay for smooth transition
+    if (aggregatedCandles.length > 100) {
+      // Data is from server - mark as ready
       const timer = setTimeout(() => {
         setIsChartReady(true);
         setIsLoading(false);
         console.log(`[CHART] Chart ready for ${symbol} with ${aggregatedCandles.length} candles`);
-      }, 300);
+      }, 200);
       return () => clearTimeout(timer);
     }
   }, [aggregatedCandles.length, symbol]);
