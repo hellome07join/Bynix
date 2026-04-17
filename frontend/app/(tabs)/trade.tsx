@@ -4041,7 +4041,7 @@ export default function Trade() {
                           styles.historyProfit, 
                           trade.status === 'won' ? { color: '#00E55A' } : { color: '#FF3B3B' }
                         ]}>
-                          {trade.profit_loss > 0 ? '+' : ''}${(trade.profit_loss || 0).toFixed(2)}
+                          {trade.status === 'won' ? '+' : ''}{trade.status === 'won' ? `$${(trade.amount + (trade.profit_loss || 0)).toFixed(2)}` : `$${(trade.profit_loss || 0).toFixed(2)}`}
                         </Text>
                         <Text style={[
                           styles.historyStatus, 
@@ -4186,7 +4186,7 @@ export default function Trade() {
                     styles.detailResultText,
                     { color: selectedTradeDetail.status === 'won' ? '#00E55A' : '#FF3B3B' }
                   ]}>
-                    {selectedTradeDetail.profit_loss > 0 ? '+' : ''}${(selectedTradeDetail.profit_loss || 0).toFixed(2)}
+                    {selectedTradeDetail.status === 'won' ? '+' : ''}{selectedTradeDetail.status === 'won' ? `$${(selectedTradeDetail.amount + (selectedTradeDetail.profit_loss || 0)).toFixed(2)}` : `$${(selectedTradeDetail.profit_loss || 0).toFixed(2)}`}
                   </Text>
                 </View>
               </View>
