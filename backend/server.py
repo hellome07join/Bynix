@@ -5506,7 +5506,7 @@ def get_base_price(symbol: str) -> float:
     
     return 1.0850
 
-def generate_server_chart_data(symbol: str, days: int = 7) -> list:
+def generate_server_chart_data(symbol: str, days: int = 3) -> list:
     """Generate chart data on the server (consistent across all devices)
     
     Args:
@@ -5537,32 +5537,22 @@ def generate_server_chart_data(symbol: str, days: int = 7) -> list:
     for i in range(TOTAL_TICKS, 0, -1):
         tick_time = now - i
         
-        # ========== POCKET OPTION EXACT STYLE - GRADUAL SMOOTH MOVEMENT ==========
-        # Price moves in ONE direction for extended periods, very gradually
-        volatility = base_price * 0.0000003  # Extremely tiny per-tick change
+        # ========== POCKET OPTION STYLE - SIMPLE SMOOTH MOVEMENT ==========
+        volatility = base_price * 0.0000005
         
-        tick_second = tick_time % 86400
+        # Simple directional trend that changes every ~90 seconds
+        trend_cycle = tick_time // 90
+        random.seed(seed + trend_cycle)
+        direction = 1 if random.random() > 0.5 else -1
         
-        # Direction changes every 60-180 seconds (not every few seconds)
-        direction_period = 120  # 2 minutes average trend
-        direction_cycle = tick_time // direction_period
+        # Smooth movement within trend
+        position_in_cycle = (tick_time % 90) / 90.0
+        strength = math.sin(position_in_cycle * math.pi)
         
-        # Use hash to determine direction for this cycle
-        random.seed(seed + direction_cycle)
-        trend_direction = 1 if random.random() > 0.5 else -1
+        change = direction * strength * volatility * 1.5
         
-        # Smooth sine envelope for gradual acceleration/deceleration within trend
-        cycle_position = (tick_time % direction_period) / direction_period
-        trend_strength = math.sin(cycle_position * math.pi)  # 0 -> 1 -> 0 over cycle
-        
-        # Very slow underlying wave for natural variation
-        slow_wave = math.sin(tick_second * 0.0005) * 0.3
-        
-        # Calculate smooth change
-        change = trend_direction * trend_strength * volatility * 2 + slow_wave * volatility
-        
-        # Gentle mean reversion to keep price stable long-term
-        mean_reversion = (base_price - price) * 0.0003
+        # Very gentle mean reversion
+        mean_reversion = (base_price - price) * 0.0002
         change += mean_reversion
         
         open_price = price
@@ -5655,7 +5645,7 @@ def aggregate_ticks_to_candles(ticks: list, interval_seconds: int) -> list:
     return candles
 
 @api_router.get("/chart/data/{symbol}")
-async def get_chart_data(symbol: str, interval: str = "1m", days: int = 7):
+async def get_chart_data(symbol: str, interval: str = "1m", days: int = 3):
     """Get chart data for a symbol - returns pre-aggregated candles based on interval
     
     Interval options: 15s, 1m, 5m, 15m, 30m, 1h, 4h
@@ -5808,7 +5798,6 @@ async def add_chart_tick(symbol: str, authorization: Optional[str] = Header(None
     
     # Only add new tick if at least 1 second has passed
     if now <= last_tick_time:
-        # Return the current last tick so all clients stay synced
         return {
             "message": "Synced", 
             "new_tick": last_tick, 
@@ -5816,32 +5805,22 @@ async def add_chart_tick(symbol: str, authorization: Optional[str] = Header(None
             "synced": True
         }
     
-    # Use deterministic random based on timestamp so all requests get same result
     random.seed(now + hash(symbol_key))
     
     base_price = last_tick["close"]
-    volatility = base_price * 0.0000004  # Extremely small change per tick
+    volatility = base_price * 0.0000006
     
-    # ========== POCKET OPTION EXACT STYLE - GRADUAL DIRECTIONAL MOVEMENT ==========
-    current_second = now % 86400
+    # ========== POCKET OPTION STYLE - SIMPLE SMOOTH MOVEMENT ==========
+    # Directional trend that changes every ~90 seconds
+    trend_cycle = now // 90
+    random.seed(hash(symbol_key) + trend_cycle)
+    direction = 1 if random.random() > 0.5 else -1
     
-    # Direction changes every 90-180 seconds for smooth trending
-    direction_period = 120  # 2 minute trend cycles
-    direction_cycle = now // direction_period
+    # Smooth movement within trend
+    position_in_cycle = (now % 90) / 90.0
+    strength = math.sin(position_in_cycle * math.pi)
     
-    # Determine trend direction for this cycle
-    random.seed(hash(symbol_key) + direction_cycle)
-    trend_direction = 1 if random.random() > 0.5 else -1
-    
-    # Smooth acceleration curve within the trend (gradual start, peak, gradual end)
-    cycle_position = (now % direction_period) / direction_period
-    trend_strength = math.sin(cycle_position * math.pi)  # Creates smooth 0->1->0 envelope
-    
-    # Very subtle underlying wave
-    slow_wave = math.sin(current_second * 0.0003) * 0.2
-    
-    # Calculate the smooth, directional change
-    change = trend_direction * trend_strength * volatility * 1.5 + slow_wave * volatility * 0.5
+    change = direction * strength * volatility * 2
     
     # ========== PER-USER PRICE MANIPULATION ==========
     # Each user's active trade gets price manipulation based on their predetermined_outcome
