@@ -4241,7 +4241,7 @@ export default function Trade() {
               />
             </View>
             <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>
-              {tradeResult.won ? 'Profit' : 'Loss'} {tradeResult.won ? '+' : '-'}${Math.abs(tradeResult.profitLoss).toFixed(2)}
+              {tradeResult.won ? 'Profit' : 'Loss'} {tradeResult.won ? '+' : '-'}${tradeResult.won ? (tradeResult.amount + Math.abs(tradeResult.profitLoss)).toFixed(2) : Math.abs(tradeResult.profitLoss).toFixed(2)}
             </Text>
           </View>
         </View>
