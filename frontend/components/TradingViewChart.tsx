@@ -123,6 +123,11 @@ const getApiUrl = () => {
 // Store base tick data globally to persist across re-renders
 const baseTickDataStore: { [symbol: string]: CandleData[] } = {};
 
+// ============= SMOOTH ANIMATION CONSTANTS =============
+// For Pocket Option-like liquid smooth candle movement
+const PRICE_INTERPOLATION_SPEED = 0.08; // Lower = smoother, higher = faster response
+const CANDLE_ANIMATION_FPS = 60; // Target 60fps for smooth animation
+
 // Chart Loader Component with Bynix Logo Animation
 const ChartLoader = () => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -319,7 +324,7 @@ export default function TradingViewChart({
 
   const [isLoading, setIsLoading] = useState(false); // Start as false - show instant placeholder
   const [internalPrice, setInternalPrice] = useState(currentPrice || 1.0850);
-  const [loadedDays, setLoadedDays] = useState(7); // Start with 7 days, can load up to 30
+  const [loadedDays, setLoadedDays] = useState(3); // Start with 3 days for fast loading, can load up to 30
   const [isLoadingMoreHistory, setIsLoadingMoreHistory] = useState(false);
   const [baseTickData, setBaseTickData] = useState<CandleData[]>(() => {
     // Check cache first, then generate placeholder
@@ -505,6 +510,9 @@ export default function TradingViewChart({
   
   // Reset zoom and scroll when switching to a different asset
   useEffect(() => {
+    // IMMEDIATELY clear old chart data to prevent flickering
+    setBaseTickData([]);
+    
     // Show loading when asset changes
     setIsChartReady(false);
     setIsLoading(true);
@@ -518,13 +526,27 @@ export default function TradingViewChart({
     setTargetScrollOffset(0);
     scrollVelocityRef.current = 0;
     
+    // Reset price animation refs
+    displayPriceRef.current = 0;
+    targetPriceRef.current = 0;
+    
+    // Reset candle animation refs
+    animatedCandleRef.current = null;
+    targetCandleRef.current = null;
+    
     // Cancel any ongoing scroll animation
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
     
-    console.log(`[CHART] Asset changed to ${symbol}, showing loader...`);
+    // Cancel candle animation
+    if (candleAnimationFrameRef.current) {
+      cancelAnimationFrame(candleAnimationFrameRef.current);
+      candleAnimationFrameRef.current = null;
+    }
+    
+    console.log(`[CHART] Asset changed to ${symbol}, clearing old data and showing loader...`);
   }, [symbol]);
   
   // Get interval in seconds
@@ -568,7 +590,7 @@ export default function TradingViewChart({
 
   // Fetch chart data from backend (synced across all devices) - NON-BLOCKING
   // Backend now returns pre-aggregated candles based on interval for better performance
-  const fetchChartDataFromServer = useCallback(async (showLoading = false, requestedInterval?: string, days: number = 7) => {
+  const fetchChartDataFromServer = useCallback(async (showLoading = false, requestedInterval?: string, days: number = 3) => {
     try {
       if (showLoading) setIsLoading(true);
       const apiUrl = getApiUrl();
@@ -700,6 +722,71 @@ export default function TradingViewChart({
     }
   }, [symbol, stableInterval, fetchChartDataFromServer, generateFallbackData, getInitialPlaceholderData]);
 
+  // Smooth animation for last candle - interpolate close price for liquid movement
+  // This creates the "Pocket Option" style smooth candle animation
+  const animatedCandleRef = useRef<{close: number, high: number, low: number} | null>(null);
+  const targetCandleRef = useRef<{close: number, high: number, low: number} | null>(null);
+  const candleAnimationFrameRef = useRef<number | null>(null);
+  
+  // Smooth candle animation effect - runs at 60fps for liquid smooth movement
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    
+    let isAnimating = true;
+    
+    const animateCandle = () => {
+      if (!isAnimating) return;
+      
+      if (targetCandleRef.current && baseTickData.length > 0) {
+        const target = targetCandleRef.current;
+        
+        if (!animatedCandleRef.current) {
+          animatedCandleRef.current = { ...target };
+        }
+        
+        const current = animatedCandleRef.current;
+        
+        // Smooth interpolation towards target
+        const closeSpeed = PRICE_INTERPOLATION_SPEED;
+        const closeDiff = target.close - current.close;
+        const highDiff = target.high - current.high;
+        const lowDiff = target.low - current.low;
+        
+        // Only update if there's meaningful difference
+        if (Math.abs(closeDiff) > 0.000001 || Math.abs(highDiff) > 0.000001 || Math.abs(lowDiff) > 0.000001) {
+          current.close += closeDiff * closeSpeed;
+          current.high += highDiff * closeSpeed;
+          current.low += lowDiff * closeSpeed;
+          
+          // Update the last candle in baseTickData for rendering
+          setBaseTickData(prevData => {
+            if (prevData.length === 0) return prevData;
+            const newData = [...prevData];
+            const lastCandle = newData[newData.length - 1];
+            newData[newData.length - 1] = {
+              ...lastCandle,
+              close: current.close,
+              high: Math.max(lastCandle.open, current.high),
+              low: Math.min(lastCandle.open, current.low)
+            };
+            return newData;
+          });
+        }
+      }
+      
+      candleAnimationFrameRef.current = requestAnimationFrame(animateCandle);
+    };
+    
+    candleAnimationFrameRef.current = requestAnimationFrame(animateCandle);
+    
+    return () => {
+      isAnimating = false;
+      if (candleAnimationFrameRef.current) {
+        cancelAnimationFrame(candleAnimationFrameRef.current);
+      }
+    };
+  }, [baseTickData.length > 0]); // Only restart when data becomes available
+  
   // Candles from server are already pre-aggregated - just use them directly
   // No need for client-side aggregation anymore
   const aggregatedCandles = useMemo(() => {
@@ -730,8 +817,8 @@ export default function TradingViewChart({
   // Refetch data when interval changes
   useEffect(() => {
     console.log(`[CHART] Interval changed to ${stableInterval}, fetching new data...`);
-    fetchChartDataFromServer(false, stableInterval, 7); // Start with 7 days
-    setLoadedDays(7); // Reset loaded days when interval changes
+    fetchChartDataFromServer(false, stableInterval, 3); // Start with 3 days for fast loading
+    setLoadedDays(3); // Reset loaded days when interval changes
   }, [stableInterval]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Lazy load more historical data when user scrolls to the left edge
@@ -747,8 +834,8 @@ export default function TradingViewChart({
       console.log(`[CHART] User scrolled to historical edge (startIndex=${startIndex}), loading more data...`);
       setIsLoadingMoreHistory(true);
       
-      // Load more data: increase by 7 days each time, max 30
-      const newDays = Math.min(30, loadedDays + 7);
+      // Load more data: increase by 5 days each time, max 30
+      const newDays = Math.min(30, loadedDays + 5);
       
       fetchChartDataFromServer(false, stableInterval, newDays)
         .then(() => {
@@ -786,6 +873,13 @@ export default function TradingViewChart({
             // Get interval in seconds for proper candle aggregation
             const intervalSeconds = getIntervalSeconds(stableInterval);
             
+            // Update target for smooth animation
+            targetCandleRef.current = {
+              close: data.new_tick.close,
+              high: data.new_tick.high,
+              low: data.new_tick.low
+            };
+            
             setBaseTickData(prevData => {
               if (prevData.length === 0) return prevData;
               
@@ -798,21 +892,30 @@ export default function TradingViewChart({
               const newTickCandleStart = Math.floor(newTickTime / intervalSeconds) * intervalSeconds;
               
               if (newTickCandleStart === lastCandleStart) {
-                // Same interval - UPDATE current candle's high, low, close
+                // Same interval - UPDATE current candle's high, low (close is animated)
+                // Don't update close here - let animation handle it
                 newData[newData.length - 1] = {
                   ...lastCandle,
                   high: Math.max(lastCandle.high, data.new_tick.high),
                   low: Math.min(lastCandle.low, data.new_tick.low),
-                  close: data.new_tick.close
+                  // Keep current animated close, or use new close if animation not ready
+                  close: animatedCandleRef.current?.close || data.new_tick.close
                 };
               } else if (newTickCandleStart > lastCandleStart) {
                 // New interval - ADD new candle
+                // Reset animation refs for new candle
+                animatedCandleRef.current = {
+                  close: data.new_tick.open,
+                  high: data.new_tick.high,
+                  low: data.new_tick.low
+                };
+                
                 newData.push({
                   time: newTickCandleStart,
                   open: data.new_tick.open,
                   high: data.new_tick.high,
                   low: data.new_tick.low,
-                  close: data.new_tick.close
+                  close: data.new_tick.open // Start at open, will animate to close
                 });
                 if (newData.length > 35000) {
                   newData.shift();
