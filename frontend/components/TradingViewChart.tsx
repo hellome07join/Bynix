@@ -319,6 +319,8 @@ export default function TradingViewChart({
 
   const [isLoading, setIsLoading] = useState(false); // Start as false - show instant placeholder
   const [internalPrice, setInternalPrice] = useState(currentPrice || 1.0850);
+  const [loadedDays, setLoadedDays] = useState(7); // Start with 7 days, can load up to 30
+  const [isLoadingMoreHistory, setIsLoadingMoreHistory] = useState(false);
   const [baseTickData, setBaseTickData] = useState<CandleData[]>(() => {
     // Check cache first, then generate placeholder
     if (baseTickDataStore[symbol] && baseTickDataStore[symbol].length > 0) {
@@ -566,7 +568,7 @@ export default function TradingViewChart({
 
   // Fetch chart data from backend (synced across all devices) - NON-BLOCKING
   // Backend now returns pre-aggregated candles based on interval for better performance
-  const fetchChartDataFromServer = useCallback(async (showLoading = false, requestedInterval?: string) => {
+  const fetchChartDataFromServer = useCallback(async (showLoading = false, requestedInterval?: string, days: number = 7) => {
     try {
       if (showLoading) setIsLoading(true);
       const apiUrl = getApiUrl();
@@ -576,8 +578,8 @@ export default function TradingViewChart({
       // Use the requested interval or current stableInterval
       const intervalToFetch = requestedInterval || stableInterval;
       
-      console.log(`Fetching chart data from server for ${cleanSymbol} interval=${intervalToFetch}...`);
-      const response = await fetch(`${apiUrl}/chart/data/${cleanSymbol}?interval=${intervalToFetch}`);
+      console.log(`Fetching chart data from server for ${cleanSymbol} interval=${intervalToFetch} days=${days}...`);
+      const response = await fetch(`${apiUrl}/chart/data/${cleanSymbol}?interval=${intervalToFetch}&days=${days}`);
       
       if (!response.ok) {
         throw new Error(`Server error: ${response.status}`);
@@ -586,12 +588,13 @@ export default function TradingViewChart({
       const data = await response.json();
       
       if (data.ticks && data.ticks.length > 0) {
-        console.log(`Loaded ${data.ticks.length} candles from server for ${symbol} (${intervalToFetch})`);
+        console.log(`Loaded ${data.ticks.length} candles from server for ${symbol} (${intervalToFetch}, ${days} days)`);
         
         // Store in memory cache with interval key
         const cacheKey = `${symbol}_${intervalToFetch}`;
         baseTickDataStore[cacheKey] = data.ticks;
         setBaseTickData(data.ticks);
+        setLoadedDays(days);
         
         const lastTick = data.ticks[data.ticks.length - 1];
         setInternalPrice(lastTick.close);
@@ -727,8 +730,36 @@ export default function TradingViewChart({
   // Refetch data when interval changes
   useEffect(() => {
     console.log(`[CHART] Interval changed to ${stableInterval}, fetching new data...`);
-    fetchChartDataFromServer(false, stableInterval);
+    fetchChartDataFromServer(false, stableInterval, 7); // Start with 7 days
+    setLoadedDays(7); // Reset loaded days when interval changes
   }, [stableInterval]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Lazy load more historical data when user scrolls to the left edge
+  useEffect(() => {
+    // Check if user is scrolling towards older data
+    const visibleCandlesOnScreen = Math.floor(800 / 15); // Approximate visible candles
+    const scrolledCandleCount = Math.round(scrollOffset);
+    const totalCandles = aggregatedCandles.length;
+    const startIndex = Math.max(0, totalCandles - visibleCandlesOnScreen - scrolledCandleCount);
+    
+    // If user scrolled to near the beginning of data AND we haven't loaded max days yet
+    if (startIndex <= 50 && loadedDays < 30 && !isLoadingMoreHistory && totalCandles > 100) {
+      console.log(`[CHART] User scrolled to historical edge (startIndex=${startIndex}), loading more data...`);
+      setIsLoadingMoreHistory(true);
+      
+      // Load more data: increase by 7 days each time, max 30
+      const newDays = Math.min(30, loadedDays + 7);
+      
+      fetchChartDataFromServer(false, stableInterval, newDays)
+        .then(() => {
+          console.log(`[CHART] Loaded ${newDays} days of historical data`);
+          setIsLoadingMoreHistory(false);
+        })
+        .catch(() => {
+          setIsLoadingMoreHistory(false);
+        });
+    }
+  }, [scrollOffset, aggregatedCandles.length, loadedDays, isLoadingMoreHistory, stableInterval]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync with server - fetch latest tick data every 500ms for smoother updates
   const syncWithServerRef = useRef<any>(null);
