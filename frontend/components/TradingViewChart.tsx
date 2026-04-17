@@ -655,28 +655,40 @@ export default function TradingViewChart({
     // Use cache key with interval
     const cacheKey = `${symbol}_${stableInterval}`;
     
-    // Check memory cache first - INSTANT
+    // Check memory cache first - show brief loader for visual feedback
     if (baseTickDataStore[cacheKey] && baseTickDataStore[cacheKey].length > 0) {
-      console.log(`Using memory cached data for ${cacheKey} - INSTANT`);
-      setBaseTickData(baseTickDataStore[cacheKey]);
-      const lastTick = baseTickDataStore[cacheKey][baseTickDataStore[cacheKey].length - 1];
-      setInternalPrice(lastTick.close);
-      setIsLoading(false);
+      console.log(`Using memory cached data for ${cacheKey}`);
+      // Show loader briefly for visual feedback on asset change
+      setIsLoading(true);
+      setIsChartReady(false);
+      
+      // Small delay before showing cached data (smooth transition)
+      setTimeout(() => {
+        setBaseTickData(baseTickDataStore[cacheKey]);
+        const lastTick = baseTickDataStore[cacheKey][baseTickDataStore[cacheKey].length - 1];
+        setInternalPrice(lastTick.close);
+        setIsChartReady(true);
+        setIsLoading(false);
+      }, 500);
+      
       // Refresh from server in background (no loading state)
       fetchChartDataFromServer(false, stableInterval);
       return;
     }
 
+    // No cache - show loader and fetch from server
+    setIsLoading(true);
+    setIsChartReady(false);
+    
     // Show instant placeholder immediately - generated synchronously
     const placeholderData = getInitialPlaceholderData(symbol);
     setBaseTickData(placeholderData);
     if (placeholderData.length > 0) {
       setInternalPrice(placeholderData[placeholderData.length - 1].close);
     }
-    setIsLoading(false); // Don't show loading - show placeholder instead
     
-    // Fetch real data in background
-    const serverSuccess = await fetchChartDataFromServer(false, stableInterval);
+    // Fetch real data from server
+    const serverSuccess = await fetchChartDataFromServer(true, stableInterval);
     
     if (!serverSuccess) {
       // Generate more data if server fails
