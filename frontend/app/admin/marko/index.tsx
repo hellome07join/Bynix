@@ -25,11 +25,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BYNIX_LOGO = null; // Using text logo instead
 
-const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL 
-  ? `${process.env.EXPO_PUBLIC_BACKEND_URL}/api`
-  : typeof window !== 'undefined' && window.location.origin.includes('preview.emergentagent.com')
-    ? `${window.location.origin}/api`
-    : 'http://localhost:8001/api';
+const API_URL = (() => {
+  // Production: bynix.io domain
+  if (typeof window !== 'undefined' && window.location.origin.includes('bynix.io')) {
+    return 'https://api.bynix.io/api';
+  }
+  // Preview/development environments
+  if (process.env.EXPO_PUBLIC_BACKEND_URL) {
+    return `${process.env.EXPO_PUBLIC_BACKEND_URL}/api`;
+  }
+  if (typeof window !== 'undefined' && window.location.origin.includes('preview.emergentagent.com')) {
+    return `${window.location.origin}/api`;
+  }
+  return 'http://localhost:8001/api';
+})();
 
 // Professional Light Theme Colors
 const COLORS = {
