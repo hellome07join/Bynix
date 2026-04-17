@@ -1035,10 +1035,8 @@ export default function Trade() {
             
             console.log('Highest payout asset found:', highestPayoutAsset.value, 'payout:', highestPayout);
             
-            // Set selected asset only if user hasn't manually selected
-            if (highestPayoutAsset.value) {
-              setSelectedAsset(highestPayoutAsset.value);
-            }
+            // Don't auto-change asset - let user keep their selection
+            // Previously this was auto-changing to highest payout asset
           }
         }
       }
