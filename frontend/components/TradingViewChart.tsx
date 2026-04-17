@@ -739,20 +739,42 @@ export default function TradingViewChart({
         if (response.ok) {
           const data = await response.json();
           if (data.new_tick) {
+            // Get interval in seconds for proper candle aggregation
+            const intervalSeconds = getIntervalSeconds(stableInterval);
+            
             setBaseTickData(prevData => {
               if (prevData.length === 0) return prevData;
               
               const newData = [...prevData];
-              const lastTick = prevData[prevData.length - 1];
+              const lastCandle = prevData[prevData.length - 1];
+              const newTickTime = data.new_tick.time;
               
-              if (lastTick.time >= data.new_tick.time) {
-                newData[newData.length - 1] = data.new_tick;
-              } else {
-                newData.push(data.new_tick);
+              // Calculate which candle interval this tick belongs to
+              const lastCandleStart = Math.floor(lastCandle.time / intervalSeconds) * intervalSeconds;
+              const newTickCandleStart = Math.floor(newTickTime / intervalSeconds) * intervalSeconds;
+              
+              if (newTickCandleStart === lastCandleStart) {
+                // Same interval - UPDATE current candle's high, low, close
+                newData[newData.length - 1] = {
+                  ...lastCandle,
+                  high: Math.max(lastCandle.high, data.new_tick.high),
+                  low: Math.min(lastCandle.low, data.new_tick.low),
+                  close: data.new_tick.close
+                };
+              } else if (newTickCandleStart > lastCandleStart) {
+                // New interval - ADD new candle
+                newData.push({
+                  time: newTickCandleStart,
+                  open: data.new_tick.open,
+                  high: data.new_tick.high,
+                  low: data.new_tick.low,
+                  close: data.new_tick.close
+                });
                 if (newData.length > 35000) {
                   newData.shift();
                 }
               }
+              // If newTickCandleStart < lastCandleStart, ignore (old tick)
               
               baseTickDataStore[symbol] = newData;
               return newData;
